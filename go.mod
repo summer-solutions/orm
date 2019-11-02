@@ -1,4 +1,4 @@
-module orm
+module github.com/summer-solutions/orm
 
 go 1.13
 
