@@ -2,7 +2,7 @@ package tests
 
 import (
 	"fmt"
-	"orm"
+	"github.com/summer-solutions/orm"
 	"reflect"
 )
 

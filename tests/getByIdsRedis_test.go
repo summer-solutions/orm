@@ -2,7 +2,7 @@ package tests
 
 import (
 	"github.com/stretchr/testify/assert"
-	"orm"
+	"github.com/summer-solutions/orm"
 	"testing"
 )
 
