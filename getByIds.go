@@ -4,6 +4,7 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"reflect"
+	"strings"
 )
 
 func GetByIds(ids []uint64, entityName string, references ...string) []interface{} {
@@ -19,7 +20,6 @@ func TryByIds(ids []uint64, entityName string, references ...string) (found []in
 }
 
 func tryByIds(ids []uint64, entityName string, references ...string) (found []interface{}, missing []uint64) {
-	//TODO
 	lenIDs := len(ids)
 	if lenIDs == 0 {
 		found = make([]interface{}, 0)
@@ -63,6 +63,7 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 			}
 		}
 		if len(ids) == 0 {
+			warmUpReferences(schema, foundFromCache, references)
 			return foundFromCache, nilsFromCache
 		}
 	}
@@ -93,6 +94,7 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 			}
 		}
 		if len(ids) == 0 {
+			warmUpReferences(schema, foundFromCache, references)
 			return foundFromCache, nilsFromCache
 		}
 	}
@@ -148,5 +150,46 @@ OUTER:
 	if redisCache != nil && len(redisValues) > 0 {
 		redisCache.MSet(redisValues...)
 	}
+	warmUpReferences(schema, found, references)
 	return
+}
+
+func warmUpReferences(tableSchema *TableSchema, rows []interface{}, references []string) {
+	if len(references) == 0 || len(rows) == 0 {
+		return
+	}
+	warmUpRows := make(map[reflect.Type]map[uint64]bool)
+	warmUpSubRefs := make(map[reflect.Type][]string)
+	for _, ref := range references {
+		parts := strings.Split(ref, "/")
+		_, has := tableSchema.tags[parts[0]]
+		if !has {
+			panic(fmt.Errorf("invalid reference %s", ref))
+		}
+		parentRef, has := tableSchema.tags[parts[0]]["ref"]
+		if !has {
+			panic(fmt.Errorf("missing reference tag %s", ref))
+		}
+		parentType := getEntityType(parentRef)
+		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
+		for _, entity := range rows {
+			id := reflect.ValueOf(entity).FieldByName(parts[0]).Uint()
+			if id == 0 {
+				continue
+			}
+			if warmUpRows[parentType] == nil {
+				warmUpRows[parentType] = make(map[uint64]bool)
+			}
+			warmUpRows[parentType][id] = true
+		}
+	}
+	for t, keysMap := range warmUpRows {
+		ids := make([]uint64, len(keysMap))
+		i := 0
+		for id := range keysMap {
+			ids[i] = id
+			i++
+		}
+		GetByIds(ids, t.String(), warmUpSubRefs[t]...)
+	}
 }

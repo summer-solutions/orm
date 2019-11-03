@@ -13,14 +13,15 @@ type TestEntityByIdsRedisCache struct {
 	Orm            orm.ORM `orm:"table=TestGetByIdsRedis;redisCache"`
 	Id             uint
 	Name           string
-	ReferenceOneId uint16 `orm:"ref=TestEntityByIdsRedisCache"`
-	ReferenceTwoId uint16 `orm:"ref=TestEntityByIdsRedisCacheRef"`
+	ReferenceOneId uint16 `orm:"ref=tests.TestEntityByIdsRedisCache"`
+	ReferenceTwoId uint16 `orm:"ref=tests.TestEntityByIdsRedisCacheRef"`
 }
 
 type TestEntityByIdsRedisCacheRef struct {
-	Orm  orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
-	Id   uint
-	Name string
+	Orm            orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
+	Id             uint
+	Name           string
+	ReferenceOneId uint16 `orm:"ref=tests.TestEntityByIdsRedisCache"`
 }
 
 func TestEntityByIdsRedis(t *testing.T) {
@@ -44,7 +45,7 @@ func TestEntityByIdsRedis(t *testing.T) {
 		}
 		e := TestEntityByIdsRedisCache{Name: "Name " + strconv.Itoa(i), ReferenceOneId: ref1, ReferenceTwoId: ref2}
 		flusher.RegisterEntity(&e)
-		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
+		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i), ReferenceOneId: ref1}
 		flusher.RegisterEntity(&e2)
 	}
 	err := flusher.Flush()
@@ -82,7 +83,8 @@ func TestEntityByIdsRedis(t *testing.T) {
 
 	orm.GetRedisCache("default").FlushDB()
 	found, missing = orm.TryByIds([]uint64{8, 9, 10}, TestEntityByIdsRedisCacheName, "ReferenceOneId", "ReferenceTwoId/ReferenceOneId")
-
+	assert.Len(t, found, 3)
+	assert.Len(t, missing, 0)
 }
 
 func BenchmarkGetByIdsRedis(b *testing.B) {
