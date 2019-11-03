@@ -99,7 +99,7 @@ func (r *RedisCache) MSet(pairs ...interface{}) {
 		panic(err)
 	}
 	if r.loggers != nil {
-		max := len(pairs) / 2
+		max := len(pairs)
 		keys := make([]string, max)
 		for i := 0; i < max; i += 2 {
 			keys[i] = pairs[i].(string)
