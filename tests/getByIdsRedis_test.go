@@ -3,13 +3,22 @@ package tests
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
+	"strconv"
 	"testing"
 )
 
 const TestEntityByIdsRedisCacheName = "tests.TestEntityByIdsRedisCache"
 
 type TestEntityByIdsRedisCache struct {
-	Orm  orm.ORM `orm:"table=TestGetByIdsRedis;redisCache"`
+	Orm            orm.ORM `orm:"table=TestGetByIdsRedis;redisCache"`
+	Id             uint
+	Name           string
+	ReferenceOneId uint16 `orm:"ref=TestEntityByIdsRedisCache"`
+	ReferenceTwoId uint16 `orm:"ref=TestEntityByIdsRedisCacheRef"`
+}
+
+type TestEntityByIdsRedisCacheRef struct {
+	Orm  orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
 	Id   uint
 	Name string
 }
@@ -17,40 +26,62 @@ type TestEntityByIdsRedisCache struct {
 func TestEntityByIdsRedis(t *testing.T) {
 
 	var entity TestEntityByIdsRedisCache
-	PrepareTables(entity)
+	var entityRef TestEntityByIdsRedisCacheRef
+	PrepareTables(entity, entityRef)
 
-	err := orm.Flush(&TestEntityByIdsRedisCache{Name: "Hi"}, &TestEntityByIdsRedisCache{Name: "Hello"})
+	orm.GetMysqlDB("default").AddLogger(orm.StandardDatabaseLogger{})
+	orm.GetRedisCache("default").AddLogger(orm.StandardCacheLogger{})
+
+	flusher := orm.NewFlusher(100, false)
+	for i := 1; i <= 10; i++ {
+		var ref1, ref2 uint16
+		ref1 = uint16(i - 1)
+		if i >= 7 {
+			ref1 = uint16(i - 5)
+		}
+		if i >= 5 {
+			ref2 = uint16(i - 3)
+		}
+		e := TestEntityByIdsRedisCache{Name: "Name " + strconv.Itoa(i), ReferenceOneId: ref1, ReferenceTwoId: ref2}
+		flusher.RegisterEntity(&e)
+		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
+		flusher.RegisterEntity(&e2)
+	}
+	err := flusher.Flush()
 	assert.Nil(t, err)
 
 	DBLogger := TestDatabaseLogger{}
 	orm.GetMysqlDB("default").AddLogger(&DBLogger)
 
-	found, missing := orm.TryByIds([]uint64{2, 3, 1}, TestEntityByIdsRedisCacheName)
+	found, missing := orm.TryByIds([]uint64{2, 13, 1}, TestEntityByIdsRedisCacheName)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
-	assert.Equal(t, []uint64{3}, missing)
+	assert.Equal(t, []uint64{13}, missing)
 	entity = found[0].(TestEntityByIdsRedisCache)
 	assert.Equal(t, uint(2), entity.Id)
-	assert.Equal(t, "Hello", entity.Name)
+	assert.Equal(t, "Name 2", entity.Name)
 	entity = found[1].(TestEntityByIdsRedisCache)
 	assert.Equal(t, uint(1), entity.Id)
-	assert.Equal(t, "Hi", entity.Name)
+	assert.Equal(t, "Name 1", entity.Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	found, missing = orm.TryByIds([]uint64{2, 3, 1}, TestEntityByIdsRedisCacheName)
+	found, missing = orm.TryByIds([]uint64{2, 13, 1}, TestEntityByIdsRedisCacheName)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
-	assert.Equal(t, []uint64{3}, missing)
+	assert.Equal(t, []uint64{13}, missing)
 	entity = found[0].(TestEntityByIdsRedisCache)
 	assert.Equal(t, uint(2), entity.Id)
 	entity = found[1].(TestEntityByIdsRedisCache)
 	assert.Equal(t, uint(1), entity.Id)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	found, missing = orm.TryByIds([]uint64{5, 6, 7}, TestEntityByIdsRedisCacheName)
+	found, missing = orm.TryByIds([]uint64{25, 26, 27}, TestEntityByIdsRedisCacheName)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
 	assert.Len(t, DBLogger.Queries, 2)
+
+	orm.GetRedisCache("default").FlushDB()
+	found, missing = orm.TryByIds([]uint64{8, 9, 10}, TestEntityByIdsRedisCacheName, "ReferenceOneId", "ReferenceTwoId/ReferenceOneId")
 
 }
 

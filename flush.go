@@ -30,7 +30,7 @@ func Flush(entities ...interface{}) (err error) {
 	insertBinds := make(map[reflect.Type][]map[string]interface{})
 	insertReflectValues := make(map[reflect.Type][]reflect.Value)
 	deleteBinds := make(map[reflect.Type]map[uint64]map[string]interface{})
-	totalInsert := 0
+	totalInsert := make(map[reflect.Type]int)
 	localCacheSets := make(map[string]map[string][]interface{})
 	localCacheDeletes := make(map[string]map[string]map[string]bool)
 
@@ -73,7 +73,7 @@ func Flush(entities ...interface{}) (err error) {
 			insertArguments[t] = append(insertArguments[t], values...)
 			insertReflectValues[t] = append(insertReflectValues[t], value)
 			insertBinds[t] = append(insertBinds[t], bind)
-			totalInsert++
+			totalInsert[t]++
 		} else {
 			values := make([]interface{}, bindLength+1)
 			currentId := value.Field(1).Uint()
@@ -126,7 +126,7 @@ func Flush(entities ...interface{}) (err error) {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
 		}
 		sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES %s", schema.TableName, strings.Join(finalValues, ","), insertValues[typeOf])
-		for i := 1; i < totalInsert; i++ {
+		for i := 1; i < totalInsert[typeOf]; i++ {
 			sql += "," + insertValues[typeOf]
 		}
 		res, err := schema.GetMysqlDB().Exec(sql, insertArguments[typeOf]...)

@@ -6,27 +6,19 @@ import (
 	"reflect"
 )
 
-func GetByIds(ids []uint64, entityName string) []interface{} {
-	return GetByIdsWithReferences(ids, entityName, nil)
-}
-
-func GetByIdsWithReferences(ids []uint64, entityName string, references map[string]reflect.Type) []interface{} {
-	rows, missing := TryByIdsWithReferences(ids, entityName, references)
+func GetByIds(ids []uint64, entityName string, references ...string) []interface{} {
+	rows, missing := TryByIds(ids, entityName, references...)
 	if len(missing) > 0 {
 		panic(fmt.Errorf("entity %s not found with ids %v", entityName, missing))
 	}
 	return rows
 }
 
-func TryByIdsWithReferences(ids []uint64, entityName string, references map[string]reflect.Type) (found []interface{}, missing []uint64) {
-	return tryByIds(ids, entityName, references)
+func TryByIds(ids []uint64, entityName string, references ...string) (found []interface{}, missing []uint64) {
+	return tryByIds(ids, entityName, references...)
 }
 
-func TryByIds(ids []uint64, entityName string) (found []interface{}, missing []uint64) {
-	return tryByIds(ids, entityName, nil)
-}
-
-func tryByIds(ids []uint64, entityName string, references map[string]reflect.Type) (found []interface{}, missing []uint64) {
+func tryByIds(ids []uint64, entityName string, references ...string) (found []interface{}, missing []uint64) {
 	//TODO
 	lenIDs := len(ids)
 	if lenIDs == 0 {
