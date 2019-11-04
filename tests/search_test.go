@@ -10,9 +10,10 @@ import (
 const TestEntitySearchName = "tests.TestEntitySearch"
 
 type TestEntitySearch struct {
-	Orm  orm.ORM `orm:"table=TestSearch;mysql=default"`
-	Id   uint
-	Name string
+	Orm            orm.ORM `orm:"table=TestSearch;mysql=default"`
+	Id             uint
+	Name           string
+	ReferenceOneId uint `orm:"ref=tests.TestEntitySearch"`
 }
 
 func TestSearch(t *testing.T) {
@@ -20,6 +21,9 @@ func TestSearch(t *testing.T) {
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
 		e := TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
+		if i >= 5 {
+			e.ReferenceOneId = uint(i - 4)
+		}
 		entities[i-1] = &e
 	}
 	err := orm.Flush(entities...)
@@ -57,4 +61,15 @@ func TestSearch(t *testing.T) {
 	assert.Len(t, ids, 6)
 	assert.Equal(t, uint64(2), ids[0])
 	assert.Equal(t, uint64(7), ids[5])
+
+	Logger := TestDatabaseLogger{}
+	orm.GetMysqlDB("default").AddLogger(&Logger)
+
+	pager = orm.NewPager(1, 100)
+	where = orm.NewWhere("`Id` > ?", 4)
+	rows = orm.Search(where, pager, TestEntitySearchName, "ReferenceOneId")
+	assert.Len(t, rows, 6)
+	assert.Len(t, Logger.Queries, 2)
+	assert.Equal(t, Logger.Queries[0], "SELECT CONCAT_WS('|', `Id`,IFNULL(`Name`,''),`ReferenceOneId`) FROM `TestSearch` WHERE `Id` > ? LIMIT 0,100 [4]")
+	assert.Equal(t, Logger.Queries[1], "SELECT CONCAT_WS('|', `Id`,IFNULL(`Name`,''),`ReferenceOneId`) FROM `TestSearch` WHERE `Id` IN (?,?,?,?,?,?) LIMIT 0,6 [1 2 3 4 5 6]")
 }

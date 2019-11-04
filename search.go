@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-func SearchWithCount(where Where, pager Pager, entityName string) (results []interface{}, totalRows int) {
-	return search(where, pager, true, entityName)
+func SearchWithCount(where Where, pager Pager, entityName string, references ...string) (results []interface{}, totalRows int) {
+	return search(where, pager, true, entityName, references)
 }
 
-func Search(where Where, pager Pager, entityName string) []interface{} {
-	results, _ := search(where, pager, false, entityName)
+func Search(where Where, pager Pager, entityName string, references ...string) []interface{} {
+	results, _ := search(where, pager, false, entityName, references)
 	return results
 }
 
@@ -28,7 +28,7 @@ func SearchIds(where Where, pager Pager, entityName string) []uint64 {
 	return results
 }
 
-func search(where Where, pager Pager, withCount bool, entityName string) ([]interface{}, int) {
+func search(where Where, pager Pager, withCount bool, entityName string, references []string) ([]interface{}, int) {
 	entityType := getEntityType(entityName)
 	schema := GetTableSchema(entityName)
 
@@ -49,6 +49,7 @@ func search(where Where, pager Pager, withCount bool, entityName string) ([]inte
 		result = append(result, entity)
 	}
 	totalRows := getTotalRows(withCount, pager, where, schema, len(result))
+	warmUpReferences(schema, result, references)
 	return result, totalRows
 }
 

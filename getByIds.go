@@ -159,6 +159,7 @@ func warmUpReferences(tableSchema *TableSchema, rows []interface{}, references [
 		return
 	}
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
+	warmUpRowsIds := make(map[reflect.Type][]uint64)
 	warmUpSubRefs := make(map[reflect.Type][]string)
 	for _, ref := range references {
 		parts := strings.Split(ref, "/")
@@ -179,17 +180,16 @@ func warmUpReferences(tableSchema *TableSchema, rows []interface{}, references [
 			}
 			if warmUpRows[parentType] == nil {
 				warmUpRows[parentType] = make(map[uint64]bool)
+				warmUpRowsIds[parentType] = make([]uint64, 0)
 			}
-			warmUpRows[parentType][id] = true
+			_, has := warmUpRows[parentType][id]
+			if !has {
+				warmUpRows[parentType][id] = true
+				warmUpRowsIds[parentType] = append(warmUpRowsIds[parentType], id)
+			}
 		}
 	}
-	for t, keysMap := range warmUpRows {
-		ids := make([]uint64, len(keysMap))
-		i := 0
-		for id := range keysMap {
-			ids[i] = id
-			i++
-		}
+	for t, ids := range warmUpRowsIds {
 		GetByIds(ids, t.String(), warmUpSubRefs[t]...)
 	}
 }
