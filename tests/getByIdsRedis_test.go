@@ -95,6 +95,8 @@ func TestEntityByIdsRedis(t *testing.T) {
 	orm.GetRedisCache("default").FlushDB()
 	DBLogger.Queries = make([]string, 0)
 
+	orm.GetRedisCache("default").AddLogger(orm.StandardCacheLogger{}) //TODO usunac
+
 	found, missing = orm.TryByIds([]uint64{8, 9, 10}, TestEntityByIdsRedisCacheName, "ReferenceOneId", "ReferenceTwoId/ReferenceOneId")
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
