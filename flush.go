@@ -103,7 +103,12 @@ func Flush(entities ...interface{}) (err error) {
 				}
 				injectBind(value, bind)
 				localCache := schema.GetLocalCacheContainer()
+				contextCache := getContentCache()
+				if localCache == nil && contextCache != nil {
+					localCache = contextCache
+				}
 				redisCache := schema.GetRedisCacheContainer()
+
 				if localCache != nil {
 					db := schema.GetMysqlDB()
 					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(currentId), value.Interface())
@@ -138,6 +143,10 @@ func Flush(entities ...interface{}) (err error) {
 			return err
 		}
 		localCache := schema.GetLocalCacheContainer()
+		contextCache := getContentCache()
+		if localCache == nil && contextCache != nil {
+			localCache = contextCache
+		}
 		redisCache := schema.GetRedisCacheContainer()
 		db := schema.GetMysqlDB()
 		for key, value := range insertReflectValues[typeOf] {
@@ -170,6 +179,10 @@ func Flush(entities ...interface{}) (err error) {
 			return err
 		}
 		localCache := schema.GetLocalCacheContainer()
+		contextCache := getContentCache()
+		if localCache == nil && contextCache != nil {
+			localCache = contextCache
+		}
 		redisCache := schema.GetRedisCacheContainer()
 		db := schema.GetMysqlDB()
 		if localCache != nil {

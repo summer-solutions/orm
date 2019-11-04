@@ -151,7 +151,7 @@ OUTER:
 				if localCache != nil {
 					cacheKey, has := cacheKeysMapReverse[id]
 					if has {
-						localCache.Set(cacheKey, row)
+						localCache.Set(cacheKey, row) //TODO use mset AND only set if not exists in local cache
 					}
 				}
 				if redisCache != nil {
@@ -169,7 +169,7 @@ OUTER:
 		if localCache != nil {
 			cacheKey, has := cacheKeysMapReverse[i]
 			if has {
-				localCache.Set(cacheKey, "nil")
+				localCache.Set(cacheKey, "nil") //TODO use mset  AND only set if not exists in local cache
 			}
 		}
 		if redisCache != nil {
