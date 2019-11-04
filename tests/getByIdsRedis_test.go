@@ -17,8 +17,6 @@ type TestEntityByIdsRedisCache struct {
 	ReferenceTwoId uint16 `orm:"ref=tests.TestEntityByIdsRedisCacheRef"`
 }
 
-const TestEntityByIdsRedisCacheRefName = "tests.TestEntityByIdsRedisCacheRef"
-
 type TestEntityByIdsRedisCacheRef struct {
 	Orm            orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
 	Id             uint
@@ -27,15 +25,15 @@ type TestEntityByIdsRedisCacheRef struct {
 }
 
 func (e TestEntityByIdsRedisCache) GetReferenceOne() TestEntityByIdsRedisCache {
-	return orm.GetById(uint64(e.ReferenceOneId), TestEntityByIdsRedisCacheName).(TestEntityByIdsRedisCache)
+	return orm.GetReference(e, "ReferenceOneId").(TestEntityByIdsRedisCache)
 }
 
 func (e TestEntityByIdsRedisCache) GetReferenceTwo() TestEntityByIdsRedisCacheRef {
-	return orm.GetById(uint64(e.ReferenceTwoId), TestEntityByIdsRedisCacheRefName).(TestEntityByIdsRedisCacheRef)
+	return orm.GetReference(e, "ReferenceTwoId").(TestEntityByIdsRedisCacheRef)
 }
 
 func (e TestEntityByIdsRedisCacheRef) GetReferenceOne() TestEntityByIdsRedisCache {
-	return orm.GetById(uint64(e.ReferenceOneId), TestEntityByIdsRedisCacheName).(TestEntityByIdsRedisCache)
+	return orm.GetReference(e, "ReferenceOneId").(TestEntityByIdsRedisCache)
 }
 
 func TestEntityByIdsRedis(t *testing.T) {
