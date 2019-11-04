@@ -11,8 +11,14 @@ func TryById(id uint64, entityName string) (entity interface{}, found bool) {
 	schema := GetTableSchema(entityName)
 	var cacheKey string
 	localCache := schema.GetLocalCacheContainer()
+
+	contextCache := getContentCache()
+	if localCache == nil && contextCache != nil {
+		localCache = contextCache
+	}
+
 	if localCache != nil {
-		cacheKey = schema.getCacheKeyLocal(id)
+		cacheKey = schema.getCacheKey(id)
 		entity, has := localCache.Get(cacheKey)
 		if has {
 			if entity == nil {
@@ -23,7 +29,7 @@ func TryById(id uint64, entityName string) (entity interface{}, found bool) {
 	}
 	redisCache := schema.GetRedisCacheContainer()
 	if redisCache != nil {
-		cacheKey = schema.getCacheKeyRedis(id)
+		cacheKey = schema.getCacheKey(id)
 		row, has := redisCache.Get(cacheKey)
 		if has {
 			if row == "nil" {

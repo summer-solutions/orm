@@ -36,6 +36,12 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 	var cacheKeys []string
 	var cacheKeysMap map[string]uint64
 	var cacheKeysMapReverse map[uint64]string
+
+	contextCache := getContentCache()
+	if localCache == nil && contextCache != nil {
+		localCache = contextCache
+	}
+
 	if localCache != nil {
 		originIds = ids
 		cacheKeys = make([]string, lenIDs)
@@ -44,7 +50,7 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 		cacheKeysMapReverse = make(map[uint64]string, lenIDs)
 		nilsFromCache := make([]uint64, 0)
 		for index, id := range ids {
-			cacheKey := schema.getCacheKeyLocal(id)
+			cacheKey := schema.getCacheKey(id)
 			cacheKeys[index] = cacheKey
 			cacheKeysMap[cacheKey] = id
 			cacheKeysMapReverse[id] = cacheKey
@@ -75,7 +81,7 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 		cacheKeysMapReverse = make(map[uint64]string, lenIDs)
 		nilsFromCache := make([]uint64, 0)
 		for index, id := range ids {
-			cacheKey := schema.getCacheKeyRedis(id)
+			cacheKey := schema.getCacheKey(id)
 			cacheKeys[index] = cacheKey
 			cacheKeysMap[cacheKey] = id
 			cacheKeysMapReverse[id] = cacheKey

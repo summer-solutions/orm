@@ -106,13 +106,13 @@ func Flush(entities ...interface{}) (err error) {
 				redisCache := schema.GetRedisCacheContainer()
 				if localCache != nil {
 					db := schema.GetMysqlDB()
-					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKeyLocal(currentId), value.Interface())
+					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(currentId), value.Interface())
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, orm.DBData, false)...)
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
 				}
 				if redisCache != nil {
 					db := schema.GetMysqlDB()
-					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKeyRedis(currentId))
+					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentId))
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, orm.DBData, false)...)
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
 				}
@@ -145,11 +145,11 @@ func Flush(entities ...interface{}) (err error) {
 			injectBind(value, bind)
 			value.Field(1).SetUint(uint64(id))
 			if localCache != nil {
-				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKeyLocal(uint64(id)), value.Interface())
+				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(uint64(id)), value.Interface())
 				addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
 			if redisCache != nil {
-				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKeyRedis(uint64(id)))
+				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(uint64(id)))
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
 			id++
@@ -174,13 +174,13 @@ func Flush(entities ...interface{}) (err error) {
 		db := schema.GetMysqlDB()
 		if localCache != nil {
 			for id, bind := range deleteBinds {
-				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKeyLocal(id), nil)
+				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), nil)
 				addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
 		}
 		if schema.redisCacheName != "" {
 			for id, bind := range deleteBinds {
-				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKeyRedis(id))
+				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(id))
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
 		}

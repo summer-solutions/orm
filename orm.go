@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
 	"reflect"
+	"time"
 )
 
 var mysqlPoolCodes = make([]string, 0)
@@ -36,6 +37,14 @@ func UnregisterMySqlPools() {
 
 func RegisterLocalCache(code string, size int) {
 	localCacheContainers[code] = &LocalCache{code: code, lru: lru.New(size)}
+}
+
+func EnableContextCache(size int, ttl int64) {
+	localCacheContainers["_context_cache"] = &LocalCache{code: "_context_cache", lru: lru.New(size), ttl: ttl, created: time.Now().Unix()}
+}
+
+func DisableContextCache() {
+	delete(localCacheContainers, "_context_cache")
 }
 
 func RegisterRedis(code string, address string, db int) *RedisCache {
@@ -84,4 +93,16 @@ func getEntityType(name string) reflect.Type {
 		panic(fmt.Errorf("unregistered entity %s", name))
 	}
 	return t
+}
+
+func getContentCache() *LocalCache {
+	contextCache, has := localCacheContainers["_context_cache"]
+	if !has {
+		return nil
+	}
+	if time.Now().Unix()-contextCache.created+contextCache.ttl <= 0 {
+		contextCache.lru.Clear()
+		contextCache.created = time.Now().Unix()
+	}
+	return contextCache
 }

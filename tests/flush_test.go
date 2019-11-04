@@ -111,7 +111,7 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	err = orm.GetTableSchema(TestEntityFlushCacheLocalName).GetMysqlDB().Commit()
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 1)
-	assert.Equal(t, "MSET [TestFlushCache1]", CacheLogger.Requests[0])
+	assert.Equal(t, "MSET [TestFlushCache49:1]", CacheLogger.Requests[0])
 
 	orm.GetTableSchema(TestEntityFlushCacheLocalName).GetMysqlDB().BeginTransaction()
 	err = orm.Flush(&entity)
@@ -123,7 +123,7 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	err = orm.GetTableSchema(TestEntityFlushCacheLocalName).GetMysqlDB().Commit()
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 2)
-	assert.Equal(t, "MSET [TestFlushCache1]", CacheLogger.Requests[0])
+	assert.Equal(t, "MSET [TestFlushCache49:1]", CacheLogger.Requests[0])
 
 	orm.GetTableSchema(TestEntityFlushCacheLocalName).GetMysqlDB().BeginTransaction()
 	orm.MarkToDelete(entity)
@@ -133,7 +133,7 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	err = orm.GetTableSchema(TestEntityFlushCacheLocalName).GetMysqlDB().Commit()
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 3)
-	assert.Equal(t, "MSET [TestFlushCache1]", CacheLogger.Requests[0])
+	assert.Equal(t, "MSET [TestFlushCache49:1]", CacheLogger.Requests[0])
 }
 
 func TestFlushTransactionRedisCache(t *testing.T) {

@@ -9,6 +9,8 @@ type LocalCache struct {
 	code    string
 	lru     *lru.Cache
 	loggers []CacheLogger
+	ttl     int64
+	created int64
 }
 
 func (c *LocalCache) Get(key string) (value interface{}, ok bool) {

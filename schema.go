@@ -372,11 +372,7 @@ func (tableSchema TableSchema) GetRedisCacheContainer() *RedisCache {
 	return GetRedisCache(tableSchema.redisCacheName)
 }
 
-func (tableSchema TableSchema) getCacheKeyLocal(id uint64) string {
-	return fmt.Sprintf("%s%d", tableSchema.cachePrefix, id)
-}
-
-func (tableSchema TableSchema) getCacheKeyRedis(id uint64) string {
+func (tableSchema TableSchema) getCacheKey(id uint64) string {
 	return fmt.Sprintf("%s%s:%d", tableSchema.cachePrefix, tableSchema.columnsStamp, id)
 }
 

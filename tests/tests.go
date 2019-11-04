@@ -10,6 +10,7 @@ func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
 	orm.RegisterMySqlPool("default", "root:root@tcp(localhost:3310)/test")
 	orm.RegisterRedis("default", "localhost:6379", 15).FlushDB()
 	orm.RegisterEntity(entities...)
+	orm.DisableContextCache()
 	for _, entity := range entities {
 		TableSchema = orm.GetTableSchema(reflect.TypeOf(entity).String())
 		TableSchema.DropTable()
