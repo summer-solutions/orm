@@ -25,6 +25,7 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 	localCache := schema.GetLocalCacheContainer()
 	redisCache := schema.GetRedisCacheContainer()
 	var cacheKey string
+
 	if localCache != nil {
 		cacheKey = schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 		fromCache, has := localCache.Get(cacheKey)
@@ -43,6 +44,9 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 			return
 		}
 	} else if redisCache != nil {
+
+		contextCache := getContentCache()
+
 		cacheKey = schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 		end := pager.GetPageSize()
 		if start+end > definition.Max {
@@ -59,7 +63,37 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 		for i := minCachePageCeil; i < maxCachePageCeil; i++ {
 			pages = append(pages, strconv.Itoa(int(i)+1))
 		}
-		fromCache := redisCache.HMget(cacheKey, pages...)
+		var fromCache []interface{}
+		var nilsKeys []string
+		if contextCache != nil {
+			lenPages := len(pages)
+			fromCache = make([]interface{}, lenPages)
+			nils := make(map[int]int)
+			nilsKeys = make([]string, 0)
+			i := 0
+			keys := make([]string, lenPages)
+			keysRedis := make([]string, lenPages)
+			for index, page := range pages {
+				keysRedis[index] = page
+				keys[index] = cacheKey + ":" + page
+			}
+			fromCache = contextCache.MGet(keys...)
+			for index, val := range fromCache {
+				if val == nil {
+					nils[index] = i
+					i++
+					nilsKeys = append(nilsKeys, keysRedis[index])
+				}
+			}
+			if len(nilsKeys) > 0 {
+				fromRedis := redisCache.HMget(cacheKey, nilsKeys...)
+				for index, idsFromRedis := range fromRedis {
+					fromCache[nils[index]] = idsFromRedis
+				}
+			}
+		} else {
+			fromCache = redisCache.HMget(cacheKey, pages...)
+		}
 		hasNil := false
 		totalRows = 0
 		for index, idsAsString := range fromCache {
@@ -105,6 +139,21 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 			}
 			redisCache.HMset(cacheKey, cacheFields)
 		}
+
+		nilKeysLen := len(nilsKeys)
+		if contextCache != nil && nilKeysLen > 0 {
+			pairs := make([]interface{}, nilKeysLen*2)
+			i := 0
+			for _, v := range nilsKeys {
+				pairs[i] = cacheKey + ":" + v
+				cacheValue := fmt.Sprintf("%v", filledPages[v])
+				cacheValue = strings.Trim(cacheValue, "[]")
+				pairs[i+1] = cacheValue
+				i += 2
+			}
+			contextCache.MSet(pairs...)
+		}
+
 		resultsIds := make([]uint64, 0, len(filledPages)*idsOnCachePage)
 		for i := minCachePageCeil; i < maxCachePageCeil; i++ {
 			resultsIds = append(resultsIds, filledPages[strconv.Itoa(int(i)+1)]...)
@@ -120,6 +169,9 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 		idsToReturn := resultsIds[sliceStart:sliceEnd]
 		results = GetByIds(idsToReturn, entityName)
 		return
+
+		//TODO HERE KONIEC
+
 	} else {
 		panic(fmt.Errorf("cache not defined %s", entityName))
 	}

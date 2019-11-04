@@ -27,6 +27,11 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 		return
 	}
 
+	idsMapping := make(map[uint64]int, lenIDs) //TODO use is to refactor order
+	for index, id := range ids {
+		idsMapping[id] = index
+	}
+
 	entityType := getEntityType(entityName)
 	schema := GetTableSchema(entityName)
 	localCache := schema.GetLocalCacheContainer()
@@ -42,7 +47,9 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 		localCache = contextCache
 	}
 
+	var missingInLocalCache []uint64
 	if localCache != nil {
+		missingInLocalCache = make([]uint64, 0)
 		originIds = ids
 		cacheKeys = make([]string, lenIDs)
 		cacheKeysMap = make(map[string]uint64, lenIDs)
@@ -56,15 +63,21 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 			cacheKeysMapReverse[id] = cacheKey
 		}
 		ids = make([]uint64, 0)
-		for _, value := range cacheKeys {
-			inCache, has := localCache.Get(value)
-			if !has {
-				ids = append(ids, cacheKeysMap[value])
+
+		allInCache := localCache.MGet(cacheKeys...)
+
+		for index, value := range allInCache {
+
+			if value == nil {
+				id := cacheKeysMap[cacheKeys[index]]
+				ids = append(ids, id)
+				missingInLocalCache = append(missingInLocalCache, id)
+
 			} else {
-				if inCache != nil {
-					foundFromCache = append(foundFromCache, inCache)
+				if value != "nil" {
+					foundFromCache = append(foundFromCache, value)
 				} else {
-					nilsFromCache = append(nilsFromCache, cacheKeysMap[value])
+					nilsFromCache = append(nilsFromCache, cacheKeysMap[cacheKeys[index]])
 				}
 			}
 		}
@@ -100,6 +113,19 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 			}
 		}
 		if len(ids) == 0 {
+
+			lenMissing := len(missingInLocalCache)
+			if localCache != nil && lenMissing > 0 {
+				pairs := make([]interface{}, lenMissing*2)
+				i := 0
+				for _, id := range missingInLocalCache {
+					pairs[i] = cacheKeysMapReverse[id]
+					pairs[i+1] = foundFromCache[idsMapping[id]]
+					i += 2
+				}
+				localCache.MSet(pairs...)
+			}
+
 			warmUpReferences(schema, foundFromCache, references)
 			return foundFromCache, nilsFromCache
 		}
@@ -143,7 +169,7 @@ OUTER:
 		if localCache != nil {
 			cacheKey, has := cacheKeysMapReverse[i]
 			if has {
-				localCache.Set(cacheKey, nil)
+				localCache.Set(cacheKey, "nil")
 			}
 		}
 		if redisCache != nil {
