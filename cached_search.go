@@ -71,22 +71,14 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 			nils := make(map[int]int)
 			nilsKeys = make([]string, 0)
 			i := 0
-			keys := make([]string, lenPages)
-			keysMap := make(map[string]string, lenPages)
-			for index, page := range pages {
-				newCacheKey := cacheKey + ":" + page
-				keys[index] = newCacheKey
-				keysMap[newCacheKey] = page
-			}
-			fromCacheContext := contextCache.MGet(keys...)
+			fromCache = contextCache.HMget(cacheKey, pages...)
 			index := 0
-			for key, val := range fromCacheContext {
+			for key, val := range fromCache {
 				if val == nil {
 					nils[index] = i
 					i++
-					nilsKeys = append(nilsKeys, keysMap[key])
+					nilsKeys = append(nilsKeys, key)
 				}
-				fromCache[keysMap[key]] = val
 			}
 			if len(nilsKeys) > 0 {
 				fromRedis := redisCache.HMget(cacheKey, nilsKeys...)
@@ -145,16 +137,13 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 
 		nilKeysLen := len(nilsKeys)
 		if contextCache != nil && nilKeysLen > 0 {
-			pairs := make([]interface{}, nilKeysLen*2)
-			i := 0
+			fields := make(map[string]interface{}, nilKeysLen)
 			for _, v := range nilsKeys {
-				pairs[i] = cacheKey + ":" + v
 				cacheValue := fmt.Sprintf("%v", filledPages[v])
 				cacheValue = strings.Trim(cacheValue, "[]")
-				pairs[i+1] = cacheValue
-				i += 2
+				fields[v] = cacheValue
 			}
-			contextCache.MSet(pairs...)
+			contextCache.HMset(cacheKey, fields)
 		}
 
 		resultsIds := make([]uint64, 0, len(filledPages)*idsOnCachePage)

@@ -60,6 +60,51 @@ func (c *LocalCache) MSet(pairs ...interface{}) {
 	}
 }
 
+func (c *LocalCache) HMget(key string, fields ...string) map[string]interface{} {
+	l := len(fields)
+	results := make(map[string]interface{}, l)
+	value, ok := c.lru.Get(key)
+	misses := 0
+	for _, field := range fields {
+		if !ok {
+			results[field] = nil
+			misses++
+		} else {
+			val, has := value.(map[string]interface{})[field]
+			if !has {
+				results[field] = nil
+				misses++
+			} else {
+				results[field] = val
+			}
+		}
+	}
+	if c.loggers != nil {
+		c.log(key, fmt.Sprintf("HMGET %v", fields), misses)
+	}
+	return results
+}
+
+func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
+	m, has := c.lru.Get(key)
+	if !has {
+		m = make(map[string]interface{})
+		c.lru.Add(key, m)
+	}
+	for k, v := range fields {
+		m.(map[string]interface{})[k] = v
+	}
+	if c.loggers != nil {
+		keys := make([]string, len(fields))
+		i := 0
+		for key := range fields {
+			keys[i] = key
+			i++
+		}
+		c.log(key, fmt.Sprintf("HMSET %v", keys), 0)
+	}
+}
+
 func (c *LocalCache) Remove(key string) {
 	c.lru.Remove(key)
 	c.log(key, "REMOVE", 0)
