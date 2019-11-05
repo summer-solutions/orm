@@ -73,9 +73,18 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 	}
 	hasNil := false
 	totalRows = 0
+	minPage := 9999
+	maxPage := 0
 	for key, idsAsString := range fromCache {
 		if idsAsString == nil {
 			hasNil = true
+			p, _ := strconv.Atoi(key)
+			if p < minPage {
+				minPage = p
+			}
+			if p > maxPage {
+				maxPage = p
+			}
 		} else {
 			ids := strings.Split(idsAsString.(string), " ")
 			totalRows, _ = strconv.Atoi(ids[0])
@@ -87,8 +96,9 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 			filledPages[key] = idsAsUint
 		}
 	}
+
 	if hasNil {
-		searchPager := NewPager(1, definition.Max) //TODO select only required rows
+		searchPager := NewPager(minPage, maxPage*idsOnCachePage)
 		results, total := SearchIdsWithCount(Where, searchPager, entityName)
 		totalRows = total
 		cacheFields := make(map[string]interface{})
@@ -96,7 +106,7 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 			if ids == nil {
 				page := key
 				pageInt, _ := strconv.Atoi(page)
-				sliceStart := (pageInt - 1) * idsOnCachePage
+				sliceStart := (pageInt - minPage) * idsOnCachePage
 				if sliceStart > total {
 					cacheFields[page] = total
 					continue
