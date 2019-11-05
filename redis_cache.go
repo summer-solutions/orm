@@ -35,21 +35,23 @@ func (r *RedisCache) LRange(key string, start, stop int64) []string {
 	return val
 }
 
-func (r *RedisCache) HMget(key string, fields ...string) []interface{} {
+func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} {
 	val, err := r.client.HMGet(key, fields...).Result()
 	if err != nil {
 		panic(err)
 	}
-	if r.loggers != nil {
-		misses := 0
-		for _, v := range val {
-			if v == nil {
-				misses++
-			}
+	results := make(map[string]interface{}, len(fields))
+	misses := 0
+	for index, v := range val {
+		if v == nil {
+			misses++
 		}
+		results[fields[index]] = v
+	}
+	if r.loggers != nil {
 		r.log(key, fmt.Sprintf("HMGET %v", fields), misses)
 	}
-	return val
+	return results
 }
 
 func (r *RedisCache) HMset(key string, fields map[string]interface{}) {

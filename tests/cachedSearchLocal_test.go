@@ -128,6 +128,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 12)
+
 }
 
 func BenchmarkCachedSearchLocal(b *testing.B) {
