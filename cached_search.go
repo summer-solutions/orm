@@ -45,7 +45,7 @@ func CachedSearch(entityName string, indexName string, pager Pager, arguments ..
 		}
 	} else if redisCache != nil {
 
-		contextCache := getContentCache()
+		contextCache := getContextCache()
 
 		cacheKey = schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 		end := pager.GetPageSize()

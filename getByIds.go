@@ -29,7 +29,7 @@ func tryByIds(ids []uint64, entityName string, references ...string) (found []in
 
 	localCache := schema.GetLocalCacheContainer()
 	redisCache := schema.GetRedisCacheContainer()
-	contextCache := getContentCache()
+	contextCache := getContextCache()
 	if localCache == nil && contextCache != nil {
 		localCache = contextCache
 	}

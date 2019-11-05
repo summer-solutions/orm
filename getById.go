@@ -12,7 +12,7 @@ func TryById(id uint64, entityName string) (entity interface{}, found bool) {
 	var cacheKey string
 	localCache := schema.GetLocalCacheContainer()
 
-	contextCache := getContentCache()
+	contextCache := getContextCache()
 	if localCache == nil && contextCache != nil {
 		localCache = contextCache
 	}

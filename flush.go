@@ -103,7 +103,7 @@ func Flush(entities ...interface{}) (err error) {
 				}
 				injectBind(value, bind)
 				localCache := schema.GetLocalCacheContainer()
-				contextCache := getContentCache()
+				contextCache := getContextCache()
 				if localCache == nil && contextCache != nil {
 					localCache = contextCache
 				}
@@ -143,7 +143,7 @@ func Flush(entities ...interface{}) (err error) {
 			return err
 		}
 		localCache := schema.GetLocalCacheContainer()
-		contextCache := getContentCache()
+		contextCache := getContextCache()
 		if localCache == nil && contextCache != nil {
 			localCache = contextCache
 		}
@@ -179,7 +179,7 @@ func Flush(entities ...interface{}) (err error) {
 			return err
 		}
 		localCache := schema.GetLocalCacheContainer()
-		contextCache := getContentCache()
+		contextCache := getContextCache()
 		if localCache == nil && contextCache != nil {
 			localCache = contextCache
 		}

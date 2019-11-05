@@ -95,7 +95,7 @@ func getEntityType(name string) reflect.Type {
 	return t
 }
 
-func getContentCache() *LocalCache {
+func getContextCache() *LocalCache {
 	contextCache, has := localCacheContainers["_context_cache"]
 	if !has {
 		return nil
