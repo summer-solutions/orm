@@ -25,6 +25,9 @@ func TestGetByIdsLocal(t *testing.T) {
 	DBLogger := TestDatabaseLogger{}
 	orm.GetMysqlDB("default").AddLogger(&DBLogger)
 
+	orm.GetLocalCacheContainer("default").AddLogger(orm.StandardCacheLogger{})
+	orm.GetRedisCache("default").AddLogger(orm.StandardCacheLogger{})
+
 	found, missing := orm.TryByIds([]uint64{2, 3, 1}, TestEntityByIdsLocalName)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)

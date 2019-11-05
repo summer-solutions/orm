@@ -23,16 +23,16 @@ func (c *LocalCache) Get(key string) (value interface{}, ok bool) {
 	return
 }
 
-func (c *LocalCache) MGet(keys ...string) []interface{} {
-	results := make([]interface{}, len(keys))
+func (c *LocalCache) MGet(keys ...string) map[string]interface{} {
+	results := make(map[string]interface{}, len(keys))
 	misses := 0
-	for index, key := range keys {
+	for _, key := range keys {
 		value, ok := c.lru.Get(key)
 		if !ok {
 			misses++
 			value = nil
 		}
-		results[index] = value
+		results[key] = value
 	}
 	c.log(fmt.Sprintf("%v", keys), "MGET", misses)
 	return results

@@ -68,21 +68,23 @@ func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 	}
 }
 
-func (r *RedisCache) MGet(keys ...string) []interface{} {
+func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
 	val, err := r.client.MGet(keys...).Result()
 	if err != nil {
 		panic(err)
 	}
-	if r.loggers != nil {
-		misses := 0
-		for _, v := range val {
-			if v == nil {
-				misses++
-			}
+	results := make(map[string]interface{}, len(keys))
+	misses := 0
+	for index, v := range val {
+		results[keys[index]] = v
+		if v == nil {
+			misses++
 		}
+	}
+	if r.loggers != nil {
 		r.log(strings.Join(keys, ","), "MGET", misses)
 	}
-	return val
+	return results
 }
 
 func (r *RedisCache) Set(key string, value string, ttlSeconds int) {

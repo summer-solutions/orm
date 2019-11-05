@@ -60,6 +60,8 @@ func TestEntityByIdsRedis(t *testing.T) {
 	err := flusher.Flush()
 	assert.Nil(t, err)
 
+	orm.EnableContextCache(100, 1)
+
 	DBLogger := TestDatabaseLogger{}
 	orm.GetMysqlDB("default").AddLogger(&DBLogger)
 	CacheLogger := TestCacheLogger{}
