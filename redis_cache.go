@@ -79,6 +79,15 @@ func (r *RedisCache) RPop(key string) (value string, found bool) {
 	return val, true
 }
 
+func (r *RedisCache) LLen(key string) int64 {
+	val, err := r.client.LLen(key).Result()
+	r.log(key, "LLEN", 0)
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
 func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 	_, err := r.client.HMSet(key, fields).Result()
 	if err != nil {

@@ -9,6 +9,10 @@ type LazyReceiver struct {
 	RedisName string
 }
 
+func (r LazyReceiver) Size() int64 {
+	return GetRedisCache(r.RedisName).LLen("lazy_queue")
+}
+
 func (r LazyReceiver) Digest() error {
 	redis := GetRedisCache(r.RedisName)
 	key := "lazy_queue"
@@ -27,6 +31,14 @@ func (r LazyReceiver) Digest() error {
 			return fmt.Errorf("invalid map: %v", data)
 		}
 		err = r.handleQueries(validMap)
+		if err != nil {
+			return err
+		}
+		err = r.handleClearCache(validMap, "cl")
+		if err != nil {
+			return err
+		}
+		err = r.handleClearCache(validMap, "cr")
 		if err != nil {
 			return err
 		}
@@ -52,6 +64,40 @@ func (r *LazyReceiver) handleQueries(validMap map[string]interface{}) error {
 			_, err := db.Exec(sql, attributes...)
 			if err != nil {
 				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key string) error {
+	keys, has := validMap[key]
+	if has {
+		validKeys, ok := keys.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("invalid cache keys: %v", keys)
+		}
+		for cacheCode, allKeys := range validKeys {
+			validAllKeys, ok := allKeys.([]interface{})
+			if !ok {
+				return fmt.Errorf("invalid cache keys: %v", allKeys)
+			}
+			stringKeys := make([]string, len(validAllKeys))
+			for i, v := range validAllKeys {
+				stringKeys[i] = v.(string)
+			}
+			if key == "cl" {
+				cache, has := localCacheContainers[cacheCode]
+				if !has {
+					return fmt.Errorf("unknown local cache %s", cacheCode)
+				}
+				cache.RemoveMany(stringKeys...)
+			} else {
+				cache, has := redisServers[cacheCode]
+				if !has {
+					return fmt.Errorf("unknown redis cache %s", cacheCode)
+				}
+				cache.Del(stringKeys...)
 			}
 		}
 	}
