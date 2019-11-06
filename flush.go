@@ -102,19 +102,10 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 				schema := GetTableSchema(t.String())
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
 				db := schema.GetMysqlDB()
+				values[i] = currentId
 				if lazy && db.transaction == nil {
-					updatesMap := lazyMap["u"]
-					if updatesMap == nil {
-						updatesMap = make([]interface{}, 0)
-						lazyMap["u"] = updatesMap
-					}
-					lazyValue := make([]interface{}, 3)
-					lazyValue[0] = db.code
-					lazyValue[1] = sql
-					lazyValue[2] = values
-					lazyMap["u"] = append(updatesMap.([]interface{}), lazyValue)
+					fillLazyQuery(lazyMap, db.code, sql, values)
 				} else {
-					values[i] = currentId
 					_, err := schema.GetMysqlDB().Exec(sql, values...)
 					if err != nil {
 						return err
@@ -160,16 +151,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		id := uint64(0)
 		db := schema.GetMysqlDB()
 		if lazy {
-			insertsMap := lazyMap["i"]
-			if insertsMap == nil && db.transaction == nil {
-				insertsMap = make([]interface{}, 0)
-				lazyMap["i"] = insertsMap
-			}
-			lazyValue := make([]interface{}, 3)
-			lazyValue[0] = db.code
-			lazyValue[1] = sql
-			lazyValue[2] = insertArguments[typeOf]
-			lazyMap["i"] = append(insertsMap.([]interface{}), lazyValue)
+			fillLazyQuery(lazyMap, db.code, sql, insertArguments[typeOf])
 		} else {
 			res, err := db.Exec(sql, insertArguments[typeOf]...)
 			if err != nil {
@@ -217,16 +199,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, where)
 		db := schema.GetMysqlDB()
 		if lazy && db.transaction == nil {
-			deletesMap := lazyMap["d"]
-			if deletesMap == nil {
-				deletesMap = make([]interface{}, 0)
-				lazyMap["d"] = deletesMap
-			}
-			lazyValue := make([]interface{}, 3)
-			lazyValue[0] = db.code
-			lazyValue[1] = sql
-			lazyValue[2] = where.GetParameters()
-			lazyMap["d"] = append(deletesMap.([]interface{}), lazyValue)
+			fillLazyQuery(lazyMap, db.code, sql, where.GetParameters())
 		} else {
 			_, err = db.Exec(sql, where.GetParameters()...)
 			if err != nil {
@@ -545,4 +518,17 @@ func addCacheDeletes(cacheDeletes map[string]map[string]map[string]bool, dbCode 
 		cacheDeletes[dbCode][cacheCode][key] = true
 	}
 
+}
+
+func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, values []interface{}) {
+	updatesMap := lazyMap["q"]
+	if updatesMap == nil {
+		updatesMap = make([]interface{}, 0)
+		lazyMap["q"] = updatesMap
+	}
+	lazyValue := make([]interface{}, 3)
+	lazyValue[0] = dbCode
+	lazyValue[1] = sql
+	lazyValue[2] = values
+	lazyMap["q"] = append(updatesMap.([]interface{}), lazyValue)
 }

@@ -9,7 +9,7 @@ type LazyReceiver struct {
 	RedisName string
 }
 
-func (r LazyReceiver) Digest() int {
+func (r LazyReceiver) Digest() error {
 	redis := GetRedisCache(r.RedisName)
 	key := "lazy_queue"
 	for {
@@ -20,32 +20,40 @@ func (r LazyReceiver) Digest() int {
 		var data interface{}
 		err := json.Unmarshal([]byte(val), &data)
 		if err != nil {
-			panic(fmt.Errorf("invalid json: %s", val))
+			return fmt.Errorf("invalid json: %s", val)
 		}
 		validMap, ok := data.(map[string]interface{})
 		if !ok {
-			panic(fmt.Errorf("invalid map: %v", data))
+			return fmt.Errorf("invalid map: %v", data)
 		}
-		inserts, has := validMap["i"]
-		if has {
-			validInserts, ok := inserts.([]interface{})
+		err = r.handleQueries(validMap)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *LazyReceiver) handleQueries(validMap map[string]interface{}) error {
+	queries, has := validMap["q"]
+	if has {
+		validQueries, ok := queries.([]interface{})
+		if !ok {
+			return fmt.Errorf("invalid queries: %v", queries)
+		}
+		for _, query := range validQueries {
+			validInsert, ok := query.([]interface{})
 			if !ok {
-				panic(fmt.Errorf("invalid inserts: %v", inserts))
+				return fmt.Errorf("invalid query: %v", validInsert)
 			}
-			for _, insert := range validInserts {
-				validInsert, ok := insert.([]interface{})
-				if !ok {
-					panic(fmt.Errorf("invalid inserts: %v", validInsert))
-				}
-				db := GetMysqlDB(validInsert[0].(string))
-				sql := validInsert[1].(string)
-				attributes := validInsert[2].([]interface{})
-				_, err := db.Exec(sql, attributes...)
-				if err != nil {
-					panic(err.Error())
-				}
+			db := GetMysqlDB(validInsert[0].(string))
+			sql := validInsert[1].(string)
+			attributes := validInsert[2].([]interface{})
+			_, err := db.Exec(sql, attributes...)
+			if err != nil {
+				return err
 			}
 		}
 	}
-	return 0
+	return nil
 }
