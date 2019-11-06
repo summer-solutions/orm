@@ -288,7 +288,10 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 					}
 					deletesRedisCache.(map[string][]string)[cacheCode] = keys
 				} else {
-					cache.Del(keys...)
+					err = cache.Del(keys...)
+					if err != nil {
+						return err
+					}
 				}
 			} else {
 				if db.afterCommitRedisCacheDeletes == nil {
@@ -299,15 +302,19 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	if len(lazyMap) > 0 {
-		encoded, err := json.Marshal(lazyMap)
-		if err != nil {
-			panic(err.Error())
-		}
-		GetRedisCache(lazyQueueRedisName).LPush("lazy_queue", encoded)
+		GetRedisCache(lazyQueueRedisName).LPush("lazy_queue", serializeForLazyQueue(lazyMap))
 	}
 	return
 }
 
+func serializeForLazyQueue(lazyMap map[string]interface{}) string {
+	encoded, err := json.Marshal(lazyMap)
+	if err != nil {
+		panic(err.Error())
+	}
+	return string(encoded)
+
+}
 func injectBind(value reflect.Value, bind map[string]interface{}) {
 	oldFields := value.Field(0).Interface().(ORM)
 	if oldFields.DBData == nil {

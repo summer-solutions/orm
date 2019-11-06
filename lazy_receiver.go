@@ -26,27 +26,35 @@ func (r LazyReceiver) Digest() error {
 		if err != nil {
 			return fmt.Errorf("invalid json: %s", val)
 		}
+		brokenMap := make(map[string]interface{})
 		validMap, ok := data.(map[string]interface{})
+		errors := make([]error, 0)
 		if !ok {
-			return fmt.Errorf("invalid map: %v", data)
+			errors = append(errors, fmt.Errorf("invalid map: %v", data))
 		}
-		err = r.handleQueries(validMap)
+		err = r.handleQueries(validMap, brokenMap)
 		if err != nil {
-			return err
+			errors = append(errors, err)
 		}
-		err = r.handleClearCache(validMap, "cl")
+		err = r.handleClearCache(validMap, brokenMap, "cl")
 		if err != nil {
-			return err
+			errors = append(errors, err)
 		}
-		err = r.handleClearCache(validMap, "cr")
+		err = r.handleClearCache(validMap, brokenMap, "cr")
 		if err != nil {
-			return err
+			errors = append(errors, err)
+		}
+		if len(brokenMap) > 0 {
+			GetRedisCache(lazyQueueRedisName).RPush("lazy_queue", serializeForLazyQueue(brokenMap))
+		}
+		if len(errors) > 0 {
+			return fmt.Errorf("errors: %v", err)
 		}
 	}
 	return nil
 }
 
-func (r *LazyReceiver) handleQueries(validMap map[string]interface{}) error {
+func (r *LazyReceiver) handleQueries(validMap map[string]interface{}, brokenMap map[string]interface{}) error {
 	queries, has := validMap["q"]
 	if has {
 		validQueries, ok := queries.([]interface{})
@@ -63,6 +71,7 @@ func (r *LazyReceiver) handleQueries(validMap map[string]interface{}) error {
 			attributes := validInsert[2].([]interface{})
 			_, err := db.Exec(sql, attributes...)
 			if err != nil {
+				brokenMap["q"] = validMap["q"]
 				return err
 			}
 		}
@@ -70,7 +79,7 @@ func (r *LazyReceiver) handleQueries(validMap map[string]interface{}) error {
 	return nil
 }
 
-func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key string) error {
+func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, brokenMap map[string]interface{}, key string) error {
 	keys, has := validMap[key]
 	if has {
 		validKeys, ok := keys.(map[string]interface{})
@@ -97,7 +106,14 @@ func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key str
 				if !has {
 					return fmt.Errorf("unknown redis cache %s", cacheCode)
 				}
-				cache.Del(stringKeys...)
+				err := cache.Del(stringKeys...)
+				if err != nil {
+					if brokenMap[key] == nil {
+						brokenMap[key] = make(map[string][]interface{})
+					}
+					brokenMap[key].(map[string][]interface{})[cacheCode] = validAllKeys
+					return err
+				}
 			}
 		}
 	}

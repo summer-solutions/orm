@@ -65,6 +65,17 @@ func (r *RedisCache) LPush(key string, values ...interface{}) int64 {
 	return val
 }
 
+func (r *RedisCache) RPush(key string, values ...interface{}) int64 {
+	val, err := r.client.RPush(key, values...).Result()
+	if err != nil {
+		panic(err)
+	}
+	if r.loggers != nil {
+		r.log(key, fmt.Sprintf("RPUSH %d values", len(values)), 0)
+	}
+	return val
+}
+
 func (r *RedisCache) RPop(key string) (value string, found bool) {
 	val, err := r.client.RPop(key).Result()
 	if err != nil {
@@ -146,12 +157,13 @@ func (r *RedisCache) MSet(pairs ...interface{}) {
 	}
 }
 
-func (r *RedisCache) Del(keys ...string) {
+func (r *RedisCache) Del(keys ...string) error {
 	err := r.client.Del(keys...).Err()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	r.log(strings.Join(keys, ","), "DELETE", 0)
+	return nil
 }
 
 func (r *RedisCache) FlushDB() {
