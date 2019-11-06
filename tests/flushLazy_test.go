@@ -19,8 +19,13 @@ func TestFlushLazy(t *testing.T) {
 	var entity TestEntityFlushLazy
 	PrepareTables(entity)
 
-	Logger := TestDatabaseLogger{}
-	orm.GetMysqlDB("default").AddLogger(&Logger)
+	LoggerDB := TestDatabaseLogger{}
+	orm.GetMysqlDB("default").AddLogger(&LoggerDB)
+	LoggerQueue := TestCacheLogger{}
+	orm.GetRedisCache("default_queue").AddLogger(&LoggerQueue)
+
+	orm.GetMysqlDB("default").AddLogger(orm.StandardDatabaseLogger{})
+	orm.GetRedisCache("default_queue").AddLogger(orm.StandardCacheLogger{})
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
@@ -29,8 +34,22 @@ func TestFlushLazy(t *testing.T) {
 	}
 	err := orm.FlushLazy(entities...)
 	assert.Nil(t, err)
-	assert.Len(t, Logger.Queries, 0)
+	assert.Len(t, LoggerDB.Queries, 0)
+	assert.Len(t, LoggerQueue.Requests, 1)
+	assert.Equal(t, "LPUSH 1 values lazy_queue", LoggerQueue.Requests[0])
 
 	_, found := orm.TryById(1, TestEntityFlushLazyName)
 	assert.False(t, found)
+
+	LazyReceiver := orm.LazyReceiver{RedisName: "default_queue"}
+	LazyReceiver.Digest()
+	assert.Len(t, LoggerDB.Queries, 2)
+	assert.Len(t, LoggerQueue.Requests, 3)
+	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[1])
+	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
+	addedEntity, found := orm.TryById(1, TestEntityFlushLazyName)
+	assert.True(t, found)
+	assert.Equal(t, "Name 1", addedEntity.(TestEntityFlushLazy).Name)
+
+	//TODO EDIT
 }

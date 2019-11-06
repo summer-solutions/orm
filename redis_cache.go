@@ -65,6 +65,20 @@ func (r *RedisCache) LPush(key string, values ...interface{}) int64 {
 	return val
 }
 
+func (r *RedisCache) RPop(key string) (value string, found bool) {
+	val, err := r.client.RPop(key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			r.log(key, "RPOP", 1)
+			return "", false
+		}
+		r.log(key, "RPOP", 0)
+		panic(err)
+	}
+	r.log(key, "RPOP", 0)
+	return val, true
+}
+
 func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 	_, err := r.client.HMSet(key, fields).Result()
 	if err != nil {
