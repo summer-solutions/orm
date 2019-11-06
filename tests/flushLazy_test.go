@@ -72,6 +72,23 @@ func TestFlushLazy(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, "Name 1.1", addedEntity.(TestEntityFlushLazy).Name)
 
-	//TODO delete
+	editedEntity = addedEntity.(TestEntityFlushLazy)
+	LoggerDB.Queries = make([]string, 0)
+	LoggerQueue.Requests = make([]string, 0)
+	orm.MarkToDelete(editedEntity)
+	err = orm.FlushLazy(&editedEntity)
+	assert.Nil(t, err)
+	assert.Len(t, LoggerDB.Queries, 0)
+	assert.Len(t, LoggerQueue.Requests, 1)
+	assert.Equal(t, "LPUSH 1 values lazy_queue", LoggerQueue.Requests[0])
+
+	err = LazyReceiver.Digest()
+	assert.Nil(t, err)
+	assert.Len(t, LoggerDB.Queries, 1)
+	assert.Len(t, LoggerQueue.Requests, 3)
+	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[1])
+	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
+	addedEntity, found = orm.TryById(1, TestEntityFlushLazyName)
+	assert.False(t, found)
 
 }
