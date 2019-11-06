@@ -24,6 +24,14 @@ func IsDirty(entity interface{}) (is bool, bind map[string]interface{}) {
 }
 
 func Flush(entities ...interface{}) (err error) {
+	return flush(false, entities...)
+}
+
+func FlushLazy(entities ...interface{}) (err error) {
+	return flush(true, entities...)
+}
+
+func flush(lazy bool, entities ...interface{}) (err error) {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
@@ -33,8 +41,9 @@ func Flush(entities ...interface{}) (err error) {
 	totalInsert := make(map[reflect.Type]int)
 	localCacheSets := make(map[string]map[string][]interface{})
 	localCacheDeletes := make(map[string]map[string]map[string]bool)
-
 	redisKeysToDelete := make(map[string]map[string]map[string]bool)
+	lazyMap := make(map[string]interface{})
+	contextCache := getContextCache()
 
 	for _, entity := range entities {
 		isDirty, bind := IsDirty(entity)
@@ -92,10 +101,24 @@ func Flush(entities ...interface{}) (err error) {
 				}
 				schema := GetTableSchema(t.String())
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
-				values[i] = currentId
-				_, err := schema.GetMysqlDB().Exec(sql, values...)
-				if err != nil {
-					return err
+				db := schema.GetMysqlDB()
+				if lazy && db.transaction == nil {
+					updatesMap := lazyMap["u"]
+					if updatesMap == nil {
+						updatesMap = make([]interface{}, 0)
+						lazyMap["u"] = updatesMap
+					}
+					lazyValue := make([]interface{}, 3)
+					lazyValue[0] = db.code
+					lazyValue[1] = sql
+					lazyValue[2] = values
+					lazyMap["u"] = append(updatesMap.([]interface{}), lazyValue)
+				} else {
+					values[i] = currentId
+					_, err := schema.GetMysqlDB().Exec(sql, values...)
+					if err != nil {
+						return err
+					}
 				}
 				old := make(map[string]interface{}, len(orm.DBData))
 				for k, v := range orm.DBData {
@@ -134,31 +157,49 @@ func Flush(entities ...interface{}) (err error) {
 		for i := 1; i < totalInsert[typeOf]; i++ {
 			sql += "," + insertValues[typeOf]
 		}
-		res, err := schema.GetMysqlDB().Exec(sql, insertArguments[typeOf]...)
-		if err != nil {
-			return err
-		}
-		id, err := res.LastInsertId()
-		if err != nil {
-			return err
+		id := uint64(0)
+		db := schema.GetMysqlDB()
+		if lazy {
+			insertsMap := lazyMap["i"]
+			if insertsMap == nil && db.transaction == nil {
+				insertsMap = make([]interface{}, 0)
+				lazyMap["i"] = insertsMap
+			}
+			lazyValue := make([]interface{}, 3)
+			lazyValue[0] = db.code
+			lazyValue[1] = sql
+			lazyValue[2] = insertArguments[typeOf]
+			lazyMap["i"] = append(insertsMap.([]interface{}), lazyValue)
+		} else {
+			res, err := db.Exec(sql, insertArguments[typeOf]...)
+			if err != nil {
+				return err
+			}
+			insertId, err := res.LastInsertId()
+			if err != nil {
+				return err
+			}
+			id = uint64(insertId)
 		}
 		localCache := schema.GetLocalCacheContainer()
-		contextCache := getContextCache()
 		if localCache == nil && contextCache != nil {
 			localCache = contextCache
 		}
 		redisCache := schema.GetRedisCacheContainer()
-		db := schema.GetMysqlDB()
 		for key, value := range insertReflectValues[typeOf] {
 			bind := insertBinds[typeOf][key]
 			injectBind(value, bind)
-			value.Field(1).SetUint(uint64(id))
+			value.Field(1).SetUint(id)
 			if localCache != nil {
-				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(uint64(id)), value.Interface())
+				if !lazy {
+					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), value.Interface())
+				}
 				addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
 			if redisCache != nil {
-				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(uint64(id)))
+				if !lazy {
+					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(id))
+				}
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
 			id++
@@ -174,17 +215,30 @@ func Flush(entities ...interface{}) (err error) {
 		}
 		where := NewWhere("`Id` IN ?", ids)
 		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, where)
-		_, err = schema.GetMysqlDB().Exec(sql, where.GetParameters()...)
-		if err != nil {
-			return err
+		db := schema.GetMysqlDB()
+		if lazy && db.transaction == nil {
+			deletesMap := lazyMap["d"]
+			if deletesMap == nil {
+				deletesMap = make([]interface{}, 0)
+				lazyMap["d"] = deletesMap
+			}
+			lazyValue := make([]interface{}, 3)
+			lazyValue[0] = db.code
+			lazyValue[1] = sql
+			lazyValue[2] = where.GetParameters()
+			lazyMap["d"] = append(deletesMap.([]interface{}), lazyValue)
+		} else {
+			_, err = db.Exec(sql, where.GetParameters()...)
+			if err != nil {
+				return err
+			}
 		}
+
 		localCache := schema.GetLocalCacheContainer()
-		contextCache := getContextCache()
 		if localCache == nil && contextCache != nil {
 			localCache = contextCache
 		}
 		redisCache := schema.GetRedisCacheContainer()
-		db := schema.GetMysqlDB()
 		if localCache != nil {
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), nil)
@@ -224,7 +278,16 @@ func Flush(entities ...interface{}) (err error) {
 				i++
 			}
 			if db.transaction == nil {
-				cache.RemoveMany(keys...)
+				if lazy {
+					deletesLocalCache := lazyMap["cl"]
+					if deletesLocalCache == nil {
+						deletesLocalCache = make(map[string][]string)
+						lazyMap["cl"] = deletesLocalCache
+					}
+					deletesLocalCache.(map[string][]string)[cacheCode] = keys
+				} else {
+					cache.RemoveMany(keys...)
+				}
 			} else {
 				if db.afterCommitLocalCacheDeletes == nil {
 					db.afterCommitLocalCacheDeletes = make(map[string][]string)
@@ -244,7 +307,16 @@ func Flush(entities ...interface{}) (err error) {
 				i++
 			}
 			if db.transaction == nil {
-				cache.Del(keys...)
+				if lazy {
+					deletesRedisCache := lazyMap["cr"]
+					if deletesRedisCache == nil {
+						deletesRedisCache = make(map[string][]string)
+						lazyMap["cr"] = deletesRedisCache
+					}
+					deletesRedisCache.(map[string][]string)[cacheCode] = keys
+				} else {
+					cache.Del(keys...)
+				}
 			} else {
 				if db.afterCommitRedisCacheDeletes == nil {
 					db.afterCommitRedisCacheDeletes = make(map[string][]string)
@@ -252,6 +324,13 @@ func Flush(entities ...interface{}) (err error) {
 				db.afterCommitRedisCacheDeletes[cacheCode] = append(db.afterCommitRedisCacheDeletes[cacheCode], keys...)
 			}
 		}
+	}
+	if len(lazyMap) > 0 {
+		encoded, err := json.Marshal(lazyMap)
+		if err != nil {
+			panic(err.Error())
+		}
+		GetRedisCache(lazyQueueRedisName).LPush("lazy_queue", encoded)
 	}
 	return
 }

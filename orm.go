@@ -14,6 +14,7 @@ var mySqlClients = make(map[string]*DB)
 var localCacheContainers = make(map[string]*LocalCache)
 var redisServers = make(map[string]*RedisCache)
 var entities = make(map[string]reflect.Type)
+var lazyQueueRedisName = "default"
 
 func RegisterEntity(entity ...interface{}) {
 	for _, e := range entity {
@@ -57,6 +58,10 @@ func RegisterRedis(code string, address string, db int) *RedisCache {
 	return redisCache
 }
 
+func SetLazyQueueRedis(redisCode string) {
+	lazyQueueRedisName = redisCode
+}
+
 func GetMysqlDB(code string) *DB {
 
 	db, has := mySqlClients[code]
@@ -70,10 +75,6 @@ func GetLocalCacheContainer(code string) *LocalCache {
 	cache, has := localCacheContainers[code]
 	if has == true {
 		return cache
-	}
-	if code == "default" {
-		RegisterLocalCache("default", 10000)
-		return GetLocalCacheContainer("default")
 	}
 	panic(fmt.Errorf("unregistered local cache: %s", code))
 }

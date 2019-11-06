@@ -30,7 +30,15 @@ func (f *Flusher) RegisterEntity(entities ...interface{}) {
 }
 
 func (f *Flusher) Flush() error {
-	err := Flush(f.entities...)
+	return f.flush(false)
+}
+
+func (f *Flusher) FlushLazy() error {
+	return f.flush(true)
+}
+
+func (f *Flusher) flush(lazy bool) error {
+	err := flush(lazy, f.entities...)
 	if err != nil {
 		return err
 	}

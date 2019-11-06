@@ -54,6 +54,17 @@ func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} 
 	return results
 }
 
+func (r *RedisCache) LPush(key string, values ...interface{}) int64 {
+	val, err := r.client.LPush(key, values...).Result()
+	if err != nil {
+		panic(err)
+	}
+	if r.loggers != nil {
+		r.log(key, fmt.Sprintf("LPUSH %d values", len(values)), 0)
+	}
+	return val
+}
+
 func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 	_, err := r.client.HMSet(key, fields).Result()
 	if err != nil {

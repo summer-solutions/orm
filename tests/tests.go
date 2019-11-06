@@ -9,6 +9,10 @@ import (
 func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
 	orm.RegisterMySqlPool("default", "root:root@tcp(localhost:3310)/test")
 	orm.RegisterRedis("default", "localhost:6379", 15).FlushDB()
+	orm.RegisterRedis("default_queue", "localhost:6379", 14).FlushDB()
+	orm.SetLazyQueueRedis("default_queue")
+	orm.RegisterLocalCache("default", 1000)
+
 	orm.RegisterEntity(entities...)
 	orm.DisableContextCache()
 	for _, entity := range entities {
