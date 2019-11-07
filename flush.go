@@ -302,7 +302,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	if len(lazyMap) > 0 {
-		GetRedisCache(lazyQueueRedisName).LPush("lazy_queue", serializeForLazyQueue(lazyMap))
+		GetRedisCache(queueRedisName).LPush("lazy_queue", serializeForLazyQueue(lazyMap))
 	}
 	return
 }
