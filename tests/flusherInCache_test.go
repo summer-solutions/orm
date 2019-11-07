@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+const TestEntityFlusherInCacheRedisName = "tests.TestEntityFlusherInCacheRedis"
+
 type TestEntityFlusherInCacheRedis struct {
 	Orm  orm.ORM `orm:"table=TestEntityFlushInCacheRedis;mysql=default;redisCache"`
 	Id   uint
@@ -48,5 +50,10 @@ func TestFlushInCache(t *testing.T) {
 	assert.Equal(t, "MSET [TestEntityFlushInCacheRedis49:1 ] ", LoggerRedisCache.Requests[0])
 	assert.Len(t, LoggerRedisQueue.Requests, 1)
 	assert.Equal(t, "ZADD 1 values dirty_queue", LoggerRedisQueue.Requests[0])
+
+	loadedEntity := orm.GetById(1, TestEntityFlusherInCacheRedisName).(TestEntityFlusherInCacheRedis)
+	assert.Equal(t, "Name 2", loadedEntity.Name)
+	assert.Len(t, LoggerRedisCache.Requests, 2)
+	assert.Equal(t, "GET TestEntityFlushInCacheRedis49:1", LoggerRedisCache.Requests[1])
 
 }
