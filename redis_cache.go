@@ -90,6 +90,26 @@ func (r *RedisCache) RPop(key string) (value string, found bool) {
 	return val, true
 }
 
+func (r *RedisCache) ZCard(key string) int64 {
+	val, err := r.client.ZCard(key).Result()
+	r.log(key, "ZCARD", 0)
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
+func (r *RedisCache) ZPopMin(key string, count ...int64) []redis.Z {
+	val, err := r.client.ZPopMin(key, count...).Result()
+	if r.loggers != nil {
+		r.log(key, fmt.Sprintf("ZPOP %v", count), 0)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
 func (r *RedisCache) LLen(key string) int64 {
 	val, err := r.client.LLen(key).Result()
 	r.log(key, "LLEN", 0)

@@ -43,8 +43,8 @@ func FlushInCache(entities ...interface{}) error {
 				redisValues[cache.code] = make([]interface{}, 0)
 			}
 			redisValues[cache.code] = append(redisValues[cache.code], entityCacheKey, entityCacheValue)
-			cacheKey := redis.Z{Score: float64(time.Now().Unix()), Member: fmt.Sprintf("%s:%d", entityName, id)}
-			validEntities = append(validEntities, &cacheKey)
+
+			validEntities = append(validEntities, createDirtyQueueMember(entityName, id))
 		}
 	}
 	if len(invalidEntities) > 0 {
@@ -60,4 +60,8 @@ func FlushInCache(entities ...interface{}) error {
 		}
 	}
 	return nil
+}
+
+func createDirtyQueueMember(entityName string, id uint64) *redis.Z {
+	return &redis.Z{Score: float64(time.Now().Unix()), Member: fmt.Sprintf("%s:%d", entityName, id)}
 }

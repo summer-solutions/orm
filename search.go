@@ -19,6 +19,14 @@ func Search(where Where, pager Pager, entityName string, references ...string) [
 	return results
 }
 
+func SearchOne(where Where, pager Pager, entityName string, references ...string) interface{} {
+	results, _ := search(where, pager, false, entityName, references)
+	if len(results) == 0 {
+		return nil
+	}
+	return results[0]
+}
+
 func SearchIdsWithCount(where Where, pager Pager, entityName string) (results []uint64, totalRows int) {
 	return searchIds(where, pager, true, entityName)
 }
