@@ -99,6 +99,17 @@ func (r *RedisCache) LLen(key string) int64 {
 	return val
 }
 
+func (r *RedisCache) ZAdd(key string, members ...*redis.Z) int64 {
+	val, err := r.client.ZAdd(key, members...).Result()
+	if err != nil {
+		panic(err)
+	}
+	if r.loggers != nil {
+		r.log(key, fmt.Sprintf("ZADD %d values", len(members)), 0)
+	}
+	return val
+}
+
 func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 	_, err := r.client.HMSet(key, fields).Result()
 	if err != nil {

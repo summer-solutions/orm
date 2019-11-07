@@ -19,7 +19,7 @@ func IsDirty(entity interface{}) (is bool, bind map[string]interface{}) {
 		return true, nil
 	}
 	bind = createBind(GetTableSchema(t.String()), t, value, ormField.DBData, "")
-	is = len(bind) > 0
+	is = value.Field(1).Uint() == 0 || len(bind) > 0
 	return
 }
 
