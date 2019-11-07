@@ -24,14 +24,14 @@ func IsDirty(entity interface{}) (is bool, bind map[string]interface{}) {
 }
 
 func Flush(entities ...interface{}) (err error) {
-	return flush(false, false, entities...)
+	return flush(false, entities...)
 }
 
 func FlushLazy(entities ...interface{}) (err error) {
-	return flush(true, false, entities...)
+	return flush(true, entities...)
 }
 
-func flush(lazy bool, dirty bool, entities ...interface{}) (err error) {
+func flush(lazy bool, entities ...interface{}) (err error) {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
@@ -131,9 +131,7 @@ func flush(lazy bool, dirty bool, entities ...interface{}) (err error) {
 				}
 				if redisCache != nil {
 					db := schema.GetMysqlDB()
-					if !dirty {
-						addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentId))
-					}
+					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentId))
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, orm.DBData, false)...)
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
 				}

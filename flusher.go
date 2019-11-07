@@ -38,7 +38,7 @@ func (f *Flusher) FlushLazy() error {
 }
 
 func (f *Flusher) flush(lazy bool) error {
-	err := flush(lazy, false, f.entities...)
+	err := flush(lazy, f.entities...)
 	if err != nil {
 		return err
 	}

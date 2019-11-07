@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -46,17 +47,43 @@ func (r DirtyReceiver) Digest() error {
 		}
 		ormFieldCache := reflect.ValueOf(entityInCache).Field(0).Interface().(ORM)
 		ormFieldDB := reflect.ValueOf(entityInDB).Field(0).Interface().(ORM)
+		newData := make(map[string]interface{}, len(ormFieldCache.DBData))
+		for k, v := range ormFieldCache.DBData {
+			newData[k] = v
+		}
 		for k, v := range ormFieldDB.DBData {
 			ormFieldCache.DBData[k] = v
 		}
-		is, _ := IsDirty(entityInCache)
+		is, bind := IsDirty(entityInCache)
 		if !is {
 			continue
 		}
-		err = flush(false, true, &entityInCache)
+
+		bindLength := len(bind)
+		fields := make([]string, bindLength)
+		attributes := make([]interface{}, bindLength+1)
+		i := 0
+		for key, value := range bind {
+			fields[i] = fmt.Sprintf("`%s` = ?", key)
+			attributes[i] = value
+			i++
+		}
+		attributes[i] = id
+		db := schema.GetMysqlDB()
+		sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
+		_, err = db.Exec(sql, attributes...)
 		if err != nil {
 			GetRedisCache(queueRedisName).ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 			return err
+		}
+		cacheKeys := getCacheQueriesKeys(schema, bind, ormFieldCache.DBData, false)
+		cacheKeys = append(cacheKeys, getCacheQueriesKeys(schema, bind, newData, false)...)
+		if len(cacheKeys) > 0 {
+			err = cache.Del(cacheKeys...)
+			if err != nil {
+				GetRedisCache(queueRedisName).ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+				return err
+			}
 		}
 	}
 	return nil
