@@ -62,12 +62,12 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, LoggerRedisCache.Requests, 2)
 	assert.Equal(t, "GET TestEntityFlushInCacheRedis3c:1", LoggerRedisCache.Requests[1])
 
-	dirtyReceiver := orm.DirtyReceiver{RedisName: "default_queue"}
-	assert.Equal(t, int64(1), dirtyReceiver.Size())
+	receiver := orm.FlushInCacheReceiver{RedisName: "default_queue"}
+	assert.Equal(t, int64(1), receiver.Size())
 
-	err = dirtyReceiver.Digest()
+	err = receiver.Digest()
 	assert.Nil(t, err)
-	assert.Equal(t, int64(0), dirtyReceiver.Size())
+	assert.Equal(t, int64(0), receiver.Size())
 
 	inDB := orm.SearchOne(orm.NewWhere("`Id` = ?", 1), orm.NewPager(1, 1), TestEntityFlusherInCacheRedisName)
 	assert.Equal(t, "Name 2", inDB.(TestEntityFlusherInCacheRedis).Name)
