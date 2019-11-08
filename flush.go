@@ -137,7 +137,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, orm.DBData, false)...)
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
 				}
-				addDirtyQueues(dirtyQueues, bind, schema, currentId)
+				addDirtyQueues(dirtyQueues, bind, schema, currentId, "u")
 			}
 		}
 	}
@@ -187,7 +187,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 				}
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
-			addDirtyQueues(dirtyQueues, bind, schema, id)
+			addDirtyQueues(dirtyQueues, bind, schema, id, "i")
 			id++
 		}
 	}
@@ -229,7 +229,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 			}
 		}
 		for id, bind := range deleteBinds {
-			addDirtyQueues(dirtyQueues, bind, schema, id)
+			addDirtyQueues(dirtyQueues, bind, schema, id, "d")
 		}
 	}
 
@@ -541,9 +541,9 @@ func addCacheDeletes(cacheDeletes map[string]map[string]map[string]bool, dbCode 
 	}
 }
 
-func addDirtyQueues(keys map[string][]*redis.Z, bind map[string]interface{}, schema *TableSchema, id uint64) {
+func addDirtyQueues(keys map[string][]*redis.Z, bind map[string]interface{}, schema *TableSchema, id uint64, action string) {
 	results := make(map[string]*redis.Z)
-	key := createDirtyQueueMember(schema.t.String(), id)
+	key := createDirtyQueueMember(schema.t.String()+":"+action, id)
 	for column, tags := range schema.tags {
 		queues, has := tags["dirty"]
 		if !has {

@@ -102,7 +102,7 @@ func (r *RedisCache) ZCard(key string) int64 {
 func (r *RedisCache) ZPopMin(key string, count ...int64) []redis.Z {
 	val, err := r.client.ZPopMin(key, count...).Result()
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("ZPOP %v", count), 0)
+		r.log(key, fmt.Sprintf("ZPOPMIN %v", count), 0)
 	}
 	if err != nil {
 		panic(err)
