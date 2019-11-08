@@ -3,6 +3,7 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-redis/redis/v7"
 	_ "github.com/go-sql-driver/mysql"
 	"reflect"
 	"strconv"
@@ -42,6 +43,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 	localCacheSets := make(map[string]map[string][]interface{})
 	localCacheDeletes := make(map[string]map[string]map[string]bool)
 	redisKeysToDelete := make(map[string]map[string]map[string]bool)
+	dirtyQueues := make(map[string][]*redis.Z)
 	lazyMap := make(map[string]interface{})
 	contextCache := getContextCache()
 
@@ -135,6 +137,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, orm.DBData, false)...)
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
 				}
+				addDirtyQueues(dirtyQueues, bind, schema, currentId)
 			}
 		}
 	}
@@ -184,6 +187,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 				}
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
+			addDirtyQueues(dirtyQueues, bind, schema, id)
 			id++
 		}
 	}
@@ -223,6 +227,9 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(id))
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
+		}
+		for id, bind := range deleteBinds {
+			addDirtyQueues(dirtyQueues, bind, schema, id)
 		}
 	}
 
@@ -303,6 +310,14 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 	}
 	if len(lazyMap) > 0 {
 		GetRedisCache(queueRedisName).LPush("lazy_queue", serializeForLazyQueue(lazyMap))
+	}
+
+	for k, v := range dirtyQueues {
+		redisCode, has := dirtyQueuesCodes[k]
+		if !has {
+			panic(fmt.Errorf("unregistered lazy queue %s", k))
+		}
+		GetRedisCache(redisCode).ZAdd(k, v...)
 	}
 	return
 }
@@ -524,7 +539,35 @@ func addCacheDeletes(cacheDeletes map[string]map[string]map[string]bool, dbCode 
 	for _, key := range keys {
 		cacheDeletes[dbCode][cacheCode][key] = true
 	}
+}
 
+func addDirtyQueues(keys map[string][]*redis.Z, bind map[string]interface{}, schema *TableSchema, id uint64) {
+	results := make(map[string]*redis.Z)
+	key := createDirtyQueueMember(schema.t.String(), id)
+	for column, tags := range schema.tags {
+		queues, has := tags["dirty"]
+		if !has {
+			continue
+		}
+		isDirty := column == "Orm"
+		if !isDirty {
+			_, isDirty = bind[column]
+		}
+		if !isDirty {
+			continue
+		}
+		queueNames := strings.Split(queues, ",")
+		for _, queueName := range queueNames {
+			_, has = results[queueName]
+			if has {
+				continue
+			}
+			results[queueName] = key
+		}
+	}
+	for k, v := range results {
+		keys[k] = append(keys[k], v)
+	}
 }
 
 func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, values []interface{}) {

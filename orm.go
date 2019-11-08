@@ -14,6 +14,7 @@ var mySqlClients = make(map[string]*DB)
 var localCacheContainers = make(map[string]*LocalCache)
 var redisServers = make(map[string]*RedisCache)
 var entities = make(map[string]reflect.Type)
+var dirtyQueuesCodes = make(map[string]string)
 var queueRedisName = "default"
 
 func RegisterEntity(entity ...interface{}) {
@@ -56,6 +57,10 @@ func RegisterRedis(code string, address string, db int) *RedisCache {
 	redisCache := &RedisCache{code: code, client: client}
 	redisServers[code] = redisCache
 	return redisCache
+}
+
+func RegisterDirtyQueue(code string, redisCode string) {
+	dirtyQueuesCodes[code] = redisCode
 }
 
 func SetRedisForQueue(redisCode string) {
