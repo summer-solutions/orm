@@ -33,7 +33,6 @@ func TestDirtyQueue(t *testing.T) {
 
 	LoggerRedisQueue := TestCacheLogger{}
 	orm.GetRedisCache("default_queue").AddLogger(&LoggerRedisQueue)
-	orm.GetRedisCache("default_queue").AddLogger(orm.StandardCacheLogger{})
 
 	err := orm.Flush(&entityAll, &entityAge)
 	assert.Nil(t, err)
@@ -70,9 +69,52 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, LoggerRedisQueue.Requests, 6)
 
+	assert.Equal(t, int64(1), receiver.Size())
+	err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []*redis.Z, err error) {
+		assert.Len(t, data, 1)
+		assert.Equal(t, orm.GetTableSchema(TestEntityDirtyQueueAllName), data[0].TableSchema)
+		assert.Equal(t, uint64(1), data[0].Id)
+		assert.False(t, data[0].Inserted)
+		assert.True(t, data[0].Updated)
+		assert.False(t, data[0].Deleted)
+		return nil, nil
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), receiver.Size())
+
 	entityAge.Age = 10
 	err = orm.Flush(&entityAge)
 	assert.Nil(t, err)
-	assert.Len(t, LoggerRedisQueue.Requests, 7)
-	assert.Equal(t, "ZADD 1 values test", LoggerRedisQueue.Requests[5])
+	assert.Len(t, LoggerRedisQueue.Requests, 11)
+	assert.Equal(t, "ZADD 1 values test", LoggerRedisQueue.Requests[10])
+
+	assert.Equal(t, int64(1), receiver.Size())
+	err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []*redis.Z, err error) {
+		assert.Len(t, data, 1)
+		assert.Equal(t, orm.GetTableSchema(TestEntityDirtyQueueAgeName), data[0].TableSchema)
+		assert.Equal(t, uint64(1), data[0].Id)
+		assert.False(t, data[0].Inserted)
+		assert.True(t, data[0].Updated)
+		assert.False(t, data[0].Deleted)
+		return nil, nil
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), receiver.Size())
+
+	orm.MarkToDelete(&entityAge)
+	err = orm.Flush(&entityAge)
+	assert.Nil(t, err)
+
+	assert.Equal(t, int64(1), receiver.Size())
+	err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []*redis.Z, err error) {
+		assert.Len(t, data, 1)
+		assert.Equal(t, orm.GetTableSchema(TestEntityDirtyQueueAgeName), data[0].TableSchema)
+		assert.Equal(t, uint64(1), data[0].Id)
+		assert.False(t, data[0].Inserted)
+		assert.False(t, data[0].Updated)
+		assert.True(t, data[0].Deleted)
+		return nil, nil
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), receiver.Size())
 }
