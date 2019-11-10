@@ -12,8 +12,6 @@ type AddressByIdRedis struct {
 	Building uint16
 }
 
-const TestEntityByIdRedisName = "tests.TestEntityByIdRedis"
-
 type TestEntityByIdRedis struct {
 	Orm                  orm.ORM `orm:"table=TestGetByIdRedis;redisCache;ttl=10"`
 	Id                   uint
@@ -60,10 +58,9 @@ func TestGetByIdRedis(t *testing.T) {
 	DBLogger := TestDatabaseLogger{}
 	orm.GetMysqlDB("default").AddLogger(&DBLogger)
 
-	row, found := orm.TryById(1, TestEntityByIdRedisName)
+	found := orm.TryById(1, &entity)
 	assert.True(t, found)
-	assert.NotNil(t, row)
-	entity = row.(TestEntityByIdRedis)
+	assert.NotNil(t, entity)
 	assert.Equal(t, uint(1), entity.Id)
 	assert.Equal(t, "", entity.Name)
 	assert.Equal(t, "", entity.BigName)
@@ -144,11 +141,9 @@ func TestGetByIdRedis(t *testing.T) {
 
 	assert.Len(t, DBLogger.Queries, 2)
 
-	entity = TestEntityByIdRedis{}
-	row, found = orm.TryById(1, TestEntityByIdRedisName)
+	found = orm.TryById(1, &entity)
 	assert.True(t, found)
-	assert.NotNil(t, row)
-	entity = row.(TestEntityByIdRedis)
+	assert.NotNil(t, entity)
 	assert.Equal(t, "Test name", entity.Name)
 	assert.Equal(t, "Test big name", entity.BigName)
 	assert.Equal(t, uint8(2), entity.Uint8)
@@ -169,7 +164,7 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"name": "John"}, entity.Json)
 	assert.Len(t, DBLogger.Queries, 3)
 
-	orm.TryById(1, TestEntityByIdRedisName)
+	orm.TryById(1, &entity)
 	assert.Len(t, DBLogger.Queries, 3)
 }
 
@@ -181,6 +176,6 @@ func BenchmarkGetById(b *testing.B) {
 	_ = orm.Flush(&entity)
 
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryById(1, TestEntityByIdRedisName)
+		_ = orm.TryById(1, &entity)
 	}
 }

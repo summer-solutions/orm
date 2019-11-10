@@ -12,8 +12,6 @@ type AddressByIdLocal struct {
 	Building uint16
 }
 
-const TestEntityByIdLocalName = "tests.TestEntityByIdLocal"
-
 type TestEntityByIdLocal struct {
 	Orm                  orm.ORM `orm:"table=TestGetByIdLocal;localCache"`
 	Id                   uint
@@ -60,10 +58,9 @@ func TestGetByIdLocal(t *testing.T) {
 	DBLogger := TestDatabaseLogger{}
 	orm.GetMysqlDB("default").AddLogger(&DBLogger)
 
-	row, found := orm.TryById(1, TestEntityByIdLocalName)
+	found := orm.TryById(1, &entity)
 	assert.True(t, found)
-	assert.NotNil(t, row)
-	entity = row.(TestEntityByIdLocal)
+	assert.NotNil(t, entity)
 	assert.Equal(t, uint(1), entity.Id)
 	assert.Equal(t, "", entity.Name)
 	assert.Equal(t, "", entity.BigName)
@@ -143,11 +140,9 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.False(t, isDirty)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	entity = TestEntityByIdLocal{}
-	row, found = orm.TryById(1, TestEntityByIdLocalName)
+	found = orm.TryById(1, &entity)
 	assert.True(t, found)
-	assert.NotNil(t, row)
-	entity = row.(TestEntityByIdLocal)
+	assert.NotNil(t, entity)
 	assert.Equal(t, "Test name", entity.Name)
 	assert.Equal(t, "Test big name", entity.BigName)
 	assert.Equal(t, uint8(2), entity.Uint8)
@@ -177,6 +172,6 @@ func BenchmarkGetByIdLocal(b *testing.B) {
 	_ = orm.Flush(&entity)
 
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryById(1, TestEntityByIdLocalName)
+		_ = orm.TryById(1, &entity)
 	}
 }

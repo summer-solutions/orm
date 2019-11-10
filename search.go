@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
@@ -10,35 +11,48 @@ import (
 	"time"
 )
 
-func SearchWithCount(where Where, pager Pager, entityName string, references ...string) (results []interface{}, totalRows int) {
-	return search(where, pager, true, entityName, references)
+func SearchWithCount(where Where, pager Pager, entities interface{}) (totalRows int) {
+	return search(where, pager, true, entities)
 }
 
-func Search(where Where, pager Pager, entityName string, references ...string) []interface{} {
-	results, _ := search(where, pager, false, entityName, references)
-	return results
+func Search(where Where, pager Pager, entities interface{}) {
+	search(where, pager, false, entities)
 }
 
-func SearchOne(where Where, pager Pager, entityName string, references ...string) interface{} {
-	results, _ := search(where, pager, false, entityName, references)
-	if len(results) == 0 {
-		return nil
+//func SearchIdsWithCount(where Where, pager Pager, entityName string) (results []uint64, totalRows int) {
+//	return searchIds(where, pager, true, entityName)
+//}
+//
+//func SearchIds(where Where, pager Pager, entityName string) []uint64 {
+//	results, _ := searchIds(where, pager, false, entityName)
+//	return results
+//}
+
+func SearchOne(where Where, entity interface{}) bool {
+
+	value := reflect.Indirect(reflect.ValueOf(entity))
+	entityType := value.Type()
+	schema := GetTableSchema(entityType)
+	var fieldsList = buildFieldList(entityType, "")
+	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
+	var row string
+	err := schema.GetMysqlDB().QueryRow(query, where.GetParameters()...).Scan(&row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false
+		}
+		panic(err.Error())
 	}
-	return results[0]
+
+	fillFromDBRow(row, value, entityType)
+	entity = value.Interface()
+	return true
 }
 
-func SearchIdsWithCount(where Where, pager Pager, entityName string) (results []uint64, totalRows int) {
-	return searchIds(where, pager, true, entityName)
-}
+func search(where Where, pager Pager, withCount bool, entities interface{}) int {
 
-func SearchIds(where Where, pager Pager, entityName string) []uint64 {
-	results, _ := searchIds(where, pager, false, entityName)
-	return results
-}
-
-func search(where Where, pager Pager, withCount bool, entityName string, references []string) ([]interface{}, int) {
-	entityType := getEntityType(entityName)
-	schema := GetTableSchema(entityName)
+	entityType := getEntityTypeForSlice(entities)
+	schema := GetTableSchema(entityType)
 
 	var fieldsList = buildFieldList(entityType, "")
 	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where, pager.String())
@@ -46,23 +60,27 @@ func search(where Where, pager Pager, withCount bool, entityName string, referen
 	if err != nil {
 		panic(err.Error())
 	}
-	result := make([]interface{}, 0, pager.GetPageSize())
+	valOrigin := reflect.ValueOf(entities).Elem()
+	val := valOrigin
+	i := 0
 	for results.Next() {
 		var row string
 		err = results.Scan(&row)
 		if err != nil {
 			panic(err.Error())
 		}
-		entity := createEntityFromDBRow(row, entityType)
-		result = append(result, entity)
+		value := reflect.New(entityType).Elem()
+		fillFromDBRow(row, value, entityType)
+		val = reflect.Append(val, reflect.ValueOf(value.Interface()))
+		i++
 	}
-	totalRows := getTotalRows(withCount, pager, where, schema, len(result))
-	warmUpReferences(schema, result, references)
-	return result, totalRows
+	totalRows := getTotalRows(withCount, pager, where, schema, i)
+	valOrigin.Set(val)
+	return totalRows
 }
 
-func searchIds(where Where, pager Pager, withCount bool, entityName string) ([]uint64, int) {
-	schema := GetTableSchema(entityName)
+func searchIds(where Where, pager Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
+	schema := GetTableSchema(entityType)
 	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where, pager.String())
 	results, err := schema.GetMysqlDB().Query(query, where.GetParameters()...)
 	if err != nil {
@@ -100,23 +118,20 @@ func getTotalRows(withCount bool, pager Pager, where Where, schema *TableSchema,
 	return totalRows
 }
 
-func createEntityFromDBRow(row string, entityType reflect.Type) interface{} {
+func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) {
 	data := strings.Split(row, "|")
-	value := reflect.New(entityType).Elem()
 
 	fillStruct(0, data, entityType, value, "")
 	orm := value.Field(0).Interface().(ORM)
 	orm.DBData = make(map[string]interface{})
 	orm.DBData["Id"] = data[0]
 	value.Field(0).Set(reflect.ValueOf(orm))
-	entity := value.Interface()
 
-	_, bind := IsDirty(entity)
-	cc := reflect.ValueOf(entity).Field(0).Interface().(ORM)
+	_, bind := isDirty(value)
+	cc := value.Field(0).Interface().(ORM)
 	for key, value := range bind {
 		cc.DBData[key] = value
 	}
-	return entity
 }
 
 func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) uint16 {
@@ -256,4 +271,9 @@ func buildFieldList(t reflect.Type, prefix string) string {
 		fieldsList = "`Id`" + fieldsList
 	}
 	return fieldsList
+}
+
+func getEntityTypeForSlice(entities interface{}) reflect.Type {
+	name := strings.Trim(reflect.TypeOf(entities).String(), "*[]")
+	return GetEntityType(name)
 }

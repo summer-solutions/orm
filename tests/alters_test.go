@@ -3,6 +3,7 @@ package tests
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -11,8 +12,6 @@ type AddressSchema struct {
 	Street   string
 	Building uint16
 }
-
-const testEntitySchemaName = "tests.TestEntitySchema"
 
 type TestEntitySchema struct {
 	Orm                  orm.ORM `orm:"table=TestGetAlters;mysql=schema"`
@@ -49,8 +48,9 @@ func TestGetAlters(t *testing.T) {
 	orm.UnregisterMySqlPools()
 	orm.RegisterMySqlPool("schema", "root:root@tcp(localhost:3310)/test_schema")
 
-	orm.RegisterEntity(TestEntitySchema{})
-	tableSchema := orm.GetTableSchema(testEntitySchemaName)
+	var entity TestEntitySchema
+	orm.RegisterEntity(entity)
+	tableSchema := orm.GetTableSchema(reflect.TypeOf(entity))
 	tableSchema.DropTable()
 
 	safeAlters, unsafeAlters := orm.GetAlters()

@@ -7,33 +7,16 @@ import (
 	"testing"
 )
 
-const TestEntityByIdsRedisCacheName = "tests.TestEntityByIdsRedisCache"
-
 type TestEntityByIdsRedisCache struct {
-	Orm            orm.ORM `orm:"table=TestGetByIdsRedis;redisCache"`
-	Id             uint
-	Name           string
-	ReferenceOneId uint16 `orm:"ref=tests.TestEntityByIdsRedisCache"`
-	ReferenceTwoId uint16 `orm:"ref=tests.TestEntityByIdsRedisCacheRef"`
+	Orm  orm.ORM `orm:"table=TestGetByIdsRedis;redisCache"`
+	Id   uint
+	Name string
 }
 
 type TestEntityByIdsRedisCacheRef struct {
-	Orm            orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
-	Id             uint
-	Name           string
-	ReferenceOneId uint16 `orm:"ref=tests.TestEntityByIdsRedisCache"`
-}
-
-func (e TestEntityByIdsRedisCache) GetReferenceOne() TestEntityByIdsRedisCache {
-	return orm.GetReference(e, "ReferenceOneId").(TestEntityByIdsRedisCache)
-}
-
-func (e TestEntityByIdsRedisCache) GetReferenceTwo() TestEntityByIdsRedisCacheRef {
-	return orm.GetReference(e, "ReferenceTwoId").(TestEntityByIdsRedisCacheRef)
-}
-
-func (e TestEntityByIdsRedisCacheRef) GetReferenceOne() TestEntityByIdsRedisCache {
-	return orm.GetReference(e, "ReferenceOneId").(TestEntityByIdsRedisCache)
+	Orm  orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
+	Id   uint
+	Name string
 }
 
 func TestEntityByIdsRedis(t *testing.T) {
@@ -44,17 +27,9 @@ func TestEntityByIdsRedis(t *testing.T) {
 
 	flusher := orm.NewFlusher(100, false)
 	for i := 1; i <= 10; i++ {
-		var ref1, ref2 uint16
-		ref1 = uint16(i - 1)
-		if i >= 7 {
-			ref1 = uint16(i - 5)
-		}
-		if i >= 5 {
-			ref2 = uint16(i - 3)
-		}
-		e := TestEntityByIdsRedisCache{Name: "Name " + strconv.Itoa(i), ReferenceOneId: ref1, ReferenceTwoId: ref2}
+		e := TestEntityByIdsRedisCache{Name: "Name " + strconv.Itoa(i)}
 		flusher.RegisterEntity(&e)
-		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i), ReferenceOneId: ref1}
+		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
 		flusher.RegisterEntity(&e2)
 	}
 	err := flusher.Flush()
@@ -67,29 +42,30 @@ func TestEntityByIdsRedis(t *testing.T) {
 	CacheLogger := TestCacheLogger{}
 	orm.GetRedisCache("default").AddLogger(&CacheLogger)
 
-	found, missing := orm.TryByIds([]uint64{2, 13, 1}, TestEntityByIdsRedisCacheName)
+	var found []TestEntityByIdsRedisCache
+	missing := orm.TryByIds([]uint64{2, 13, 1}, &found)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{13}, missing)
-	entity = found[0].(TestEntityByIdsRedisCache)
+	entity = found[0]
 	assert.Equal(t, uint(2), entity.Id)
 	assert.Equal(t, "Name 2", entity.Name)
-	entity = found[1].(TestEntityByIdsRedisCache)
+	entity = found[1]
 	assert.Equal(t, uint(1), entity.Id)
 	assert.Equal(t, "Name 1", entity.Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	found, missing = orm.TryByIds([]uint64{2, 13, 1}, TestEntityByIdsRedisCacheName)
+	missing = orm.TryByIds([]uint64{2, 13, 1}, &found)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{13}, missing)
-	entity = found[0].(TestEntityByIdsRedisCache)
+	entity = found[0]
 	assert.Equal(t, uint(2), entity.Id)
-	entity = found[1].(TestEntityByIdsRedisCache)
+	entity = found[1]
 	assert.Equal(t, uint(1), entity.Id)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	found, missing = orm.TryByIds([]uint64{25, 26, 27}, TestEntityByIdsRedisCacheName)
+	missing = orm.TryByIds([]uint64{25, 26, 27}, &found)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
 	assert.Len(t, DBLogger.Queries, 2)
@@ -99,28 +75,13 @@ func TestEntityByIdsRedis(t *testing.T) {
 	CacheLogger.Requests = make([]string, 0)
 
 	orm.EnableContextCache(100, 1)
-	found, missing = orm.TryByIds([]uint64{8, 9, 10}, TestEntityByIdsRedisCacheName, "ReferenceOneId", "ReferenceTwoId/ReferenceOneId")
+	missing = orm.TryByIds([]uint64{8, 9, 10}, &found)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
-	assert.Len(t, DBLogger.Queries, 4)
 
-	assert.Equal(t, "Name 3", found[0].(TestEntityByIdsRedisCache).GetReferenceOne().Name)
-	assert.Equal(t, "Name 4", found[1].(TestEntityByIdsRedisCache).GetReferenceOne().Name)
-	assert.Equal(t, "Name 5", found[2].(TestEntityByIdsRedisCache).GetReferenceOne().Name)
-	assert.Equal(t, "Name 5", found[0].(TestEntityByIdsRedisCache).GetReferenceTwo().Name)
-	assert.Equal(t, "Name 6", found[1].(TestEntityByIdsRedisCache).GetReferenceTwo().Name)
-	assert.Equal(t, "Name 7", found[2].(TestEntityByIdsRedisCache).GetReferenceTwo().Name)
-	assert.Equal(t, "Name 4", found[0].(TestEntityByIdsRedisCache).GetReferenceTwo().GetReferenceOne().Name)
-	assert.Equal(t, "Name 5", found[1].(TestEntityByIdsRedisCache).GetReferenceTwo().GetReferenceOne().Name)
-	assert.Equal(t, "Name 2", found[2].(TestEntityByIdsRedisCache).GetReferenceTwo().GetReferenceOne().Name)
-	assert.Len(t, DBLogger.Queries, 4)
-	assert.Len(t, CacheLogger.Requests, 8)
-
-	found, missing = orm.TryByIds([]uint64{8, 9, 10}, TestEntityByIdsRedisCacheName)
+	missing = orm.TryByIds([]uint64{8, 9, 10}, &found)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
-	assert.Len(t, DBLogger.Queries, 4)
-	assert.Len(t, CacheLogger.Requests, 8)
 }
 
 func BenchmarkGetByIdsRedis(b *testing.B) {
@@ -128,8 +89,8 @@ func BenchmarkGetByIdsRedis(b *testing.B) {
 	PrepareTables(entity)
 
 	_ = orm.Flush(&TestEntityByIdsRedisCache{Name: "Hi 1"}, &TestEntityByIdsRedisCache{Name: "Hi 2"}, &TestEntityByIdsRedisCache{Name: "Hi 3"})
-
+	var found []TestEntityByIdsRedisCache
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryByIds([]uint64{1, 2, 3}, TestEntityByIdsRedisCacheName)
+		_ = orm.TryByIds([]uint64{1, 2, 3}, &found)
 	}
 }

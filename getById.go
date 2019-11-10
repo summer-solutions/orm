@@ -6,9 +6,12 @@ import (
 	"strings"
 )
 
-func TryById(id uint64, entityName string) (entity interface{}, found bool) {
-	entityType := getEntityType(entityName)
-	schema := GetTableSchema(entityName)
+func TryById(id uint64, entity interface{}) (found bool) {
+	if reflect.TypeOf(entity).Kind() != reflect.Ptr {
+		panic(fmt.Errorf("pointer not provided"))
+	}
+	entityType := reflect.ValueOf(entity).Elem().Type()
+	schema := GetTableSchema(entityType)
 	var cacheKey string
 	localCache := schema.GetLocalCacheContainer()
 
@@ -22,9 +25,9 @@ func TryById(id uint64, entityName string) (entity interface{}, found bool) {
 		entity, has := localCache.Get(cacheKey)
 		if has {
 			if entity == nil {
-				return entity, false
+				return false
 			}
-			return entity, true
+			return true
 		}
 	}
 	redisCache := schema.GetRedisCacheContainer()
@@ -33,35 +36,35 @@ func TryById(id uint64, entityName string) (entity interface{}, found bool) {
 		row, has := redisCache.Get(cacheKey)
 		if has {
 			if row == "nil" {
-				return nil, false
+				return false
 			}
-			entity := createEntityFromDBRow(row, entityType)
-			return entity, true
+			val := reflect.ValueOf(entity).Elem()
+			fillFromDBRow(row, val, entityType)
+			entity = val.Interface()
+			return true
 		}
 	}
-
-	rows := Search(NewWhere("`Id` = ?", id), NewPager(1, 1), entityName)
-	if len(rows) == 0 {
+	found = SearchOne(NewWhere("`Id` = ?", id), entity)
+	if !found {
 		if localCache != nil {
 			localCache.Set(cacheKey, nil)
 		}
-		return nil, false
+		return false
 	}
 	if localCache != nil {
-		localCache.Set(cacheKey, rows[0])
+		localCache.Set(cacheKey, entity)
 	}
 	if redisCache != nil {
-		redisCache.Set(cacheKey, buildRedisValue(rows[0], schema), 0)
+		redisCache.Set(cacheKey, buildRedisValue(entity, schema), 0)
 	}
-	return rows[0], true
+	return true
 }
 
-func GetById(id uint64, entityName string) interface{} {
-	entity, found := TryById(id, entityName)
+func GetById(id uint64, entity *interface{}) {
+	found := TryById(id, entity)
 	if !found {
-		panic(fmt.Errorf("entity %s with id %d not found", entityName, id))
+		panic(fmt.Errorf("entity %T with id %d not found", entity, id))
 	}
-	return entity
 }
 
 func buildRedisValue(entity interface{}, schema *TableSchema) string {

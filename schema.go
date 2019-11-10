@@ -49,14 +49,13 @@ type index struct {
 	Columns map[int]string
 }
 
-var tableSchemas = make(map[string]*TableSchema)
+var tableSchemas = make(map[reflect.Type]*TableSchema)
 
-func GetTableSchema(entityName string) *TableSchema {
-	tableSchema, has := tableSchemas[entityName]
+func GetTableSchema(entityType reflect.Type) *TableSchema {
+	tableSchema, has := tableSchemas[entityType]
 	if has {
 		return tableSchema
 	}
-	entityType := getEntityType(entityName)
 	tags, columnNames := extractTags(entityType, "")
 	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", columnNames)))
 	columnsStamp := fmt.Sprintf("%x", md5Part[:1])
@@ -125,7 +124,7 @@ func GetTableSchema(entityName string) *TableSchema {
 		localCacheName: localCache,
 		redisCacheName: redisCache,
 		cachePrefix:    cachePrefix}
-	tableSchemas[entityName] = tableSchema
+	tableSchemas[entityType] = tableSchema
 	return tableSchema
 }
 

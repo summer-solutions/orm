@@ -14,12 +14,17 @@ import (
 func IsDirty(entity interface{}) (is bool, bind map[string]interface{}) {
 	v := reflect.ValueOf(entity)
 	value := reflect.Indirect(v)
+	is, bind = isDirty(value)
+	return
+}
+
+func isDirty(value reflect.Value) (is bool, bind map[string]interface{}) {
 	t := value.Type()
 	ormField := value.Field(0).Interface().(ORM)
 	if ormField.DBData["_delete"] == true {
 		return true, nil
 	}
-	bind = createBind(GetTableSchema(t.String()), t, value, ormField.DBData, "")
+	bind = createBind(GetTableSchema(t), t, value, ormField.DBData, "")
 	is = value.Field(1).Uint() == 0 || len(bind) > 0
 	return
 }
@@ -101,7 +106,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 					values[i] = value
 					i++
 				}
-				schema := GetTableSchema(t.String())
+				schema := GetTableSchema(t)
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
 				db := schema.GetMysqlDB()
 				values[i] = currentId
@@ -142,7 +147,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	for typeOf, values := range insertKeys {
-		schema := GetTableSchema(typeOf.String())
+		schema := GetTableSchema(typeOf)
 		finalValues := make([]string, len(values))
 		for key, val := range values {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
@@ -192,7 +197,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	for typeOf, deleteBinds := range deleteBinds {
-		schema := GetTableSchema(typeOf.String())
+		schema := GetTableSchema(typeOf)
 		ids := make([]uint64, len(deleteBinds))
 		i := 0
 		for id := range deleteBinds {
