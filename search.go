@@ -32,6 +32,11 @@ func SearchOne(where Where, entity interface{}) bool {
 
 	value := reflect.Indirect(reflect.ValueOf(entity))
 	entityType := value.Type()
+	return searchRow(where, entityType, value)
+}
+
+func searchRow(where Where, entityType reflect.Type, value reflect.Value) bool {
+
 	schema := GetTableSchema(entityType)
 	var fieldsList = buildFieldList(entityType, "")
 	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
@@ -45,7 +50,6 @@ func SearchOne(where Where, entity interface{}) bool {
 	}
 
 	fillFromDBRow(row, value, entityType)
-	entity = value.Interface()
 	return true
 }
 

@@ -21,6 +21,8 @@ func tryByIds(ids []uint64, entities interface{}) (missing []uint64) {
 	originalIds := ids
 	lenIDs := len(ids)
 	if lenIDs == 0 {
+		valOrigin := reflect.ValueOf(entities).Elem()
+		valOrigin.SetLen(0)
 		return make([]uint64, 0)
 	}
 	entityType := getEntityTypeForSlice(entities)
