@@ -60,7 +60,7 @@ func TryById(id uint64, entity interface{}) (found bool) {
 	return true
 }
 
-func GetById(id uint64, entity *interface{}) {
+func GetById(id uint64, entity interface{}) {
 	found := TryById(id, entity)
 	if !found {
 		panic(fmt.Errorf("entity %T with id %d not found", entity, id))
