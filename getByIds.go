@@ -136,7 +136,7 @@ func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, result
 			if v == "nil" {
 				results[k] = nil
 			} else if fromRedis {
-				value := reflect.New(entityType)
+				value := reflect.New(entityType).Elem()
 				fillFromDBRow(v.(string), value, entityType)
 				results[k] = value.Interface()
 			} else {
