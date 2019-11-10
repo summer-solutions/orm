@@ -19,14 +19,14 @@ func Search(where Where, pager Pager, entities interface{}) {
 	search(where, pager, false, entities)
 }
 
-//func SearchIdsWithCount(where Where, pager Pager, entityName string) (results []uint64, totalRows int) {
-//	return searchIds(where, pager, true, entityName)
-//}
-//
-//func SearchIds(where Where, pager Pager, entityName string) []uint64 {
-//	results, _ := searchIds(where, pager, false, entityName)
-//	return results
-//}
+func SearchIdsWithCount(where Where, pager Pager, entityType reflect.Type) (results []uint64, totalRows int) {
+	return searchIds(where, pager, true, entityType)
+}
+
+func SearchIds(where Where, pager Pager, entityType reflect.Type) []uint64 {
+	results, _ := searchIds(where, pager, false, entityType)
+	return results
+}
 
 func SearchOne(where Where, entity interface{}) bool {
 
