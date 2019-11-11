@@ -60,7 +60,7 @@ func GetTableSchema(entityType reflect.Type) *TableSchema {
 	if has {
 		return tableSchema
 	}
-	tags, columnNames := extractTags(tableSchema, entityType, "")
+	tags, columnNames := tableSchema.extractTags(entityType, "")
 	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", columnNames)))
 	columnsStamp := fmt.Sprintf("%x", md5Part[:1])
 	mysql, has := tags["Orm"]["mysql"]
@@ -605,7 +605,7 @@ func (tableSchema TableSchema) buildCreateIndexSql(keyName string, definition *i
 	return fmt.Sprintf("ADD %s `%s` (%s)", indexType, keyName, strings.Join(indexColumns, ","))
 }
 
-func extractTags(tableSchema *TableSchema, entityType reflect.Type, prefix string) (fields map[string]map[string]string, columnNames []string) {
+func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix string) (fields map[string]map[string]string, columnNames []string) {
 	fields = make(map[string]map[string]string)
 	columnNames = make([]string, 0)
 	for i := 0; i < entityType.NumField(); i++ {
@@ -649,7 +649,7 @@ func (tableSchema *TableSchema) extractTag(field reflect.StructField) (map[strin
 		return map[string]map[string]string{field.Name: attributes}, nil
 	} else if field.Type.Kind().String() == "struct" {
 		if field.Type.String() != "time.Time" {
-			return extractTags(tableSchema, field.Type, field.Name)
+			return tableSchema.extractTags(field.Type, field.Name)
 		}
 	}
 	return make(map[string]map[string]string), nil
