@@ -97,7 +97,7 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), receiver.Size())
 
-	orm.MarkToDelete(&entityAge)
+	entityAge.Orm.MarkToDelete()
 	err = orm.Flush(&entityAge)
 	assert.Nil(t, err)
 

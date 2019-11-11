@@ -70,7 +70,7 @@ func TestFlushLazy(t *testing.T) {
 
 	LoggerDB.Queries = make([]string, 0)
 	LoggerQueue.Requests = make([]string, 0)
-	orm.MarkToDelete(&entity)
+	entity.Orm.MarkToDelete()
 	err = orm.FlushLazy(&entity)
 	assert.Nil(t, err)
 	assert.Len(t, LoggerDB.Queries, 0)

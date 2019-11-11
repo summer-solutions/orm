@@ -14,6 +14,10 @@ type ORM struct {
 	DBData map[string]interface{}
 }
 
+func (orm *ORM) MarkToDelete() {
+	orm.DBData["_delete"] = true
+}
+
 type CachedQuery struct {
 }
 

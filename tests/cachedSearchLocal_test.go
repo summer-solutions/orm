@@ -98,7 +98,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 6)
 
 	entity = rows[1]
-	orm.MarkToDelete(entity)
+	entity.Orm.MarkToDelete()
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 

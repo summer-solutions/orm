@@ -62,7 +62,7 @@ func TestFlush(t *testing.T) {
 	edited := edited1
 	toDelete := edited2
 	edited.Name = "Name 2.2"
-	orm.MarkToDelete(&toDelete)
+	toDelete.Orm.MarkToDelete()
 	newEntity := TestEntityFlush{Name: "Name 11"}
 	dirty, _ = orm.IsDirty(edited)
 	assert.True(t, dirty)
@@ -124,7 +124,7 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	assert.Equal(t, "MSET [TestFlushCache49:1]", CacheLogger.Requests[0])
 
 	orm.GetMysqlDB("default").BeginTransaction()
-	orm.MarkToDelete(entity)
+	entity.Orm.MarkToDelete()
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 2)
@@ -166,7 +166,7 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	assert.Equal(t, "DELETE TestFlushCache49:1", CacheLogger.Requests[0])
 
 	orm.GetMysqlDB("default").BeginTransaction()
-	orm.MarkToDelete(entity)
+	entity.Orm.MarkToDelete()
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 2)
