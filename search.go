@@ -279,5 +279,5 @@ func buildFieldList(t reflect.Type, prefix string) string {
 
 func getEntityTypeForSlice(entities interface{}) reflect.Type {
 	name := strings.Trim(reflect.TypeOf(entities).String(), "*[]")
-	return GetEntityType(name)
+	return getEntityType(name)
 }

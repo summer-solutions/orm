@@ -93,7 +93,7 @@ func GetRedisCache(code string) *RedisCache {
 	return client
 }
 
-func GetEntityType(name string) reflect.Type {
+func getEntityType(name string) reflect.Type {
 	t, has := entities[name]
 	if !has {
 		panic(fmt.Errorf("unregistered entity %s", name))
