@@ -15,11 +15,11 @@ type AddressSchema struct {
 
 type TestEntitySchema struct {
 	Orm                  orm.ORM `orm:"table=TestGetAlters;mysql=schema"`
-	Id                   uint    `orm:"table=test;mysql=default"`
-	Name                 string  `orm:"length=100;index=FirstIndex"`
-	BigName              string  `orm:"length=max"`
-	Uint8                uint8   `orm:"unique=SecondIndex:2,ThirdIndex"`
-	Uint24               uint32  `orm:"mediumint=true"`
+	Id                   uint
+	Name                 string `orm:"length=100;index=FirstIndex"`
+	BigName              string `orm:"length=max"`
+	Uint8                uint8  `orm:"unique=SecondIndex:2,ThirdIndex"`
+	Uint24               uint32 `orm:"mediumint=true"`
 	Uint32               uint32
 	Uint64               uint64 `orm:"unique=SecondIndex"`
 	Int8                 int8
