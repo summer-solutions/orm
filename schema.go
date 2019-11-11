@@ -60,7 +60,7 @@ func GetTableSchema(entityType reflect.Type) *TableSchema {
 	if has {
 		return tableSchema
 	}
-	tags, columnNames := extractTags(entityType, "")
+	tags, columnNames := extractTags(tableSchema, entityType, "")
 	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", columnNames)))
 	columnsStamp := fmt.Sprintf("%x", md5Part[:1])
 	mysql, has := tags["Orm"]["mysql"]
@@ -134,7 +134,7 @@ func GetTableSchema(entityType reflect.Type) *TableSchema {
 
 func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, unsafeAlter string) {
 	indexes := make(map[string]*index)
-	columns := checkStruct(tableSchema.t, tableSchema, indexes, "")
+	columns := tableSchema.checkStruct(tableSchema.t, indexes, "")
 
 	createTableSql := fmt.Sprintf("CREATE TABLE `%s` (\n", tableSchema.TableName)
 	columns[0][1] += " AUTO_INCREMENT"
@@ -262,11 +262,11 @@ OUTER:
 	for keyName, indexEntity := range indexes {
 		indexDB, has := indexesDB[keyName]
 		if !has {
-			newIndexes = append(newIndexes, buildCreateIndexSql(keyName, indexEntity))
+			newIndexes = append(newIndexes, tableSchema.buildCreateIndexSql(keyName, indexEntity))
 			hasAlters = true
 		} else {
-			addIndexSqlEntity := buildCreateIndexSql(keyName, indexEntity)
-			addIndexSqlDB := buildCreateIndexSql(keyName, indexDB)
+			addIndexSqlEntity := tableSchema.buildCreateIndexSql(keyName, indexEntity)
+			addIndexSqlDB := tableSchema.buildCreateIndexSql(keyName, indexDB)
 			if addIndexSqlEntity != addIndexSqlDB {
 				droppedIndexes = append(droppedIndexes, fmt.Sprintf("DROP INDEX `%s`", keyName))
 				newIndexes = append(newIndexes, addIndexSqlEntity)
@@ -323,7 +323,7 @@ OUTER:
 		}
 	}
 
-	if isTableEmpty(tableSchema) || (len(droppedColumns) == 0 && len(changedColumns) == 0) {
+	if tableSchema.isTableEmpty() || (len(droppedColumns) == 0 && len(changedColumns) == 0) {
 		safeAlter = alterSql
 	} else {
 		unsafeAlter = alterSql
@@ -384,7 +384,7 @@ func (tableSchema TableSchema) getCacheKeySearch(indexName string, parameters ..
 	return fmt.Sprintf("%s_%s_%x", tableSchema.cachePrefix, indexName, md5Part[:5])
 }
 
-func isTableEmpty(tableSchema TableSchema) bool {
+func (tableSchema TableSchema) isTableEmpty() bool {
 	var lastId uint64
 	err := tableSchema.GetMysqlDB().QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableSchema.TableName)).Scan(&lastId)
 	if err != nil {
@@ -396,7 +396,7 @@ func isTableEmpty(tableSchema TableSchema) bool {
 	return false
 }
 
-func checkStruct(t reflect.Type, schema TableSchema, indexes map[string]*index, prefix string) (columns [][2]string) {
+func (tableSchema TableSchema) checkStruct(t reflect.Type, indexes map[string]*index, prefix string) (columns [][2]string) {
 	columns = make([][2]string, 0, t.NumField())
 	max := t.NumField() - 1
 	for i := 0; i <= max; i++ {
@@ -404,20 +404,20 @@ func checkStruct(t reflect.Type, schema TableSchema, indexes map[string]*index, 
 			continue
 		}
 		field := t.Field(i)
-		var fieldColumns = checkColumn(&field, indexes, prefix, schema)
+		var fieldColumns = tableSchema.checkColumn(&field, indexes, prefix)
 		columns = append(columns, fieldColumns...)
 	}
 	return
 }
 
-func checkColumn(field *reflect.StructField, indexes map[string]*index, prefix string, schema TableSchema) [][2]string {
+func (tableSchema TableSchema) checkColumn(field *reflect.StructField, indexes map[string]*index, prefix string) [][2]string {
 	var definition string
 	var addNotNullIfNotSet bool
 	addDefaultNullIfNullable := true
 	var typeAsString = field.Type.String()
 	columnName := prefix + field.Name
 
-	attributes := schema.tags[columnName]
+	attributes := tableSchema.tags[columnName]
 
 	indexAttribute, has := attributes["index"]
 	unique := false
@@ -449,58 +449,58 @@ func checkColumn(field *reflect.StructField, indexes map[string]*index, prefix s
 
 	switch typeAsString {
 	case "uint":
-		definition, addNotNullIfNotSet = handleInt("int(10) unsigned")
+		definition, addNotNullIfNotSet = tableSchema.handleInt("int(10) unsigned")
 	case "uint8":
-		definition, addNotNullIfNotSet = handleInt("tinyint(3) unsigned")
+		definition, addNotNullIfNotSet = tableSchema.handleInt("tinyint(3) unsigned")
 	case "uint16":
 		yearAttribute, _ := attributes["year"]
 		if yearAttribute == "true" {
 			return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) NOT NULL DEFAULT '0000'", columnName)}}
 		} else {
-			definition, addNotNullIfNotSet = handleInt("smallint(5) unsigned")
+			definition, addNotNullIfNotSet = tableSchema.handleInt("smallint(5) unsigned")
 		}
 	case "uint32":
 		mediumIntAttribute, _ := attributes["mediumint"]
 		if mediumIntAttribute == "true" {
-			definition, addNotNullIfNotSet = handleInt("mediumint(8) unsigned")
+			definition, addNotNullIfNotSet = tableSchema.handleInt("mediumint(8) unsigned")
 		} else {
-			definition, addNotNullIfNotSet = handleInt("int(10) unsigned")
+			definition, addNotNullIfNotSet = tableSchema.handleInt("int(10) unsigned")
 		}
 	case "uint64":
-		definition, addNotNullIfNotSet = handleInt("bigint(20) unsigned")
+		definition, addNotNullIfNotSet = tableSchema.handleInt("bigint(20) unsigned")
 	case "int8":
-		definition, addNotNullIfNotSet = handleInt("tinyint(4)")
+		definition, addNotNullIfNotSet = tableSchema.handleInt("tinyint(4)")
 	case "int16":
-		definition, addNotNullIfNotSet = handleInt("smallint(6)")
+		definition, addNotNullIfNotSet = tableSchema.handleInt("smallint(6)")
 	case "int32":
 		mediumIntAttribute, _ := attributes["mediumint"]
 		if mediumIntAttribute == "true" {
-			definition, addNotNullIfNotSet = handleInt("mediumint(9)")
+			definition, addNotNullIfNotSet = tableSchema.handleInt("mediumint(9)")
 		} else {
-			definition, addNotNullIfNotSet = handleInt("int(11)")
+			definition, addNotNullIfNotSet = tableSchema.handleInt("int(11)")
 		}
 	case "int64":
-		definition, addNotNullIfNotSet = handleInt("bigint(20)")
+		definition, addNotNullIfNotSet = tableSchema.handleInt("bigint(20)")
 	case "rune":
-		definition, addNotNullIfNotSet = handleInt("int(11)")
+		definition, addNotNullIfNotSet = tableSchema.handleInt("int(11)")
 	case "int":
-		definition, addNotNullIfNotSet = handleInt("int(11)")
+		definition, addNotNullIfNotSet = tableSchema.handleInt("int(11)")
 	case "bool":
-		definition, addNotNullIfNotSet = handleInt("tinyint(1)")
+		definition, addNotNullIfNotSet = tableSchema.handleInt("tinyint(1)")
 	case "string", "[]string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable = handleString(attributes, false)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable = tableSchema.handleString(attributes, false)
 	case "interface {}", "[]uint64":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable = handleString(attributes, true)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable = tableSchema.handleString(attributes, true)
 	case "float32":
-		definition, addNotNullIfNotSet = handleFloat("float", attributes)
+		definition, addNotNullIfNotSet = tableSchema.handleFloat("float", attributes)
 	case "float64":
-		definition, addNotNullIfNotSet = handleFloat("double", attributes)
+		definition, addNotNullIfNotSet = tableSchema.handleFloat("double", attributes)
 	case "time.Time":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable = handleTime(attributes)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable = tableSchema.handleTime(attributes)
 	default:
 		kind := field.Type.Kind().String()
 		if kind == "struct" {
-			structFields := checkStruct(field.Type, schema, indexes, field.Name)
+			structFields := tableSchema.checkStruct(field.Type, indexes, field.Name)
 			return structFields
 		}
 		panic(fmt.Errorf("unsoported field type: %s %s", field.Name, field.Type.String()))
@@ -516,11 +516,11 @@ func checkColumn(field *reflect.StructField, indexes map[string]*index, prefix s
 	return [][2]string{{columnName, fmt.Sprintf("`%s` %s", columnName, definition)}}
 }
 
-func handleInt(definition string) (string, bool) {
+func (tableSchema TableSchema) handleInt(definition string) (string, bool) {
 	return definition, true
 }
 
-func handleFloat(floatDefinition string, attributes map[string]string) (string, bool) {
+func (tableSchema TableSchema) handleFloat(floatDefinition string, attributes map[string]string) (string, bool) {
 	decimal, hasDecimal := attributes["decimal"]
 	var definition string
 	if hasDecimal {
@@ -536,7 +536,7 @@ func handleFloat(floatDefinition string, attributes map[string]string) (string, 
 	return definition, true
 }
 
-func handleString(attributes map[string]string, forceMax bool) (string, bool, bool) {
+func (tableSchema TableSchema) handleString(attributes map[string]string, forceMax bool) (string, bool, bool) {
 	var definition string
 	enum, hasEnum := attributes["enum"]
 	if hasEnum {
@@ -580,7 +580,7 @@ func handleSetEnum(fieldType string, attribute string) (string, bool, bool) {
 	return definition, false, true
 }
 
-func handleTime(attributes map[string]string) (string, bool, bool) {
+func (tableSchema TableSchema) handleTime(attributes map[string]string) (string, bool, bool) {
 	time, _ := attributes["time"]
 	if time == "true" {
 		return "datetime", true, true
@@ -588,7 +588,7 @@ func handleTime(attributes map[string]string) (string, bool, bool) {
 	return "date", true, true
 }
 
-func buildCreateIndexSql(keyName string, definition *index) string {
+func (tableSchema TableSchema) buildCreateIndexSql(keyName string, definition *index) string {
 	var indexColumns []string
 	for i := 1; i <= 100; i++ {
 		value, has := definition.Columns[i]
@@ -605,13 +605,13 @@ func buildCreateIndexSql(keyName string, definition *index) string {
 	return fmt.Sprintf("ADD %s `%s` (%s)", indexType, keyName, strings.Join(indexColumns, ","))
 }
 
-func extractTags(entityType reflect.Type, prefix string) (fields map[string]map[string]string, columnNames []string) {
+func extractTags(tableSchema *TableSchema, entityType reflect.Type, prefix string) (fields map[string]map[string]string, columnNames []string) {
 	fields = make(map[string]map[string]string)
 	columnNames = make([]string, 0)
 	for i := 0; i < entityType.NumField(); i++ {
 		field := entityType.Field(i)
 
-		subTags, subFields := extractTag(field)
+		subTags, subFields := tableSchema.extractTag(field)
 		for k, v := range subTags {
 			fields[prefix+k] = v
 		}
@@ -632,7 +632,7 @@ func extractTags(entityType reflect.Type, prefix string) (fields map[string]map[
 	return
 }
 
-func extractTag(field reflect.StructField) (map[string]map[string]string, []string) {
+func (tableSchema *TableSchema) extractTag(field reflect.StructField) (map[string]map[string]string, []string) {
 	tag, ok := field.Tag.Lookup("orm")
 	if ok {
 		args := strings.Split(tag, ";")
@@ -649,7 +649,7 @@ func extractTag(field reflect.StructField) (map[string]map[string]string, []stri
 		return map[string]map[string]string{field.Name: attributes}, nil
 	} else if field.Type.Kind().String() == "struct" {
 		if field.Type.String() != "time.Time" {
-			return extractTags(field.Type, field.Name)
+			return extractTags(tableSchema, field.Type, field.Name)
 		}
 	}
 	return make(map[string]map[string]string), nil
