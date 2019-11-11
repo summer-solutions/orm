@@ -11,11 +11,11 @@ import (
 )
 
 type ORM struct {
-	DBData map[string]interface{}
+	dBData map[string]interface{}
 }
 
 func (orm *ORM) MarkToDelete() {
-	orm.DBData["_delete"] = true
+	orm.dBData["_delete"] = true
 }
 
 type CachedQuery struct {

@@ -68,7 +68,7 @@ func GetById(id uint64, entity interface{}) {
 }
 
 func buildRedisValue(entity interface{}, schema *TableSchema) string {
-	bind := reflect.Indirect(reflect.ValueOf(entity)).Field(0).Interface().(ORM).DBData
+	bind := reflect.Indirect(reflect.ValueOf(entity)).Field(0).Interface().(ORM).dBData
 	length := len(schema.columnNames)
 	value := make([]string, length)
 	for i := 0; i < length; i++ {

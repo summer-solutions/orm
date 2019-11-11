@@ -21,10 +21,10 @@ func IsDirty(entity interface{}) (is bool, bind map[string]interface{}) {
 func isDirty(value reflect.Value) (is bool, bind map[string]interface{}) {
 	t := value.Type()
 	ormField := value.Field(0).Interface().(ORM)
-	if ormField.DBData["_delete"] == true {
+	if ormField.dBData["_delete"] == true {
 		return true, nil
 	}
-	bind = createBind(GetTableSchema(t), t, value, ormField.DBData, "")
+	bind = createBind(GetTableSchema(t), t, value, ormField.dBData, "")
 	is = value.Field(1).Uint() == 0 || len(bind) > 0
 	return
 }
@@ -62,7 +62,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		orm := value.Field(0).Interface().(ORM)
 
 		t := value.Type()
-		if orm.DBData == nil {
+		if orm.dBData == nil {
 			values := make([]interface{}, bindLength)
 			valuesKeys := make([]string, bindLength)
 			if insertKeys[t] == nil {
@@ -93,10 +93,10 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		} else {
 			values := make([]interface{}, bindLength+1)
 			currentId := value.Field(1).Uint()
-			if orm.DBData["_delete"] == true {
+			if orm.dBData["_delete"] == true {
 				if deleteBinds[t] == nil {
 					deleteBinds[t] = make(map[uint64]map[string]interface{})
-					deleteBinds[t][currentId] = orm.DBData
+					deleteBinds[t][currentId] = orm.dBData
 				}
 			} else {
 				fields := make([]string, bindLength)
@@ -118,8 +118,8 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 						return err
 					}
 				}
-				old := make(map[string]interface{}, len(orm.DBData))
-				for k, v := range orm.DBData {
+				old := make(map[string]interface{}, len(orm.dBData))
+				for k, v := range orm.dBData {
 					old[k] = v
 				}
 				injectBind(value, bind)
@@ -133,13 +133,13 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 				if localCache != nil {
 					db := schema.GetMysqlDB()
 					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(currentId), value.Interface())
-					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, orm.DBData, false)...)
+					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, orm.dBData, false)...)
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
 				}
 				if redisCache != nil {
 					db := schema.GetMysqlDB()
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentId))
-					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, orm.DBData, false)...)
+					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, orm.dBData, false)...)
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
 				}
 				addDirtyQueues(dirtyQueues, bind, schema, currentId, "u")
@@ -337,11 +337,11 @@ func serializeForLazyQueue(lazyMap map[string]interface{}) string {
 }
 func injectBind(value reflect.Value, bind map[string]interface{}) {
 	oldFields := value.Field(0).Interface().(ORM)
-	if oldFields.DBData == nil {
-		oldFields.DBData = make(map[string]interface{})
+	if oldFields.dBData == nil {
+		oldFields.dBData = make(map[string]interface{})
 	}
 	for key, value := range bind {
-		oldFields.DBData[key] = value
+		oldFields.dBData[key] = value
 	}
 	value.Field(0).Set(reflect.ValueOf(oldFields))
 }

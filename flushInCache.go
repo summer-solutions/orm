@@ -32,8 +32,8 @@ func FlushInCache(entities ...interface{}) error {
 				continue
 			}
 			orm := value.Field(0).Interface().(ORM)
-			old := make(map[string]interface{}, len(orm.DBData))
-			for k, v := range orm.DBData {
+			old := make(map[string]interface{}, len(orm.dBData))
+			for k, v := range orm.dBData {
 				old[k] = v
 			}
 			injectBind(value, bind)

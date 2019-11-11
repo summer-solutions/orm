@@ -127,14 +127,14 @@ func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) {
 
 	fillStruct(0, data, entityType, value, "")
 	orm := value.Field(0).Interface().(ORM)
-	orm.DBData = make(map[string]interface{})
-	orm.DBData["Id"] = data[0]
+	orm.dBData = make(map[string]interface{})
+	orm.dBData["Id"] = data[0]
 	value.Field(0).Set(reflect.ValueOf(orm))
 
 	_, bind := isDirty(value)
 	cc := value.Field(0).Interface().(ORM)
 	for key, value := range bind {
-		cc.DBData[key] = value
+		cc.dBData[key] = value
 	}
 }
 

@@ -49,12 +49,12 @@ func (r FlushInCacheReceiver) Digest() error {
 		}
 		ormFieldCache := entityInCache.Field(0).Interface().(ORM)
 		ormFieldDB := entityDBValue.Field(0).Interface().(ORM)
-		newData := make(map[string]interface{}, len(ormFieldCache.DBData))
-		for k, v := range ormFieldCache.DBData {
+		newData := make(map[string]interface{}, len(ormFieldCache.dBData))
+		for k, v := range ormFieldCache.dBData {
 			newData[k] = v
 		}
-		for k, v := range ormFieldDB.DBData {
-			ormFieldCache.DBData[k] = v
+		for k, v := range ormFieldDB.dBData {
+			ormFieldCache.dBData[k] = v
 		}
 		is, bind := isDirty(entityInCache)
 		if !is {
@@ -78,7 +78,7 @@ func (r FlushInCacheReceiver) Digest() error {
 			GetRedisCache(queueRedisName).ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 			return err
 		}
-		cacheKeys := getCacheQueriesKeys(schema, bind, ormFieldCache.DBData, false)
+		cacheKeys := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
 		cacheKeys = append(cacheKeys, getCacheQueriesKeys(schema, bind, newData, false)...)
 		if len(cacheKeys) > 0 {
 			err = cache.Del(cacheKeys...)
