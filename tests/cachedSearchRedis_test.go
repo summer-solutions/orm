@@ -8,7 +8,7 @@ import (
 )
 
 type TestEntityIndexTestRedis struct {
-	Orm      orm.ORM `orm:"table=TestCachedSearchRedis;redisCache"`
+	Orm      *orm.ORM `orm:"table=TestCachedSearchRedis;redisCache"`
 	Id       uint
 	Name     string `orm:"length=100;index=FirstIndex"`
 	Age      uint16

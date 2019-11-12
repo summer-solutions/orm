@@ -8,7 +8,7 @@ import (
 )
 
 type TestEntityFlushLazy struct {
-	Orm  orm.ORM `orm:"table=TestFlushLazy;mysql=default;redisCache"`
+	Orm  *orm.ORM `orm:"table=TestFlushLazy;mysql=default;redisCache"`
 	Id   uint
 	Name string
 }

@@ -13,7 +13,7 @@ type AddressByIdRedis struct {
 }
 
 type TestEntityByIdRedis struct {
-	Orm                  orm.ORM `orm:"table=TestGetByIdRedis;redisCache;ttl=10"`
+	Orm                  *orm.ORM `orm:"table=TestGetByIdRedis;redisCache;ttl=10"`
 	Id                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`
@@ -51,9 +51,8 @@ func TestGetByIdRedis(t *testing.T) {
 	err := orm.Flush(&entity)
 	assert.Nil(t, err)
 
-	isDirty, bind := orm.IsDirty(&entity)
+	isDirty := entity.Orm.IsDirty()
 	assert.False(t, isDirty)
-	assert.Len(t, bind, 0)
 
 	DBLogger := TestDatabaseLogger{}
 	orm.GetMysqlDB("default").AddLogger(&DBLogger)
@@ -88,9 +87,8 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.Equal(t, AddressByIdRedis{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.Json)
-	isDirty, bind = orm.IsDirty(&entity)
+	isDirty = entity.Orm.IsDirty()
 	assert.False(t, isDirty)
-	assert.Len(t, bind, 0)
 	assert.Len(t, DBLogger.Queries, 1)
 
 	entity.Name = "Test name"
@@ -112,31 +110,12 @@ func TestGetByIdRedis(t *testing.T) {
 	entity.Address.Building = 12
 	entity.Json = map[string]string{"name": "John"}
 
-	isDirty, bind = orm.IsDirty(&entity)
+	isDirty = entity.Orm.IsDirty()
 	assert.True(t, isDirty)
-	assert.Len(t, bind, 18)
-	assert.Equal(t, "Test name", bind["Name"])
-	assert.Equal(t, "Test big name", bind["BigName"])
-	assert.Equal(t, "2", bind["Uint8"])
-	assert.Equal(t, "14", bind["Int"])
-	assert.Equal(t, "1", bind["Bool"])
-	assert.Equal(t, "1.11", bind["Float32"])
-	assert.Equal(t, "1.129999995", bind["Float32Precision"])
-	assert.Equal(t, "7.002", bind["Float64"])
-	assert.Equal(t, "123.13", bind["Float32Decimal"])
-	assert.Equal(t, "-12.0100", bind["Float64DecimalSigned"])
-	assert.Equal(t, "bbb", bind["Enum"])
-	assert.Equal(t, "hh,dd", bind["Set"])
-	assert.Equal(t, "1982", bind["Year"])
-	assert.Equal(t, "1982-04-06", bind["Date"])
-	assert.Equal(t, "2019-02-11 12:34:11", bind["DateTime"])
-	assert.Equal(t, "wall street", bind["AddressStreet"])
-	assert.Equal(t, "12", bind["AddressBuilding"])
-	assert.Equal(t, "{\"name\":\"John\"}", bind["Json"])
 
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
-	isDirty, bind = orm.IsDirty(&entity)
+	isDirty = entity.Orm.IsDirty()
 	assert.False(t, isDirty)
 
 	assert.Len(t, DBLogger.Queries, 2)

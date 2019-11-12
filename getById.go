@@ -40,7 +40,7 @@ func TryById(id uint64, entity interface{}) (found bool) {
 			}
 			val := reflect.ValueOf(entity).Elem()
 			fillFromDBRow(row, val, entityType)
-			entity = val.Interface()
+			initIfNeeded(val, entity)
 			return true
 		}
 	}
@@ -68,7 +68,7 @@ func GetById(id uint64, entity interface{}) {
 }
 
 func buildRedisValue(entity interface{}, schema *TableSchema) string {
-	bind := reflect.Indirect(reflect.ValueOf(entity)).Field(0).Interface().(ORM).dBData
+	bind := reflect.Indirect(reflect.ValueOf(entity)).Field(0).Interface().(*ORM).dBData
 	length := len(schema.columnNames)
 	value := make([]string, length)
 	for i := 0; i < length; i++ {

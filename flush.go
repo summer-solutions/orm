@@ -11,16 +11,9 @@ import (
 	"time"
 )
 
-func IsDirty(entity interface{}) (is bool, bind map[string]interface{}) {
-	v := reflect.ValueOf(entity)
-	value := reflect.Indirect(v)
-	is, bind = isDirty(value)
-	return
-}
-
 func isDirty(value reflect.Value) (is bool, bind map[string]interface{}) {
 	t := value.Type()
-	ormField := value.Field(0).Interface().(ORM)
+	ormField := value.Field(0).Interface().(*ORM)
 	if ormField.dBData["_delete"] == true {
 		return true, nil
 	}
@@ -53,16 +46,16 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 	contextCache := getContextCache()
 
 	for _, entity := range entities {
-		isDirty, bind := IsDirty(entity)
+		value := reflect.Indirect(reflect.ValueOf(entity))
+		orm := initIfNeeded(value, entity)
+		isDirty, bind := isDirty(value)
 		if !isDirty {
 			continue
 		}
 		bindLength := len(bind)
-		value := reflect.Indirect(reflect.ValueOf(entity))
-		orm := value.Field(0).Interface().(ORM)
 
 		t := value.Type()
-		if orm.dBData == nil {
+		if len(orm.dBData) == 0 {
 			values := make([]interface{}, bindLength)
 			valuesKeys := make([]string, bindLength)
 			if insertKeys[t] == nil {
@@ -336,7 +329,7 @@ func serializeForLazyQueue(lazyMap map[string]interface{}) string {
 
 }
 func injectBind(value reflect.Value, bind map[string]interface{}) {
-	oldFields := value.Field(0).Interface().(ORM)
+	oldFields := value.Field(0).Interface().(*ORM)
 	if oldFields.dBData == nil {
 		oldFields.dBData = make(map[string]interface{})
 	}

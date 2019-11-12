@@ -32,7 +32,9 @@ func SearchOne(where Where, entity interface{}) bool {
 
 	value := reflect.Indirect(reflect.ValueOf(entity))
 	entityType := value.Type()
-	return searchRow(where, entityType, value)
+	has := searchRow(where, entityType, value)
+	initIfNeeded(value, entity)
+	return has
 }
 
 func searchRow(where Where, entityType reflect.Type, value reflect.Value) bool {
@@ -75,7 +77,9 @@ func search(where Where, pager Pager, withCount bool, entities interface{}) int 
 		}
 		value := reflect.New(entityType).Elem()
 		fillFromDBRow(row, value, entityType)
-		val = reflect.Append(val, reflect.ValueOf(value.Interface()))
+		e := value.Interface()
+		val = reflect.Append(val, reflect.ValueOf(e))
+		initIfNeeded(value, &e)
 		i++
 	}
 	totalRows := getTotalRows(withCount, pager, where, schema, i)
@@ -126,15 +130,16 @@ func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) {
 	data := strings.Split(row, "|")
 
 	fillStruct(0, data, entityType, value, "")
-	orm := value.Field(0).Interface().(ORM)
-	orm.dBData = make(map[string]interface{})
+	orm := value.Field(0).Interface().(*ORM)
+	if orm == nil {
+		orm = &ORM{dBData: make(map[string]interface{})}
+	}
 	orm.dBData["Id"] = data[0]
 	value.Field(0).Set(reflect.ValueOf(orm))
 
 	_, bind := isDirty(value)
-	cc := value.Field(0).Interface().(ORM)
 	for key, value := range bind {
-		cc.dBData[key] = value
+		orm.dBData[key] = value
 	}
 }
 

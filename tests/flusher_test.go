@@ -8,13 +8,13 @@ import (
 )
 
 type TestEntityFlusherAuto struct {
-	Orm  orm.ORM `orm:"table=TestFlusherAuto;mysql=default"`
+	Orm  *orm.ORM `orm:"table=TestFlusherAuto;mysql=default"`
 	Id   uint
 	Name string
 }
 
 type TestEntityFlusherManual struct {
-	Orm  orm.ORM `orm:"table=TestFlusherManual;mysql=default"`
+	Orm  *orm.ORM `orm:"table=TestFlusherManual;mysql=default"`
 	Id   uint
 	Name string
 }

@@ -24,6 +24,23 @@ func RegisterEntity(entity ...interface{}) {
 	}
 }
 
+func Init(entity ...interface{}) {
+	for _, e := range entity {
+		value := reflect.Indirect(reflect.ValueOf(e))
+		initIfNeeded(value, e)
+	}
+}
+
+func initIfNeeded(value reflect.Value, entity interface{}) *ORM {
+	orm := value.Field(0).Interface().(*ORM)
+	if orm == nil {
+		orm = &ORM{dBData: make(map[string]interface{}), e: entity}
+		value.Field(0).Set(reflect.ValueOf(orm))
+	}
+	orm.e = entity
+	return orm
+}
+
 func RegisterMySqlPool(code string, dataSourceName string) *DB {
 	sqlDB, _ := sql.Open("mysql", dataSourceName)
 	db := &DB{code: code, db: sqlDB}

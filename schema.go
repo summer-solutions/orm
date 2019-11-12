@@ -12,10 +12,25 @@ import (
 
 type ORM struct {
 	dBData map[string]interface{}
+	e      interface{}
 }
 
 func (orm *ORM) MarkToDelete() {
 	orm.dBData["_delete"] = true
+}
+
+func (orm *ORM) IsDirty() bool {
+	if orm.e == nil {
+		return false
+	}
+	if orm.dBData["_delete"] == true {
+		return true
+	}
+	v := reflect.ValueOf(orm.e)
+	value := reflect.Indirect(v)
+	t := value.Type()
+	bind := createBind(GetTableSchema(t), t, value, orm.dBData, "")
+	return value.Field(1).Uint() == 0 || len(bind) > 0
 }
 
 type CachedQuery struct {

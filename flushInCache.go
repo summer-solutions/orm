@@ -15,8 +15,9 @@ func FlushInCache(entities ...interface{}) error {
 
 	for _, entity := range entities {
 
-		v := reflect.ValueOf(entity)
-		value := reflect.Indirect(v)
+		value := reflect.Indirect(reflect.ValueOf(entity))
+		initIfNeeded(value, entity)
+		value.Field(0).Interface().(*ORM).e = entity
 		t := value.Type()
 
 		id := value.Field(1).Uint()
@@ -26,12 +27,11 @@ func FlushInCache(entities ...interface{}) error {
 		if cache == nil || id == 0 {
 			invalidEntities = append(invalidEntities, entity)
 		} else {
-
-			isDirty, bind := IsDirty(entity)
+			isDirty, bind := isDirty(value)
 			if !isDirty {
 				continue
 			}
-			orm := value.Field(0).Interface().(ORM)
+			orm := value.Field(0).Interface().(*ORM)
 			old := make(map[string]interface{}, len(orm.dBData))
 			for k, v := range orm.dBData {
 				old[k] = v

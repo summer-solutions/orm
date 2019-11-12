@@ -140,7 +140,9 @@ func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, result
 			} else if fromRedis {
 				value := reflect.New(entityType).Elem()
 				fillFromDBRow(v.(string), value, entityType)
-				results[k] = value.Interface()
+				e := value.Interface()
+				initIfNeeded(value, &e)
+				results[k] = e
 			} else {
 				results[k] = v
 			}

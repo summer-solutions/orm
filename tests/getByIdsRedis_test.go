@@ -8,13 +8,13 @@ import (
 )
 
 type TestEntityByIdsRedisCache struct {
-	Orm  orm.ORM `orm:"table=TestGetByIdsRedis;redisCache"`
+	Orm  *orm.ORM `orm:"table=TestGetByIdsRedis;redisCache"`
 	Id   uint
 	Name string
 }
 
 type TestEntityByIdsRedisCacheRef struct {
-	Orm  orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
+	Orm  *orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
 	Id   uint
 	Name string
 }
