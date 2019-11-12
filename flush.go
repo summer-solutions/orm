@@ -11,17 +11,6 @@ import (
 	"time"
 )
 
-func isDirty(value reflect.Value) (is bool, bind map[string]interface{}) {
-	t := value.Type()
-	ormField := value.Field(0).Interface().(*ORM)
-	if ormField.dBData["_delete"] == true {
-		return true, nil
-	}
-	bind = createBind(GetTableSchema(t), t, value, ormField.dBData, "")
-	is = value.Field(1).Uint() == 0 || len(bind) > 0
-	return
-}
-
 func Flush(entities ...interface{}) (err error) {
 	return flush(false, entities...)
 }
@@ -48,7 +37,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 	for _, entity := range entities {
 		value := reflect.Indirect(reflect.ValueOf(entity))
 		orm := initIfNeeded(value, entity)
-		isDirty, bind := isDirty(value)
+		isDirty, bind := orm.isDirty(value)
 		if !isDirty {
 			continue
 		}

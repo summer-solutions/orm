@@ -33,6 +33,17 @@ func (orm *ORM) IsDirty() bool {
 	return value.Field(1).Uint() == 0 || len(bind) > 0
 }
 
+func (orm *ORM) isDirty(value reflect.Value) (is bool, bind map[string]interface{}) {
+	t := value.Type()
+	ormField := value.Field(0).Interface().(*ORM)
+	if ormField.dBData["_delete"] == true {
+		return true, nil
+	}
+	bind = createBind(GetTableSchema(t), t, value, ormField.dBData, "")
+	is = value.Field(1).Uint() == 0 || len(bind) > 0
+	return
+}
+
 type CachedQuery struct {
 }
 

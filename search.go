@@ -137,7 +137,7 @@ func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) {
 	orm.dBData["Id"] = data[0]
 	value.Field(0).Set(reflect.ValueOf(orm))
 
-	_, bind := isDirty(value)
+	_, bind := orm.isDirty(value)
 	for key, value := range bind {
 		orm.dBData[key] = value
 	}
