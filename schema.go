@@ -523,6 +523,11 @@ func (tableSchema TableSchema) checkColumn(field *reflect.StructField, indexes m
 		definition, addNotNullIfNotSet = tableSchema.handleFloat("double", attributes)
 	case "time.Time":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable = tableSchema.handleTime(attributes)
+	case "*orm.ReferenceOne":
+		definition = tableSchema.handleReferenceOne(attributes)
+		addNotNullIfNotSet = true
+		addDefaultNullIfNullable = true
+
 	default:
 		kind := field.Type.Kind().String()
 		if kind == "struct" {
@@ -612,6 +617,32 @@ func (tableSchema TableSchema) handleTime(attributes map[string]string) (string,
 		return "datetime", true, true
 	}
 	return "date", true, true
+}
+
+func (tableSchema TableSchema) handleReferenceOne(attributes map[string]string) string {
+	reference, has := attributes["ref"]
+	if !has {
+		panic(fmt.Errorf("missing ref tag"))
+	}
+	typeAsString := getEntityType(reference).Field(1).Type.String()
+	switch typeAsString {
+	case "uint":
+		return "int(10) unsigned"
+	case "uint8":
+		return "tinyint(3) unsigned"
+	case "uint16":
+		return "smallint(5) unsigned"
+	case "uint32":
+		mediumIntAttribute, _ := attributes["mediumint"]
+		if mediumIntAttribute == "true" {
+			return "mediumint(8) unsigned"
+		} else {
+			return "int(10) unsigned"
+		}
+	case "uint64":
+		return "bigint(20) unsigned"
+	}
+	return "int(10) unsigned"
 }
 
 func (tableSchema TableSchema) buildCreateIndexSql(keyName string, definition *index) string {

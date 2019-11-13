@@ -40,7 +40,7 @@ type TestEntitySchema struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressSchema
 	Json                 interface{}
-	ReferenceOneId       uint16 `orm:"ref=tests.TestEntitySchema"`
+	ReferenceOneId       *orm.ReferenceOne `orm:"ref=tests.TestEntitySchema"`
 }
 
 func TestGetAlters(t *testing.T) {
