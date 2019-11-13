@@ -9,7 +9,7 @@ import (
 
 type TestEntityFlush struct {
 	Orm          *orm.ORM `orm:"table=TestFlush;mysql=default"`
-	Id           uint
+	Id           uint16
 	Name         string
 	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityFlush"`
 }
@@ -41,13 +41,14 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, err)
 	for i := 1; i < 10; i++ {
 		testEntity := entities[i-1]
-		assert.Equal(t, uint(i), testEntity.Id)
+		assert.Equal(t, uint16(i), testEntity.Id)
 		assert.Equal(t, "Name "+strconv.Itoa(i), testEntity.Name)
 		dirty := testEntity.Orm.IsDirty()
 		assert.False(t, dirty)
 	}
 
 	entities[1].Name = "Name 2.1"
+	entities[1].ReferenceOne.Id = 7
 	entities[7].Name = "Name 8.1"
 	dirty := entities[1].Orm.IsDirty()
 	assert.True(t, dirty)
@@ -60,7 +61,15 @@ func TestFlush(t *testing.T) {
 	orm.GetById(2, &edited1)
 	orm.GetById(8, &edited2)
 	assert.Equal(t, "Name 2.1", edited1.Name)
+	assert.Equal(t, uint64(7), edited1.ReferenceOne.Id)
 	assert.Equal(t, "Name 8.1", edited2.Name)
+	assert.Equal(t, uint64(0), edited2.ReferenceOne.Id)
+	assert.True(t, edited1.ReferenceOne.Has())
+	assert.False(t, edited2.ReferenceOne.Has())
+	var ref TestEntityFlush
+	has := edited1.ReferenceOne.Load(&ref)
+	assert.True(t, has)
+	assert.Equal(t, uint16(7), ref.Id)
 
 	toDelete := edited2
 	edited1.Name = "Name 2.2"
