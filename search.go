@@ -129,13 +129,10 @@ func getTotalRows(withCount bool, pager Pager, where Where, schema *TableSchema,
 func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) {
 	data := strings.Split(row, "|")
 
+	e := value.Interface()
+	orm := initIfNeeded(value, &e)
 	fillStruct(0, data, entityType, value, "")
-	orm := value.Field(0).Interface().(*ORM)
-	if orm == nil {
-		orm = &ORM{dBData: make(map[string]interface{})}
-	}
 	orm.dBData["Id"] = data[0]
-	value.Field(0).Set(reflect.ValueOf(orm))
 
 	_, bind := orm.isDirty(value)
 	for key, value := range bind {
@@ -231,6 +228,9 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 			}
 			value, _ := time.Parse(layout, data[index])
 			field.Set(reflect.ValueOf(value))
+		case "*orm.ReferenceOne":
+			integer, _ := strconv.ParseUint(data[index], 10, 64)
+			field.Interface().(*ReferenceOne).Id = integer
 		case "interface {}":
 			if data[index] != "" {
 				var f interface{}

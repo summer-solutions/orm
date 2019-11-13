@@ -3,6 +3,7 @@ package tests
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
+	"reflect"
 	"strconv"
 	"testing"
 )
@@ -17,6 +18,7 @@ type TestEntitySearch struct {
 func TestSearch(t *testing.T) {
 
 	PrepareTables(TestEntitySearch{})
+	var entity TestEntitySearch
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
@@ -62,19 +64,8 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, uint(2), rows[0].Id)
 	assert.Equal(t, uint(7), rows[5].Id)
 
-	//ids := orm.SearchIds(where, pager, TestEntitySearchName)
-	//assert.Len(t, ids, 6)
-	//assert.Equal(t, uint64(2), ids[0])
-	//assert.Equal(t, uint64(7), ids[5])
-	//
-	//Logger := TestDatabaseLogger{}
-	//orm.GetMysqlDB("default").AddLogger(&Logger)
-	//
-	//pager = orm.NewPager(1, 100)
-	//where = orm.NewWhere("`Id` > ?", 4)
-	//rows = orm.Search(where, pager, TestEntitySearchName, "ReferenceOneId")
-	//assert.Len(t, rows, 6)
-	//assert.Len(t, Logger.Queries, 2)
-	//assert.Equal(t, Logger.Queries[0], "SELECT CONCAT_WS('|', `Id`,IFNULL(`Name`,''),`ReferenceOneId`) FROM `TestSearch` WHERE `Id` > ? LIMIT 0,100 [4]")
-	//assert.Equal(t, Logger.Queries[1], "SELECT CONCAT_WS('|', `Id`,IFNULL(`Name`,''),`ReferenceOneId`) FROM `TestSearch` WHERE `Id` IN (?,?,?,?,?,?) LIMIT 0,6 [1 2 3 4 5 6]")
+	ids := orm.SearchIds(where, pager, reflect.TypeOf(entity))
+	assert.Len(t, ids, 6)
+	assert.Equal(t, uint64(2), ids[0])
+	assert.Equal(t, uint64(7), ids[5])
 }

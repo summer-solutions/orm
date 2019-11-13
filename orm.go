@@ -36,6 +36,19 @@ func initIfNeeded(value reflect.Value, entity interface{}) *ORM {
 	if orm == nil {
 		orm = &ORM{dBData: make(map[string]interface{}), e: entity}
 		value.Field(0).Set(reflect.ValueOf(orm))
+		tableSchema := GetTableSchema(value.Type())
+		for i := 2; i < value.NumField(); i++ {
+			field := value.Field(i)
+			if field.Type().String() == "*orm.ReferenceOne" {
+				f := value.Type().Field(i)
+				reference, has := tableSchema.tags[f.Name]["ref"]
+				if !has {
+					panic(fmt.Errorf("missing ref tag"))
+				}
+				def := ReferenceOne{t: getEntityType(reference)}
+				value.FieldByName(f.Name).Set(reflect.ValueOf(&def))
+			}
+		}
 	}
 	orm.e = entity
 	return orm

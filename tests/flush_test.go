@@ -8,9 +8,10 @@ import (
 )
 
 type TestEntityFlush struct {
-	Orm  *orm.ORM `orm:"table=TestFlush;mysql=default"`
-	Id   uint
-	Name string
+	Orm          *orm.ORM `orm:"table=TestFlush;mysql=default"`
+	Id           uint
+	Name         string
+	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityFlush"`
 }
 
 type TestEntityFlushCacheLocal struct {

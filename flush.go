@@ -429,6 +429,12 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			} else {
 				bind[name] = valueAsString
 			}
+		case "*orm.ReferenceOne":
+			valueAsString := strconv.FormatUint(field.Interface().(*ReferenceOne).Id, 10)
+			if hasOld && old == valueAsString {
+				continue
+			}
+			bind[name] = valueAsString
 		case "time.Time":
 			value := field.Interface().(time.Time)
 			layout := "2006-01-02"
