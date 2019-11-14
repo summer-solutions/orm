@@ -243,6 +243,7 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 				}
 				field.Interface().(*ReferenceMany).Ids = idsAsInt
 			}
+		case "*orm.CachedQuery":
 		case "interface {}":
 			if data[index] != "" {
 				var f interface{}
@@ -273,6 +274,9 @@ func buildFieldList(t reflect.Type, prefix string) string {
 		var columnNameRaw string
 		field := t.Field(i)
 		if prefix == "" && (field.Name == "Id" || field.Name == "Orm") {
+			continue
+		}
+		if field.Type.String() == "*orm.CachedQuery" {
 			continue
 		}
 		switch field.Type.String() {

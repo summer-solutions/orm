@@ -44,9 +44,6 @@ func (orm *ORM) isDirty(value reflect.Value) (is bool, bind map[string]interface
 	return
 }
 
-type CachedQuery struct {
-}
-
 type cachedQueryDefinition struct {
 	Max    int
 	Query  string
@@ -434,7 +431,9 @@ func (tableSchema TableSchema) checkStruct(t reflect.Type, indexes map[string]*i
 		}
 		field := t.Field(i)
 		var fieldColumns = tableSchema.checkColumn(&field, indexes, prefix)
-		columns = append(columns, fieldColumns...)
+		if fieldColumns != nil {
+			columns = append(columns, fieldColumns...)
+		}
 	}
 	return
 }
@@ -534,6 +533,8 @@ func (tableSchema TableSchema) checkColumn(field *reflect.StructField, indexes m
 		definition = tableSchema.handleReferenceMany(attributes)
 		addNotNullIfNotSet = false
 		addDefaultNullIfNullable = false
+	case "*orm.CachedQuery":
+		return nil
 	default:
 		kind := field.Type.Kind().String()
 		if kind == "struct" {

@@ -12,8 +12,8 @@ type TestEntityIndexTestLocal struct {
 	Id       uint
 	Name     string `orm:"length=100;index=FirstIndex"`
 	Age      uint16
-	IndexAge orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
-	IndexAll orm.CachedQuery `query:""`
+	IndexAge *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
+	IndexAll *orm.CachedQuery `query:""`
 }
 
 func TestCachedSearchLocal(t *testing.T) {

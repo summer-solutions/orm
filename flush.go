@@ -450,6 +450,8 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			} else {
 				bind[name] = valueAsString
 			}
+		case "*orm.CachedQuery":
+			continue
 		case "time.Time":
 			value := field.Interface().(time.Time)
 			layout := "2006-01-02"
