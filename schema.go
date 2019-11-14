@@ -527,7 +527,10 @@ func (tableSchema TableSchema) checkColumn(field *reflect.StructField, indexes m
 		definition = tableSchema.handleReferenceOne(attributes)
 		addNotNullIfNotSet = true
 		addDefaultNullIfNullable = true
-
+	case "*orm.ReferenceMany":
+		definition = tableSchema.handleReferenceMany(attributes)
+		addNotNullIfNotSet = false
+		addDefaultNullIfNullable = false
 	default:
 		kind := field.Type.Kind().String()
 		if kind == "struct" {
@@ -643,6 +646,14 @@ func (tableSchema TableSchema) handleReferenceOne(attributes map[string]string) 
 		return "bigint(20) unsigned"
 	}
 	return "int(10) unsigned"
+}
+
+func (tableSchema TableSchema) handleReferenceMany(attributes map[string]string) string {
+	_, has := attributes["ref"]
+	if !has {
+		panic(fmt.Errorf("missing ref tag"))
+	}
+	return "varchar(5000)"
 }
 
 func (tableSchema TableSchema) buildCreateIndexSql(keyName string, definition *index) string {

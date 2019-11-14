@@ -8,10 +8,11 @@ import (
 )
 
 type TestEntityFlush struct {
-	Orm          *orm.ORM `orm:"table=TestFlush;mysql=default"`
-	Id           uint16
-	Name         string
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityFlush"`
+	Orm           *orm.ORM `orm:"table=TestFlush;mysql=default"`
+	Id            uint16
+	Name          string
+	ReferenceOne  *orm.ReferenceOne  `orm:"ref=tests.TestEntityFlush"`
+	ReferenceMany *orm.ReferenceMany `orm:"ref=tests.TestEntityFlush"`
 }
 
 type TestEntityFlushCacheLocal struct {
@@ -50,12 +51,14 @@ func TestFlush(t *testing.T) {
 	entities[1].Name = "Name 2.1"
 	entities[1].ReferenceOne.Id = 7
 	entities[7].Name = "Name 8.1"
+	entities[7].ReferenceMany.Add(3, 4)
 	dirty := entities[1].Orm.IsDirty()
 	assert.True(t, dirty)
 	dirty = entities[7].Orm.IsDirty()
 	assert.True(t, dirty)
 	err = orm.Flush(entities[1], entities[7])
 	assert.Nil(t, err)
+
 	var edited1 TestEntityFlush
 	var edited2 TestEntityFlush
 	orm.GetById(2, &edited1)
@@ -66,6 +69,15 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint64(0), edited2.ReferenceOne.Id)
 	assert.True(t, edited1.ReferenceOne.Has())
 	assert.False(t, edited2.ReferenceOne.Has())
+	assert.Equal(t, 0, edited1.ReferenceMany.Len())
+	assert.Equal(t, 2, edited2.ReferenceMany.Len())
+	assert.Equal(t, []uint64{3, 4}, edited2.ReferenceMany.Ids)
+	var refs []TestEntityFlush
+	edited2.ReferenceMany.Load(&refs)
+	assert.Len(t, refs, 2)
+	assert.Equal(t, uint16(3), refs[0].Id)
+	assert.Equal(t, uint16(4), refs[1].Id)
+
 	var ref TestEntityFlush
 	has := edited1.ReferenceOne.Load(&ref)
 	assert.True(t, has)

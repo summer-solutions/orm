@@ -39,14 +39,21 @@ func initIfNeeded(value reflect.Value, entity interface{}) *ORM {
 		tableSchema := GetTableSchema(value.Type())
 		for i := 2; i < value.NumField(); i++ {
 			field := value.Field(i)
-			if field.Type().String() == "*orm.ReferenceOne" {
+			isOne := field.Type().String() == "*orm.ReferenceOne"
+			isTwo := !isOne && field.Type().String() == "*orm.ReferenceMany"
+			if isOne || isTwo {
 				f := value.Type().Field(i)
 				reference, has := tableSchema.tags[f.Name]["ref"]
 				if !has {
 					panic(fmt.Errorf("missing ref tag"))
 				}
-				def := ReferenceOne{t: getEntityType(reference)}
-				value.FieldByName(f.Name).Set(reflect.ValueOf(&def))
+				if isOne {
+					def := ReferenceOne{t: getEntityType(reference)}
+					value.FieldByName(f.Name).Set(reflect.ValueOf(&def))
+				} else {
+					def := ReferenceMany{t: getEntityType(reference)}
+					value.FieldByName(f.Name).Set(reflect.ValueOf(&def))
+				}
 			}
 		}
 	}

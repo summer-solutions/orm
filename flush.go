@@ -435,6 +435,21 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 				continue
 			}
 			bind[name] = valueAsString
+		case "*orm.ReferenceMany":
+			ids := field.Interface().(*ReferenceMany).Ids
+			valueAsString := ""
+			if ids != nil && len(ids) > 0 {
+				valueAsString = fmt.Sprintf("%v", ids)
+				valueAsString = strings.Trim(valueAsString, "[]")
+			}
+			if hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
+				continue
+			}
+			if valueAsString == "" {
+				bind[name] = nil
+			} else {
+				bind[name] = valueAsString
+			}
 		case "time.Time":
 			value := field.Interface().(time.Time)
 			layout := "2006-01-02"
