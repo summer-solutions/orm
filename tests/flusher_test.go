@@ -8,13 +8,13 @@ import (
 )
 
 type TestEntityFlusherAuto struct {
-	Orm  *orm.ORM `orm:"table=TestFlusherAuto;mysql=default"`
+	Orm  *orm.ORM `orm:"mysql=default"`
 	Id   uint
 	Name string
 }
 
 type TestEntityFlusherManual struct {
-	Orm  *orm.ORM `orm:"table=TestFlusherManual;mysql=default"`
+	Orm  *orm.ORM `orm:"mysql=default"`
 	Id   uint
 	Name string
 }
@@ -34,16 +34,16 @@ func TestFlusherAuto(t *testing.T) {
 		flusher.RegisterEntity(&e)
 	}
 	assert.Len(t, Logger.Queries, 1)
-	assert.Equal(t, "INSERT INTO TestFlusherAuto(`Name`) VALUES (?),(?),(?),(?),(?) [Name 1 Name 2 Name 3 Name 4 Name 5]", Logger.Queries[0])
+	assert.Equal(t, "INSERT INTO TestEntityFlusherAuto(`Name`) VALUES (?),(?),(?),(?),(?) [Name 1 Name 2 Name 3 Name 4 Name 5]", Logger.Queries[0])
 	e := TestEntityFlusherAuto{Name: "Name 11"}
 	flusher.RegisterEntity(&e)
 	assert.Len(t, Logger.Queries, 2)
-	assert.Equal(t, "INSERT INTO TestFlusherAuto(`Name`) VALUES (?),(?),(?),(?),(?) [Name 6 Name 7 Name 8 Name 9 Name 10]", Logger.Queries[1])
+	assert.Equal(t, "INSERT INTO TestEntityFlusherAuto(`Name`) VALUES (?),(?),(?),(?),(?) [Name 6 Name 7 Name 8 Name 9 Name 10]", Logger.Queries[1])
 
 	err := flusher.Flush()
 	assert.Nil(t, err)
 	assert.Len(t, Logger.Queries, 3)
-	assert.Equal(t, "INSERT INTO TestFlusherAuto(`Name`) VALUES (?) [Name 11]", Logger.Queries[2])
+	assert.Equal(t, "INSERT INTO TestEntityFlusherAuto(`Name`) VALUES (?) [Name 11]", Logger.Queries[2])
 }
 
 func TestFlusherManual(t *testing.T) {
@@ -65,5 +65,5 @@ func TestFlusherManual(t *testing.T) {
 	err := flusher.Flush()
 	assert.Nil(t, err)
 	assert.Len(t, Logger.Queries, 1)
-	assert.Equal(t, "INSERT INTO TestFlusherManual(`Name`) VALUES (?),(?),(?) [Name 1 Name 2 Name 3]", Logger.Queries[0])
+	assert.Equal(t, "INSERT INTO TestEntityFlusherManual(`Name`) VALUES (?),(?),(?) [Name 1 Name 2 Name 3]", Logger.Queries[0])
 }

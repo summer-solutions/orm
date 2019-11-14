@@ -13,7 +13,7 @@ type AddressByIdLocal struct {
 }
 
 type TestEntityByIdLocal struct {
-	Orm                  *orm.ORM `orm:"table=TestGetByIdLocal;localCache"`
+	Orm                  *orm.ORM `orm:"localCache"`
 	Id                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`

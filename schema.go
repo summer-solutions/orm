@@ -93,7 +93,10 @@ func GetTableSchema(entityType reflect.Type) *TableSchema {
 	if !has {
 		mysql = "default"
 	}
-	table := tags["Orm"]["table"]
+	table, has := tags["Orm"]["table"]
+	if !has {
+		table = entityType.Name()
+	}
 	localCache := ""
 	redisCache := ""
 	userValue, has := tags["Orm"]["localCache"]

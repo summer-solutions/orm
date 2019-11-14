@@ -8,7 +8,7 @@ import (
 )
 
 type TestEntityIndexTestLocal struct {
-	Orm      *orm.ORM `orm:"table=TestCachedSearchLocal;localCache"`
+	Orm      *orm.ORM `orm:"localCache"`
 	Id       uint
 	Name     string `orm:"length=100;index=FirstIndex"`
 	Age      uint16

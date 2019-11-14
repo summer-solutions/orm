@@ -7,7 +7,7 @@ import (
 )
 
 type TestEntityByIdsLocal struct {
-	Orm  *orm.ORM `orm:"table=TestGetByIdsLocal;localCache"`
+	Orm  *orm.ORM `orm:"localCache"`
 	Id   uint
 	Name string
 }

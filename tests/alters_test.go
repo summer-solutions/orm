@@ -14,7 +14,7 @@ type AddressSchema struct {
 }
 
 type TestEntitySchema struct {
-	Orm                  *orm.ORM `orm:"table=TestGetAlters;mysql=schema"`
+	Orm                  *orm.ORM `orm:"mysql=schema"`
 	Id                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`

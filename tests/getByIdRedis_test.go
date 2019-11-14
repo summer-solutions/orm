@@ -13,7 +13,7 @@ type AddressByIdRedis struct {
 }
 
 type TestEntityByIdRedis struct {
-	Orm                  *orm.ORM `orm:"table=TestGetByIdRedis;redisCache;ttl=10"`
+	Orm                  *orm.ORM `orm:"redisCache;ttl=10"`
 	Id                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`

@@ -7,7 +7,7 @@ import (
 )
 
 type TestEntityFlusherInCacheRedis struct {
-	Orm      *orm.ORM `orm:"table=TestEntityFlushInCacheRedis;mysql=default;redisCache"`
+	Orm      *orm.ORM `orm:"mysql=default;redisCache"`
 	Id       uint
 	Name     string
 	Age      uint16
@@ -15,7 +15,7 @@ type TestEntityFlusherInCacheRedis struct {
 }
 
 type TestEntityFlusherInCacheLocal struct {
-	Orm *orm.ORM `orm:"table=TestEntityFlushInCacheLocal;mysql=default"`
+	Orm *orm.ORM `orm:"mysql=default"`
 	Id  uint
 }
 
@@ -50,9 +50,9 @@ func TestFlushInCache(t *testing.T) {
 	err = orm.FlushInCache(&entityLocal, &entityRedis)
 	assert.Nil(t, err)
 	assert.Len(t, LoggerDB.Queries, 1)
-	assert.Equal(t, "INSERT INTO TestEntityFlushInCacheLocal() VALUES () []", LoggerDB.Queries[0])
+	assert.Equal(t, "INSERT INTO TestEntityFlusherInCacheLocal() VALUES () []", LoggerDB.Queries[0])
 	assert.Len(t, LoggerRedisCache.Requests, 1)
-	assert.Equal(t, "MSET [TestEntityFlushInCacheRedis3c:1 ] ", LoggerRedisCache.Requests[0])
+	assert.Equal(t, "MSET [TestEntityFlusherInCacheRedis3c:1 ] ", LoggerRedisCache.Requests[0])
 	assert.Len(t, LoggerRedisQueue.Requests, 1)
 	assert.Equal(t, "ZADD 1 values dirty_queue", LoggerRedisQueue.Requests[0])
 
@@ -60,7 +60,7 @@ func TestFlushInCache(t *testing.T) {
 	orm.GetById(1, &loadedEntity)
 	assert.Equal(t, "Name 2", loadedEntity.Name)
 	assert.Len(t, LoggerRedisCache.Requests, 2)
-	assert.Equal(t, "GET TestEntityFlushInCacheRedis3c:1", LoggerRedisCache.Requests[1])
+	assert.Equal(t, "GET TestEntityFlusherInCacheRedis3c:1", LoggerRedisCache.Requests[1])
 
 	receiver := orm.FlushInCacheReceiver{RedisName: "default_queue"}
 	assert.Equal(t, int64(1), receiver.Size())
