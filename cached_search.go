@@ -4,12 +4,14 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 )
 
 func CachedSearch(entities interface{}, indexName string, pager Pager, arguments ...interface{}) (totalRows int) {
-	entityType := getEntityTypeForSlice(entities)
+	value := reflect.ValueOf(entities)
+	entityType := getEntityTypeForSlice(value.Type())
 	schema := GetTableSchema(entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {

@@ -15,18 +15,17 @@ func GetByIds(ids []uint64, entities interface{}, references ...string) {
 }
 
 func TryByIds(ids []uint64, entities interface{}, references ...string) (missing []uint64) {
-	return tryByIds(ids, getEntityTypeForSlice(entities), entities, references)
+	return tryByIds(ids, reflect.ValueOf(entities).Elem(), references)
 }
 
-func tryByIds(ids []uint64, entityType reflect.Type, entities interface{}, references []string) (missing []uint64) {
+func tryByIds(ids []uint64, entities reflect.Value, references []string) (missing []uint64) {
 	originalIds := ids
 	lenIDs := len(ids)
 	if lenIDs == 0 {
-		valOrigin := reflect.ValueOf(entities).Elem()
-		valOrigin.SetLen(0)
+		entities.SetLen(0)
 		return make([]uint64, 0)
 	}
-	schema := GetTableSchema(entityType)
+	schema := GetTableSchema(getEntityTypeForSlice(entities.Type()))
 
 	localCache := schema.GetLocalCacheContainer()
 	redisCache := schema.GetRedisCacheContainer()
@@ -66,11 +65,9 @@ func tryByIds(ids []uint64, entityType reflect.Type, entities interface{}, refer
 	}
 	l := len(ids)
 	if l > 0 {
-		rows := entities
-		Search(NewWhere("`Id` IN ?", ids), NewPager(1, l), rows)
-		v := reflect.ValueOf(rows).Elem()
-		for i := 0; i < v.Len(); i++ {
-			e := v.Index(i)
+		search(NewWhere("`Id` IN ?", ids), NewPager(1, l), false, entities)
+		for i := 0; i < entities.Len(); i++ {
+			e := entities.Index(i)
 			id := e.Field(1).Uint()
 			results[schema.getCacheKey(id)] = e.Interface()
 		}
@@ -114,7 +111,7 @@ func tryByIds(ids []uint64, entityType reflect.Type, entities interface{}, refer
 	}
 
 	missing = make([]uint64, 0)
-	valOrigin := reflect.ValueOf(entities).Elem()
+	valOrigin := entities
 	valOrigin.SetLen(0)
 	v := valOrigin
 	for _, id := range originalIds {
@@ -154,7 +151,7 @@ func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, result
 	return keys
 }
 
-func warmUpReferences(tableSchema *TableSchema, rows interface{}, references []string) {
+func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references []string) {
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
 	warmUpRowsIds := make(map[reflect.Type][]uint64)
 	warmUpSubRefs := make(map[reflect.Type][]string)
@@ -170,10 +167,9 @@ func warmUpReferences(tableSchema *TableSchema, rows interface{}, references []s
 		}
 		parentType := getEntityType(parentRef)
 		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
-		val := reflect.ValueOf(rows)
-		l := val.Len()
+		l := rows.Len()
 		for i := 0; i < l; i++ {
-			ref := val.Index(i).FieldByName(parts[0]).Interface()
+			ref := rows.Index(i).FieldByName(parts[0]).Interface()
 			ids := make([]uint64, 0)
 			oneRef, ok := ref.(*ReferenceOne)
 			if ok {
@@ -206,7 +202,7 @@ func warmUpReferences(tableSchema *TableSchema, rows interface{}, references []s
 		}
 	}
 	for t, ids := range warmUpRowsIds {
-		sub := make([]interface{}, 0)
-		tryByIds(ids, t, &sub, warmUpSubRefs[t])
+		sub := reflect.New(reflect.SliceOf(t)).Elem()
+		tryByIds(ids, sub, warmUpSubRefs[t])
 	}
 }

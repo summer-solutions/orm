@@ -8,15 +8,18 @@ import (
 )
 
 type TestEntityByIdsRedisCache struct {
-	Orm  *orm.ORM `orm:"table=TestGetByIdsRedis;redisCache"`
-	Id   uint
-	Name string
+	Orm           *orm.ORM `orm:"table=TestGetByIdsRedis;redisCache"`
+	Id            uint
+	Name          string
+	ReferenceOne  *orm.ReferenceOne  `orm:"ref=tests.TestEntityByIdsRedisCacheRef"`
+	ReferenceMany *orm.ReferenceMany `orm:"ref=tests.TestEntityByIdsRedisCacheRef"`
 }
 
 type TestEntityByIdsRedisCacheRef struct {
-	Orm  *orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
-	Id   uint
-	Name string
+	Orm          *orm.ORM `orm:"table=TestEntityByIdsRedisCacheRef;redisCache"`
+	Id           uint
+	Name         string
+	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityByIdsRedisCache"`
 }
 
 func TestEntityByIdsRedis(t *testing.T) {
@@ -28,8 +31,17 @@ func TestEntityByIdsRedis(t *testing.T) {
 	flusher := orm.NewFlusher(100, false)
 	for i := 1; i <= 10; i++ {
 		e := TestEntityByIdsRedisCache{Name: "Name " + strconv.Itoa(i)}
+		orm.Init(&e)
+		if i > 4 {
+			e.ReferenceOne.Id = uint64(i - 3)
+			e.ReferenceMany.Add(uint64(i-2), uint64(i-1))
+		}
 		flusher.RegisterEntity(&e)
 		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
+		orm.Init(&e2)
+		if i > 5 {
+			e2.ReferenceOne.Id = uint64(i - 4)
+		}
 		flusher.RegisterEntity(&e2)
 	}
 	err := flusher.Flush()
@@ -39,6 +51,7 @@ func TestEntityByIdsRedis(t *testing.T) {
 
 	DBLogger := TestDatabaseLogger{}
 	orm.GetMysqlDB("default").AddLogger(&DBLogger)
+	orm.GetMysqlDB("default").AddLogger(orm.StandardDatabaseLogger{})
 	CacheLogger := TestCacheLogger{}
 	orm.GetRedisCache("default").AddLogger(&CacheLogger)
 
@@ -75,7 +88,7 @@ func TestEntityByIdsRedis(t *testing.T) {
 	CacheLogger.Requests = make([]string, 0)
 
 	orm.EnableContextCache(100, 1)
-	missing = orm.TryByIds([]uint64{8, 9, 10}, &found)
+	missing = orm.TryByIds([]uint64{8, 9, 10}, &found, "ReferenceOne", "ReferenceMany/ReferenceOne")
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
 

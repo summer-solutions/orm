@@ -12,11 +12,11 @@ import (
 )
 
 func SearchWithCount(where Where, pager Pager, entities interface{}) (totalRows int) {
-	return search(where, pager, true, entities)
+	return search(where, pager, true, reflect.ValueOf(entities).Elem())
 }
 
 func Search(where Where, pager Pager, entities interface{}) {
-	search(where, pager, false, entities)
+	search(where, pager, false, reflect.ValueOf(entities).Elem())
 }
 
 func SearchIdsWithCount(where Where, pager Pager, entityType reflect.Type) (results []uint64, totalRows int) {
@@ -55,9 +55,9 @@ func searchRow(where Where, entityType reflect.Type, value reflect.Value) bool {
 	return true
 }
 
-func search(where Where, pager Pager, withCount bool, entities interface{}) int {
+func search(where Where, pager Pager, withCount bool, entities reflect.Value) int {
 
-	entityType := getEntityTypeForSlice(entities)
+	entityType := getEntityTypeForSlice(entities.Type())
 	schema := GetTableSchema(entityType)
 
 	var fieldsList = buildFieldList(entityType, "")
@@ -66,7 +66,7 @@ func search(where Where, pager Pager, withCount bool, entities interface{}) int 
 	if err != nil {
 		panic(err.Error())
 	}
-	valOrigin := reflect.ValueOf(entities).Elem()
+	valOrigin := entities
 	val := valOrigin
 	i := 0
 	for results.Next() {
@@ -294,7 +294,7 @@ func buildFieldList(t reflect.Type, prefix string) string {
 	return fieldsList
 }
 
-func getEntityTypeForSlice(entities interface{}) reflect.Type {
-	name := strings.Trim(reflect.TypeOf(entities).String(), "*[]")
+func getEntityTypeForSlice(sliceType reflect.Type) reflect.Type {
+	name := strings.Trim(sliceType.String(), "*[]")
 	return getEntityType(name)
 }
