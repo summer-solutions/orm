@@ -15,6 +15,8 @@ type ORM struct {
 	e      interface{}
 }
 
+type CachedQuery struct{}
+
 func (orm *ORM) MarkToDelete() {
 	orm.dBData["_delete"] = true
 }
