@@ -4,20 +4,21 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"reflect"
+	"strings"
 )
 
-func GetByIds(ids []uint64, entities interface{}) {
-	missing := TryByIds(ids, entities)
+func GetByIds(ids []uint64, entities interface{}, references ...string) {
+	missing := TryByIds(ids, entities, references...)
 	if len(missing) > 0 {
 		panic(fmt.Errorf("entities not found with ids %v", missing))
 	}
 }
 
-func TryByIds(ids []uint64, entities interface{}) (missing []uint64) {
-	return tryByIds(ids, entities)
+func TryByIds(ids []uint64, entities interface{}, references ...string) (missing []uint64) {
+	return tryByIds(ids, getEntityTypeForSlice(entities), entities, references)
 }
 
-func tryByIds(ids []uint64, entities interface{}) (missing []uint64) {
+func tryByIds(ids []uint64, entityType reflect.Type, entities interface{}, references []string) (missing []uint64) {
 	originalIds := ids
 	lenIDs := len(ids)
 	if lenIDs == 0 {
@@ -25,7 +26,6 @@ func tryByIds(ids []uint64, entities interface{}) (missing []uint64) {
 		valOrigin.SetLen(0)
 		return make([]uint64, 0)
 	}
-	entityType := getEntityTypeForSlice(entities)
 	schema := GetTableSchema(entityType)
 
 	localCache := schema.GetLocalCacheContainer()
@@ -126,6 +126,9 @@ func tryByIds(ids []uint64, entities interface{}) (missing []uint64) {
 		}
 	}
 	valOrigin.Set(v)
+	if len(references) > 0 && v.Len() > 0 {
+		warmUpReferences(schema, entities, references)
+	}
 	return
 }
 
@@ -149,4 +152,61 @@ func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, result
 		}
 	}
 	return keys
+}
+
+func warmUpReferences(tableSchema *TableSchema, rows interface{}, references []string) {
+	warmUpRows := make(map[reflect.Type]map[uint64]bool)
+	warmUpRowsIds := make(map[reflect.Type][]uint64)
+	warmUpSubRefs := make(map[reflect.Type][]string)
+	for _, ref := range references {
+		parts := strings.Split(ref, "/")
+		_, has := tableSchema.tags[parts[0]]
+		if !has {
+			panic(fmt.Errorf("invalid reference %s", ref))
+		}
+		parentRef, has := tableSchema.tags[parts[0]]["ref"]
+		if !has {
+			panic(fmt.Errorf("missing reference tag %s", ref))
+		}
+		parentType := getEntityType(parentRef)
+		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
+		val := reflect.ValueOf(rows)
+		l := val.Len()
+		for i := 0; i < l; i++ {
+			ref := val.Index(i).FieldByName(parts[0]).Interface()
+			ids := make([]uint64, 0)
+			oneRef, ok := ref.(*ReferenceOne)
+			if ok {
+				if oneRef.Id != 0 {
+					ids = append(ids, oneRef.Id)
+				}
+			} else {
+				manyRef, ok := ref.(*ReferenceMany)
+				if ok {
+					if manyRef.Ids != nil {
+						ids = append(ids, manyRef.Ids...)
+					}
+				}
+			}
+			if len(ids) == 0 {
+				continue
+			}
+			if warmUpRows[parentType] == nil {
+				warmUpRows[parentType] = make(map[uint64]bool)
+				warmUpRowsIds[parentType] = make([]uint64, 0)
+			}
+			for _, id := range ids {
+				_, has := warmUpRows[parentType][id]
+				if !has {
+					warmUpRows[parentType][id] = true
+					warmUpRowsIds[parentType] = append(warmUpRowsIds[parentType], id)
+				}
+			}
+
+		}
+	}
+	for t, ids := range warmUpRowsIds {
+		sub := make([]interface{}, 0)
+		tryByIds(ids, t, &sub, warmUpSubRefs[t])
+	}
 }
