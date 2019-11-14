@@ -31,6 +31,17 @@ func Init(entity ...interface{}) {
 	}
 }
 
+func Defer() {
+	for _, client := range mySqlClients {
+		_ = client.db.Close()
+	}
+	mySqlClients = make(map[string]*DB)
+	contextCache := getContextCache()
+	if contextCache != nil {
+		contextCache.Clear()
+	}
+}
+
 func initIfNeeded(value reflect.Value, entity interface{}) *ORM {
 	orm := value.Field(0).Interface().(*ORM)
 	if orm == nil {
