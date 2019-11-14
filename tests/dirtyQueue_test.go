@@ -8,13 +8,13 @@ import (
 )
 
 type TestEntityDirtyQueueAll struct {
-	Orm  *orm.ORM `orm:"mysql=default;dirty=test"`
+	Orm  *orm.ORM `orm:"dirty=test"`
 	Id   uint
 	Name string
 }
 
 type TestEntityDirtyQueueAge struct {
-	Orm  *orm.ORM `orm:"mysql=default"`
+	Orm  *orm.ORM
 	Id   uint
 	Name string
 	Age  uint16 `orm:"dirty=test"`

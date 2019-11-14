@@ -7,7 +7,7 @@ import (
 )
 
 type TestEntityFlusherInCacheRedis struct {
-	Orm      *orm.ORM `orm:"mysql=default;redisCache"`
+	Orm      *orm.ORM `orm:"redisCache"`
 	Id       uint
 	Name     string
 	Age      uint16
@@ -15,7 +15,7 @@ type TestEntityFlusherInCacheRedis struct {
 }
 
 type TestEntityFlusherInCacheLocal struct {
-	Orm *orm.ORM `orm:"mysql=default"`
+	Orm *orm.ORM
 	Id  uint
 }
 

@@ -8,13 +8,13 @@ import (
 )
 
 type TestEntityFlusherAuto struct {
-	Orm  *orm.ORM `orm:"mysql=default"`
+	Orm  *orm.ORM
 	Id   uint
 	Name string
 }
 
 type TestEntityFlusherManual struct {
-	Orm  *orm.ORM `orm:"mysql=default"`
+	Orm  *orm.ORM
 	Id   uint
 	Name string
 }

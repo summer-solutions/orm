@@ -8,7 +8,7 @@ import (
 )
 
 type TestEntityFlush struct {
-	Orm           *orm.ORM `orm:"mysql=default"`
+	Orm           *orm.ORM
 	Id            uint16
 	Name          string
 	ReferenceOne  *orm.ReferenceOne  `orm:"ref=tests.TestEntityFlush"`
@@ -16,13 +16,13 @@ type TestEntityFlush struct {
 }
 
 type TestEntityFlushCacheLocal struct {
-	Orm  *orm.ORM `orm:"mysql=default;localCache"`
+	Orm  *orm.ORM `orm:"localCache"`
 	Id   uint
 	Name string
 }
 
 type TestEntityFlushCacheRedis struct {
-	Orm  *orm.ORM `orm:"mysql=default;redisCache"`
+	Orm  *orm.ORM `orm:"redisCache"`
 	Id   uint
 	Name string
 }

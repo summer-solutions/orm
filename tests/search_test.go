@@ -9,7 +9,7 @@ import (
 )
 
 type TestEntitySearch struct {
-	Orm            *orm.ORM `orm:"mysql=default"`
+	Orm            *orm.ORM
 	Id             uint
 	Name           string
 	ReferenceOneId uint `orm:"ref=tests.TestEntitySearch"`
