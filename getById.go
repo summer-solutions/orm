@@ -22,10 +22,15 @@ func TryById(id uint64, entity interface{}) (found bool) {
 
 	if localCache != nil {
 		cacheKey = schema.getCacheKey(id)
-		entity, has := localCache.Get(cacheKey)
+		e, has := localCache.Get(cacheKey)
 		if has {
 			if entity == nil {
 				return false
+			}
+			valEntity := reflect.ValueOf(entity).Elem()
+			valLocal := reflect.ValueOf(e)
+			for i := 0; i < valEntity.NumField(); i++ {
+				valEntity.Field(i).Set(valLocal.Field(i))
 			}
 			return true
 		}
