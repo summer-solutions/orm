@@ -365,3 +365,47 @@ func main() {
 }
 
 ```
+
+## Flusher
+
+Very often you need to change more than one entity. It's hard to track all of them
+to see if some of them are dirty. Also it's better to update them at the same time trying
+to minimize number of requests to database and cache. To solve this problem simple use FLusher:
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+   //.. register pools and entities
+ 
+    type TestEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint
+        Name                 string
+    }
+
+    /*
+    in this case flusher will keep maximum 100 entities. If you add more it will panic
+    */
+    flusher := orm.NewFlusher(100, false)
+
+    var entity1 TestEntity
+    var entity2 TestEntity
+    entity3 := TestEntity{Name: "Hello"}
+    orm.GetById(1, &entity1)
+    orm.GetById(2, &entity2)
+    flusher.RegisterEntity(&entity1, &entity2, &entity3)
+   
+    entity1.Name = "New Name"
+    entity1.Orm.MarkToDelete()
+    
+    err := flusher.Flush() //executes all queries at once
+    if err != nil {
+       ///...
+    }
+}
+
+```
