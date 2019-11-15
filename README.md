@@ -151,3 +151,32 @@ There are only two golden rules you need to remember defining entity struct:
  }
  
  ```
+
+ ## Logging
+ 
+ ```go
+ package main
+ 
+ import "github.com/summer-solutions/orm"
+ 
+ func main() {
+ 
+     defer orm.Defer()
+     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+     orm.RegisterMySqlPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
+     orm.RegisterRedis("localhost:6379", 0)
+     orm.RegisterLocalCache(1000)
+     orm.EnableContextCache(100, 1)
+   
+     /*to enable simple logger that prints queries to standard output*/
+     dbLogger := orm.StandardDatabaseLogger{}
+     orm.GetMysql().AddLogger(dbLogger)
+     orm.GetMysql("second_pool").AddLogger(dbLogger)
+    
+     cacheLogger := orm.StandardCacheLogger{}
+     orm.GetRedis().AddLogger(cacheLogger)   
+     orm.GetLocalCache().AddLogger(cacheLogger)
+     orm.GetContextCache().AddLogger(cacheLogger)
+ }
+ 
+ ```

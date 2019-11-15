@@ -43,7 +43,7 @@ func searchRow(where Where, entityType reflect.Type, value reflect.Value) bool {
 	var fieldsList = buildFieldList(entityType, "")
 	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
 	var row string
-	err := schema.GetMysqlDB().QueryRow(query, where.GetParameters()...).Scan(&row)
+	err := schema.GetMysql().QueryRow(query, where.GetParameters()...).Scan(&row)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false
@@ -62,7 +62,7 @@ func search(where Where, pager Pager, withCount bool, entities reflect.Value) in
 
 	var fieldsList = buildFieldList(entityType, "")
 	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where, pager.String())
-	results, err := schema.GetMysqlDB().Query(query, where.GetParameters()...)
+	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -90,7 +90,7 @@ func search(where Where, pager Pager, withCount bool, entities reflect.Value) in
 func searchIds(where Where, pager Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
 	schema := getTableSchema(entityType)
 	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where, pager.String())
-	results, err := schema.GetMysqlDB().Query(query, where.GetParameters()...)
+	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -114,7 +114,7 @@ func getTotalRows(withCount bool, pager Pager, where Where, schema *TableSchema,
 		if totalRows == pager.GetPageSize() {
 			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.TableName, where)
 			var foundTotal string
-			err := schema.GetMysqlDB().QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
+			err := schema.GetMysql().QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
 			if err != nil {
 				panic(err.Error())
 			}

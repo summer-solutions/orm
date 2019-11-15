@@ -12,7 +12,7 @@ func GetAlters() (safeAlters []string, unsafeAlters []string) {
 
 	for _, poolName := range mysqlPoolCodes {
 		tablesInDB[poolName] = make(map[string]bool)
-		results, err := GetMysqlDB(poolName).Query("SHOW TABLES")
+		results, err := GetMysql(poolName).Query("SHOW TABLES")
 		if err != nil {
 			panic(err.Error())
 		}
@@ -58,7 +58,7 @@ func GetAlters() (safeAlters []string, unsafeAlters []string) {
 
 func isTableEmptyInPool(poolName string, tableName string) bool {
 	var lastId uint64
-	err := GetMysqlDB(poolName).QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableName)).Scan(&lastId)
+	err := GetMysql(poolName).QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableName)).Scan(&lastId)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			return true

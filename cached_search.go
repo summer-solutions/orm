@@ -23,8 +23,8 @@ func CachedSearch(entities interface{}, indexName string, pager Pager, arguments
 	}
 
 	Where := NewWhere(definition.Query, arguments...)
-	localCache := schema.GetLocalCacheContainer()
-	contextCache := getContextCache()
+	localCache := schema.GetLocalCache()
+	contextCache := GetContextCache()
 	if localCache == nil && contextCache != nil {
 		localCache = contextCache
 	}

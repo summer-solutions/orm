@@ -50,9 +50,9 @@ func TestEntityByIdsRedis(t *testing.T) {
 	orm.EnableContextCache(100, 1)
 
 	DBLogger := TestDatabaseLogger{}
-	orm.GetMysqlDB("default").AddLogger(&DBLogger)
+	orm.GetMysql().AddLogger(&DBLogger)
 	CacheLogger := TestCacheLogger{}
-	orm.GetRedisCache("default").AddLogger(&CacheLogger)
+	orm.GetRedis().AddLogger(&CacheLogger)
 
 	var found []TestEntityByIdsRedisCache
 	missing := orm.TryByIds([]uint64{2, 13, 1}, &found)
@@ -82,7 +82,7 @@ func TestEntityByIdsRedis(t *testing.T) {
 	assert.Len(t, missing, 3)
 	assert.Len(t, DBLogger.Queries, 2)
 
-	orm.GetRedisCache("default").FlushDB()
+	orm.GetRedis().FlushDB()
 	DBLogger.Queries = make([]string, 0)
 	CacheLogger.Requests = make([]string, 0)
 

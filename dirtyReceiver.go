@@ -68,5 +68,5 @@ func (r DirtyReceiver) getRedis() *RedisCache {
 	if !has {
 		panic(fmt.Errorf("unregistered dirty queue %s", r.QueueCode))
 	}
-	return GetRedisCache(redisCode)
+	return GetRedis(redisCode)
 }

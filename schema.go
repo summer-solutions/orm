@@ -177,7 +177,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 	createTableSql += fmt.Sprint(") ENGINE=InnoDB DEFAULT CHARSET=utf8;")
 
 	var skip string
-	err := tableSchema.GetMysqlDB().QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.TableName)).Scan(&skip)
+	err := tableSchema.GetMysql().QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.TableName)).Scan(&skip)
 	hasTable := true
 	if err != nil {
 		hasTable = false
@@ -191,7 +191,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 
 	var tableDBColumns = make([][2]string, 0)
 	var createTableDB string
-	err = tableSchema.GetMysqlDB().QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.TableName)).Scan(&skip, &createTableDB)
+	err = tableSchema.GetMysql().QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.TableName)).Scan(&skip, &createTableDB)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -207,7 +207,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 	}
 
 	var rows []indexDB
-	results, err := tableSchema.GetMysqlDB().Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
+	results, err := tableSchema.GetMysql().Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
 	if err != nil {
 		panic(err.Error())
 	}
@@ -365,7 +365,7 @@ OUTER:
 }
 
 func (tableSchema TableSchema) DropTable() {
-	_, err := tableSchema.GetMysqlDB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", tableSchema.TableName))
+	_, err := tableSchema.GetMysql().Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", tableSchema.TableName))
 	if err != nil {
 		panic(err.Error())
 	}
@@ -375,13 +375,13 @@ func (tableSchema TableSchema) UpdateSchema() {
 	has, safeAlter, unsafeAlter := tableSchema.GetSchemaChanges()
 	if has {
 		if safeAlter != "" {
-			_, err := tableSchema.GetMysqlDB().Exec(safeAlter)
+			_, err := tableSchema.GetMysql().Exec(safeAlter)
 			if err != nil {
 				panic(err.Error())
 			}
 		}
 		if unsafeAlter != "" {
-			_, err := tableSchema.GetMysqlDB().Exec(unsafeAlter)
+			_, err := tableSchema.GetMysql().Exec(unsafeAlter)
 			if err != nil {
 				panic(err.Error())
 			}
@@ -389,22 +389,22 @@ func (tableSchema TableSchema) UpdateSchema() {
 	}
 }
 
-func (tableSchema TableSchema) GetMysqlDB() *DB {
-	return GetMysqlDB(tableSchema.MysqlPoolName)
+func (tableSchema TableSchema) GetMysql() *DB {
+	return GetMysql(tableSchema.MysqlPoolName)
 }
 
-func (tableSchema TableSchema) GetLocalCacheContainer() *LocalCache {
+func (tableSchema TableSchema) GetLocalCache() *LocalCache {
 	if tableSchema.localCacheName == "" {
 		return nil
 	}
-	return GetLocalCacheContainer(tableSchema.localCacheName)
+	return GetLocalCache(tableSchema.localCacheName)
 }
 
 func (tableSchema TableSchema) GetRedisCacheContainer() *RedisCache {
 	if tableSchema.redisCacheName == "" {
 		return nil
 	}
-	return GetRedisCache(tableSchema.redisCacheName)
+	return GetRedis(tableSchema.redisCacheName)
 }
 
 func (tableSchema TableSchema) getCacheKey(id uint64) string {
@@ -418,7 +418,7 @@ func (tableSchema TableSchema) getCacheKeySearch(indexName string, parameters ..
 
 func (tableSchema TableSchema) isTableEmpty() bool {
 	var lastId uint64
-	err := tableSchema.GetMysqlDB().QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableSchema.TableName)).Scan(&lastId)
+	err := tableSchema.GetMysql().QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableSchema.TableName)).Scan(&lastId)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			return true

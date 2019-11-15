@@ -10,11 +10,11 @@ type LazyReceiver struct {
 }
 
 func (r LazyReceiver) Size() int64 {
-	return GetRedisCache(r.RedisName).LLen("lazy_queue")
+	return GetRedis(r.RedisName).LLen("lazy_queue")
 }
 
 func (r LazyReceiver) Digest() error {
-	redis := GetRedisCache(r.RedisName)
+	redis := GetRedis(r.RedisName)
 	key := "lazy_queue"
 	for {
 		val, found := redis.RPop(key)
@@ -45,7 +45,7 @@ func (r LazyReceiver) Digest() error {
 			errors = append(errors, err)
 		}
 		if len(brokenMap) > 0 {
-			GetRedisCache(queueRedisName).RPush("lazy_queue", serializeForLazyQueue(brokenMap))
+			GetRedis(queueRedisName).RPush("lazy_queue", serializeForLazyQueue(brokenMap))
 		}
 		if len(errors) > 0 {
 			return fmt.Errorf("errors: %v", err)
@@ -66,7 +66,7 @@ func (r *LazyReceiver) handleQueries(validMap map[string]interface{}, brokenMap 
 			if !ok {
 				return fmt.Errorf("invalid query: %v", validInsert)
 			}
-			db := GetMysqlDB(validInsert[0].(string))
+			db := GetMysql(validInsert[0].(string))
 			sql := validInsert[1].(string)
 			attributes := validInsert[2].([]interface{})
 			_, err := db.Exec(sql, attributes...)

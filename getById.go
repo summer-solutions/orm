@@ -13,9 +13,9 @@ func TryById(id uint64, entity interface{}) (found bool) {
 	entityType := reflect.ValueOf(entity).Elem().Type()
 	schema := getTableSchema(entityType)
 	var cacheKey string
-	localCache := schema.GetLocalCacheContainer()
+	localCache := schema.GetLocalCache()
 
-	contextCache := getContextCache()
+	contextCache := GetContextCache()
 	if localCache == nil && contextCache != nil {
 		localCache = contextCache
 	}

@@ -18,7 +18,7 @@ func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
 		TableSchema = orm.GetTableSchema(entity)
 		TableSchema.DropTable()
 		TableSchema.UpdateSchema()
-		localCache := TableSchema.GetLocalCacheContainer()
+		localCache := TableSchema.GetLocalCache()
 		if localCache != nil {
 			localCache.Clear()
 		}

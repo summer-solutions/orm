@@ -64,19 +64,19 @@ func (db *DB) Commit() error {
 		if err == nil {
 			if db.afterCommitLocalCacheSets != nil {
 				for cacheCode, pairs := range db.afterCommitLocalCacheSets {
-					GetLocalCacheContainer(cacheCode).MSet(pairs...)
+					GetLocalCache(cacheCode).MSet(pairs...)
 				}
 			}
 			db.afterCommitLocalCacheSets = nil
 			if db.afterCommitLocalCacheDeletes != nil {
 				for cacheCode, keys := range db.afterCommitLocalCacheDeletes {
-					GetLocalCacheContainer(cacheCode).RemoveMany(keys...)
+					GetLocalCache(cacheCode).RemoveMany(keys...)
 				}
 			}
 			db.afterCommitLocalCacheDeletes = nil
 			if db.afterCommitRedisCacheDeletes != nil {
 				for cacheCode, keys := range db.afterCommitRedisCacheDeletes {
-					GetRedisCache(cacheCode).Del(keys...)
+					GetRedis(cacheCode).Del(keys...)
 				}
 			}
 			db.afterCommitRedisCacheDeletes = nil

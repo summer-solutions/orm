@@ -32,7 +32,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 	redisKeysToDelete := make(map[string]map[string]map[string]bool)
 	dirtyQueues := make(map[string][]*redis.Z)
 	lazyMap := make(map[string]interface{})
-	contextCache := getContextCache()
+	contextCache := GetContextCache()
 
 	for _, entity := range entities {
 		value := reflect.Indirect(reflect.ValueOf(entity))
@@ -90,12 +90,12 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 				}
 				schema := getTableSchema(t)
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
-				db := schema.GetMysqlDB()
+				db := schema.GetMysql()
 				values[i] = currentId
 				if lazy && db.transaction == nil {
 					fillLazyQuery(lazyMap, db.code, sql, values)
 				} else {
-					_, err := schema.GetMysqlDB().Exec(sql, values...)
+					_, err := schema.GetMysql().Exec(sql, values...)
 					if err != nil {
 						return err
 					}
@@ -105,21 +105,21 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 					old[k] = v
 				}
 				injectBind(value, bind)
-				localCache := schema.GetLocalCacheContainer()
-				contextCache := getContextCache()
+				localCache := schema.GetLocalCache()
+				contextCache := GetContextCache()
 				if localCache == nil && contextCache != nil {
 					localCache = contextCache
 				}
 				redisCache := schema.GetRedisCacheContainer()
 
 				if localCache != nil {
-					db := schema.GetMysqlDB()
+					db := schema.GetMysql()
 					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(currentId), value.Interface())
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, orm.dBData, false)...)
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
 				}
 				if redisCache != nil {
-					db := schema.GetMysqlDB()
+					db := schema.GetMysql()
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentId))
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, orm.dBData, false)...)
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
@@ -139,7 +139,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 			sql += "," + insertValues[typeOf]
 		}
 		id := uint64(0)
-		db := schema.GetMysqlDB()
+		db := schema.GetMysql()
 		if lazy {
 			fillLazyQuery(lazyMap, db.code, sql, insertArguments[typeOf])
 		} else {
@@ -153,7 +153,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 			}
 			id = uint64(insertId)
 		}
-		localCache := schema.GetLocalCacheContainer()
+		localCache := schema.GetLocalCache()
 		if localCache == nil && contextCache != nil {
 			localCache = contextCache
 		}
@@ -188,7 +188,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 		where := NewWhere("`Id` IN ?", ids)
 		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, where)
-		db := schema.GetMysqlDB()
+		db := schema.GetMysql()
 		if lazy && db.transaction == nil {
 			fillLazyQuery(lazyMap, db.code, sql, where.GetParameters())
 		} else {
@@ -198,7 +198,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 			}
 		}
 
-		localCache := schema.GetLocalCacheContainer()
+		localCache := schema.GetLocalCache()
 		if localCache == nil && contextCache != nil {
 			localCache = contextCache
 		}
@@ -221,9 +221,9 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 	}
 
 	for dbCode, values := range localCacheSets {
-		db := GetMysqlDB(dbCode)
+		db := GetMysql(dbCode)
 		for cacheCode, keys := range values {
-			cache := GetLocalCacheContainer(cacheCode)
+			cache := GetLocalCache(cacheCode)
 			if db.transaction == nil {
 				cache.MSet(keys...)
 			} else {
@@ -235,9 +235,9 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	for dbCode, values := range localCacheDeletes {
-		db := GetMysqlDB(dbCode)
+		db := GetMysql(dbCode)
 		for cacheCode, allKeys := range values {
-			cache := GetLocalCacheContainer(cacheCode)
+			cache := GetLocalCache(cacheCode)
 			keys := make([]string, len(allKeys))
 			i := 0
 			for key := range allKeys {
@@ -264,9 +264,9 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	for dbCode, values := range redisKeysToDelete {
-		db := GetMysqlDB(dbCode)
+		db := GetMysql(dbCode)
 		for cacheCode, allKeys := range values {
-			cache := GetRedisCache(cacheCode)
+			cache := GetRedis(cacheCode)
 			keys := make([]string, len(allKeys))
 			i := 0
 			for key := range allKeys {
@@ -296,7 +296,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	if len(lazyMap) > 0 {
-		GetRedisCache(queueRedisName).LPush("lazy_queue", serializeForLazyQueue(lazyMap))
+		GetRedis(queueRedisName).LPush("lazy_queue", serializeForLazyQueue(lazyMap))
 	}
 
 	for k, v := range dirtyQueues {
@@ -304,7 +304,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		if !has {
 			panic(fmt.Errorf("unregistered lazy queue %s", k))
 		}
-		GetRedisCache(redisCode).ZAdd(k, v...)
+		GetRedis(redisCode).ZAdd(k, v...)
 	}
 	return
 }

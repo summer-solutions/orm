@@ -25,7 +25,7 @@ func TestFlusherAuto(t *testing.T) {
 	PrepareTables(entity)
 
 	Logger := TestDatabaseLogger{}
-	orm.GetMysqlDB("default").AddLogger(&Logger)
+	orm.GetMysql().AddLogger(&Logger)
 
 	flusher := orm.NewFlusher(5, true)
 
@@ -52,7 +52,7 @@ func TestFlusherManual(t *testing.T) {
 	PrepareTables(entity)
 
 	Logger := TestDatabaseLogger{}
-	orm.GetMysqlDB("default").AddLogger(&Logger)
+	orm.GetMysql().AddLogger(&Logger)
 
 	flusher := orm.NewFlusher(100, false)
 

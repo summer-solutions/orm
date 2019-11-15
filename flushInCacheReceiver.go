@@ -12,11 +12,11 @@ type FlushInCacheReceiver struct {
 }
 
 func (r FlushInCacheReceiver) Size() int64 {
-	return GetRedisCache(r.RedisName).ZCard("dirty_queue")
+	return GetRedis(r.RedisName).ZCard("dirty_queue")
 }
 
 func (r FlushInCacheReceiver) Digest() error {
-	cache := GetRedisCache(r.RedisName)
+	cache := GetRedis(r.RedisName)
 	for {
 		values := cache.ZPopMin("dirty_queue", 1)
 		if len(values) == 0 {
@@ -72,11 +72,11 @@ func (r FlushInCacheReceiver) Digest() error {
 			i++
 		}
 		attributes[i] = id
-		db := schema.GetMysqlDB()
+		db := schema.GetMysql()
 		sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
 		_, err = db.Exec(sql, attributes...)
 		if err != nil {
-			GetRedisCache(queueRedisName).ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+			GetRedis(queueRedisName).ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 			return err
 		}
 		cacheKeys := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
@@ -84,7 +84,7 @@ func (r FlushInCacheReceiver) Digest() error {
 		if len(cacheKeys) > 0 {
 			err = cache.Del(cacheKeys...)
 			if err != nil {
-				GetRedisCache(queueRedisName).ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+				GetRedis(queueRedisName).ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 				return err
 			}
 		}

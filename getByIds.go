@@ -27,9 +27,9 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 	}
 	schema := getTableSchema(getEntityTypeForSlice(entities.Type()))
 
-	localCache := schema.GetLocalCacheContainer()
+	localCache := schema.GetLocalCache()
 	redisCache := schema.GetRedisCacheContainer()
-	contextCache := getContextCache()
+	contextCache := GetContextCache()
 	if localCache == nil && contextCache != nil {
 		localCache = contextCache
 	}

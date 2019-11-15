@@ -38,11 +38,11 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, rows, 0)
 
 	LoggerDB := TestDatabaseLogger{}
-	orm.GetMysqlDB("default").AddLogger(&LoggerDB)
+	orm.GetMysql().AddLogger(&LoggerDB)
 	LoggerRedisCache := TestCacheLogger{}
-	orm.GetRedisCache("default").AddLogger(&LoggerRedisCache)
+	orm.GetRedis().AddLogger(&LoggerRedisCache)
 	LoggerRedisQueue := TestCacheLogger{}
-	orm.GetRedisCache("default_queue").AddLogger(&LoggerRedisQueue)
+	orm.GetRedis("default_queue").AddLogger(&LoggerRedisQueue)
 
 	entityRedis.Name = "Name 2"
 	entityRedis.Age = 10

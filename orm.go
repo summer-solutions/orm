@@ -36,7 +36,7 @@ func Defer() {
 		_ = client.db.Close()
 	}
 	mySqlClients = make(map[string]*DB)
-	contextCache := getContextCache()
+	contextCache := GetContextCache()
 	if contextCache != nil {
 		contextCache.Clear()
 	}
@@ -127,28 +127,38 @@ func SetRedisForQueue(redisCode string) {
 	queueRedisName = redisCode
 }
 
-func GetMysqlDB(code string) *DB {
-
-	db, has := mySqlClients[code]
+func GetMysql(code ...string) *DB {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	db, has := mySqlClients[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered database code: %s", code))
+		panic(fmt.Errorf("unregistered database code: %s", dbCode))
 	}
 	return db
 }
 
-func GetLocalCacheContainer(code string) *LocalCache {
-	cache, has := localCacheContainers[code]
+func GetLocalCache(code ...string) *LocalCache {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	cache, has := localCacheContainers[dbCode]
 	if has == true {
 		return cache
 	}
-	panic(fmt.Errorf("unregistered local cache: %s", code))
+	panic(fmt.Errorf("unregistered local cache: %s", dbCode))
 }
 
-func GetRedisCache(code string) *RedisCache {
-
-	client, has := redisServers[code]
+func GetRedis(code ...string) *RedisCache {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	client, has := redisServers[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered redis code: %s", code))
+		panic(fmt.Errorf("unregistered redis code: %s", dbCode))
 	}
 	return client
 }
@@ -161,7 +171,7 @@ func getEntityType(name string) reflect.Type {
 	return t
 }
 
-func getContextCache() *LocalCache {
+func GetContextCache() *LocalCache {
 	contextCache, has := localCacheContainers["_context_cache"]
 	if !has {
 		return nil
