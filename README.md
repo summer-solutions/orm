@@ -191,3 +191,37 @@ There are only two golden rules you need to remember defining entity struct:
  }
  
  ```
+
+
+## Adding entities
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    defer orm.Defer()
+    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+
+    type TestEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint
+        Name                 string
+    }
+    var entity TestEntity
+    orm.RegisterEntity(entity)
+    //code above you should execute only once, when application starts
+    
+    entity = FirstEntity{Name: "Name 1"}
+    orm.Init(&entity) // you should use this function only for new entities
+    err := orm.Flush(&entity)
+    if err != nil {
+       ///...
+    }
+}
+
+```
+
+
