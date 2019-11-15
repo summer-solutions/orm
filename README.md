@@ -298,3 +298,31 @@ func main() {
 If you need to work with more than one entity i strongly recommend ot use FLusher (described later).
 
 
+## Getting entities using primary keys
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+   //.. register pools and entities
+ 
+    type TestEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint
+        Name                 string
+    }
+    var entity TestEntity
+    found := orm.TryById(1, &entity) //found has false if row does not exists
+    orm.GetById(2, &entity) //will panic if row does not exist
+
+    var entities []TestEntity
+    //missing is []uint64 that contains id of rows that doesn't exists, 
+    // in this cause $found slice has nil for such keys
+    missing := orm.TryByIds([]uint64{2, 3, 1}, &found) 
+    orm.GetByIds([]uint64{2, 3, 1}, &found) //will panic if at least one row does not exist
+}
+
+```
