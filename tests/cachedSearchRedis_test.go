@@ -38,7 +38,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	RedisLogger := TestCacheLogger{}
 	orm.GetRedis().AddLogger(&RedisLogger)
 
-	pager := orm.NewPager(1, 100)
+	pager := orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []TestEntityIndexTestRedis
 	totalRows := orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)
@@ -50,7 +50,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Equal(t, uint(10), rows[4].Id)
 	assert.Len(t, DBLogger.Queries, 2)
 
-	pager = orm.NewPager(1, 100)
+	pager = orm.Pager{CurrentPage: 1, PageSize: 100}
 	totalRows = orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
@@ -61,14 +61,14 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Equal(t, uint(10), rows[4].Id)
 	assert.Len(t, DBLogger.Queries, 2)
 
-	pager = orm.NewPager(2, 4)
+	pager = orm.Pager{CurrentPage: 2, PageSize: 4}
 	totalRows = orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, uint(10), rows[0].Id)
 	assert.Len(t, DBLogger.Queries, 2)
 
-	pager = orm.NewPager(1, 5)
+	pager = orm.Pager{CurrentPage: 1, PageSize: 5}
 	totalRows = orm.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
@@ -80,7 +80,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 
-	pager = orm.NewPager(1, 10)
+	pager = orm.Pager{CurrentPage: 1, PageSize: 10}
 	totalRows = orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 6, totalRows)
 	assert.Len(t, rows, 6)
@@ -146,7 +146,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 
-	pager = orm.NewPager(1, 100)
+	pager = orm.Pager{CurrentPage: 1, PageSize: 100}
 	RedisLogger.Requests = make([]string, 0)
 	totalRows = orm.CachedSearch(&rows, "IndexAll", pager)
 	assert.Equal(t, 11, totalRows)
@@ -164,7 +164,7 @@ func BenchmarkCachedRedis(b *testing.B) {
 		entities[i-1] = &e
 	}
 	_ = orm.Flush(entities...)
-	pager := orm.NewPager(1, 100)
+	pager := orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []TestEntityIndexTestRedis
 	for n := 0; n < b.N; n++ {
 		orm.CachedSearch(&rows, "IndexAge", pager, 18)

@@ -345,7 +345,7 @@ func main() {
     }
 
     var entities []TestEntity
-    pager := orm.NewPager(1, 100)
+    pager := orm.Pager{CurrentPage: 1, PageSize: 100}
     where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
     orm.Search(where, pager, &entities)
     
@@ -412,7 +412,7 @@ func main() {
     flusher = orm.NewFlusher(1000, true)
     
     var entities []TestEntity
-    pager := orm.NewPager(1, 100)
+    pager := orm.Pager{CurrentPage: 1, PageSize: 100}
     where := orm.NewWhere("1")
     for {
         orm.Search(where, pager, &entities)

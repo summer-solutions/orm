@@ -65,7 +65,7 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 	}
 	l := len(ids)
 	if l > 0 {
-		search(NewWhere("`Id` IN ?", ids), NewPager(1, l), false, entities)
+		search(NewWhere("`Id` IN ?", ids), Pager{1, l}, false, entities)
 		for i := 0; i < entities.Len(); i++ {
 			e := entities.Index(i)
 			id := e.Field(1).Uint()

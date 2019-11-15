@@ -2,34 +2,23 @@ package orm
 
 import "fmt"
 
-type pager struct {
-	currentPage int
-	pageSize    int
+type Pager struct {
+	CurrentPage int
+	PageSize    int
 }
 
-type Pager interface {
-	GetPageSize() int
-	GetCurrentPage() int
-	String() string
-	IncrementPage()
+func (pager *Pager) GetPageSize() int {
+	return pager.PageSize
 }
 
-func (pager pager) GetPageSize() int {
-	return pager.pageSize
+func (pager *Pager) GetCurrentPage() int {
+	return pager.CurrentPage
 }
 
-func (pager pager) GetCurrentPage() int {
-	return pager.currentPage
+func (pager *Pager) IncrementPage() {
+	pager.CurrentPage++
 }
 
-func (pager pager) IncrementPage() {
-	pager.currentPage++
-}
-
-func (pager pager) String() string {
-	return fmt.Sprintf("LIMIT %d,%d", (pager.currentPage-1)*pager.pageSize, pager.pageSize)
-}
-
-func NewPager(currentPage int, pageSize int) Pager {
-	return pager{currentPage, pageSize}
+func (pager Pager) String() string {
+	return fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize)
 }

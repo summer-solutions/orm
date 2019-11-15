@@ -28,7 +28,7 @@ func TestFlushInCache(t *testing.T) {
 	err := orm.Flush(&entityRedis)
 	assert.Nil(t, err)
 
-	pager := orm.NewPager(1, 100)
+	pager := orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []TestEntityFlusherInCacheRedis
 	totalRows := orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 1, totalRows)
