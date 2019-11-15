@@ -181,12 +181,11 @@ There are only two golden rules you need to remember defining entity struct:
     /*defining your own logger*/
     type MyDatabaseLogger struct {
     }
-
     func (l *MyDatabaseLogger) Log(mysqlCode string, query string, args ...interface{}) {
     }
+
     type MyCacheLogger struct {
     }
-
     func (l *MyCacheLogger) Log(cacheType string, code string, key string, operation string, misses int) {
     }
  }
