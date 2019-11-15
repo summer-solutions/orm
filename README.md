@@ -193,7 +193,7 @@ There are only two golden rules you need to remember defining entity struct:
  ```
 
 
-## Adding entities
+## Adding, editing, deleting entities
 
 ```go
 package main
@@ -222,12 +222,29 @@ func main() {
     }
 
     /*if you need to add more than one entity*/
-    
     entity = TestEntity{Name: "Name 2"}
     entity2 := TestEntity{Name: "Name 3"}
     orm.Init(&entity, &entity2)
     //it will execute only one query in MySQL adding two rows at once (atomic)
     err = orm.Flush(&entity, &entity2)
+    if err != nil {
+       ///...
+    }
+
+    /* editing */
+    entity.Name = "New name 2"
+    entity.Orm.IsDirty() //returns true
+    entity2.Orm.IsDirty() //returns false
+    err = orm.Flush(&entity)
+    if err != nil {
+       ///...
+    }
+    entity.Orm.IsDirty() //returns false
+    
+    /* deleting */
+    entity2.Orm.MarkToDelete()
+    entity2.Orm.IsDirty() //returns true
+    err = orm.Flush(&entity)
     if err != nil {
        ///...
     }
