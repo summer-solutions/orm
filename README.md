@@ -387,7 +387,7 @@ func main() {
         Name                 string
     }
 
-    /* in this case flusher will keep maximum 100 entities. If you add more it will panic */
+    /* In this case flusher will keep maximum 100 entities. If you add more it will panic */
     flusher := orm.NewFlusher(100, false)
 
     var entity1 TestEntity
