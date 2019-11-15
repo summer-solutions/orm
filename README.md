@@ -146,8 +146,8 @@ There are only two golden rules you need to remember defining entity struct:
     /*optionally you can execute alters for each model*/
     orm.GetTableSchema(firstEntity).UpdateSchema() //it will create or alter table if needed
     orm.GetTableSchema(firstEntity).DropTable() //it will drop table if exist
-    has, safeAlters, unsafeAlters := orm.GetTableSchema(firstEntity).GetSchemaChanges() //if you need to what needs to be executed
-
+    //if you need to see queries:
+    has, safeAlters, unsafeAlters := orm.GetTableSchema(firstEntity).GetSchemaChanges()
  }
  
  ```
