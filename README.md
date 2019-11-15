@@ -326,3 +326,42 @@ func main() {
 }
 
 ```
+
+## Getting entities using search
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+   //.. register pools and entities
+ 
+    type TestEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint
+        Name                 string
+    }
+    var entities []TestEntity
+	pager := orm.NewPager(1, 100)
+
+	where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
+    orm.Search(where, pager, &entities)
+    
+    //or if you need number of total rows
+    totalRows := orm.SearchWithCount(where, pager, &entities)
+    
+    //or if you need only one row
+    where := orm.NewWhere("`Name` = ?", "Hello")
+    var entity TestEntity
+    found := orm.SearchOne(where, &entity)
+    
+    //or if you need only primary keys
+    ids := orm.SearchIds(where, pager, entity)
+    
+    //or if you need only primary keys and total rows
+    ids, totalRows = orm.SearchIdsWithCount(where, pager, entity)
+}
+
+```
