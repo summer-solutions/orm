@@ -93,9 +93,18 @@ func main() {
     	Address              Address
     	Json                 interface{}
     	ReferenceOne         *orm.ReferenceOne  `orm:"ref=TestEntity"`
-    	ReferenceMany        *orm.ReferenceMany `orm:"ref=TestEntity"`
+    	ReferenceMany        *orm.ReferenceMany `orm:"ref=TestEntity;max=100"`
     }
 
 }
-
 ```
+
+There are only two golden rules you need to remember defining entity struct: 
+
+ * first field must have name "Orm" and must be type of "*orm.ORM"
+ * second argument must have name "Id" and must be type of one of uint, uint16, uint32, uint64
+ 
+ 
+ As you can see orm is not using null values like sql.NullString. Simply set empty string "" and orm will
+ convert it to null in database. 
+ 
