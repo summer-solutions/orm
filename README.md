@@ -108,3 +108,41 @@ There are only two golden rules you need to remember defining entity struct:
  As you can see orm is not using null values like sql.NullString. Simply set empty string "" and orm will
  convert it to null in database. 
  
+ ## Updating schema
+ 
+ ```go
+ package main
+ 
+ import "github.com/summer-solutions/orm"
+ 
+ func main() {
+ 
+     defer orm.Defer()
+     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    
+     type FirstEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint
+        Name                 string
+     }
+      
+    type SecondEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint
+        Name                 string
+    }
+    
+    var firstEntity  FirstEntity
+    var secondEntity SecondEntity
+	orm.RegisterEntity(firstEntity, secondEntity)
+    
+    safeAlters, unsafeAlters := orm.GetAlters()
+    
+    /* in safeAlters and unsafeAlters you can find all sql queries (CREATE, DROP, ALTER TABLE) that needs
+    to be executed based on registered entities. "safeAlters" you can execute without any stress,
+    no data will be lost. But be careful executing queries from "unsafeAlters". You can loose some data, 
+    e.g. table needs to be dropped that contains some rows. */
+
+ }
+ 
+ ```
