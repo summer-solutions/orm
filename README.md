@@ -95,7 +95,10 @@ func main() {
     	ReferenceOne         *orm.ReferenceOne  `orm:"ref=TestEntity"`
     	ReferenceMany        *orm.ReferenceMany `orm:"ref=TestEntity;max=100"`
     }
-
+    type TestEntitySecondPool struct {
+    	Orm                  *orm.ORM `orm:"mysql=second_pool"`
+    	Id                   uint
+    }
 }
 ```
 
@@ -107,6 +110,46 @@ There are only two golden rules you need to remember defining entity struct:
  
  As you can see orm is not using null values like sql.NullString. Simply set empty string "" and orm will
  convert it to null in database. 
+ 
+ By default entity is not cached in local cache or redis, to change that simply use key "redisCache" or "localCache"
+ in "orm" tag for "Orm" field:
+ 
+ ```go
+ package main
+ 
+ import (
+ 	"github.com/summer-solutions/orm"
+ 	"time"
+ )
+ 
+ func main() {
+ 
+     type TestEntityLocalCache struct {
+     	Orm                  *orm.ORM `orm:"localCache"` //default pool
+        //...
+     }
+    
+    type TestEntityLocalCacheSecondPool struct {
+     	Orm                  *orm.ORM `orm:"localCache=second_pool"`
+        //...
+     }
+    
+    type TestEntityRedisCache struct {
+     	Orm                  *orm.ORM `orm:"redisCache"` //default pool
+        //...
+     }
+    
+    type TestEntityRedisCacheSecondPool struct {
+     	Orm                  *orm.ORM `orm:"redisCache=second_pool"`
+        //...
+     }
+
+    type TestEntityLocalAndRedisCache struct {
+     	Orm                  *orm.ORM `orm:"localCache;redisCache"`
+        //...
+     }
+ }
+ ```
  
  ## Updating schema
  
