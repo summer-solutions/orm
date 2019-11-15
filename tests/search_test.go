@@ -3,7 +3,6 @@ package tests
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
-	"reflect"
 	"strconv"
 	"testing"
 )
@@ -64,7 +63,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, uint(2), rows[0].Id)
 	assert.Equal(t, uint(7), rows[5].Id)
 
-	ids := orm.SearchIds(where, pager, reflect.TypeOf(entity))
+	ids := orm.SearchIds(where, pager, entity)
 	assert.Len(t, ids, 6)
 	assert.Equal(t, uint64(2), ids[0])
 	assert.Equal(t, uint64(7), ids[5])
