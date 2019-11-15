@@ -252,6 +252,6 @@ func main() {
 
 ```
 
-If you need to work with more than entity i strongly recommend ot use FLusher (described later).
+If you need to work with more than one entity i strongly recommend ot use FLusher (described later).
 
 
