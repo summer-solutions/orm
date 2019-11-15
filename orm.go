@@ -89,8 +89,12 @@ func UnregisterMySqlPools() {
 	mysqlPoolCodes = make([]string, 0)
 }
 
-func RegisterLocalCache(code string, size int) {
-	localCacheContainers[code] = &LocalCache{code: code, lru: lru.New(size)}
+func RegisterLocalCache(size int, code ...string) {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	localCacheContainers[dbCode] = &LocalCache{code: dbCode, lru: lru.New(size)}
 }
 
 func EnableContextCache(size int, ttl int64) {
