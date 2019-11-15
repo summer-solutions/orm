@@ -88,7 +88,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 					values[i] = value
 					i++
 				}
-				schema := GetTableSchema(t)
+				schema := getTableSchema(t)
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
 				db := schema.GetMysqlDB()
 				values[i] = currentId
@@ -129,7 +129,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	for typeOf, values := range insertKeys {
-		schema := GetTableSchema(typeOf)
+		schema := getTableSchema(typeOf)
 		finalValues := make([]string, len(values))
 		for key, val := range values {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
@@ -179,7 +179,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	for typeOf, deleteBinds := range deleteBinds {
-		schema := GetTableSchema(typeOf)
+		schema := getTableSchema(typeOf)
 		ids := make([]uint64, len(deleteBinds))
 		i := 0
 		for id := range deleteBinds {

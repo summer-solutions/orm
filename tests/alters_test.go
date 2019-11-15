@@ -3,7 +3,6 @@ package tests
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -52,7 +51,7 @@ func TestGetAlters(t *testing.T) {
 
 	var entity TestEntitySchema
 	orm.RegisterEntity(entity)
-	tableSchema := orm.GetTableSchema(reflect.TypeOf(entity))
+	tableSchema := orm.GetTableSchema(entity)
 	tableSchema.DropTable()
 
 	safeAlters, unsafeAlters := orm.GetAlters()

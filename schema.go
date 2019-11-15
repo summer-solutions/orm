@@ -31,7 +31,7 @@ func (orm *ORM) IsDirty() bool {
 	v := reflect.ValueOf(orm.e)
 	value := reflect.Indirect(v)
 	t := value.Type()
-	bind := createBind(GetTableSchema(t), t, value, orm.dBData, "")
+	bind := createBind(getTableSchema(t), t, value, orm.dBData, "")
 	return value.Field(1).Uint() == 0 || len(bind) > 0
 }
 
@@ -41,7 +41,7 @@ func (orm *ORM) isDirty(value reflect.Value) (is bool, bind map[string]interface
 	if ormField.dBData["_delete"] == true {
 		return true, nil
 	}
-	bind = createBind(GetTableSchema(t), t, value, ormField.dBData, "")
+	bind = createBind(getTableSchema(t), t, value, ormField.dBData, "")
 	is = value.Field(1).Uint() == 0 || len(bind) > 0
 	return
 }
@@ -80,7 +80,11 @@ type index struct {
 
 var tableSchemas = make(map[reflect.Type]*TableSchema)
 
-func GetTableSchema(entityType reflect.Type) *TableSchema {
+func GetTableSchema(entity interface{}) *TableSchema {
+	return getTableSchema(reflect.TypeOf(entity))
+}
+
+func getTableSchema(entityType reflect.Type) *TableSchema {
 	tableSchema, has := tableSchemas[entityType]
 	if has {
 		return tableSchema

@@ -27,7 +27,7 @@ func GetAlters() (safeAlters []string, unsafeAlters []string) {
 		tablesInEntities[poolName] = make(map[string]bool)
 	}
 	for _, t := range entities {
-		tableSchema := GetTableSchema(t)
+		tableSchema := getTableSchema(t)
 		tablesInEntities[tableSchema.MysqlPoolName][tableSchema.TableName] = true
 		has, safeAlter, unsafeAlter := tableSchema.GetSchemaChanges()
 		if !has {

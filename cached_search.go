@@ -12,7 +12,7 @@ import (
 func CachedSearch(entities interface{}, indexName string, pager Pager, arguments ...interface{}) (totalRows int) {
 	value := reflect.ValueOf(entities)
 	entityType := getEntityTypeForSlice(value.Type())
-	schema := GetTableSchema(entityType)
+	schema := getTableSchema(entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
 		panic(fmt.Errorf("uknown index %s", indexName))

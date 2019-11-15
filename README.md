@@ -142,6 +142,11 @@ There are only two golden rules you need to remember defining entity struct:
     to be executed based on registered entities. "safeAlters" you can execute without any stress,
     no data will be lost. But be careful executing queries from "unsafeAlters". You can loose some data, 
     e.g. table needs to be dropped that contains some rows. */
+    
+    /*optionally you can execute alters for each model*/
+    orm.GetTableSchema(firstEntity).UpdateSchema() //it will create or alter table if needed
+    orm.GetTableSchema(firstEntity).DropTable() //it will drop table if exist
+    has, safeAlters, unsafeAlters := orm.GetTableSchema(firstEntity).GetSchemaChanges() //if you need to what needs to be executed
 
  }
  

@@ -47,7 +47,7 @@ func initIfNeeded(value reflect.Value, entity interface{}) *ORM {
 	if orm == nil {
 		orm = &ORM{dBData: make(map[string]interface{}), e: entity}
 		value.Field(0).Set(reflect.ValueOf(orm))
-		tableSchema := GetTableSchema(value.Type())
+		tableSchema := getTableSchema(value.Type())
 		for i := 2; i < value.NumField(); i++ {
 			field := value.Field(i)
 			isOne := field.Type().String() == "*orm.ReferenceOne"

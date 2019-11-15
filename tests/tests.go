@@ -3,7 +3,6 @@ package tests
 import (
 	"fmt"
 	"github.com/summer-solutions/orm"
-	"reflect"
 )
 
 func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
@@ -16,7 +15,7 @@ func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
 	orm.RegisterEntity(entities...)
 	orm.DisableContextCache()
 	for _, entity := range entities {
-		TableSchema = orm.GetTableSchema(reflect.TypeOf(entity))
+		TableSchema = orm.GetTableSchema(entity)
 		TableSchema.DropTable()
 		TableSchema.UpdateSchema()
 		localCache := TableSchema.GetLocalCacheContainer()

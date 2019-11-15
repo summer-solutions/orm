@@ -22,7 +22,7 @@ func FlushInCache(entities ...interface{}) error {
 
 		id := value.Field(1).Uint()
 		entityName := t.String()
-		schema := GetTableSchema(t)
+		schema := getTableSchema(t)
 		cache := schema.GetRedisCacheContainer()
 		if cache == nil || id == 0 {
 			invalidEntities = append(invalidEntities, entity)

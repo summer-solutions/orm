@@ -38,7 +38,7 @@ func (r DirtyReceiver) Digest(max int, handler DirtyHandler) error {
 			if len(val) != 3 {
 				continue
 			}
-			tableSchema := GetTableSchema(getEntityType(val[0]))
+			tableSchema := getTableSchema(getEntityType(val[0]))
 			id, err := strconv.ParseUint(val[2], 10, 64)
 			if err != nil {
 				continue

@@ -25,7 +25,7 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 		entities.SetLen(0)
 		return make([]uint64, 0)
 	}
-	schema := GetTableSchema(getEntityTypeForSlice(entities.Type()))
+	schema := getTableSchema(getEntityTypeForSlice(entities.Type()))
 
 	localCache := schema.GetLocalCacheContainer()
 	redisCache := schema.GetRedisCacheContainer()

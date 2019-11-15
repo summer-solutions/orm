@@ -11,7 +11,7 @@ func TryById(id uint64, entity interface{}) (found bool) {
 		panic(fmt.Errorf("pointer not provided"))
 	}
 	entityType := reflect.ValueOf(entity).Elem().Type()
-	schema := GetTableSchema(entityType)
+	schema := getTableSchema(entityType)
 	var cacheKey string
 	localCache := schema.GetLocalCacheContainer()
 

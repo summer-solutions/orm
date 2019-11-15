@@ -39,7 +39,7 @@ func SearchOne(where Where, entity interface{}) bool {
 
 func searchRow(where Where, entityType reflect.Type, value reflect.Value) bool {
 
-	schema := GetTableSchema(entityType)
+	schema := getTableSchema(entityType)
 	var fieldsList = buildFieldList(entityType, "")
 	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
 	var row string
@@ -58,7 +58,7 @@ func searchRow(where Where, entityType reflect.Type, value reflect.Value) bool {
 func search(where Where, pager Pager, withCount bool, entities reflect.Value) int {
 
 	entityType := getEntityTypeForSlice(entities.Type())
-	schema := GetTableSchema(entityType)
+	schema := getTableSchema(entityType)
 
 	var fieldsList = buildFieldList(entityType, "")
 	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where, pager.String())
@@ -88,7 +88,7 @@ func search(where Where, pager Pager, withCount bool, entities reflect.Value) in
 }
 
 func searchIds(where Where, pager Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
-	schema := GetTableSchema(entityType)
+	schema := getTableSchema(entityType)
 	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where, pager.String())
 	results, err := schema.GetMysqlDB().Query(query, where.GetParameters()...)
 	if err != nil {
