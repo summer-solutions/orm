@@ -214,14 +214,27 @@ func main() {
     orm.RegisterEntity(entity)
     //code above you should execute only once, when application starts
     
-    entity = FirstEntity{Name: "Name 1"}
+    entity = TestEntity{Name: "Name 1"}
     orm.Init(&entity) // you should use this function only for new entities
     err := orm.Flush(&entity)
+    if err != nil {
+       ///...
+    }
+
+    /*if you need to add more than one entity*/
+    
+    entity = TestEntity{Name: "Name 2"}
+    entity2 := TestEntity{Name: "Name 3"}
+    orm.Init(&entity, &entity2)
+    //it will execute only one query in MySQL adding two rows at once (atomic)
+    err = orm.Flush(&entity, &entity2)
     if err != nil {
        ///...
     }
 }
 
 ```
+
+If you need to work with more than entity i strongly recommend ot use FLusher (described later).
 
 
