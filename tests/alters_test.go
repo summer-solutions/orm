@@ -48,7 +48,7 @@ func TestGetAlters(t *testing.T) {
 
 	defer orm.Defer()
 	orm.UnregisterMySqlPools()
-	orm.RegisterMySqlPool("schema", "root:root@tcp(localhost:3310)/test_schema")
+	orm.RegisterMySqlPool("root:root@tcp(localhost:3310)/test_schema", "schema")
 
 	var entity TestEntitySchema
 	orm.RegisterEntity(entity)

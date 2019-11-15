@@ -72,11 +72,15 @@ func initIfNeeded(value reflect.Value, entity interface{}) *ORM {
 	return orm
 }
 
-func RegisterMySqlPool(code string, dataSourceName string) *DB {
+func RegisterMySqlPool(dataSourceName string, code ...string) *DB {
 	sqlDB, _ := sql.Open("mysql", dataSourceName)
-	db := &DB{code: code, db: sqlDB}
-	mySqlClients[code] = db
-	mysqlPoolCodes = append(mysqlPoolCodes, code)
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	db := &DB{code: dbCode, db: sqlDB}
+	mySqlClients[dbCode] = db
+	mysqlPoolCodes = append(mysqlPoolCodes, dbCode)
 	return db
 }
 
