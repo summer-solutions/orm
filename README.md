@@ -343,6 +343,7 @@ func main() {
         Id                   uint
         Name                 string
     }
+
     var entities []TestEntity
     pager := orm.NewPager(1, 100)
     where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
