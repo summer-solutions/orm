@@ -344,9 +344,8 @@ func main() {
         Name                 string
     }
     var entities []TestEntity
-	pager := orm.NewPager(1, 100)
-
-	where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
+    pager := orm.NewPager(1, 100)
+    where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
     orm.Search(where, pager, &entities)
     
     //or if you need number of total rows
