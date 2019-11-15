@@ -405,6 +405,31 @@ func main() {
        ///...
     }
 
+     /* 
+        in this case flusher will keep maximum 1000 entities. 
+        If you add more it automatically flush all of them and unregister them in flusher 
+    */
+    flusher = orm.NewFlusher(1000, true)
+    
+    var entities []TestEntity
+    pager := orm.NewPager(1, 100)
+    where := orm.NewWhere("1")
+    for {
+        orm.Search(where, pager, &entities)
+        for _, entity := range entities {
+          entity.Name = "New Name"
+          flusher.RegisterEntity(&entity) //it will auto flush every 10 iterations
+        }
+        pager.IncrementPage()
+        if len(entities) < pager.GetPageSize() {
+            break
+        }
+    }
+    err = flusher.Flush()
+    if err != nil {
+       ///...
+    }
+
 }
 
 ```

@@ -11,6 +11,7 @@ type Pager interface {
 	GetPageSize() int
 	GetCurrentPage() int
 	String() string
+	IncrementPage()
 }
 
 func (pager pager) GetPageSize() int {
@@ -19,6 +20,10 @@ func (pager pager) GetPageSize() int {
 
 func (pager pager) GetCurrentPage() int {
 	return pager.currentPage
+}
+
+func (pager pager) IncrementPage() {
+	pager.currentPage++
 }
 
 func (pager pager) String() string {
