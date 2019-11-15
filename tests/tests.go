@@ -11,7 +11,7 @@ func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
 	orm.RegisterRedis("localhost:6379", 15).FlushDB()
 	orm.RegisterRedis("localhost:6379", 14, "default_queue").FlushDB()
 	orm.SetRedisForQueue("default_queue")
-	orm.RegisterLocalCache("default", 1000)
+	orm.RegisterLocalCache(1000)
 
 	orm.RegisterEntity(entities...)
 	orm.DisableContextCache()
