@@ -17,7 +17,7 @@ type DB struct {
 }
 
 func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
-	db.log(query, args...)
+	db.log(query, 0, args...)
 	if db.transaction != nil {
 		return db.transaction.Exec(query, args...)
 	}
@@ -25,7 +25,7 @@ func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
 }
 
 func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
-	db.log(query, args...)
+	db.log(query, 0, args...)
 	if db.transaction != nil {
 		return db.transaction.QueryRow(query, args...)
 	}
@@ -33,7 +33,7 @@ func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
 }
 
 func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	db.log(query, args...)
+	db.log(query, 0, args...)
 	if db.transaction != nil {
 		return db.transaction.Query(query, args...)
 	}
@@ -45,7 +45,7 @@ func (db *DB) BeginTransaction() {
 	if db.transaction != nil {
 		return
 	}
-	db.log("BEGIN TRANSACTION")
+	db.log("BEGIN TRANSACTION", 0)
 	transaction, err := db.db.ZBegin()
 	if err != nil {
 		panic(err.Error())
@@ -59,7 +59,7 @@ func (db *DB) Commit() error {
 	}
 	db.transactionCounter--
 	if db.transactionCounter == 0 {
-		db.log("COMMIT")
+		db.log("COMMIT", 0)
 		err := db.transaction.Commit()
 		if err == nil {
 			if db.afterCommitLocalCacheSets != nil {
@@ -93,7 +93,7 @@ func (db *DB) Rollback() error {
 	}
 	db.transactionCounter--
 	if db.transactionCounter == 0 {
-		db.log("ROLLBACK")
+		db.log("ROLLBACK", 0)
 		db.afterCommitLocalCacheSets = nil
 		db.afterCommitLocalCacheDeletes = nil
 		err := db.transaction.Rollback()
@@ -113,10 +113,10 @@ func (db *DB) AddLogger(logger DatabaseLogger) {
 	db.loggers = append(db.loggers, logger)
 }
 
-func (db *DB) log(query string, args ...interface{}) {
+func (db *DB) log(query string, time float32, args ...interface{}) {
 	if db.loggers != nil {
 		for _, logger := range db.loggers {
-			logger.Log(db.code, query, args...)
+			logger.Log(db.code, query, time, args...)
 		}
 	}
 }

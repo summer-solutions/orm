@@ -17,12 +17,12 @@ func (r *RedisCache) Get(key string) (value string, ok bool) {
 	val, err := r.client.Get(key).Result()
 	if err != nil {
 		if err == redis.Nil {
-			r.log(key, "GET", 1)
+			r.log(key, "GET", 0, 1)
 			return "", false
 		}
 		panic(err)
 	}
-	r.log(key, "GET", 0)
+	r.log(key, "GET", 0, 0)
 	return val, true
 }
 
@@ -31,7 +31,7 @@ func (r *RedisCache) LRange(key string, start, stop int64) []string {
 	if err != nil {
 		panic(err)
 	}
-	r.log(key, fmt.Sprintf("LRANGE %d %d", start, stop), 0)
+	r.log(key, fmt.Sprintf("LRANGE %d %d", start, stop), 0, 0)
 	return val
 }
 
@@ -49,7 +49,7 @@ func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} 
 		results[fields[index]] = v
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("HMGET %v", fields), misses)
+		r.log(key, fmt.Sprintf("HMGET %v", fields), 0, misses)
 	}
 	return results
 }
@@ -60,7 +60,7 @@ func (r *RedisCache) LPush(key string, values ...interface{}) int64 {
 		panic(err)
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("LPUSH %d values", len(values)), 0)
+		r.log(key, fmt.Sprintf("LPUSH %d values", len(values)), 0, 0)
 	}
 	return val
 }
@@ -71,7 +71,7 @@ func (r *RedisCache) RPush(key string, values ...interface{}) int64 {
 		panic(err)
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("RPUSH %d values", len(values)), 0)
+		r.log(key, fmt.Sprintf("RPUSH %d values", len(values)), 0, 0)
 	}
 	return val
 }
@@ -80,19 +80,19 @@ func (r *RedisCache) RPop(key string) (value string, found bool) {
 	val, err := r.client.RPop(key).Result()
 	if err != nil {
 		if err == redis.Nil {
-			r.log(key, "RPOP", 1)
+			r.log(key, "RPOP", 0, 1)
 			return "", false
 		}
-		r.log(key, "RPOP", 0)
+		r.log(key, "RPOP", 0, 0)
 		panic(err)
 	}
-	r.log(key, "RPOP", 0)
+	r.log(key, "RPOP", 0, 0)
 	return val, true
 }
 
 func (r *RedisCache) ZCard(key string) int64 {
 	val, err := r.client.ZCard(key).Result()
-	r.log(key, "ZCARD", 0)
+	r.log(key, "ZCARD", 0, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -102,7 +102,7 @@ func (r *RedisCache) ZCard(key string) int64 {
 func (r *RedisCache) ZPopMin(key string, count ...int64) []redis.Z {
 	val, err := r.client.ZPopMin(key, count...).Result()
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("ZPOPMIN %v", count), 0)
+		r.log(key, fmt.Sprintf("ZPOPMIN %v", count), 0, 0)
 	}
 	if err != nil {
 		panic(err)
@@ -112,7 +112,7 @@ func (r *RedisCache) ZPopMin(key string, count ...int64) []redis.Z {
 
 func (r *RedisCache) LLen(key string) int64 {
 	val, err := r.client.LLen(key).Result()
-	r.log(key, "LLEN", 0)
+	r.log(key, "LLEN", 0, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -125,7 +125,7 @@ func (r *RedisCache) ZAdd(key string, members ...*redis.Z) int64 {
 		panic(err)
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("ZADD %d values", len(members)), 0)
+		r.log(key, fmt.Sprintf("ZADD %d values", len(members)), 0, 0)
 	}
 	return val
 }
@@ -142,7 +142,7 @@ func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 			keys[i] = key
 			i++
 		}
-		r.log(key, fmt.Sprintf("HMSET %v", keys), 0)
+		r.log(key, fmt.Sprintf("HMSET %v", keys), 0, 0)
 	}
 }
 
@@ -160,7 +160,7 @@ func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
 		}
 	}
 	if r.loggers != nil {
-		r.log(strings.Join(keys, ","), "MGET", misses)
+		r.log(strings.Join(keys, ","), "MGET", 0, misses)
 	}
 	return results
 }
@@ -170,7 +170,7 @@ func (r *RedisCache) Set(key string, value string, ttlSeconds int) {
 	if err != nil {
 		panic(err)
 	}
-	r.log(key, "SET", 0)
+	r.log(key, "SET", 0, 0)
 }
 
 func (r *RedisCache) MSet(pairs ...interface{}) {
@@ -184,7 +184,7 @@ func (r *RedisCache) MSet(pairs ...interface{}) {
 		for i := 0; i < max; i += 2 {
 			keys[i] = pairs[i].(string)
 		}
-		r.log("", fmt.Sprintf("MSET %v", keys), 0)
+		r.log("", fmt.Sprintf("MSET %v", keys), 0, 0)
 	}
 }
 
@@ -193,7 +193,7 @@ func (r *RedisCache) Del(keys ...string) error {
 	if err != nil {
 		return err
 	}
-	r.log(strings.Join(keys, ","), "DELETE", 0)
+	r.log(strings.Join(keys, ","), "DELETE", 0, 0)
 	return nil
 }
 
@@ -202,7 +202,7 @@ func (r *RedisCache) FlushDB() {
 	if err != nil {
 		panic(err)
 	}
-	r.log("", "FLUSHDB", 0)
+	r.log("", "FLUSHDB", 0, 0)
 }
 
 func (r *RedisCache) AddLogger(logger CacheLogger) {
@@ -212,10 +212,10 @@ func (r *RedisCache) AddLogger(logger CacheLogger) {
 	r.loggers = append(r.loggers, logger)
 }
 
-func (r *RedisCache) log(key string, operation string, misses int) {
+func (r *RedisCache) log(key string, operation string, time float32, misses int) {
 	if r.loggers != nil {
 		for _, logger := range r.loggers {
-			logger.Log("REDIS", r.code, key, operation, misses)
+			logger.Log("REDIS", r.code, key, operation, time, misses)
 		}
 	}
 }
