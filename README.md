@@ -433,3 +433,59 @@ func main() {
 }
 
 ```
+
+
+## Reference one to one
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+   //.. register pools and entities
+ 
+    type UserEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        Name                 string
+        Address              *orm.ReferenceOne  `orm:"ref=AddressEntity"`
+    }
+    
+    type AddressEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        City                 string
+        Street               string
+    }
+    
+    address := AddressEntity{City: "new York", Street: "Times Square 12"}
+    orm.Init(&address)
+    err := orm.Flush(&address)
+    if err != nil {
+       ///...
+    }
+    
+    user := UserEntity{Name: "John"}
+    orm.Init(&user)
+    orm.GetById(1, &user)
+    user.Address.Id = address.Id
+    err = orm.Flush(&user)
+    if err != nil {
+       ///...
+    }
+
+    /* accessing reference */
+    user.Address.Has() //returns true
+    has := user.Address.Load(&address) //has is true
+    
+    /* deleting reference */
+    user.Address.Id = 0
+    err = orm.Flush(&user)
+    if err != nil {
+       ///...
+    }
+}
+
+```
