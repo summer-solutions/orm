@@ -18,19 +18,27 @@ type DB struct {
 }
 
 func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
-	db.log(query, 0, args...)
+	start := time.Now()
 	if db.transaction != nil {
-		return db.transaction.Exec(query, args...)
+		rows, err := db.transaction.Exec(query, args...)
+		db.log(query, time.Now().Sub(start).Microseconds(), args...)
+		return rows, err
 	}
-	return db.db.Exec(query, args...)
+	rows, err := db.db.Exec(query, args...)
+	db.log(query, time.Now().Sub(start).Microseconds(), args...)
+	return rows, err
 }
 
 func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
-	db.log(query, 0, args...)
+	start := time.Now()
 	if db.transaction != nil {
-		return db.transaction.QueryRow(query, args...)
+		row := db.transaction.QueryRow(query, args...)
+		db.log(query, time.Now().Sub(start).Microseconds(), args...)
+		return row
 	}
-	return db.db.QueryRow(query, args...)
+	row := db.db.QueryRow(query, args...)
+	db.log(query, time.Now().Sub(start).Microseconds(), args...)
+	return row
 }
 
 func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
@@ -50,8 +58,9 @@ func (db *DB) BeginTransaction() {
 	if db.transaction != nil {
 		return
 	}
-	db.log("BEGIN TRANSACTION", 0)
+	start := time.Now()
 	transaction, err := db.db.ZBegin()
+	db.log("BEGIN TRANSACTION", time.Now().Sub(start).Microseconds())
 	if err != nil {
 		panic(err.Error())
 	}
@@ -64,8 +73,9 @@ func (db *DB) Commit() error {
 	}
 	db.transactionCounter--
 	if db.transactionCounter == 0 {
-		db.log("COMMIT", 0)
+		start := time.Now()
 		err := db.transaction.Commit()
+		db.log("COMMIT", time.Now().Sub(start).Microseconds())
 		if err == nil {
 			if db.afterCommitLocalCacheSets != nil {
 				for cacheCode, pairs := range db.afterCommitLocalCacheSets {
@@ -101,10 +111,11 @@ func (db *DB) Rollback() error {
 	}
 	db.transactionCounter--
 	if db.transactionCounter == 0 {
-		db.log("ROLLBACK", 0)
 		db.afterCommitLocalCacheSets = nil
 		db.afterCommitLocalCacheDeletes = nil
+		start := time.Now()
 		err := db.transaction.Rollback()
+		db.log("ROLLBACK", time.Now().Sub(start).Microseconds())
 		if err == nil {
 			db.transaction = nil
 		}
