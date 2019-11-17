@@ -450,37 +450,34 @@ func main() {
         Orm                  *orm.ORM
         Id                   uint64
         Name                 string
-        Address              *orm.ReferenceOne  `orm:"ref=AddressEntity"`
+        School               *orm.ReferenceOne  `orm:"ref=SchoolEntity"`
     }
     
-    type AddressEntity struct {
+    type SchoolEntity struct {
         Orm                  *orm.ORM
         Id                   uint64
-        City                 string
-        Street               string
+        Name                 string
     }
     
-    address := AddressEntity{City: "New York", Street: "Times Square 12"}
-    orm.Init(&address)
-    err := orm.Flush(&address)
+    school := SchoolEntity{Name: "Name of school"}
+    err := orm.Flush(&school)
     if err != nil {
        ///...
     }
     
     user := UserEntity{Name: "John"}
-    orm.Init(&user)
-    user.Address.Id = address.Id
+    user.School.Id = school.Id
     err = orm.Flush(&user)
     if err != nil {
        ///...
     }
 
     /* accessing reference */
-    user.Address.Has() //returns true
-    has := user.Address.Load(&address) //has is true
+    user.School.Has() //returns true
+    has := user.School.Load(&school) //has is true
     
     /* deleting reference */
-    user.Address.Id = 0
+    user.School.Id = 0
     err = orm.Flush(&user)
     if err != nil {
        ///...
