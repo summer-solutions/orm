@@ -212,10 +212,10 @@ func (r *RedisCache) AddLogger(logger CacheLogger) {
 	r.loggers = append(r.loggers, logger)
 }
 
-func (r *RedisCache) log(key string, operation string, time float32, misses int) {
+func (r *RedisCache) log(key string, operation string, microseconds int64, misses int) {
 	if r.loggers != nil {
 		for _, logger := range r.loggers {
-			logger.Log("REDIS", r.code, key, operation, time, misses)
+			logger.Log("REDIS", r.code, key, operation, microseconds, misses)
 		}
 	}
 }

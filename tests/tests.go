@@ -30,7 +30,7 @@ type TestDatabaseLogger struct {
 	Queries []string
 }
 
-func (l *TestDatabaseLogger) Log(mysqlCode string, query string, time float32, args ...interface{}) {
+func (l *TestDatabaseLogger) Log(mysqlCode string, query string, microseconds int64, args ...interface{}) {
 	l.Queries = append(l.Queries, fmt.Sprintf("%s %v", query, args))
 }
 
@@ -38,6 +38,6 @@ type TestCacheLogger struct {
 	Requests []string
 }
 
-func (c *TestCacheLogger) Log(cacheType string, code string, key string, operation string, time float32, misses int) {
+func (c *TestCacheLogger) Log(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
 	c.Requests = append(c.Requests, fmt.Sprintf("%s %s", operation, key))
 }

@@ -3,6 +3,7 @@ package orm
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 type DB struct {
@@ -33,11 +34,15 @@ func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
 }
 
 func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	db.log(query, 0, args...)
+	start := time.Now()
 	if db.transaction != nil {
-		return db.transaction.Query(query, args...)
+		rows, err := db.transaction.Query(query, args...)
+		db.log(query, time.Now().Sub(start).Microseconds(), args...)
+		return rows, err
 	}
-	return db.db.Query(query, args...)
+	rows, err := db.db.Query(query, args...)
+	db.log(query, time.Now().Sub(start).Microseconds(), args...)
+	return rows, err
 }
 
 func (db *DB) BeginTransaction() {
@@ -76,7 +81,10 @@ func (db *DB) Commit() error {
 			db.afterCommitLocalCacheDeletes = nil
 			if db.afterCommitRedisCacheDeletes != nil {
 				for cacheCode, keys := range db.afterCommitRedisCacheDeletes {
-					GetRedis(cacheCode).Del(keys...)
+					err := GetRedis(cacheCode).Del(keys...)
+					if err != nil {
+						return err
+					}
 				}
 			}
 			db.afterCommitRedisCacheDeletes = nil
@@ -113,10 +121,10 @@ func (db *DB) AddLogger(logger DatabaseLogger) {
 	db.loggers = append(db.loggers, logger)
 }
 
-func (db *DB) log(query string, time float32, args ...interface{}) {
+func (db *DB) log(query string, microseconds int64, args ...interface{}) {
 	if db.loggers != nil {
 		for _, logger := range db.loggers {
-			logger.Log(db.code, query, time, args...)
+			logger.Log(db.code, query, microseconds, args...)
 		}
 	}
 }

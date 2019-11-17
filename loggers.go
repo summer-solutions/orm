@@ -5,13 +5,13 @@ import (
 )
 
 type DatabaseLogger interface {
-	Log(mysqlCode string, query string, time float32, args ...interface{})
+	Log(mysqlCode string, query string, microseconds int64, args ...interface{})
 }
 
 type StandardDatabaseLogger struct {
 }
 
-func (l StandardDatabaseLogger) Log(mysqlCode string, query string, time float32, args ...interface{}) {
+func (l StandardDatabaseLogger) Log(mysqlCode string, query string, microseconds int64, args ...interface{}) {
 	if len(args) == 0 {
 		color.Green("[ORM][DB][%s] %s\n", mysqlCode, query)
 		return
@@ -20,13 +20,13 @@ func (l StandardDatabaseLogger) Log(mysqlCode string, query string, time float32
 }
 
 type CacheLogger interface {
-	Log(cacheType string, code string, key string, operation string, time float32, misses int)
+	Log(cacheType string, code string, key string, operation string, microseconds int64, misses int)
 }
 
 type StandardCacheLogger struct {
 }
 
-func (c StandardCacheLogger) Log(cacheType string, code string, key string, operation string, time float32, misses int) {
+func (c StandardCacheLogger) Log(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
 	if misses == 1 {
 		color.Green("[ORM][%s][%s][%s] %s [MISS]\n", cacheType, code, operation, key)
 	} else if misses > 1 {

@@ -129,10 +129,10 @@ func (c *LocalCache) AddLogger(logger CacheLogger) {
 	c.loggers = append(c.loggers, logger)
 }
 
-func (c *LocalCache) log(key string, operation string, time float32, misses int) {
+func (c *LocalCache) log(key string, operation string, microseconds int64, misses int) {
 	if c.loggers != nil {
 		for _, logger := range c.loggers {
-			logger.Log("LOCAL", c.code, key, operation, time, misses)
+			logger.Log("LOCAL", c.code, key, operation, microseconds, misses)
 		}
 	}
 }
