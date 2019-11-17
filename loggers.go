@@ -16,7 +16,7 @@ func (l StandardDatabaseLogger) Log(mysqlCode string, query string, microseconds
 		color.Green("[ORM][DB][%s] %s\n", mysqlCode, query)
 		return
 	}
-	color.Green("[ORM][DB][%s] %s %v\n", mysqlCode, query, args)
+	color.Green("[ORM][DB][%s][%d µs] %s %v\n", mysqlCode, microseconds, query, args)
 }
 
 type CacheLogger interface {
@@ -28,10 +28,10 @@ type StandardCacheLogger struct {
 
 func (c StandardCacheLogger) Log(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
 	if misses == 1 {
-		color.Green("[ORM][%s][%s][%s] %s [MISS]\n", cacheType, code, operation, key)
+		color.Green("[ORM][%s][%s][%d µs][%s] %s [MISS]\n", cacheType, code, microseconds, operation, key)
 	} else if misses > 1 {
-		color.Green("[ORM][%s][%s][%s] %s [MISSES %d]\n", cacheType, code, operation, key, misses)
+		color.Green("[ORM][%s][%s][%d µs][%s] %s [MISSES %d]\n", cacheType, code, operation, microseconds, key, misses)
 	} else {
-		color.Green("[ORM][%s][%s][%s] %s\n", cacheType, code, operation, key)
+		color.Green("[ORM][%s][%s][%d µs][%s] %s\n", cacheType, code, operation, microseconds, key)
 	}
 }
