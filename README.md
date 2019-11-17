@@ -537,11 +537,6 @@ func main() {
     user.Addresses.Clear()
     //or
     user.Addresses.Remove(1, 2)
-
-    err = orm.Flush(&user)
-    if err != nil {
-       ///...
-    }
 }
 
 ```
