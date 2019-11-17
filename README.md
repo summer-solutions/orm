@@ -469,7 +469,6 @@ func main() {
     
     user := UserEntity{Name: "John"}
     orm.Init(&user)
-    orm.GetById(1, &user)
     user.Address.Id = address.Id
     err = orm.Flush(&user)
     if err != nil {
@@ -525,7 +524,6 @@ func main() {
     
     user := UserEntity{Name: "John"}
     orm.Init(&user)
-    orm.GetById(1, &user)
     user.Addresses.Add(address1.Id, address2.Id)
     err = orm.Flush(&user)
     if err != nil {
