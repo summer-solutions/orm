@@ -321,8 +321,8 @@ func main() {
     var entities []TestEntity
     //missing is []uint64 that contains id of rows that doesn't exists, 
     // in this cause $found slice has nil for such keys
-    missing := orm.TryByIds([]uint64{2, 3, 1}, &found) 
-    orm.GetByIds([]uint64{2, 3, 1}, &found) //will panic if at least one row does not exist
+    missing := orm.TryByIds([]uint64{2, 3, 1}, &entities) 
+    orm.GetByIds([]uint64{2, 3, 1}, &entities) //will panic if at least one row does not exist
 }
 
 ```
