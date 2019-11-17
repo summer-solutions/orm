@@ -40,21 +40,17 @@ func (r *ReferenceMany) Add(ids ...uint64) {
 	}
 }
 
-func (r *ReferenceMany) Remove(id uint64) {
+func (r *ReferenceMany) Remove(ids ...uint64) {
 	if r.Ids == nil {
 		return
 	}
-	for i, val := range r.Ids {
-		if id == val {
-			r.Ids = append(r.Ids[:i], r.Ids[i+1:]...)
-			return
-		}
-	}
-}
-
-func (r *ReferenceMany) RemoveMany(ids ...uint64) {
 	for _, id := range ids {
-		r.RemoveMany(id)
+		for i, val := range r.Ids {
+			if id == val {
+				r.Ids = append(r.Ids[:i], r.Ids[i+1:]...)
+				return
+			}
+		}
 	}
 }
 

@@ -460,7 +460,7 @@ func main() {
         Street               string
     }
     
-    address := AddressEntity{City: "new York", Street: "Times Square 12"}
+    address := AddressEntity{City: "New York", Street: "Times Square 12"}
     orm.Init(&address)
     err := orm.Flush(&address)
     if err != nil {
@@ -482,6 +482,67 @@ func main() {
     
     /* deleting reference */
     user.Address.Id = 0
+    err = orm.Flush(&user)
+    if err != nil {
+       ///...
+    }
+}
+
+```
+
+## Reference one to many
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+   //.. register pools and entities
+ 
+    type UserEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        Name                 string
+        Addresses            *orm.ReferenceMany  `orm:"ref=AddressEntity"`
+    }
+    
+    type AddressEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        City                 string
+        Street               string
+    }
+    
+    address1 := AddressEntity{City: "New York", Street: "Times Square 12"}
+    address2 := AddressEntity{City: "Boston", Street: "Main 1a"}
+    orm.Init(&address1, &address2)
+    err := orm.Flush(&address1, &address2)
+    if err != nil {
+       ///...
+    }
+    
+    user := UserEntity{Name: "John"}
+    orm.Init(&user)
+    orm.GetById(1, &user)
+    user.Addresses.Add(address1.Id, address2.Id)
+    err = orm.Flush(&user)
+    if err != nil {
+       ///...
+    }
+
+    /* accessing reference */
+    user.Addresses.Has(address1.Id) //returns true
+    user.Addresses.Len() //returns 2
+    var addresses []AddressEntity
+    user.Addresses.Load(&addresses) //has is true
+    
+    /* deleting reference */
+    user.Addresses.Clear()
+    //or
+    user.Addresses.Remove(1, 2)
+
     err = orm.Flush(&user)
     if err != nil {
        ///...
