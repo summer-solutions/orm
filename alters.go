@@ -5,7 +5,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func GetAlters() (safeAlters []string, unsafeAlters []string) {
+func GetAlters() (safeAlters []string, unsafeAlters []string, err error) {
 
 	tablesInDB := make(map[string]map[string]bool)
 	tablesInEntities := make(map[string]map[string]bool)
@@ -14,13 +14,13 @@ func GetAlters() (safeAlters []string, unsafeAlters []string) {
 		tablesInDB[poolName] = make(map[string]bool)
 		results, err := GetMysql(poolName).Query("SHOW TABLES")
 		if err != nil {
-			panic(err.Error())
+			return nil, nil, err
 		}
 		for results.Next() {
 			var row string
 			err = results.Scan(&row)
 			if err != nil {
-				panic(err.Error())
+				return nil, nil, err
 			}
 			tablesInDB[poolName][row] = true
 		}
@@ -45,7 +45,11 @@ func GetAlters() (safeAlters []string, unsafeAlters []string) {
 			_, has := tablesInEntities[poolName][tableName]
 			if !has {
 				dropSql := fmt.Sprintf("DROP TABLE `%s`;", tableName)
-				if isTableEmptyInPool(poolName, tableName) {
+				isEmpty, err := isTableEmptyInPool(poolName, tableName)
+				if err != nil {
+					return nil, nil, err
+				}
+				if isEmpty {
 					safeAlters = append(safeAlters, dropSql)
 				} else {
 					unsafeAlters = append(unsafeAlters, dropSql)
@@ -56,14 +60,14 @@ func GetAlters() (safeAlters []string, unsafeAlters []string) {
 	return
 }
 
-func isTableEmptyInPool(poolName string, tableName string) bool {
+func isTableEmptyInPool(poolName string, tableName string) (bool, error) {
 	var lastId uint64
 	err := GetMysql(poolName).QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableName)).Scan(&lastId)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
-			return true
+			return true, nil
 		}
-		panic(err.Error())
+		return false, err
 	}
-	return false
+	return false, nil
 }

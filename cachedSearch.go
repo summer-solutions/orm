@@ -19,7 +19,7 @@ func CachedSearch(entities interface{}, indexName string, pager Pager, arguments
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
-		panic(fmt.Errorf("max cache index page size exceeded %s", indexName))
+		return 0, fmt.Errorf("max cache index page size exceeded %s", indexName)
 	}
 
 	Where := NewWhere(definition.Query, arguments...)
