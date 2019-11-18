@@ -493,7 +493,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			if value != nil && value != "" {
 				encoded, err := json.Marshal(value)
 				if err != nil {
-					panic(fmt.Errorf("invalid json to encode: %v", value))
+					return nil, fmt.Errorf("invalid json to encode: %v", value)
 				}
 				asString := string(encoded)
 				if asString != "" {
@@ -515,7 +515,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 				}
 				continue
 			}
-			panic(fmt.Errorf("unsoported field type: %s", field.Type().String()))
+			return nil, fmt.Errorf("unsoported field type: %s", field.Type().String())
 		}
 	}
 	return
