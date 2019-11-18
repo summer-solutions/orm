@@ -16,7 +16,10 @@ func FlushInCache(entities ...interface{}) error {
 	for _, entity := range entities {
 
 		value := reflect.Indirect(reflect.ValueOf(entity))
-		orm := initIfNeeded(value, entity)
+		orm, err := initIfNeeded(value, entity)
+		if err != nil {
+			return err
+		}
 		value.Field(0).Interface().(*ORM).e = entity
 		t := value.Type()
 

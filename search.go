@@ -37,7 +37,10 @@ func SearchOne(where Where, entity interface{}) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	initIfNeeded(value, entity)
+	_, err = initIfNeeded(value, entity)
+	if err != nil {
+		return false, err
+	}
 	return has, nil
 }
 
@@ -93,7 +96,10 @@ func search(where Where, pager Pager, withCount bool, entities reflect.Value) (i
 		}
 		e := value.Interface()
 		val = reflect.Append(val, reflect.ValueOf(e))
-		initIfNeeded(value, &e)
+		_, err = initIfNeeded(value, &e)
+		if err != nil {
+			return 0, err
+		}
 		i++
 	}
 	totalRows := getTotalRows(withCount, pager, where, schema, i)
@@ -144,7 +150,10 @@ func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) err
 	data := strings.Split(row, "|")
 
 	e := value.Interface()
-	orm := initIfNeeded(value, &e)
+	orm, err := initIfNeeded(value, &e)
+	if err != nil {
+		return err
+	}
 	fillStruct(0, data, entityType, value, "")
 	orm.dBData["Id"] = data[0]
 

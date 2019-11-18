@@ -36,7 +36,10 @@ func flush(lazy bool, entities ...interface{}) error {
 
 	for _, entity := range entities {
 		value := reflect.Indirect(reflect.ValueOf(entity))
-		orm := initIfNeeded(value, entity)
+		orm, err := initIfNeeded(value, entity)
+		if err != nil {
+			return err
+		}
 		isDirty, bind, err := orm.isDirty(value)
 		if err != nil {
 			return err

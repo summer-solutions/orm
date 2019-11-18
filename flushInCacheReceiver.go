@@ -61,7 +61,10 @@ func (r FlushInCacheReceiver) Digest() error {
 		}
 		ormFieldCache := entityInCache.Field(0).Interface().(*ORM)
 		ormFieldCache.e = &entityInCache
-		ormFieldDB := initIfNeeded(entityDBValue, &entityInCache)
+		ormFieldDB, err := initIfNeeded(entityDBValue, &entityInCache)
+		if err != nil {
+			return err
+		}
 		newData := make(map[string]interface{}, len(ormFieldCache.dBData))
 		for k, v := range ormFieldCache.dBData {
 			newData[k] = v

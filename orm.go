@@ -24,11 +24,15 @@ func RegisterEntity(entity ...interface{}) {
 	}
 }
 
-func Init(entity ...interface{}) {
+func Init(entity ...interface{}) error {
 	for _, e := range entity {
 		value := reflect.Indirect(reflect.ValueOf(e))
-		initIfNeeded(value, e)
+		_, err := initIfNeeded(value, e)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func Defer() {
@@ -42,7 +46,7 @@ func Defer() {
 	}
 }
 
-func initIfNeeded(value reflect.Value, entity interface{}) *ORM {
+func initIfNeeded(value reflect.Value, entity interface{}) (*ORM, error) {
 	orm := value.Field(0).Interface().(*ORM)
 	if orm == nil {
 		orm = &ORM{dBData: make(map[string]interface{}), e: entity}
@@ -56,7 +60,7 @@ func initIfNeeded(value reflect.Value, entity interface{}) *ORM {
 				f := value.Type().Field(i)
 				reference, has := tableSchema.tags[f.Name]["ref"]
 				if !has {
-					panic(fmt.Errorf("missing ref tag"))
+					return nil, fmt.Errorf("missing ref tag")
 				}
 				if isOne {
 					def := ReferenceOne{t: getEntityType(reference)}
@@ -69,7 +73,7 @@ func initIfNeeded(value reflect.Value, entity interface{}) *ORM {
 		}
 	}
 	orm.e = entity
-	return orm
+	return orm, nil
 }
 
 func RegisterMySqlPool(dataSourceName string, code ...string) *DB {
