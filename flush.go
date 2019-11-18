@@ -11,15 +11,15 @@ import (
 	"time"
 )
 
-func Flush(entities ...interface{}) (err error) {
+func Flush(entities ...interface{}) error {
 	return flush(false, entities...)
 }
 
-func FlushLazy(entities ...interface{}) (err error) {
+func FlushLazy(entities ...interface{}) error {
 	return flush(true, entities...)
 }
 
-func flush(lazy bool, entities ...interface{}) (err error) {
+func flush(lazy bool, entities ...interface{}) error {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
@@ -192,7 +192,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		if lazy && db.transaction == nil {
 			fillLazyQuery(lazyMap, db.code, sql, where.GetParameters())
 		} else {
-			_, err = db.Exec(sql, where.GetParameters()...)
+			_, err := db.Exec(sql, where.GetParameters()...)
 			if err != nil {
 				return err
 			}
@@ -282,7 +282,7 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 					}
 					deletesRedisCache.(map[string][]string)[cacheCode] = keys
 				} else {
-					err = cache.Del(keys...)
+					err := cache.Del(keys...)
 					if err != nil {
 						return err
 					}
@@ -296,7 +296,11 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	if len(lazyMap) > 0 {
-		_, err = GetRedis(queueRedisName).LPush("lazy_queue", serializeForLazyQueue(lazyMap))
+		v, err := serializeForLazyQueue(lazyMap)
+		if err != nil {
+			return err
+		}
+		_, err = GetRedis(queueRedisName).LPush("lazy_queue", v)
 		if err != nil {
 			return err
 		}
@@ -305,22 +309,22 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 	for k, v := range dirtyQueues {
 		redisCode, has := dirtyQueuesCodes[k]
 		if !has {
-			panic(fmt.Errorf("unregistered lazy queue %s", k))
+			return fmt.Errorf("unregistered lazy queue %s", k)
 		}
-		_, err = GetRedis(redisCode).ZAdd(k, v...)
+		_, err := GetRedis(redisCode).ZAdd(k, v...)
 		if err != nil {
 			return err
 		}
 	}
-	return
+	return nil
 }
 
-func serializeForLazyQueue(lazyMap map[string]interface{}) string {
+func serializeForLazyQueue(lazyMap map[string]interface{}) (string, error) {
 	encoded, err := json.Marshal(lazyMap)
 	if err != nil {
-		panic(err.Error())
+		return "", err
 	}
-	return string(encoded)
+	return string(encoded), nil
 
 }
 func injectBind(value reflect.Value, bind map[string]interface{}) {

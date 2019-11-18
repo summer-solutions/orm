@@ -172,11 +172,11 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 		parts := strings.Split(ref, "/")
 		_, has := tableSchema.tags[parts[0]]
 		if !has {
-			panic(fmt.Errorf("invalid reference %s", ref))
+			return fmt.Errorf("invalid reference %s", ref)
 		}
 		parentRef, has := tableSchema.tags[parts[0]]["ref"]
 		if !has {
-			panic(fmt.Errorf("missing reference tag %s", ref))
+			return fmt.Errorf("missing reference tag %s", ref)
 		}
 		parentType := getEntityType(parentRef)
 		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)

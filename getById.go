@@ -8,7 +8,7 @@ import (
 
 func TryById(id uint64, entity interface{}) (found bool, err error) {
 	if reflect.TypeOf(entity).Kind() != reflect.Ptr {
-		panic(fmt.Errorf("pointer not provided"))
+		return false, fmt.Errorf("pointer not provided")
 	}
 	entityType := reflect.ValueOf(entity).Elem().Type()
 	schema := getTableSchema(entityType)
@@ -77,7 +77,7 @@ func GetById(id uint64, entity interface{}) error {
 		return err
 	}
 	if !found {
-		panic(fmt.Errorf("entity %T with id %d not found", entity, id))
+		return fmt.Errorf("entity %T with id %d not found", entity, id)
 	}
 	return nil
 }

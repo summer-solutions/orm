@@ -26,7 +26,7 @@ func (f *Flusher) RegisterEntity(entities ...interface{}) error {
 			}
 			err := f.Flush()
 			if err != nil {
-				panic(err.Error())
+				return err
 			}
 		}
 		f.entities = append(f.entities, entity)

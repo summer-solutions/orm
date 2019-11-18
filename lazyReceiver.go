@@ -48,7 +48,11 @@ func (r LazyReceiver) Digest() error {
 			errors = append(errors, err)
 		}
 		if len(brokenMap) > 0 {
-			_, _ = GetRedis(queueRedisName).RPush("lazy_queue", serializeForLazyQueue(brokenMap))
+			v, err := serializeForLazyQueue(brokenMap)
+			if err != nil {
+				return err
+			}
+			_, _ = GetRedis(queueRedisName).RPush("lazy_queue", v)
 		}
 		if len(errors) > 0 {
 			return fmt.Errorf("errors: %v", err)
