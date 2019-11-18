@@ -133,8 +133,9 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	orm.GetMysql().AddLogger(&DbLogger)
 	orm.GetLocalCache().AddLogger(&CacheLogger)
 
-	orm.GetMysql().BeginTransaction()
-	err := orm.Flush(&entity)
+	err := orm.GetMysql().BeginTransaction()
+	assert.Nil(t, err)
+	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 0)
 	err = orm.GetMysql().Commit()
@@ -142,7 +143,8 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	assert.Len(t, CacheLogger.Requests, 1)
 	assert.Equal(t, "MSET [TestEntityFlushCacheLocal49:1]", CacheLogger.Requests[0])
 
-	orm.GetMysql().BeginTransaction()
+	err = orm.GetMysql().BeginTransaction()
+	assert.Nil(t, err)
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 	entity.Name = "New Name"
@@ -154,7 +156,8 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	assert.Len(t, CacheLogger.Requests, 2)
 	assert.Equal(t, "MSET [TestEntityFlushCacheLocal49:1]", CacheLogger.Requests[0])
 
-	orm.GetMysql().BeginTransaction()
+	err = orm.GetMysql().BeginTransaction()
+	assert.Nil(t, err)
 	entity.Orm.MarkToDelete()
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
@@ -175,8 +178,9 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	orm.GetMysql().AddLogger(&DbLogger)
 	orm.GetRedis().AddLogger(&CacheLogger)
 
-	orm.GetMysql().BeginTransaction()
-	err := orm.Flush(&entity)
+	err := orm.GetMysql().BeginTransaction()
+	assert.Nil(t, err)
+	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 0)
 	err = orm.GetMysql().Commit()
@@ -184,7 +188,8 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	assert.Len(t, CacheLogger.Requests, 1)
 	assert.Equal(t, "DELETE TestEntityFlushCacheRedis49:1", CacheLogger.Requests[0])
 
-	orm.GetMysql().BeginTransaction()
+	err = orm.GetMysql().BeginTransaction()
+	assert.Nil(t, err)
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 	entity.Name = "New Name"
@@ -196,7 +201,8 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	assert.Len(t, CacheLogger.Requests, 2)
 	assert.Equal(t, "DELETE TestEntityFlushCacheRedis49:1", CacheLogger.Requests[0])
 
-	orm.GetMysql().BeginTransaction()
+	err = orm.GetMysql().BeginTransaction()
+	assert.Nil(t, err)
 	entity.Orm.MarkToDelete()
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)

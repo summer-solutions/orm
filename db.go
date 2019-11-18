@@ -53,18 +53,19 @@ func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	return rows, err
 }
 
-func (db *DB) BeginTransaction() {
+func (db *DB) BeginTransaction() error {
 	db.transactionCounter++
 	if db.transaction != nil {
-		return
+		return nil
 	}
 	start := time.Now()
 	transaction, err := db.db.ZBegin()
 	db.log("BEGIN TRANSACTION", time.Now().Sub(start).Microseconds())
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 	db.transaction = transaction
+	return nil
 }
 
 func (db *DB) Commit() error {
