@@ -21,29 +21,35 @@ func (orm *ORM) MarkToDelete() {
 	orm.dBData["_delete"] = true
 }
 
-func (orm *ORM) IsDirty() bool {
+func (orm *ORM) IsDirty() (bool, error) {
 	if orm.e == nil {
-		return false
+		return false, nil
 	}
 	if orm.dBData["_delete"] == true {
-		return true
+		return true, nil
 	}
 	v := reflect.ValueOf(orm.e)
 	value := reflect.Indirect(v)
 	t := value.Type()
-	bind := createBind(getTableSchema(t), t, value, orm.dBData, "")
-	return value.Field(1).Uint() == 0 || len(bind) > 0
+	bind, err := createBind(getTableSchema(t), t, value, orm.dBData, "")
+	if err != nil {
+		return false, err
+	}
+	return value.Field(1).Uint() == 0 || len(bind) > 0, nil
 }
 
-func (orm *ORM) isDirty(value reflect.Value) (is bool, bind map[string]interface{}) {
+func (orm *ORM) isDirty(value reflect.Value) (is bool, bind map[string]interface{}, err error) {
 	t := value.Type()
 	ormField := value.Field(0).Interface().(*ORM)
 	if ormField.dBData["_delete"] == true {
-		return true, nil
+		return true, nil, nil
 	}
-	bind = createBind(getTableSchema(t), t, value, ormField.dBData, "")
+	bind, err = createBind(getTableSchema(t), t, value, ormField.dBData, "")
+	if err != nil {
+		return false, nil, err
+	}
 	is = value.Field(1).Uint() == 0 || len(bind) > 0
-	return
+	return is, bind, nil
 }
 
 type cachedQueryDefinition struct {

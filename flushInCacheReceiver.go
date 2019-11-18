@@ -47,9 +47,15 @@ func (r FlushInCacheReceiver) Digest() error {
 			continue
 		}
 		entityInCache := reflect.New(schema.t).Elem()
-		fillFromDBRow(inCache, entityInCache, schema.t)
+		err = fillFromDBRow(inCache, entityInCache, schema.t)
+		if err != nil {
+			return err
+		}
 		entityDBValue := reflect.New(schema.t).Elem()
-		found := searchRow(NewWhere("`Id` = ?", id), schema.t, entityDBValue)
+		found, err := searchRow(NewWhere("`Id` = ?", id), schema.t, entityDBValue)
+		if err != nil {
+			return err
+		}
 		if !found {
 			continue
 		}
@@ -63,7 +69,10 @@ func (r FlushInCacheReceiver) Digest() error {
 		for k, v := range ormFieldDB.dBData {
 			ormFieldCache.dBData[k] = v
 		}
-		is, bind := ormFieldCache.isDirty(entityInCache)
+		is, bind, err := ormFieldCache.isDirty(entityInCache)
+		if err != nil {
+			return err
+		}
 		if !is {
 			continue
 		}

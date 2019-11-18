@@ -11,12 +11,13 @@ import (
 	"time"
 )
 
-func SearchWithCount(where Where, pager Pager, entities interface{}) (totalRows int) {
+func SearchWithCount(where Where, pager Pager, entities interface{}) (totalRows int, err error) {
 	return search(where, pager, true, reflect.ValueOf(entities).Elem())
 }
 
-func Search(where Where, pager Pager, entities interface{}) {
-	search(where, pager, false, reflect.ValueOf(entities).Elem())
+func Search(where Where, pager Pager, entities interface{}) error {
+	_, err := search(where, pager, false, reflect.ValueOf(entities).Elem())
+	return err
 }
 
 func SearchIdsWithCount(where Where, pager Pager, entity interface{}) (results []uint64, totalRows int) {
@@ -28,20 +29,23 @@ func SearchIds(where Where, pager Pager, entity interface{}) []uint64 {
 	return results
 }
 
-func SearchOne(where Where, entity interface{}) bool {
+func SearchOne(where Where, entity interface{}) (bool, error) {
 
 	value := reflect.Indirect(reflect.ValueOf(entity))
 	entityType := value.Type()
-	has := searchRow(where, entityType, value)
+	has, err := searchRow(where, entityType, value)
+	if err != nil {
+		return false, err
+	}
 	initIfNeeded(value, entity)
-	return has
+	return has, nil
 }
 
 func searchIdsWithCount(where Where, pager Pager, entityType reflect.Type) (results []uint64, totalRows int) {
 	return searchIds(where, pager, true, entityType)
 }
 
-func searchRow(where Where, entityType reflect.Type, value reflect.Value) bool {
+func searchRow(where Where, entityType reflect.Type, value reflect.Value) (bool, error) {
 
 	schema := getTableSchema(entityType)
 	var fieldsList = buildFieldList(entityType, "")
@@ -50,16 +54,19 @@ func searchRow(where Where, entityType reflect.Type, value reflect.Value) bool {
 	err := schema.GetMysql().QueryRow(query, where.GetParameters()...).Scan(&row)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return false
+			return false, nil
 		}
-		panic(err.Error())
+		return false, err
 	}
 
-	fillFromDBRow(row, value, entityType)
-	return true
+	err = fillFromDBRow(row, value, entityType)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
-func search(where Where, pager Pager, withCount bool, entities reflect.Value) int {
+func search(where Where, pager Pager, withCount bool, entities reflect.Value) (int, error) {
 
 	entityType := getEntityTypeForSlice(entities.Type())
 	schema := getTableSchema(entityType)
@@ -68,7 +75,7 @@ func search(where Where, pager Pager, withCount bool, entities reflect.Value) in
 	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where, pager.String())
 	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
 	if err != nil {
-		panic(err.Error())
+		return 0, err
 	}
 	valOrigin := entities
 	val := valOrigin
@@ -80,7 +87,10 @@ func search(where Where, pager Pager, withCount bool, entities reflect.Value) in
 			panic(err.Error())
 		}
 		value := reflect.New(entityType).Elem()
-		fillFromDBRow(row, value, entityType)
+		err = fillFromDBRow(row, value, entityType)
+		if err != nil {
+			return 0, err
+		}
 		e := value.Interface()
 		val = reflect.Append(val, reflect.ValueOf(e))
 		initIfNeeded(value, &e)
@@ -88,7 +98,7 @@ func search(where Where, pager Pager, withCount bool, entities reflect.Value) in
 	}
 	totalRows := getTotalRows(withCount, pager, where, schema, i)
 	valOrigin.Set(val)
-	return totalRows
+	return totalRows, nil
 }
 
 func searchIds(where Where, pager Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
@@ -130,7 +140,7 @@ func getTotalRows(withCount bool, pager Pager, where Where, schema *TableSchema,
 	return totalRows
 }
 
-func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) {
+func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) error {
 	data := strings.Split(row, "|")
 
 	e := value.Interface()
@@ -138,10 +148,14 @@ func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) {
 	fillStruct(0, data, entityType, value, "")
 	orm.dBData["Id"] = data[0]
 
-	_, bind := orm.isDirty(value)
+	_, bind, err := orm.isDirty(value)
+	if err != nil {
+		return err
+	}
 	for key, value := range bind {
 		orm.dBData[key] = value
 	}
+	return nil
 }
 
 func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) uint16 {

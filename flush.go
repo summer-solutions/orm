@@ -37,7 +37,10 @@ func flush(lazy bool, entities ...interface{}) error {
 	for _, entity := range entities {
 		value := reflect.Indirect(reflect.ValueOf(entity))
 		orm := initIfNeeded(value, entity)
-		isDirty, bind := orm.isDirty(value)
+		isDirty, bind, err := orm.isDirty(value)
+		if err != nil {
+			return err
+		}
 		if !isDirty {
 			continue
 		}
@@ -338,7 +341,7 @@ func injectBind(value reflect.Value, bind map[string]interface{}) {
 	value.Field(0).Set(reflect.ValueOf(oldFields))
 }
 
-func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, oldData map[string]interface{}, prefix string) (bind map[string]interface{}) {
+func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, oldData map[string]interface{}, prefix string) (bind map[string]interface{}, err error) {
 	bind = make(map[string]interface{})
 	var hasOld = len(oldData) > 0
 	for i := 0; i < t.NumField(); i++ {
@@ -400,7 +403,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			if has {
 				userPrecision, err := strconv.Atoi(precisionAttribute)
 				if err != nil {
-					panic(err.Error())
+					return nil, err
 				}
 				precision = userPrecision
 			}
@@ -503,7 +506,10 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			bind[name] = valString
 		default:
 			if field.Kind().String() == "struct" {
-				subBind := createBind(tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
+				subBind, err := createBind(tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
+				if err != nil {
+					return nil, err
+				}
 				for key, value := range subBind {
 					bind[key] = value
 				}

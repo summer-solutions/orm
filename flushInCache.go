@@ -27,7 +27,10 @@ func FlushInCache(entities ...interface{}) error {
 		if cache == nil || id == 0 {
 			invalidEntities = append(invalidEntities, entity)
 		} else {
-			isDirty, bind := orm.isDirty(value)
+			isDirty, bind, err := orm.isDirty(value)
+			if err != nil {
+				return err
+			}
 			if !isDirty {
 				continue
 			}

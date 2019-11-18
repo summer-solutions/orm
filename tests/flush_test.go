@@ -45,7 +45,8 @@ func TestFlush(t *testing.T) {
 		testEntity := entities[i-1]
 		assert.Equal(t, uint16(i), testEntity.Id)
 		assert.Equal(t, "Name "+strconv.Itoa(i), testEntity.Name)
-		dirty := testEntity.Orm.IsDirty()
+		dirty, err := testEntity.Orm.IsDirty()
+		assert.Nil(t, err)
 		assert.False(t, dirty)
 	}
 
@@ -53,9 +54,11 @@ func TestFlush(t *testing.T) {
 	entities[1].ReferenceOne.Id = 7
 	entities[7].Name = "Name 8.1"
 	entities[7].ReferenceMany.Add(3, 4)
-	dirty := entities[1].Orm.IsDirty()
+	dirty, err := entities[1].Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.True(t, dirty)
-	dirty = entities[7].Orm.IsDirty()
+	dirty, err = entities[7].Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.True(t, dirty)
 	err = orm.Flush(entities[1], entities[7])
 	assert.Nil(t, err)
@@ -93,21 +96,27 @@ func TestFlush(t *testing.T) {
 	toDelete.Orm.MarkToDelete()
 	newEntity := TestEntityFlush{Name: "Name 11"}
 	orm.Init(&newEntity)
-	dirty = edited1.Orm.IsDirty()
+	dirty, err = edited1.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.True(t, dirty)
-	dirty = edited2.Orm.IsDirty()
+	dirty, err = edited2.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.True(t, dirty)
-	dirty = newEntity.Orm.IsDirty()
+	dirty, err = newEntity.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.True(t, dirty)
 
 	err = orm.Flush(&edited1, &newEntity, &toDelete)
 	assert.Nil(t, err)
 
-	dirty = edited1.Orm.IsDirty()
+	dirty, err = edited1.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.False(t, dirty)
-	dirty = newEntity.Orm.IsDirty()
+	dirty, err = newEntity.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.False(t, dirty)
-	dirty = newEntity.Orm.IsDirty()
+	dirty, err = newEntity.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.False(t, dirty)
 
 	var edited3 TestEntityFlush

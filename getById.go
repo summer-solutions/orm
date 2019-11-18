@@ -47,12 +47,18 @@ func TryById(id uint64, entity interface{}) (found bool, err error) {
 				return false, nil
 			}
 			val := reflect.ValueOf(entity).Elem()
-			fillFromDBRow(row, val, entityType)
+			err = fillFromDBRow(row, val, entityType)
+			if err != nil {
+				return false, err
+			}
 			initIfNeeded(val, entity)
 			return true, nil
 		}
 	}
-	found = SearchOne(NewWhere("`Id` = ?", id), entity)
+	found, err = SearchOne(NewWhere("`Id` = ?", id), entity)
+	if err != nil {
+		return false, err
+	}
 	if !found {
 		if localCache != nil {
 			localCache.Set(cacheKey, nil)

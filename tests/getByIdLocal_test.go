@@ -51,7 +51,8 @@ func TestGetByIdLocal(t *testing.T) {
 	err := orm.Flush(&entity)
 	assert.Nil(t, err)
 
-	isDirty := entity.Orm.IsDirty()
+	isDirty, err := entity.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.False(t, isDirty)
 
 	DBLogger := TestDatabaseLogger{}
@@ -88,7 +89,8 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.Equal(t, AddressByIdLocal{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.Json)
-	isDirty = entity.Orm.IsDirty()
+	isDirty, err = entity.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.False(t, isDirty)
 	assert.Len(t, DBLogger.Queries, 0)
 
@@ -111,12 +113,14 @@ func TestGetByIdLocal(t *testing.T) {
 	entity.Address.Building = 12
 	entity.Json = map[string]string{"name": "John"}
 
-	isDirty = entity.Orm.IsDirty()
+	isDirty, err = entity.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.True(t, isDirty)
 
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
-	isDirty = entity.Orm.IsDirty()
+	isDirty, err = entity.Orm.IsDirty()
+	assert.Nil(t, err)
 	assert.False(t, isDirty)
 	assert.Len(t, DBLogger.Queries, 1)
 
