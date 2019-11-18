@@ -30,10 +30,12 @@ func TestFlushInCache(t *testing.T) {
 
 	pager := orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []TestEntityFlusherInCacheRedis
-	totalRows := orm.CachedSearch(&rows, "IndexAge", pager, 18)
+	totalRows, err := orm.CachedSearch(&rows, "IndexAge", pager, 18)
+	assert.Nil(t, err)
 	assert.Equal(t, 1, totalRows)
 	assert.Len(t, rows, 1)
-	totalRows = orm.CachedSearch(&rows, "IndexAge", pager, 10)
+	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 10)
+	assert.Nil(t, err)
 	assert.Equal(t, 0, totalRows)
 	assert.Len(t, rows, 0)
 
@@ -57,26 +59,33 @@ func TestFlushInCache(t *testing.T) {
 	assert.Equal(t, "ZADD 1 values dirty_queue", LoggerRedisQueue.Requests[0])
 
 	var loadedEntity TestEntityFlusherInCacheRedis
-	orm.GetById(1, &loadedEntity)
+	err = orm.GetById(1, &loadedEntity)
+	assert.Nil(t, err)
 	assert.Equal(t, "Name 2", loadedEntity.Name)
 	assert.Len(t, LoggerRedisCache.Requests, 2)
 	assert.Equal(t, "GET TestEntityFlusherInCacheRedisce:1", LoggerRedisCache.Requests[1])
 
 	receiver := orm.FlushInCacheReceiver{RedisName: "default_queue"}
-	assert.Equal(t, int64(1), receiver.Size())
+	size, err := receiver.Size()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), size)
 
 	err = receiver.Digest()
 	assert.Nil(t, err)
-	assert.Equal(t, int64(0), receiver.Size())
+	size, err = receiver.Size()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), size)
 
 	var inDB TestEntityFlusherInCacheRedis
 	orm.SearchOne(orm.NewWhere("`Id` = ?", 1), &inDB)
 	assert.Equal(t, "Name 2", inDB.Name)
 
-	totalRows = orm.CachedSearch(&rows, "IndexAge", pager, 18)
+	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 18)
+	assert.Nil(t, err)
 	assert.Equal(t, 0, totalRows)
 	assert.Len(t, rows, 0)
-	totalRows = orm.CachedSearch(&rows, "IndexAge", pager, 10)
+	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 10)
+	assert.Nil(t, err)
 	assert.Equal(t, 1, totalRows)
 	assert.Len(t, rows, 1)
 

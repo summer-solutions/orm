@@ -7,23 +7,27 @@ import (
 	"strings"
 )
 
-func GetByIds(ids []uint64, entities interface{}, references ...string) {
-	missing := TryByIds(ids, entities, references...)
-	if len(missing) > 0 {
-		panic(fmt.Errorf("entities not found with ids %v", missing))
+func GetByIds(ids []uint64, entities interface{}, references ...string) error {
+	missing, err := TryByIds(ids, entities, references...)
+	if err != nil {
+		return err
 	}
+	if len(missing) > 0 {
+		return fmt.Errorf("entities not found with ids %v", missing)
+	}
+	return nil
 }
 
-func TryByIds(ids []uint64, entities interface{}, references ...string) (missing []uint64) {
+func TryByIds(ids []uint64, entities interface{}, references ...string) (missing []uint64, err error) {
 	return tryByIds(ids, reflect.ValueOf(entities).Elem(), references)
 }
 
-func tryByIds(ids []uint64, entities reflect.Value, references []string) (missing []uint64) {
+func tryByIds(ids []uint64, entities reflect.Value, references []string) (missing []uint64, err error) {
 	originalIds := ids
 	lenIDs := len(ids)
 	if lenIDs == 0 {
 		entities.SetLen(0)
-		return make([]uint64, 0)
+		return make([]uint64, 0), nil
 	}
 	schema := getTableSchema(getEntityTypeForSlice(entities.Type()))
 
@@ -54,7 +58,10 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 			localCacheKeys = cacheKeys
 		}
 		if redisCache != nil && len(cacheKeys) > 0 {
-			resultsRedis := redisCache.MGet(cacheKeys...)
+			resultsRedis, err := redisCache.MGet(cacheKeys...)
+			if err != nil {
+				return nil, err
+			}
 			cacheKeys = getKeysForNils(schema.t, resultsRedis, results, true)
 			redisCacheKeys = cacheKeys
 		}
@@ -106,7 +113,10 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 				pairs[i+1] = val
 				i += 2
 			}
-			redisCache.MSet(pairs...)
+			err = redisCache.MSet(pairs...)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -124,7 +134,10 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 	}
 	valOrigin.Set(v)
 	if len(references) > 0 && v.Len() > 0 {
-		warmUpReferences(schema, entities, references)
+		err = warmUpReferences(schema, entities, references)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return
 }
@@ -151,7 +164,7 @@ func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, result
 	return keys
 }
 
-func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references []string) {
+func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references []string) error {
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
 	warmUpRowsIds := make(map[reflect.Type][]uint64)
 	warmUpSubRefs := make(map[reflect.Type][]string)
@@ -203,6 +216,10 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 	}
 	for t, ids := range warmUpRowsIds {
 		sub := reflect.New(reflect.SliceOf(t)).Elem()
-		tryByIds(ids, sub, warmUpSubRefs[t])
+		_, err := tryByIds(ids, sub, warmUpSubRefs[t])
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }

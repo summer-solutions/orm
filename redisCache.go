@@ -17,53 +17,59 @@ type RedisCache struct {
 type GetSetProvider func() interface{}
 
 func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider) (interface{}, error) {
-	val, has := r.Get(key)
+	val, has, err := r.Get(key)
+	if err != nil {
+		return nil, err
+	}
 	if !has {
 		userVal := provider()
 		encoded, err := json.Marshal(userVal)
 		if err != nil {
 			return nil, err
 		}
-		r.Set(key, string(encoded), ttlSeconds)
+		err = r.Set(key, string(encoded), ttlSeconds)
+		if err != nil {
+			return nil, err
+		}
 		return userVal, nil
 	}
 	var data interface{}
-	err := json.Unmarshal([]byte(val), &data)
+	err = json.Unmarshal([]byte(val), &data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (r *RedisCache) Get(key string) (value string, ok bool) {
+func (r *RedisCache) Get(key string) (value string, has bool, err error) {
 	start := time.Now()
 	val, err := r.client.Get(key).Result()
 	if err != nil {
 		if err == redis.Nil {
 			r.log(key, "GET", time.Now().Sub(start).Microseconds(), 1)
-			return "", false
+			return "", false, nil
 		}
-		panic(err)
+		return "", false, err
 	}
 	r.log(key, "GET", time.Now().Sub(start).Microseconds(), 0)
-	return val, true
+	return val, true, nil
 }
 
-func (r *RedisCache) LRange(key string, start, stop int64) []string {
+func (r *RedisCache) LRange(key string, start, stop int64) ([]string, error) {
 	s := time.Now()
 	val, err := r.client.LRange(key, start, stop).Result()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	r.log(key, fmt.Sprintf("LRANGE %d %d", start, stop), time.Now().Sub(s).Microseconds(), 0)
-	return val
+	return val, nil
 }
 
-func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} {
+func (r *RedisCache) HMget(key string, fields ...string) (map[string]interface{}, error) {
 	start := time.Now()
 	val, err := r.client.HMGet(key, fields...).Result()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	results := make(map[string]interface{}, len(fields))
 	misses := 0
@@ -76,97 +82,97 @@ func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} 
 	if r.loggers != nil {
 		r.log(key, fmt.Sprintf("HMGET %v", fields), time.Now().Sub(start).Microseconds(), misses)
 	}
-	return results
+	return results, nil
 }
 
-func (r *RedisCache) LPush(key string, values ...interface{}) int64 {
+func (r *RedisCache) LPush(key string, values ...interface{}) (int64, error) {
 	start := time.Now()
 	val, err := r.client.LPush(key, values...).Result()
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 	if r.loggers != nil {
 		r.log(key, fmt.Sprintf("LPUSH %d values", len(values)), time.Now().Sub(start).Microseconds(), 0)
 	}
-	return val
+	return val, nil
 }
 
-func (r *RedisCache) RPush(key string, values ...interface{}) int64 {
+func (r *RedisCache) RPush(key string, values ...interface{}) (int64, error) {
 	start := time.Now()
 	val, err := r.client.RPush(key, values...).Result()
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 	if r.loggers != nil {
 		r.log(key, fmt.Sprintf("RPUSH %d values", len(values)), time.Now().Sub(start).Microseconds(), 0)
 	}
-	return val
+	return val, nil
 }
 
-func (r *RedisCache) RPop(key string) (value string, found bool) {
+func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
 	start := time.Now()
 	val, err := r.client.RPop(key).Result()
 	if err != nil {
 		if err == redis.Nil {
 			r.log(key, "RPOP", time.Now().Sub(start).Microseconds(), 1)
-			return "", false
+			return "", false, nil
 		}
 		r.log(key, "RPOP", time.Now().Sub(start).Microseconds(), 0)
-		panic(err)
+		return "", false, err
 	}
 	r.log(key, "RPOP", time.Now().Sub(start).Microseconds(), 0)
-	return val, true
+	return val, true, nil
 }
 
-func (r *RedisCache) ZCard(key string) int64 {
+func (r *RedisCache) ZCard(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZCard(key).Result()
 	r.log(key, "ZCARD", time.Now().Sub(start).Microseconds(), 0)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
-	return val
+	return val, nil
 }
 
-func (r *RedisCache) ZPopMin(key string, count ...int64) []redis.Z {
+func (r *RedisCache) ZPopMin(key string, count ...int64) ([]redis.Z, error) {
 	start := time.Now()
 	val, err := r.client.ZPopMin(key, count...).Result()
 	if r.loggers != nil {
 		r.log(key, fmt.Sprintf("ZPOPMIN %v", count), time.Now().Sub(start).Microseconds(), 0)
 	}
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return val
+	return val, nil
 }
 
-func (r *RedisCache) LLen(key string) int64 {
+func (r *RedisCache) LLen(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.LLen(key).Result()
 	r.log(key, "LLEN", time.Now().Sub(start).Microseconds(), 0)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
-	return val
+	return val, nil
 }
 
-func (r *RedisCache) ZAdd(key string, members ...*redis.Z) int64 {
+func (r *RedisCache) ZAdd(key string, members ...*redis.Z) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZAdd(key, members...).Result()
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 	if r.loggers != nil {
 		r.log(key, fmt.Sprintf("ZADD %d values", len(members)), time.Now().Sub(start).Microseconds(), 0)
 	}
-	return val
+	return val, nil
 }
 
-func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
+func (r *RedisCache) HMset(key string, fields map[string]interface{}) error {
 	start := time.Now()
 	_, err := r.client.HMSet(key, fields).Result()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if r.loggers != nil {
 		keys := make([]string, len(fields))
@@ -177,13 +183,14 @@ func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 		}
 		r.log(key, fmt.Sprintf("HMSET %v", keys), time.Now().Sub(start).Microseconds(), 0)
 	}
+	return nil
 }
 
-func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
+func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
 	start := time.Now()
 	val, err := r.client.MGet(keys...).Result()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	results := make(map[string]interface{}, len(keys))
 	misses := 0
@@ -196,23 +203,24 @@ func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
 	if r.loggers != nil {
 		r.log(strings.Join(keys, ","), "MGET", time.Now().Sub(start).Microseconds(), misses)
 	}
-	return results
+	return results, nil
 }
 
-func (r *RedisCache) Set(key string, value string, ttlSeconds int) {
+func (r *RedisCache) Set(key string, value string, ttlSeconds int) error {
 	start := time.Now()
 	err := r.client.Set(key, value, time.Duration(ttlSeconds)*time.Second).Err()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	r.log(key, fmt.Sprintf("SET [%ds]", ttlSeconds), time.Now().Sub(start).Microseconds(), 0)
+	return nil
 }
 
-func (r *RedisCache) MSet(pairs ...interface{}) {
+func (r *RedisCache) MSet(pairs ...interface{}) error {
 	start := time.Now()
 	err := r.client.MSet(pairs...).Err()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if r.loggers != nil {
 		max := len(pairs)
@@ -222,6 +230,7 @@ func (r *RedisCache) MSet(pairs ...interface{}) {
 		}
 		r.log("", fmt.Sprintf("MSET %v", keys), time.Now().Sub(start).Microseconds(), 0)
 	}
+	return nil
 }
 
 func (r *RedisCache) Del(keys ...string) error {
@@ -234,13 +243,14 @@ func (r *RedisCache) Del(keys ...string) error {
 	return nil
 }
 
-func (r *RedisCache) FlushDB() {
+func (r *RedisCache) FlushDB() error {
 	start := time.Now()
 	err := r.client.FlushDB().Err()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	r.log("", "FLUSHDB", time.Now().Sub(start).Microseconds(), 0)
+	return nil
 }
 
 func (r *RedisCache) AddLogger(logger CacheLogger) {

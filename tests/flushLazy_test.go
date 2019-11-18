@@ -33,19 +33,25 @@ func TestFlushLazy(t *testing.T) {
 	assert.Len(t, LoggerQueue.Requests, 1)
 	assert.Equal(t, "LPUSH 1 values lazy_queue", LoggerQueue.Requests[0])
 
-	found := orm.TryById(1, &entity)
+	found, err := orm.TryById(1, &entity)
+	assert.Nil(t, err)
 	assert.False(t, found)
 
 	LazyReceiver := orm.LazyReceiver{RedisName: "default_queue"}
-	assert.Equal(t, int64(1), LazyReceiver.Size())
+	size, err := LazyReceiver.Size()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), size)
 	err = LazyReceiver.Digest()
 	assert.Nil(t, err)
-	assert.Equal(t, int64(0), LazyReceiver.Size())
+	size, err = LazyReceiver.Size()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), size)
 	assert.Len(t, LoggerDB.Queries, 2)
 	assert.Len(t, LoggerQueue.Requests, 5)
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[3])
-	found = orm.TryById(1, &entity)
+	found, err = orm.TryById(1, &entity)
+	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.Equal(t, "Name 1", entity.Name)
 
@@ -64,7 +70,8 @@ func TestFlushLazy(t *testing.T) {
 	assert.Len(t, LoggerQueue.Requests, 3)
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[1])
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
-	found = orm.TryById(1, &entity)
+	found, err = orm.TryById(1, &entity)
+	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.Equal(t, "Name 1.1", entity.Name)
 
@@ -83,7 +90,8 @@ func TestFlushLazy(t *testing.T) {
 	assert.Len(t, LoggerQueue.Requests, 3)
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[1])
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
-	found = orm.TryById(1, &entity)
+	found, err = orm.TryById(1, &entity)
+	assert.Nil(t, err)
 	assert.False(t, found)
 
 }

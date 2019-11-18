@@ -58,6 +58,6 @@ func (r *ReferenceMany) Clear() {
 	r.Ids = nil
 }
 
-func (r *ReferenceMany) Load(entities interface{}) {
-	GetByIds(r.Ids, entities)
+func (r *ReferenceMany) Load(entities interface{}) error {
+	return GetByIds(r.Ids, entities)
 }

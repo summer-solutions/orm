@@ -61,8 +61,10 @@ func TestFlush(t *testing.T) {
 
 	var edited1 TestEntityFlush
 	var edited2 TestEntityFlush
-	orm.GetById(2, &edited1)
-	orm.GetById(8, &edited2)
+	err = orm.GetById(2, &edited1)
+	assert.Nil(t, err)
+	err = orm.GetById(8, &edited2)
+	assert.Nil(t, err)
 	assert.Equal(t, "Name 2.1", edited1.Name)
 	assert.Equal(t, uint64(7), edited1.ReferenceOne.Id)
 	assert.Equal(t, "Name 8.1", edited2.Name)
@@ -73,13 +75,15 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, 2, edited2.ReferenceMany.Len())
 	assert.Equal(t, []uint64{3, 4}, edited2.ReferenceMany.Ids)
 	var refs []TestEntityFlush
-	edited2.ReferenceMany.Load(&refs)
+	err = edited2.ReferenceMany.Load(&refs)
+	assert.Nil(t, err)
 	assert.Len(t, refs, 2)
 	assert.Equal(t, uint16(3), refs[0].Id)
 	assert.Equal(t, uint16(4), refs[1].Id)
 
 	var ref TestEntityFlush
-	has := edited1.ReferenceOne.Load(&ref)
+	has, err := edited1.ReferenceOne.Load(&ref)
+	assert.Nil(t, err)
 	assert.True(t, has)
 	assert.Equal(t, uint16(7), ref.Id)
 
@@ -108,9 +112,12 @@ func TestFlush(t *testing.T) {
 	var edited3 TestEntityFlush
 	var deleted TestEntityFlush
 	var new11 TestEntityFlush
-	orm.GetById(2, &edited3)
-	hasDeleted := orm.TryById(8, &deleted)
-	orm.GetById(11, &new11)
+	err = orm.GetById(2, &edited3)
+	assert.Nil(t, err)
+	hasDeleted, err := orm.TryById(8, &deleted)
+	assert.Nil(t, err)
+	err = orm.GetById(11, &new11)
+	assert.Nil(t, err)
 	assert.Equal(t, "Name 2.2", edited3.Name)
 	assert.False(t, hasDeleted)
 	assert.Equal(t, "Name 11", new11.Name)

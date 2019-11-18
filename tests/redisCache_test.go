@@ -7,7 +7,9 @@ import (
 )
 
 func TestGetSet(t *testing.T) {
-	orm.RegisterRedis("localhost:6379", 15).FlushDB()
+
+	err := orm.RegisterRedis("localhost:6379", 15).FlushDB()
+	assert.Nil(t, err)
 
 	testLogger := TestCacheLogger{}
 	orm.GetRedis().AddLogger(&testLogger)

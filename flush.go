@@ -296,7 +296,10 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		}
 	}
 	if len(lazyMap) > 0 {
-		GetRedis(queueRedisName).LPush("lazy_queue", serializeForLazyQueue(lazyMap))
+		_, err = GetRedis(queueRedisName).LPush("lazy_queue", serializeForLazyQueue(lazyMap))
+		if err != nil {
+			return err
+		}
 	}
 
 	for k, v := range dirtyQueues {
@@ -304,7 +307,10 @@ func flush(lazy bool, entities ...interface{}) (err error) {
 		if !has {
 			panic(fmt.Errorf("unregistered lazy queue %s", k))
 		}
-		GetRedis(redisCode).ZAdd(k, v...)
+		_, err = GetRedis(redisCode).ZAdd(k, v...)
+		if err != nil {
+			return err
+		}
 	}
 	return
 }

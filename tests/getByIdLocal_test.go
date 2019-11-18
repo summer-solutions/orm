@@ -57,7 +57,8 @@ func TestGetByIdLocal(t *testing.T) {
 	DBLogger := TestDatabaseLogger{}
 	orm.GetMysql().AddLogger(&DBLogger)
 
-	found := orm.TryById(1, &entity)
+	found, err := orm.TryById(1, &entity)
+	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
 	assert.Equal(t, uint(1), entity.Id)
@@ -120,7 +121,8 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 1)
 
 	var entity2 TestEntityByIdLocal
-	found = orm.TryById(1, &entity2)
+	found, err = orm.TryById(1, &entity2)
+	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity2)
 	assert.Equal(t, "Test name", entity2.Name)
@@ -152,6 +154,6 @@ func BenchmarkGetByIdLocal(b *testing.B) {
 	_ = orm.Flush(&entity)
 
 	for n := 0; n < b.N; n++ {
-		_ = orm.TryById(1, &entity)
+		_, _ = orm.TryById(1, &entity)
 	}
 }

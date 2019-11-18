@@ -9,7 +9,7 @@ type LazyReceiver struct {
 	RedisName string
 }
 
-func (r LazyReceiver) Size() int64 {
+func (r LazyReceiver) Size() (int64, error) {
 	return GetRedis(r.RedisName).LLen("lazy_queue")
 }
 
@@ -17,14 +17,17 @@ func (r LazyReceiver) Digest() error {
 	redis := GetRedis(r.RedisName)
 	key := "lazy_queue"
 	for {
-		val, found := redis.RPop(key)
+		val, found, err := redis.RPop(key)
+		if err != nil {
+			return err
+		}
 		if !found {
 			break
 		}
 		var data interface{}
-		err := json.Unmarshal([]byte(val), &data)
+		err = json.Unmarshal([]byte(val), &data)
 		if err != nil {
-			return fmt.Errorf("invalid json: %s", val)
+			return err
 		}
 		brokenMap := make(map[string]interface{})
 		validMap, ok := data.(map[string]interface{})
@@ -45,7 +48,7 @@ func (r LazyReceiver) Digest() error {
 			errors = append(errors, err)
 		}
 		if len(brokenMap) > 0 {
-			GetRedis(queueRedisName).RPush("lazy_queue", serializeForLazyQueue(brokenMap))
+			_, _ = GetRedis(queueRedisName).RPush("lazy_queue", serializeForLazyQueue(brokenMap))
 		}
 		if len(errors) > 0 {
 			return fmt.Errorf("errors: %v", err)

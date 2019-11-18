@@ -9,13 +9,13 @@ import (
 	"strings"
 )
 
-func CachedSearch(entities interface{}, indexName string, pager Pager, arguments ...interface{}) (totalRows int) {
+func CachedSearch(entities interface{}, indexName string, pager Pager, arguments ...interface{}) (totalRows int, err error) {
 	value := reflect.ValueOf(entities)
 	entityType := getEntityTypeForSlice(value.Type())
 	schema := getTableSchema(entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
-		panic(fmt.Errorf("uknown index %s", indexName))
+		return 0, fmt.Errorf("uknown index %s", indexName)
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
@@ -65,13 +65,19 @@ func CachedSearch(entities interface{}, indexName string, pager Pager, arguments
 			}
 		}
 		if redisCache != nil && len(nilsKeys) > 0 {
-			fromRedis := redisCache.HMget(cacheKey, nilsKeys...)
+			fromRedis, err := redisCache.HMget(cacheKey, nilsKeys...)
+			if err != nil {
+				return 0, err
+			}
 			for key, idsFromRedis := range fromRedis {
 				fromCache[key] = idsFromRedis
 			}
 		}
 	} else if redisCache != nil {
-		fromCache = redisCache.HMget(cacheKey, pages...)
+		fromCache, err = redisCache.HMget(cacheKey, pages...)
+		if err != nil {
+			return 0, err
+		}
 	}
 	hasNil := false
 	totalRows = 0
@@ -127,7 +133,10 @@ func CachedSearch(entities interface{}, indexName string, pager Pager, arguments
 			}
 		}
 		if redisCache != nil {
-			redisCache.HMset(cacheKey, cacheFields)
+			err := redisCache.HMset(cacheKey, cacheFields)
+			if err != nil {
+				return 0, err
+			}
 		}
 	}
 
@@ -157,6 +166,9 @@ func CachedSearch(entities interface{}, indexName string, pager Pager, arguments
 		sliceEnd = length
 	}
 	idsToReturn := resultsIds[sliceStart:sliceEnd]
-	GetByIds(idsToReturn, entities)
+	err = GetByIds(idsToReturn, entities)
+	if err != nil {
+		return 0, err
+	}
 	return
 }

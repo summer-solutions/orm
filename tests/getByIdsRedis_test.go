@@ -55,7 +55,8 @@ func TestEntityByIdsRedis(t *testing.T) {
 	orm.GetRedis().AddLogger(&CacheLogger)
 
 	var found []TestEntityByIdsRedisCache
-	missing := orm.TryByIds([]uint64{2, 13, 1}, &found)
+	missing, err := orm.TryByIds([]uint64{2, 13, 1}, &found)
+	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{13}, missing)
@@ -67,7 +68,8 @@ func TestEntityByIdsRedis(t *testing.T) {
 	assert.Equal(t, "Name 1", entity.Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing = orm.TryByIds([]uint64{2, 13, 1}, &found)
+	missing, err = orm.TryByIds([]uint64{2, 13, 1}, &found)
+	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{13}, missing)
@@ -77,22 +79,26 @@ func TestEntityByIdsRedis(t *testing.T) {
 	assert.Equal(t, uint(1), entity.Id)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing = orm.TryByIds([]uint64{25, 26, 27}, &found)
+	missing, err = orm.TryByIds([]uint64{25, 26, 27}, &found)
+	assert.Nil(t, err)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
 	assert.Len(t, DBLogger.Queries, 2)
 
-	orm.GetRedis().FlushDB()
+	err = orm.GetRedis().FlushDB()
+	assert.Nil(t, err)
 	DBLogger.Queries = make([]string, 0)
 	CacheLogger.Requests = make([]string, 0)
 
 	DBLogger.Queries = make([]string, 0)
 	orm.EnableContextCache(100, 1)
-	missing = orm.TryByIds([]uint64{8, 9, 10}, &found, "ReferenceOne", "ReferenceMany/ReferenceOne")
+	missing, err = orm.TryByIds([]uint64{8, 9, 10}, &found, "ReferenceOne", "ReferenceMany/ReferenceOne")
+	assert.Nil(t, err)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
 	var ref1 TestEntityByIdsRedisCacheRef
-	has := found[0].ReferenceOne.Load(&ref1)
+	has, err := found[0].ReferenceOne.Load(&ref1)
+	assert.Nil(t, err)
 	assert.True(t, has)
 	assert.Equal(t, uint(5), ref1.Id)
 	assert.Equal(t, 2, found[0].ReferenceMany.Len())
@@ -102,11 +108,13 @@ func TestEntityByIdsRedis(t *testing.T) {
 	assert.Equal(t, uint(6), ref2[0].Id)
 	assert.Equal(t, uint(7), ref2[1].Id)
 	var ref3 TestEntityByIdsRedisCache
-	ref2[0].ReferenceOne.Load(&ref3)
+	_, err = ref2[0].ReferenceOne.Load(&ref3)
+	assert.Nil(t, err)
 	assert.Equal(t, uint(2), ref3.Id)
 	assert.Len(t, DBLogger.Queries, 3)
 
-	missing = orm.TryByIds([]uint64{8, 9, 10}, &found)
+	missing, err = orm.TryByIds([]uint64{8, 9, 10}, &found)
+	assert.Nil(t, err)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
 	assert.Len(t, DBLogger.Queries, 3)
@@ -119,6 +127,6 @@ func BenchmarkGetByIdsRedis(b *testing.B) {
 	_ = orm.Flush(&TestEntityByIdsRedisCache{Name: "Hi 1"}, &TestEntityByIdsRedisCache{Name: "Hi 2"}, &TestEntityByIdsRedisCache{Name: "Hi 3"})
 	var found []TestEntityByIdsRedisCache
 	for n := 0; n < b.N; n++ {
-		_ = orm.TryByIds([]uint64{1, 2, 3}, &found)
+		_, _ = orm.TryByIds([]uint64{1, 2, 3}, &found)
 	}
 }

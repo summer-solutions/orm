@@ -57,7 +57,8 @@ func TestGetByIdRedis(t *testing.T) {
 	DBLogger := TestDatabaseLogger{}
 	orm.GetMysql().AddLogger(&DBLogger)
 
-	found := orm.TryById(1, &entity)
+	found, err := orm.TryById(1, &entity)
+	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
 	assert.Equal(t, uint(1), entity.Id)
@@ -120,7 +121,8 @@ func TestGetByIdRedis(t *testing.T) {
 
 	assert.Len(t, DBLogger.Queries, 2)
 
-	found = orm.TryById(1, &entity)
+	found, err = orm.TryById(1, &entity)
+	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
 	assert.Equal(t, "Test name", entity.Name)
@@ -143,7 +145,8 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"name": "John"}, entity.Json)
 	assert.Len(t, DBLogger.Queries, 3)
 
-	orm.TryById(1, &entity)
+	_, err = orm.TryById(1, &entity)
+	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 3)
 }
 
@@ -155,6 +158,6 @@ func BenchmarkGetById(b *testing.B) {
 	_ = orm.Flush(&entity)
 
 	for n := 0; n < b.N; n++ {
-		_ = orm.TryById(1, &entity)
+		_, _ = orm.TryById(1, &entity)
 	}
 }

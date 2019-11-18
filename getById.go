@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func TryById(id uint64, entity interface{}) (found bool) {
+func TryById(id uint64, entity interface{}) (found bool, err error) {
 	if reflect.TypeOf(entity).Kind() != reflect.Ptr {
 		panic(fmt.Errorf("pointer not provided"))
 	}
@@ -25,28 +25,31 @@ func TryById(id uint64, entity interface{}) (found bool) {
 		e, has := localCache.Get(cacheKey)
 		if has {
 			if entity == nil {
-				return false
+				return false, nil
 			}
 			valEntity := reflect.ValueOf(entity).Elem()
 			valLocal := reflect.ValueOf(e)
 			for i := 0; i < valEntity.NumField(); i++ {
 				valEntity.Field(i).Set(valLocal.Field(i))
 			}
-			return true
+			return true, nil
 		}
 	}
 	redisCache := schema.GetRedisCacheContainer()
 	if redisCache != nil {
 		cacheKey = schema.getCacheKey(id)
-		row, has := redisCache.Get(cacheKey)
+		row, has, err := redisCache.Get(cacheKey)
+		if err != nil {
+			return false, err
+		}
 		if has {
 			if row == "nil" {
-				return false
+				return false, nil
 			}
 			val := reflect.ValueOf(entity).Elem()
 			fillFromDBRow(row, val, entityType)
 			initIfNeeded(val, entity)
-			return true
+			return true, nil
 		}
 	}
 	found = SearchOne(NewWhere("`Id` = ?", id), entity)
@@ -54,22 +57,29 @@ func TryById(id uint64, entity interface{}) (found bool) {
 		if localCache != nil {
 			localCache.Set(cacheKey, nil)
 		}
-		return false
+		return false, nil
 	}
 	if localCache != nil {
 		localCache.Set(cacheKey, entity)
 	}
 	if redisCache != nil {
-		redisCache.Set(cacheKey, buildRedisValue(entity, schema), 0)
+		err = redisCache.Set(cacheKey, buildRedisValue(entity, schema), 0)
+		if err != nil {
+			return false, err
+		}
 	}
-	return true
+	return true, nil
 }
 
-func GetById(id uint64, entity interface{}) {
-	found := TryById(id, entity)
+func GetById(id uint64, entity interface{}) error {
+	found, err := TryById(id, entity)
+	if err != nil {
+		return err
+	}
 	if !found {
 		panic(fmt.Errorf("entity %T with id %d not found", entity, id))
 	}
+	return nil
 }
 
 func buildRedisValue(entity interface{}, schema *TableSchema) string {

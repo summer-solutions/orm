@@ -24,7 +24,8 @@ func TestGetByIdsLocal(t *testing.T) {
 	orm.GetMysql().AddLogger(&DBLogger)
 
 	var found []TestEntityByIdsLocal
-	missing := orm.TryByIds([]uint64{2, 3, 1}, &found)
+	missing, err := orm.TryByIds([]uint64{2, 3, 1}, &found)
+	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{3}, missing)
@@ -36,7 +37,8 @@ func TestGetByIdsLocal(t *testing.T) {
 	assert.Equal(t, "Hi", entity.Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing = orm.TryByIds([]uint64{2, 3, 1}, &found)
+	missing, err = orm.TryByIds([]uint64{2, 3, 1}, &found)
+	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{3}, missing)
@@ -46,7 +48,8 @@ func TestGetByIdsLocal(t *testing.T) {
 	assert.Equal(t, uint(1), entity.Id)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing = orm.TryByIds([]uint64{5, 6, 7}, &found)
+	missing, err = orm.TryByIds([]uint64{5, 6, 7}, &found)
+	assert.Nil(t, err)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
 	assert.Len(t, DBLogger.Queries, 2)
@@ -61,6 +64,6 @@ func BenchmarkGetByIdsLocal(b *testing.B) {
 
 	var found []TestEntityByIdsLocal
 	for n := 0; n < b.N; n++ {
-		_ = orm.TryByIds([]uint64{1, 2, 3}, found)
+		_, _ = orm.TryByIds([]uint64{1, 2, 3}, found)
 	}
 }

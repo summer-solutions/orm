@@ -714,8 +714,14 @@ func main() {
     }
     
     //standard redis api
-    keys := orm.GetRedis().LRange("key", 1, 2)
-    orm.GetRedis().LPush("key", "a", "b")
+    keys, err := orm.GetRedis().LRange("key", 1, 2)
+    if err != nil {
+       ///...
+    }
+    err = orm.GetRedis().LPush("key", "a", "b")
+    if err != nil {
+       ///...
+    }
     //...
 }
 
