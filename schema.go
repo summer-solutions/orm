@@ -170,7 +170,7 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 	return tableSchema
 }
 
-func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, unsafeAlter string) {
+func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, unsafeAlter string, err error) {
 	indexes := make(map[string]*index)
 	columns := tableSchema.checkStruct(tableSchema.t, indexes, "")
 
@@ -183,7 +183,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 	createTableSql += fmt.Sprint(") ENGINE=InnoDB DEFAULT CHARSET=utf8;")
 
 	var skip string
-	err := tableSchema.GetMysql().QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.TableName)).Scan(&skip)
+	err = tableSchema.GetMysql().QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.TableName)).Scan(&skip)
 	hasTable := true
 	if err != nil {
 		hasTable = false
@@ -192,6 +192,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 	if !hasTable {
 		safeAlter = createTableSql
 		has = true
+		err = nil
 		return
 	}
 
@@ -199,7 +200,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 	var createTableDB string
 	err = tableSchema.GetMysql().QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.TableName)).Scan(&skip, &createTableDB)
 	if err != nil {
-		panic(err.Error())
+		return false, "", "", err
 	}
 	lines := strings.Split(createTableDB, "\n")
 	for x := 1; x < len(lines); x++ {
@@ -215,13 +216,13 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 	var rows []indexDB
 	results, err := tableSchema.GetMysql().Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
 	if err != nil {
-		panic(err.Error())
+		return false, "", "", err
 	}
 	for results.Next() {
 		var row indexDB
 		err = results.Scan(&row.Skip, &row.NonUnique, &row.KeyName, &row.Seq, &row.Column, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip)
 		if err != nil {
-			panic(err.Error())
+			return false, "", "", err
 		}
 		rows = append(rows, row)
 	}
@@ -367,7 +368,7 @@ OUTER:
 		unsafeAlter = alterSql
 	}
 	has = true
-	return
+	return has, safeAlter, unsafeAlter, nil
 }
 
 func (tableSchema TableSchema) DropTable() error {
@@ -376,7 +377,10 @@ func (tableSchema TableSchema) DropTable() error {
 }
 
 func (tableSchema TableSchema) UpdateSchema() error {
-	has, safeAlter, unsafeAlter := tableSchema.GetSchemaChanges()
+	has, safeAlter, unsafeAlter, err := tableSchema.GetSchemaChanges()
+	if err != nil {
+		return err
+	}
 	if has {
 		if safeAlter != "" {
 			_, err := tableSchema.GetMysql().Exec(safeAlter)

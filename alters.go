@@ -29,7 +29,10 @@ func GetAlters() (safeAlters []string, unsafeAlters []string, err error) {
 	for _, t := range entities {
 		tableSchema := getTableSchema(t)
 		tablesInEntities[tableSchema.MysqlPoolName][tableSchema.TableName] = true
-		has, safeAlter, unsafeAlter := tableSchema.GetSchemaChanges()
+		has, safeAlter, unsafeAlter, err := tableSchema.GetSchemaChanges()
+		if err != nil {
+			return nil, nil, err
+		}
 		if !has {
 			continue
 		}
