@@ -639,3 +639,57 @@ func main() {
 }
 
 ```
+
+## Flush in cache
+
+Sometimes you are changing entity very often and you don't want to flush changes
+to database every time entity is changed. If entity is using shared cached (redis) you
+can use FlushInCache feature. WHen entity is changed new data is stored in cache but 
+from time to time FlushInCacheReceiver is flushing all differences between cache and database.
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    orm.RegisterRedis("localhost:6379", 3, "queues_pool")
+    orm.SetRedisForQueue("queues_pool") //if not defined orm is using default redis pool
+    //.. register entities
+
+ 
+    type UserEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        Name                 string
+    }
+    
+    var user UserEntity
+    orm.GetById(1, &user)
+    user.Name = "New name"
+    err := orm.FlushInCache(&user) //updated only in redis
+    if err != nil {
+       ///...
+    }
+    user.Name = "New name 2"
+    err = orm.FlushInCache(&user) //updated only in redis
+    if err != nil {
+       ///...
+    }
+    
+    /* you should run a thread that is flushing changes in database */
+    lazyReceiver := orm.FlushInCacheReceiver{RedisName: "queues_pool"}
+    for {
+        //in our case it will only one query:
+        // UPDATE `UserEntity` SET `Name` = "New name 2" WHERE `Id` = 1
+        err = lazyReceiver.Digest()
+        if err != nil {
+           ///...
+        }
+        //sleep x seconds
+    }
+}
+
+```
