@@ -693,3 +693,30 @@ func main() {
 }
 
 ```
+
+## Working with Redis
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    orm.RegisterRedis("localhost:6379", 0)
+    
+    //storing data in cached for x seconds
+    val, err := orm.GetRedis().GetSet("key", 1, func() interface{} {
+		return "hello"
+	})
+    if err != nil {
+       ///...
+    }
+    
+    //standard redis api
+    keys := orm.GetRedis().LRange("key", 1, 2)
+    orm.GetRedis().LPush("key", "a", "b")
+    //...
+}
+
+```
