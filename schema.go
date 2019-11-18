@@ -21,21 +21,21 @@ func (orm *ORM) MarkToDelete() {
 	orm.dBData["_delete"] = true
 }
 
-func (orm *ORM) IsDirty() (bool, error) {
+func (orm *ORM) IsDirty() bool {
 	if orm.e == nil {
-		return false, nil
+		return false
 	}
 	if orm.dBData["_delete"] == true {
-		return true, nil
+		return true
 	}
 	v := reflect.ValueOf(orm.e)
 	value := reflect.Indirect(v)
 	t := value.Type()
 	bind, err := createBind(getTableSchema(t), t, value, orm.dBData, "")
 	if err != nil {
-		return false, err
+		panic(err.Error())
 	}
-	return value.Field(1).Uint() == 0 || len(bind) > 0, nil
+	return value.Field(1).Uint() == 0 || len(bind) > 0
 }
 
 func (orm *ORM) isDirty(value reflect.Value) (is bool, bind map[string]interface{}, err error) {

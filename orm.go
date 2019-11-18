@@ -24,15 +24,14 @@ func RegisterEntity(entity ...interface{}) {
 	}
 }
 
-func Init(entity ...interface{}) error {
+func Init(entity ...interface{}) {
 	for _, e := range entity {
 		value := reflect.Indirect(reflect.ValueOf(e))
 		_, err := initIfNeeded(value, e)
 		if err != nil {
-			return err
+			panic(err.Error())
 		}
 	}
-	return nil
 }
 
 func Defer() {
