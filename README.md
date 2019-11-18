@@ -574,8 +574,8 @@ func main() {
        ///...
     }
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
-	var users []UserEntity
-	totalRows := orm.CachedSearch(&users, "IndexAge", pager, 18)
+    var users []UserEntity
+    totalRows := orm.CachedSearch(&users, "IndexAge", pager, 18)
     totalRows = orm.CachedSearch(&users, "IndexAll", pager)
 
 }
