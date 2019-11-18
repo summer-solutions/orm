@@ -644,7 +644,7 @@ func main() {
 
 Sometimes you are changing entity very often and you don't want to flush changes
 to database every time entity is changed. If entity is using shared cached (redis) you
-can use FlushInCache feature. WHen entity is changed new data is stored in cache but 
+can use FlushInCache feature. When entity is changed new data is stored in cache but 
 from time to time FlushInCacheReceiver is flushing all differences between cache and database.
 
 ```go
