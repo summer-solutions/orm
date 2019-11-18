@@ -52,7 +52,8 @@ func TestGetAlters(t *testing.T) {
 	var entity TestEntitySchema
 	orm.RegisterEntity(entity)
 	tableSchema := orm.GetTableSchema(entity)
-	tableSchema.DropTable()
+	err := tableSchema.DropTable()
+	assert.Nil(t, err)
 
 	safeAlters, unsafeAlters, err := orm.GetAlters()
 	assert.Nil(t, err)

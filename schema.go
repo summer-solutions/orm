@@ -370,29 +370,28 @@ OUTER:
 	return
 }
 
-func (tableSchema TableSchema) DropTable() {
+func (tableSchema TableSchema) DropTable() error {
 	_, err := tableSchema.GetMysql().Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", tableSchema.TableName))
-	if err != nil {
-		panic(err.Error())
-	}
+	return err
 }
 
-func (tableSchema TableSchema) UpdateSchema() {
+func (tableSchema TableSchema) UpdateSchema() error {
 	has, safeAlter, unsafeAlter := tableSchema.GetSchemaChanges()
 	if has {
 		if safeAlter != "" {
 			_, err := tableSchema.GetMysql().Exec(safeAlter)
 			if err != nil {
-				panic(err.Error())
+				return err
 			}
 		}
 		if unsafeAlter != "" {
 			_, err := tableSchema.GetMysql().Exec(unsafeAlter)
 			if err != nil {
-				panic(err.Error())
+				return err
 			}
 		}
 	}
+	return nil
 }
 
 func (tableSchema TableSchema) GetMysql() *DB {
