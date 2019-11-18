@@ -22,11 +22,18 @@ type DirtyData struct {
 type DirtyHandler func([]DirtyData) (invalid []*redis.Z, err error)
 
 func (r DirtyReceiver) Size() (int64, error) {
-	return r.getRedis().ZCard(r.QueueCode)
+	red, err := r.getRedis()
+	if err != nil {
+		return 0, err
+	}
+	return red.ZCard(r.QueueCode)
 }
 
 func (r DirtyReceiver) Digest(max int, handler DirtyHandler) error {
-	cache := r.getRedis()
+	cache, err := r.getRedis()
+	if err != nil {
+		return err
+	}
 	for {
 		values, err := cache.ZPopMin(r.QueueCode, int64(max))
 		if err != nil {
@@ -66,10 +73,10 @@ func (r DirtyReceiver) Digest(max int, handler DirtyHandler) error {
 	return nil
 }
 
-func (r DirtyReceiver) getRedis() *RedisCache {
+func (r DirtyReceiver) getRedis() (*RedisCache, error) {
 	redisCode, has := dirtyQueuesCodes[r.QueueCode]
 	if !has {
-		panic(fmt.Errorf("unregistered dirty queue %s", r.QueueCode))
+		return nil, fmt.Errorf("unregistered dirty queue %s", r.QueueCode)
 	}
-	return GetRedis(redisCode)
+	return GetRedis(redisCode), nil
 }

@@ -35,7 +35,8 @@ func TestFlush(t *testing.T) {
 	flusher := orm.NewFlusher(100, false)
 	for i := 1; i <= 10; i++ {
 		e := TestEntityFlush{Name: "Name " + strconv.Itoa(i)}
-		flusher.RegisterEntity(&e)
+		err := flusher.RegisterEntity(&e)
+		assert.Nil(t, err)
 		entities[i-1] = &e
 	}
 	err := flusher.Flush()

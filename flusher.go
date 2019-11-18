@@ -18,11 +18,11 @@ func NewLazyFlusher(limit int, autoFlush bool) *Flusher {
 	return &Flusher{limit: limit, autoFlush: autoFlush, entities: make([]interface{}, 0, limit), lazy: true}
 }
 
-func (f *Flusher) RegisterEntity(entities ...interface{}) {
+func (f *Flusher) RegisterEntity(entities ...interface{}) error {
 	for _, entity := range entities {
 		if f.currentIndex == f.limit {
 			if !f.autoFlush {
-				panic(fmt.Errorf("flusher limit %d exceeded", entity))
+				return fmt.Errorf("flusher limit %d exceeded", entity)
 			}
 			err := f.Flush()
 			if err != nil {
@@ -32,6 +32,7 @@ func (f *Flusher) RegisterEntity(entities ...interface{}) {
 		f.entities = append(f.entities, entity)
 		f.currentIndex = f.currentIndex + 1
 	}
+	return nil
 }
 
 func (f *Flusher) Flush() error {

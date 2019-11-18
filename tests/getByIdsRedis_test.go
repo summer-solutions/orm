@@ -36,13 +36,15 @@ func TestEntityByIdsRedis(t *testing.T) {
 			e.ReferenceOne.Id = uint64(i - 3)
 			e.ReferenceMany.Add(uint64(i-2), uint64(i-1))
 		}
-		flusher.RegisterEntity(&e)
+		err := flusher.RegisterEntity(&e)
+		assert.Nil(t, err)
 		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
 		orm.Init(&e2)
 		if i > 5 {
 			e2.ReferenceOne.Id = uint64(i - 4)
 		}
-		flusher.RegisterEntity(&e2)
+		err = flusher.RegisterEntity(&e2)
+		assert.Nil(t, err)
 	}
 	err := flusher.Flush()
 	assert.Nil(t, err)
@@ -103,7 +105,8 @@ func TestEntityByIdsRedis(t *testing.T) {
 	assert.Equal(t, uint(5), ref1.Id)
 	assert.Equal(t, 2, found[0].ReferenceMany.Len())
 	var ref2 []TestEntityByIdsRedisCacheRef
-	found[0].ReferenceMany.Load(&ref2)
+	err = found[0].ReferenceMany.Load(&ref2)
+	assert.Nil(t, err)
 	assert.Len(t, ref2, 2)
 	assert.Equal(t, uint(6), ref2[0].Id)
 	assert.Equal(t, uint(7), ref2[1].Id)
