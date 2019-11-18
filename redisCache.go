@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"strings"
@@ -11,6 +12,27 @@ type RedisCache struct {
 	code    string
 	client  *redis.Client
 	loggers []CacheLogger
+}
+
+type GetSetProvider func() interface{}
+
+func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider) (interface{}, error) {
+	val, has := r.Get(key)
+	if !has {
+		userVal := provider()
+		encoded, err := json.Marshal(userVal)
+		if err != nil {
+			return nil, err
+		}
+		r.Set(key, string(encoded), ttlSeconds)
+		return userVal, nil
+	}
+	var data interface{}
+	err := json.Unmarshal([]byte(val), &data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func (r *RedisCache) Get(key string) (value string, ok bool) {
@@ -183,7 +205,7 @@ func (r *RedisCache) Set(key string, value string, ttlSeconds int) {
 	if err != nil {
 		panic(err)
 	}
-	r.log(key, "SET", time.Now().Sub(start).Microseconds(), 0)
+	r.log(key, fmt.Sprintf("SET [%ds]", ttlSeconds), time.Now().Sub(start).Microseconds(), 0)
 }
 
 func (r *RedisCache) MSet(pairs ...interface{}) {

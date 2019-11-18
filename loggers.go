@@ -30,8 +30,8 @@ func (c StandardCacheLogger) Log(cacheType string, code string, key string, oper
 	if misses == 1 {
 		color.Green("[ORM][%s][%s][%d µs][%s] %s [MISS]\n", cacheType, code, microseconds, operation, key)
 	} else if misses > 1 {
-		color.Green("[ORM][%s][%s][%d µs][%s] %s [MISSES %d]\n", cacheType, code, operation, microseconds, key, misses)
+		color.Green("[ORM][%s][%s][%d µs][%s] %s [MISSES %d]\n", cacheType, code, microseconds, operation, key, misses)
 	} else {
-		color.Green("[ORM][%s][%s][%d µs][%s] %s\n", cacheType, code, operation, microseconds, key)
+		color.Green("[ORM][%s][%s][%d µs][%s] %s\n", cacheType, code, microseconds, operation, key)
 	}
 }
