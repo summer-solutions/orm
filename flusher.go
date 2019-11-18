@@ -7,10 +7,15 @@ type Flusher struct {
 	autoFlush    bool
 	entities     []interface{}
 	currentIndex int
+	lazy         bool
 }
 
 func NewFlusher(limit int, autoFlush bool) *Flusher {
-	return &Flusher{limit: limit, autoFlush: autoFlush, entities: make([]interface{}, 0, limit)}
+	return &Flusher{limit: limit, autoFlush: autoFlush, entities: make([]interface{}, 0, limit), lazy: false}
+}
+
+func NewLazyFlusher(limit int, autoFlush bool) *Flusher {
+	return &Flusher{limit: limit, autoFlush: autoFlush, entities: make([]interface{}, 0, limit), lazy: true}
 }
 
 func (f *Flusher) RegisterEntity(entities ...interface{}) {
@@ -30,15 +35,7 @@ func (f *Flusher) RegisterEntity(entities ...interface{}) {
 }
 
 func (f *Flusher) Flush() error {
-	return f.flush(false)
-}
-
-func (f *Flusher) FlushLazy() error {
-	return f.flush(true)
-}
-
-func (f *Flusher) flush(lazy bool) error {
-	err := flush(lazy, f.entities...)
+	err := flush(f.lazy, f.entities...)
 	if err != nil {
 		return err
 	}

@@ -584,3 +584,58 @@ func main() {
 
 Beauty about cached cached queries is that you don't need to care about updating
 cache when entity is changed. Results are cached and updated automatically.
+
+## Lazy flush
+
+Sometimes you want to flush changes in database, but it's ok if data is flushed
+asynchronously. Just use LazyFlush and LazyReceiver:
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    orm.RegisterRedis("localhost:6379", 3, "queues_pool")
+    orm.SetRedisForQueue("queues_pool") //if not defined orm is using default redis pool
+    //.. register entities
+
+ 
+    type UserEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        Name                 string
+    }
+    
+    user := UserEntity{Name: "John"}
+    var user2 UserEntity
+    orm.GetById(1, &user2)
+    user2.Orm.MarkToDelete()
+    err := orm.FlushLazy(&user, &user2)
+    if err != nil {
+       ///...
+    }
+    
+    /* you can use Flusher also */
+    flusher := orm.NewLazyFlusher(100, true)
+    user = UserEntity{Name: "Bob"}
+    flusher.RegisterEntity(&user)
+    err = flusher.Flush()
+    if err != nil {
+       ///...
+    }
+    
+    /* you should run a thread that is receiving lazy queries */
+    lazyReceiver := orm.LazyReceiver{RedisName: "queues_pool"}
+    for {
+        err = lazyReceiver.Digest()
+        if err != nil {
+           ///...
+        }
+        //sleep x seconds
+    }
+}
+
+```
