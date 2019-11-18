@@ -488,6 +488,7 @@ func main() {
 
 ## Reference one to many
 
+
 ```go
 package main
 
@@ -540,3 +541,46 @@ func main() {
 }
 
 ```
+
+
+It's a good practice to use one to many reference 
+only if you are connecting no more than 50 rows. As you can se you can't use pager here so
+all rows are loaded at once. If you need to work with more rows you should use cached
+queries (explained below).
+
+## Cached queries
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+   //.. register pools and entities
+ 
+    type UserEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        Name                 string
+        Age                  uint16
+        IndexAge             *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
+        IndexAll             *orm.CachedQuery `query:""`
+    }
+    
+    user := UserEntity{Name: "John", Age: 18}
+    err := orm.Flush(&user)
+    if err != nil {
+       ///...
+    }
+    pager := orm.Pager{CurrentPage: 1, PageSize: 100}
+	var users []UserEntity
+	totalRows := orm.CachedSearch(&users, "IndexAge", pager, 18)
+    totalRows = orm.CachedSearch(&users, "IndexAll", pager)
+
+}
+
+```
+
+Beauty about cached cached queries is that you don't need to care about updating
+cache when entity is changed. Results are cached and updated automatically.
