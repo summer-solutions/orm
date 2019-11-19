@@ -86,7 +86,7 @@ func (db *DB) Commit() error {
 			db.afterCommitLocalCacheSets = nil
 			if db.afterCommitLocalCacheDeletes != nil {
 				for cacheCode, keys := range db.afterCommitLocalCacheDeletes {
-					GetLocalCache(cacheCode).RemoveMany(keys...)
+					GetLocalCache(cacheCode).Remove(keys...)
 				}
 			}
 			db.afterCommitLocalCacheDeletes = nil

@@ -107,7 +107,7 @@ func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, brokenM
 				if !has {
 					return fmt.Errorf("unknown local cache %s", cacheCode)
 				}
-				cache.RemoveMany(stringKeys...)
+				cache.Remove(stringKeys...)
 			} else {
 				cache, has := redisServers[cacheCode]
 				if !has {

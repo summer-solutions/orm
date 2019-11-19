@@ -14,6 +14,25 @@ type LocalCache struct {
 	created int64
 }
 
+type ttlValue struct {
+	value interface{}
+	time  int64
+}
+
+func (c *LocalCache) GetSet(key string, ttlSeconds int, provider GetSetProvider) interface{} {
+	val, has := c.Get(key)
+	if has {
+		ttlVal := val.(ttlValue)
+		if time.Now().Unix()-ttlVal.time <= int64(ttlSeconds) {
+			return ttlVal
+		}
+	}
+	userVal := provider()
+	val = ttlValue{value: userVal, time: time.Now().Unix()}
+	c.Set(key, val)
+	return userVal
+}
+
 func (c *LocalCache) Get(key string) (value interface{}, ok bool) {
 	start := time.Now()
 	value, ok = c.lru.Get(key)
@@ -112,13 +131,7 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 	}
 }
 
-func (c *LocalCache) Remove(key string) {
-	start := time.Now()
-	c.lru.Remove(key)
-	c.log(key, "REMOVE", time.Now().Sub(start).Microseconds(), 0)
-}
-
-func (c *LocalCache) RemoveMany(keys ...string) {
+func (c *LocalCache) Remove(keys ...string) {
 	start := time.Now()
 	for _, v := range keys {
 		c.lru.Remove(v)

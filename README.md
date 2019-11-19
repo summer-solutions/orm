@@ -726,3 +726,47 @@ func main() {
 }
 
 ```
+
+## Working with local cache
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    orm.RegisterLocalCache(1000)
+    
+    //storing data in cached for x seconds
+    val := orm.GetLocalCache().GetSet("key", 1, func() interface{} {
+		return "hello"
+	})
+    
+    //getting value
+    value, has := orm.GetLocalCache().Get("key")
+    
+    //getting many values
+    values := orm.GetLocalCache().MGet("key1", "key2")
+    
+    //setting value
+    orm.GetLocalCache().Set("key", "value")
+    
+    //setting values
+    orm.GetLocalCache().MSet("key1", "value1", "key2", "value2" /*...*/)
+    
+    //getting values from hash set (like redis HMGET)
+    values := orm.GetLocalCache().HMget("key")
+    
+    //setting values in hash set
+    orm.GetLocalCache().HMset("key", map[string]interface{}{"key1" : "value1", "key2": "value 2"})
+
+    //deleting value
+    orm.GetLocalCache().Remove("key1", "key2" /*...*/)
+    
+    //clearing cache
+    orm.GetLocalCache().Clear()
+
+}
+
+```

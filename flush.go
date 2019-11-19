@@ -259,7 +259,7 @@ func flush(lazy bool, entities ...interface{}) error {
 					}
 					deletesLocalCache.(map[string][]string)[cacheCode] = keys
 				} else {
-					cache.RemoveMany(keys...)
+					cache.Remove(keys...)
 				}
 			} else {
 				if db.afterCommitLocalCacheDeletes == nil {

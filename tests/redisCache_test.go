@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestGetSet(t *testing.T) {
+func TestGetSetRedis(t *testing.T) {
 
 	err := orm.RegisterRedis("localhost:6379", 15).FlushDB()
 	assert.Nil(t, err)
