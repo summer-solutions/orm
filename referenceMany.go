@@ -5,8 +5,9 @@ import (
 )
 
 type ReferenceMany struct {
-	Ids []uint64
-	t   reflect.Type
+	Ids        []uint64
+	references []interface{}
+	t          reflect.Type
 }
 
 func (r *ReferenceMany) Len() int {
@@ -37,6 +38,17 @@ func (r *ReferenceMany) Add(ids ...uint64) {
 			r.Ids = make([]uint64, 0)
 		}
 		r.Ids = append(r.Ids, id)
+	}
+}
+
+func (r *ReferenceMany) AddReference(entity ...interface{}) {
+	for _, entity := range entity {
+		id := reflect.ValueOf(entity).Elem().Field(1).Uint()
+		if id > 0 {
+			r.Add(id)
+		} else {
+			r.references = append(r.references, entity)
+		}
 	}
 }
 

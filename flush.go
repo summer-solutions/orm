@@ -322,6 +322,48 @@ func flush(lazy bool, entities ...interface{}) error {
 			return err
 		}
 	}
+	return handleLazyReferences(entities...)
+}
+
+func handleLazyReferences(entities ...interface{}) error {
+	toFlush := make([]interface{}, 0)
+	for _, entity := range entities {
+		dirty := false
+		value := reflect.Indirect(reflect.ValueOf(entity))
+		schema := getTableSchema(value.Type())
+		for _, columnName := range schema.refOne {
+			refOne := value.FieldByName(columnName).Interface().(*ReferenceOne)
+			if refOne.Id == 0 && refOne.Reference != nil {
+				refId := reflect.Indirect(reflect.ValueOf(refOne.Reference)).Field(1).Uint()
+				if refId > 0 {
+					refOne.Id = refId
+					dirty = true
+				}
+			}
+		}
+		for _, columnName := range schema.refMany {
+			refMany := value.FieldByName(columnName).Interface().(*ReferenceMany)
+			if (refMany.Ids == nil || len(refMany.Ids) == 0) && (refMany.references != nil && len(refMany.references) > 0) {
+				for _, ref := range refMany.references {
+					refId := reflect.Indirect(reflect.ValueOf(ref)).Field(1).Uint()
+					if refId > 0 {
+						refMany.Add(refId)
+						dirty = true
+					}
+				}
+			}
+		}
+		if dirty {
+			toFlush = append(toFlush, entity)
+		}
+	}
+	if len(toFlush) > 0 {
+		err := flush(false, toFlush...)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

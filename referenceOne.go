@@ -5,8 +5,9 @@ import (
 )
 
 type ReferenceOne struct {
-	Id uint64
-	t  reflect.Type
+	Id        uint64
+	Reference interface{}
+	t         reflect.Type
 }
 
 func (r *ReferenceOne) Has() bool {

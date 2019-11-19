@@ -65,6 +65,8 @@ type TableSchema struct {
 	tags           map[string]map[string]string
 	cachedIndexes  map[string]cachedQueryDefinition
 	columnNames    []string
+	refOne         []string
+	refMany        []string
 	columnsStamp   string
 	localCacheName string
 	redisCacheName string
@@ -96,6 +98,8 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 		return tableSchema
 	}
 	tags, columnNames := tableSchema.extractTags(entityType, "")
+	oneRefs := make([]string, 0)
+	manyRefs := make([]string, 0)
 	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", columnNames)))
 	columnsStamp := fmt.Sprintf("%x", md5Part[:1])
 	mysql, has := tags["Orm"]["mysql"]
@@ -155,6 +159,14 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 			}
 			cachedQueries[key] = cachedQueryDefinition{max, query, fields}
 		}
+		userValue, has = values["refType"]
+		if has {
+			if userValue == "one" {
+				oneRefs = append(oneRefs, key)
+			} else {
+				manyRefs = append(manyRefs, key)
+			}
+		}
 	}
 	tableSchema = &TableSchema{TableName: table,
 		MysqlPoolName:  mysql,
@@ -165,6 +177,8 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 		cachedIndexes:  cachedQueries,
 		localCacheName: localCache,
 		redisCacheName: redisCache,
+		refOne:         oneRefs,
+		refMany:        manyRefs,
 		cachePrefix:    cachePrefix}
 	tableSchemas[entityType] = tableSchema
 	return tableSchema
@@ -714,6 +728,17 @@ func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix stri
 				fields[field.Name] = make(map[string]string)
 			}
 			fields[field.Name]["query"] = query
+		}
+		_, has = fields[field.Name]["ref"]
+		if has {
+			if fields[field.Name] == nil {
+				fields[field.Name] = make(map[string]string)
+			}
+			refType := "one"
+			if field.Type.String() == "*orm.ReferenceMany" {
+				refType = "many"
+			}
+			fields[field.Name]["refType"] = refType
 		}
 	}
 	return
