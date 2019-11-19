@@ -740,8 +740,8 @@ func main() {
     
     //storing data in cached for x seconds
     val := orm.GetLocalCache().GetSet("key", 1, func() interface{} {
-		return "hello"
-	})
+        return "hello"
+    })
     
     //getting value
     value, has := orm.GetLocalCache().Get("key")
