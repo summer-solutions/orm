@@ -482,6 +482,15 @@ func main() {
     if err != nil {
        ///...
     }
+
+    /* if you don't have ID yet you can still assign references */
+    school = SchoolEntity{Name: "New School"}
+    user.School.Reference = &school
+    err = orm.Flush(&user, &school)
+    if err != nil {
+       ///...
+    }
+
 }
 
 ```
@@ -538,6 +547,14 @@ func main() {
     user.Addresses.Clear()
     //or
     user.Addresses.Remove(1, 2)
+
+    /* if you don't have ID yet you can still assign references */
+    newAddress := AddressEntity{City: "Boston", Street: "Main 12"}
+    user.Addresses.AddReference(&newAddress)
+    err = orm.Flush(&user, &newAddress)
+    if err != nil {
+       ///...
+    }
 }
 
 ```
