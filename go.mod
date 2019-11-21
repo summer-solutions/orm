@@ -10,4 +10,6 @@ require (
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/stretchr/testify v1.4.0
+	golang.org/x/sys v0.0.0-20191119060738-e882bf8e40c2 // indirect
+	google.golang.org/appengine v1.6.5 // indirect
 )

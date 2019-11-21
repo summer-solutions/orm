@@ -787,3 +787,50 @@ func main() {
 }
 
 ```
+
+## Working with mysql
+
+```go
+package main
+
+import (
+    "database/sql"
+    "github.com/summer-solutions/orm"
+)
+
+func main() {
+
+    
+    defer orm.Defer()
+    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+
+    res, err := orm.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `Id` = ?", "Hello", 2)
+    if err != nil {
+       ///...
+    }
+
+    var row string
+    err = orm.GetMysql().QueryRow("SELECT * FROM `table_name` WHERE  `Id` = ?", 1).Scan(&row)
+    if err != nil {
+        if err != sql.ErrNoRows {
+            ///...
+        }
+        //no row found
+    }
+    
+    results, err := orm.GetMysql().Query("SELECT * FROM `table_name` WHERE  `Id` > ? LIMIT 100", 1)
+	if err != nil {
+		///...
+	}
+    for results.Next() {
+    	var row string
+        err = results.Scan(&row)
+        if err != nil {
+            ///...
+        }
+    }
+
+}
+
+
+```
