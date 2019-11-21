@@ -819,9 +819,9 @@ func main() {
     }
     
     results, err := orm.GetMysql().Query("SELECT * FROM `table_name` WHERE  `Id` > ? LIMIT 100", 1)
-	if err != nil {
-		///...
-	}
+    if err != nil {
+        ///...
+    }
     for results.Next() {
     	var row string
         err = results.Scan(&row)
