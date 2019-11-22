@@ -8,10 +8,9 @@ import (
 )
 
 type TestEntitySearch struct {
-	Orm            *orm.ORM
-	Id             uint
-	Name           string
-	ReferenceOneId uint `orm:"ref=tests.TestEntitySearch"`
+	Orm  *orm.ORM
+	Id   uint
+	Name string
 }
 
 func TestSearch(t *testing.T) {
@@ -22,9 +21,6 @@ func TestSearch(t *testing.T) {
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
 		e := TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
-		if i >= 5 {
-			e.ReferenceOneId = uint(i - 4)
-		}
 		entities[i-1] = &e
 	}
 	err := orm.Flush(entities...)

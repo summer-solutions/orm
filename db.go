@@ -59,7 +59,7 @@ func (db *DB) BeginTransaction() error {
 		return nil
 	}
 	start := time.Now()
-	transaction, err := db.db.ZBegin()
+	transaction, err := db.db.Begin()
 	db.log("BEGIN TRANSACTION", time.Now().Sub(start).Microseconds())
 	if err != nil {
 		return err
