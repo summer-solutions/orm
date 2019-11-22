@@ -45,6 +45,50 @@ func main() {
 
 ```
 
+You can also configure orm using yaml configuration file:
+
+```.yaml
+
+orm:
+  default:
+    mysql: root:root@tcp(localhost:3310)/db
+    redis: localhost:6379:0
+    redisQueues: localhost:6379:1
+    localCache: 1000
+    contextCache: 1000
+  second_pool:
+    mysql: root:root@tcp(localhost:3311)/db2
+    redis: localhost:6380:1 
+
+```
+
+```go
+package main
+
+import (
+    "github.com/summer-solutions/orm"
+    "gopkg.in/yaml.v2"
+    "io/ioutil"
+)
+
+func main() {
+
+    yamlFileData, err := ioutil.ReadFile("./orm.yaml")
+    if err != nil {
+        //...
+    }
+    
+    var parsedYaml map[interface{}]interface{}
+    err = yaml.Unmarshal(yamlFileData, &parsedYaml)
+    err = orm.InitByYaml(parsedYaml)
+    if err != nil {
+        //...
+    }
+
+}
+
+```
+
 ## Defining entities
 
 Great, we have required connections defined, now it's time to define our data models.
