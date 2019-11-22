@@ -223,7 +223,8 @@ There are only two golden rules you need to remember defining entity struct:
     var secondEntity SecondEntity
 	orm.RegisterEntity(firstEntity, secondEntity)
     
-    safeAlters, unsafeAlters := orm.GetAlters()
+    safeAlters, unsafeAlters, err := orm.GetAlters()
+
     
     /* in safeAlters and unsafeAlters you can find all sql queries (CREATE, DROP, ALTER TABLE) that needs
     to be executed based on registered entities. "safeAlters" you can execute without any stress,
@@ -234,7 +235,7 @@ There are only two golden rules you need to remember defining entity struct:
     orm.GetTableSchema(firstEntity).UpdateSchema() //it will create or alter table if needed
     orm.GetTableSchema(firstEntity).DropTable() //it will drop table if exist
     //if you need to see queries:
-    has, safeAlters, unsafeAlters := orm.GetTableSchema(firstEntity).GetSchemaChanges()
+    has, safeAlters, unsafeAlters, err := orm.GetTableSchema(firstEntity).GetSchemaChanges()
  }
  
  ```
@@ -359,13 +360,13 @@ func main() {
         Name                 string
     }
     var entity TestEntity
-    found := orm.TryById(1, &entity) //found has false if row does not exists
+    found, err := orm.TryById(1, &entity) //found has false if row does not exists
     orm.GetById(2, &entity) //will panic if row does not exist
 
     var entities []TestEntity
     //missing is []uint64 that contains id of rows that doesn't exists, 
     // in this cause $found slice has nil for such keys
-    missing := orm.TryByIds([]uint64{2, 3, 1}, &entities) 
+    missing, err := orm.TryByIds([]uint64{2, 3, 1}, &entities) 
     orm.GetByIds([]uint64{2, 3, 1}, &entities) //will panic if at least one row does not exist
 }
 
@@ -391,21 +392,21 @@ func main() {
     var entities []TestEntity
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
     where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
-    orm.Search(where, pager, &entities)
+    err := orm.Search(where, pager, &entities)
     
     //or if you need number of total rows
-    totalRows := orm.SearchWithCount(where, pager, &entities)
+    totalRows, err := orm.SearchWithCount(where, pager, &entities)
     
     //or if you need only one row
     where := orm.NewWhere("`Name` = ?", "Hello")
     var entity TestEntity
-    found := orm.SearchOne(where, &entity)
+    found, err := orm.SearchOne(where, &entity)
     
     //or if you need only primary keys
-    ids := orm.SearchIds(where, pager, entity)
+    ids, err := orm.SearchIds(where, pager, entity)
     
     //or if you need only primary keys and total rows
-    ids, totalRows = orm.SearchIdsWithCount(where, pager, entity)
+    ids, totalRows, err = orm.SearchIdsWithCount(where, pager, entity)
 }
 
 ```
@@ -437,17 +438,14 @@ func main() {
     var entity1 TestEntity
     var entity2 TestEntity
     entity3 := TestEntity{Name: "Hello"}
-    orm.GetById(1, &entity1)
-    orm.GetById(2, &entity2)
-    flusher.RegisterEntity(&entity1, &entity2, &entity3)
+    err := orm.GetById(1, &entity1)
+    err = orm.GetById(2, &entity2)
+    err = flusher.RegisterEntity(&entity1, &entity2, &entity3)
    
     entity1.Name = "New Name"
     entity1.Orm.MarkToDelete()
     
-    err := flusher.Flush() //executes all queries at once
-    if err != nil {
-       ///...
-    }
+    err = flusher.Flush() //executes all queries at once
 
      /* 
         in this case flusher will keep maximum 1000 entities. 
@@ -459,10 +457,10 @@ func main() {
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
     where := orm.NewWhere("1")
     for {
-        orm.Search(where, pager, &entities)
+        err = orm.Search(where, pager, &entities)
         for _, entity := range entities {
           entity.Name = "New Name"
-          flusher.RegisterEntity(&entity) //it will auto flush every 10 iterations
+          err = flusher.RegisterEntity(&entity) //it will auto flush every 10 iterations
         }
         pager.IncrementPage()
         if len(entities) < pager.GetPageSize() {
@@ -518,7 +516,7 @@ func main() {
 
     /* accessing reference */
     user.School.Has() //returns true
-    has := user.School.Load(&school) //has is true
+    has, err = :user.School.Load(&school) //has is true
     
     /* deleting reference */
     user.School.Id = 0
@@ -569,23 +567,17 @@ func main() {
     address2 := AddressEntity{City: "Boston", Street: "Main 1a"}
     orm.Init(&address1, &address2)
     err := orm.Flush(&address1, &address2)
-    if err != nil {
-       ///...
-    }
     
     user := UserEntity{Name: "John"}
     orm.Init(&user)
     user.Addresses.Add(address1.Id, address2.Id)
     err = orm.Flush(&user)
-    if err != nil {
-       ///...
-    }
 
     /* accessing reference */
     user.Addresses.Has(address1.Id) //returns true
     user.Addresses.Len() //returns 2
     var addresses []AddressEntity
-    user.Addresses.Load(&addresses) //has is true
+    err = user.Addresses.Load(&addresses) //has is true
     
     /* deleting reference */
     user.Addresses.Clear()
@@ -596,9 +588,6 @@ func main() {
     newAddress := AddressEntity{City: "Boston", Street: "Main 12"}
     user.Addresses.AddReference(&newAddress)
     err = orm.Flush(&user, &newAddress)
-    if err != nil {
-       ///...
-    }
 }
 
 ```
@@ -631,13 +620,10 @@ func main() {
     
     user := UserEntity{Name: "John", Age: 18}
     err := orm.Flush(&user)
-    if err != nil {
-       ///...
-    }
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
     var users []UserEntity
-    totalRows := orm.CachedSearch(&users, "IndexAge", pager, 18)
-    totalRows = orm.CachedSearch(&users, "IndexAll", pager)
+    totalRows, err := orm.CachedSearch(&users, "IndexAge", pager, 18)
+    totalRows, err = orm.CachedSearch(&users, "IndexAll", pager)
 
 }
 
@@ -672,17 +658,14 @@ func main() {
     
     user := UserEntity{Name: "John"}
     var user2 UserEntity
-    orm.GetById(1, &user2)
+    err := orm.GetById(1, &user2)
     user2.Orm.MarkToDelete()
-    err := orm.FlushLazy(&user, &user2)
-    if err != nil {
-       ///...
-    }
+    err = orm.FlushLazy(&user, &user2)
     
     /* you can use Flusher also */
     flusher := orm.NewLazyFlusher(100, true)
     user = UserEntity{Name: "Bob"}
-    flusher.RegisterEntity(&user)
+    err = flusher.RegisterEntity(&user)
     err = flusher.Flush()
     if err != nil {
        ///...
@@ -728,17 +711,11 @@ func main() {
     }
     
     var user UserEntity
-    orm.GetById(1, &user)
+    err := orm.GetById(1, &user)
     user.Name = "New name"
-    err := orm.FlushInCache(&user) //updated only in redis
-    if err != nil {
-       ///...
-    }
+    err = orm.FlushInCache(&user) //updated only in redis
     user.Name = "New name 2"
     err = orm.FlushInCache(&user) //updated only in redis
-    if err != nil {
-       ///...
-    }
     
     /* you should run a thread that is flushing changes in database */
     lazyReceiver := orm.FlushInCacheReceiver{RedisName: "queues_pool"}
@@ -746,9 +723,6 @@ func main() {
         //in our case it will only one query:
         // UPDATE `UserEntity` SET `Name` = "New name 2" WHERE `Id` = 1
         err = lazyReceiver.Digest()
-        if err != nil {
-           ///...
-        }
         //sleep x seconds
     }
 }
@@ -770,19 +744,10 @@ func main() {
     val, err := orm.GetRedis().GetSet("key", 1, func() interface{} {
 		return "hello"
 	})
-    if err != nil {
-       ///...
-    }
     
     //standard redis api
     keys, err := orm.GetRedis().LRange("key", 1, 2)
-    if err != nil {
-       ///...
-    }
     err = orm.GetRedis().LPush("key", "a", "b")
-    if err != nil {
-       ///...
-    }
     //...
 }
 
@@ -849,9 +814,6 @@ func main() {
     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
 
     res, err := orm.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `Id` = ?", "Hello", 2)
-    if err != nil {
-       ///...
-    }
 
     var row string
     err = orm.GetMysql().QueryRow("SELECT * FROM `table_name` WHERE  `Id` = ?", 1).Scan(&row)
@@ -863,18 +825,11 @@ func main() {
     }
     
     results, err := orm.GetMysql().Query("SELECT * FROM `table_name` WHERE  `Id` > ? LIMIT 100", 1)
-    if err != nil {
-        ///...
-    }
     for results.Next() {
     	var row string
         err = results.Scan(&row)
-        if err != nil {
-            ///...
-        }
     }
 
 }
-
 
 ```
