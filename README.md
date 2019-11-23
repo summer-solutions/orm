@@ -12,8 +12,6 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    defer orm.Defer()
-
     /*MySQL */
 
     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
@@ -204,7 +202,6 @@ There are only two golden rules you need to remember defining entity struct:
  
  func main() {
  
-     defer orm.Defer()
      orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
     
      type FirstEntity struct {
@@ -249,7 +246,6 @@ There are only two golden rules you need to remember defining entity struct:
  
  func main() {
  
-     defer orm.Defer()
      orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
      orm.RegisterMySqlPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
      orm.RegisterRedis("localhost:6379", 0)
@@ -290,7 +286,6 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    defer orm.Defer()
     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
 
     type TestEntity struct {
@@ -809,8 +804,6 @@ import (
 
 func main() {
 
-    
-    defer orm.Defer()
     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
 
     res, err := orm.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `Id` = ?", "Hello", 2)

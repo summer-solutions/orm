@@ -45,14 +45,14 @@ type TestEntitySchema struct {
 
 func TestGetAlters(t *testing.T) {
 
-	defer orm.Defer()
 	orm.UnregisterMySqlPools()
-	orm.RegisterMySqlPool("root:root@tcp(localhost:3310)/test_schema", "schema")
+	err := orm.RegisterMySqlPool("root:root@tcp(localhost:3310)/test_schema", "schema")
+	assert.Nil(t, err)
 
 	var entity TestEntitySchema
 	orm.RegisterEntity(entity)
 	tableSchema := orm.GetTableSchema(entity)
-	err := tableSchema.DropTable()
+	err = tableSchema.DropTable()
 	assert.Nil(t, err)
 
 	safeAlters, unsafeAlters, err := orm.GetAlters()

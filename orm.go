@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
+	"math"
 	"reflect"
 	"time"
 )
@@ -31,17 +32,6 @@ func Init(entity ...interface{}) {
 		if err != nil {
 			panic(err.Error())
 		}
-	}
-}
-
-func Defer() {
-	for _, client := range mySqlClients {
-		_ = client.db.Close()
-	}
-	mySqlClients = make(map[string]*DB)
-	contextCache := GetContextCache()
-	if contextCache != nil {
-		contextCache.Clear()
 	}
 }
 
@@ -75,7 +65,7 @@ func initIfNeeded(value reflect.Value, entity interface{}) (*ORM, error) {
 	return orm, nil
 }
 
-func RegisterMySqlPool(dataSourceName string, code ...string) *DB {
+func RegisterMySqlPool(dataSourceName string, code ...string) error {
 	sqlDB, _ := sql.Open("mysql", dataSourceName)
 	dbCode := "default"
 	if len(code) > 0 {
@@ -84,7 +74,30 @@ func RegisterMySqlPool(dataSourceName string, code ...string) *DB {
 	db := &DB{code: dbCode, db: sqlDB}
 	mySqlClients[dbCode] = db
 	mysqlPoolCodes = append(mysqlPoolCodes, dbCode)
-	return db
+
+	var variable string
+	var maxConnections float64
+	var maxTime float64
+	err := db.QueryRow("SHOW VARIABLES LIKE 'max_connections'").Scan(&variable, &maxConnections)
+	if err != nil {
+		return nil
+	}
+	err = db.QueryRow("SHOW VARIABLES LIKE 'interactive_timeout'").Scan(&variable, &maxTime)
+	if err != nil {
+		return nil
+	}
+	maxConnectionsOrm := math.Ceil(maxConnections * 0.9)
+	maxIdleConnections := math.Ceil(maxConnections * 0.05)
+	maxConnectionsTime := math.Ceil(maxTime * 0.7)
+	if maxIdleConnections < 10 {
+		maxIdleConnections = maxConnectionsOrm
+	}
+
+	db.db.SetMaxOpenConns(int(maxConnectionsOrm))
+	db.db.SetMaxIdleConns(int(maxIdleConnections))
+	db.db.SetConnMaxLifetime(time.Duration(int(maxConnectionsTime)) * time.Second)
+
+	return nil
 }
 
 func UnregisterMySqlPools() {

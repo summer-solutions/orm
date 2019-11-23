@@ -68,9 +68,12 @@ func validateOrmMysqlUri(value interface{}, key string) error {
 	if !ok {
 		return fmt.Errorf("invalid mysql uri: %v", value)
 	}
-	RegisterMySqlPool(asString, key)
+	err := RegisterMySqlPool(asString, key)
+	if err != nil {
+		return fmt.Errorf("mysql connetion error (%s): %s", key, err.Error())
+	}
 	var row string
-	err := GetMysql(key).QueryRow("SELECT 1").Scan(&row)
+	err = GetMysql(key).QueryRow("SELECT 1").Scan(&row)
 	if err != nil {
 		return fmt.Errorf("mysql connetion error (%s): %s", key, err.Error())
 	}

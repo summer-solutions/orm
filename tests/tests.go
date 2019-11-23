@@ -6,7 +6,7 @@ import (
 )
 
 func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
-	orm.RegisterMySqlPool("root:root@tcp(localhost:3310)/test")
+	_ = orm.RegisterMySqlPool("root:root@tcp(localhost:3310)/test")
 	_ = orm.RegisterRedis("localhost:6379", 15).FlushDB()
 	_ = orm.RegisterRedis("localhost:6379", 14, "default_queue").FlushDB()
 	orm.SetRedisForQueue("default_queue")
@@ -16,8 +16,8 @@ func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
 	orm.DisableContextCache()
 	for _, entity := range entities {
 		TableSchema = orm.GetTableSchema(entity)
-		TableSchema.DropTable()
-		TableSchema.UpdateSchema()
+		_ = TableSchema.DropTable()
+		_ = TableSchema.UpdateSchema()
 		localCache := TableSchema.GetLocalCache()
 		if localCache != nil {
 			localCache.Clear()
