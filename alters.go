@@ -10,7 +10,8 @@ func GetAlters() (safeAlters []string, unsafeAlters []string, err error) {
 	tablesInDB := make(map[string]map[string]bool)
 	tablesInEntities := make(map[string]map[string]bool)
 
-	for _, poolName := range mysqlPoolCodes {
+	for _, pool := range mySqlClients {
+		poolName := pool.code
 		tablesInDB[poolName] = make(map[string]bool)
 		results, err := GetMysql(poolName).Query("SHOW TABLES")
 		if err != nil {
