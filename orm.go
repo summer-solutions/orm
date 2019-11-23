@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-var mysqlPoolCodes = make([]string, 0)
 var mySqlClients = make(map[string]*DB)
 var localCacheContainers = make(map[string]*LocalCache)
 var redisServers = make(map[string]*RedisCache)
@@ -73,7 +72,6 @@ func RegisterMySqlPool(dataSourceName string, code ...string) error {
 	}
 	db := &DB{code: dbCode, db: sqlDB}
 	mySqlClients[dbCode] = db
-	mysqlPoolCodes = append(mysqlPoolCodes, dbCode)
 
 	var variable string
 	var maxConnections float64
@@ -102,7 +100,6 @@ func RegisterMySqlPool(dataSourceName string, code ...string) error {
 
 func UnregisterMySqlPools() {
 	mySqlClients = make(map[string]*DB)
-	mysqlPoolCodes = make([]string, 0)
 }
 
 func RegisterLocalCache(size int, code ...string) {
@@ -197,4 +194,16 @@ func GetContextCache() *LocalCache {
 		contextCache.created = time.Now().Unix()
 	}
 	return contextCache
+}
+
+func (db *DB) AddDatabaseLogger(logger DatabaseLogger) {
+	for _, db := range mySqlClients {
+		db.AddLogger(logger)
+	}
+}
+
+func (db *DB) AddRedisLogger(logger CacheLogger) {
+	for _, red := range redisServers {
+		red.AddLogger(logger)
+	}
 }

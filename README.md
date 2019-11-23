@@ -272,6 +272,11 @@ There are only two golden rules you need to remember defining entity struct:
     }
     func (l *MyCacheLogger) Log(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
     }
+    
+    /* adding logger to all pools */
+    orm.AddDatabaseLogger(dbLogger)
+    orm.AddRedisLogger(cacheLogger)
+
  }
  
  ```
