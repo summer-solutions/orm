@@ -196,13 +196,13 @@ func GetContextCache() *LocalCache {
 	return contextCache
 }
 
-func (db *DB) AddDatabaseLogger(logger DatabaseLogger) {
+func AddDatabaseLogger(logger DatabaseLogger) {
 	for _, db := range mySqlClients {
 		db.AddLogger(logger)
 	}
 }
 
-func (db *DB) AddRedisLogger(logger CacheLogger) {
+func AddRedisLogger(logger CacheLogger) {
 	for _, red := range redisServers {
 		red.AddLogger(logger)
 	}
