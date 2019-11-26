@@ -43,7 +43,7 @@ func main() {
 
 ```
 
-You can also configure orm using yaml configuration file:
+##### You can also configure orm using yaml configuration file:
 
 ```.yaml
 
