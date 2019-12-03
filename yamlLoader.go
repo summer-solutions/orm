@@ -36,13 +36,11 @@ func InitByYaml(yaml map[interface{}]interface{}) error {
 				if err != nil {
 					return err
 				}
-			case "redisQueues":
-				poolName := keyAsString + "_queue"
-				err := validateRedisUri(value, poolName)
+			case "lazyQueue":
+				err := validateRedisUri(value, keyAsString)
 				if err != nil {
 					return err
 				}
-				SetRedisForQueue(poolName)
 			case "localCache":
 				number, err := validateOrmInt(value, keyAsString)
 				if err != nil {

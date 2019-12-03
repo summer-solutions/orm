@@ -306,7 +306,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		if err != nil {
 			return err
 		}
-		_, err = GetRedis(queueRedisName).LPush("lazy_queue", v)
+		_, err = getRedisForQueue("default").LPush("lazy_queue", v)
 		if err != nil {
 			return err
 		}
@@ -518,12 +518,12 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			var valueAsString string
 			if timeAttribute == "true" {
 				if value.Year() == 1 {
-					valueAsString = "0000-00-00 00:00:00"
+					valueAsString = "0001-01-01 00:00:00"
 				} else {
 					layout += " 15:04:05"
 				}
 			} else if value.Year() == 1 {
-				valueAsString = "0000-00-00"
+				valueAsString = "0001-01-01"
 			}
 			if valueAsString == "" {
 				valueAsString = value.Format(layout)

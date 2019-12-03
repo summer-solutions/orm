@@ -27,8 +27,7 @@ func main() {
     /* Redis used to handle queues (explained later) */
 
     orm.RegisterRedis("localhost:6379", 3, "queues_pool")
-    orm.SetRedisForQueue("queues_pool") //if not defined orm is using default redis pool
-
+    orm.RegisterLazyQueue("default", "queues_pool")//if not defined orm is using default redis pool
 
     /* Local cache (in memory) */
 
@@ -646,7 +645,7 @@ func main() {
 
     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
     orm.RegisterRedis("localhost:6379", 3, "queues_pool")
-    orm.SetRedisForQueue("queues_pool") //if not defined orm is using default redis pool
+    orm.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
     //.. register entities
 
  
@@ -700,7 +699,7 @@ func main() {
 
     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
     orm.RegisterRedis("localhost:6379", 3, "queues_pool")
-    orm.SetRedisForQueue("queues_pool") //if not defined orm is using default redis pool
+    orm.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
     //.. register entities
 
  

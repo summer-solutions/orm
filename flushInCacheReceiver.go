@@ -94,7 +94,7 @@ func (r FlushInCacheReceiver) Digest() error {
 		sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
 		_, err = db.Exec(sql, attributes...)
 		if err != nil {
-			_, _ = GetRedis(queueRedisName).ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+			_, _ = getRedisForQueue("default").ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 			return err
 		}
 		cacheKeys := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
@@ -102,7 +102,7 @@ func (r FlushInCacheReceiver) Digest() error {
 		if len(cacheKeys) > 0 {
 			err = cache.Del(cacheKeys...)
 			if err != nil {
-				_, _ = GetRedis(queueRedisName).ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+				_, _ = getRedisForQueue("default").ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 				return err
 			}
 		}

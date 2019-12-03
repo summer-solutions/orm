@@ -52,7 +52,7 @@ func (r LazyReceiver) Digest() error {
 			if err != nil {
 				return err
 			}
-			_, _ = GetRedis(queueRedisName).RPush("lazy_queue", v)
+			_, _ = getRedisForQueue("default").RPush("lazy_queue", v)
 		}
 		if len(errors) > 0 {
 			return fmt.Errorf("errors: %v", err)

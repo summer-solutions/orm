@@ -15,7 +15,9 @@ var localCacheContainers = make(map[string]*LocalCache)
 var redisServers = make(map[string]*RedisCache)
 var entities = make(map[string]reflect.Type)
 var dirtyQueuesCodes = make(map[string]string)
-var queueRedisName = "default"
+var dirtyQueuesCodesNames = make([]string, 0)
+var lazyQueuesCodes = make(map[string]string)
+var lazyQueuesCodesNames = make([]string, 0)
 
 func RegisterEntity(entity ...interface{}) {
 	for _, e := range entity {
@@ -134,10 +136,20 @@ func RegisterRedis(address string, db int, code ...string) *RedisCache {
 
 func RegisterDirtyQueue(code string, redisCode string) {
 	dirtyQueuesCodes[code] = redisCode
+	dirtyQueuesCodesNames = append(dirtyQueuesCodesNames, code)
 }
 
-func SetRedisForQueue(redisCode string) {
-	queueRedisName = redisCode
+func GetDirtyQueueCodes() []string {
+	return dirtyQueuesCodesNames
+}
+
+func RegisterLazyQueue(code string, redisCode string) {
+	lazyQueuesCodes[code] = redisCode
+	lazyQueuesCodesNames = append(lazyQueuesCodesNames, code)
+}
+
+func GetLazyQueueCodes() []string {
+	return lazyQueuesCodesNames
 }
 
 func GetMysql(code ...string) *DB {
@@ -172,6 +184,15 @@ func GetRedis(code ...string) *RedisCache {
 	client, has := redisServers[dbCode]
 	if !has {
 		panic(fmt.Errorf("unregistered redis code: %s", dbCode))
+	}
+	return client
+}
+
+func getRedisForQueue(code string) *RedisCache {
+	queueCode := code + "_queue"
+	client, has := redisServers[queueCode]
+	if !has {
+		panic(fmt.Errorf("unregistered redis queue: %s", code))
 	}
 	return client
 }

@@ -59,7 +59,7 @@ func FlushInCache(entities ...interface{}) error {
 		}
 	}
 	if len(validEntities) > 0 {
-		_, err := GetRedis(queueRedisName).ZAdd("dirty_queue", validEntities...)
+		_, err := getRedisForQueue("default").ZAdd("dirty_queue", validEntities...)
 		if err != nil {
 			return err
 		}
