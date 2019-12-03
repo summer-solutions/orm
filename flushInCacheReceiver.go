@@ -8,15 +8,15 @@ import (
 )
 
 type FlushInCacheReceiver struct {
-	RedisName string
+	QueueName string
 }
 
 func (r FlushInCacheReceiver) Size() (int64, error) {
-	return GetRedis(r.RedisName).ZCard("dirty_queue")
+	return GetRedis(r.QueueName + "_queue").ZCard("dirty_queue")
 }
 
 func (r FlushInCacheReceiver) Digest() error {
-	cache := GetRedis(r.RedisName)
+	cache := GetRedis(r.QueueName + "_queue")
 	for {
 		values, err := cache.ZPopMin("dirty_queue", 1)
 		if err != nil {

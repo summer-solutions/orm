@@ -37,7 +37,7 @@ func TestFlushLazy(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	LazyReceiver := orm.LazyReceiver{RedisName: "default_queue"}
+	LazyReceiver := orm.LazyReceiver{QueueName: "default"}
 	size, err := LazyReceiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)

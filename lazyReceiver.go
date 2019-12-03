@@ -6,15 +6,15 @@ import (
 )
 
 type LazyReceiver struct {
-	RedisName string
+	QueueName string
 }
 
 func (r LazyReceiver) Size() (int64, error) {
-	return GetRedis(r.RedisName).LLen("lazy_queue")
+	return GetRedis(r.QueueName + "_queue").LLen("lazy_queue")
 }
 
 func (r LazyReceiver) Digest() error {
-	redis := GetRedis(r.RedisName)
+	redis := GetRedis(r.QueueName + "_queue")
 	key := "lazy_queue"
 	for {
 		val, found, err := redis.RPop(key)

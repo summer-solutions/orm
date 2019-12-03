@@ -65,7 +65,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, LoggerRedisCache.Requests, 2)
 	assert.Equal(t, "GET TestEntityFlusherInCacheRedisce:1", LoggerRedisCache.Requests[1])
 
-	receiver := orm.FlushInCacheReceiver{RedisName: "default_queue"}
+	receiver := orm.FlushInCacheReceiver{QueueName: "default"}
 	size, err := receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)
@@ -77,7 +77,8 @@ func TestFlushInCache(t *testing.T) {
 	assert.Equal(t, int64(0), size)
 
 	var inDB TestEntityFlusherInCacheRedis
-	orm.SearchOne(orm.NewWhere("`Id` = ?", 1), &inDB)
+	_, err = orm.SearchOne(orm.NewWhere("`Id` = ?", 1), &inDB)
+	assert.Nil(t, err)
 	assert.Equal(t, "Name 2", inDB.Name)
 
 	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 18)
