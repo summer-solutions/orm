@@ -37,10 +37,17 @@ func InitByYaml(yaml map[interface{}]interface{}) error {
 					return err
 				}
 			case "lazyQueue":
-				err := validateRedisUri(value, keyAsString)
+				valAsString, err := validateOrmString(value, keyAsString)
 				if err != nil {
 					return err
 				}
+				RegisterLazyQueue(keyAsString, valAsString)
+			case "dirtyQueue":
+				valAsString, err := validateOrmString(value, keyAsString)
+				if err != nil {
+					return err
+				}
+				RegisterDirtyQueue(keyAsString, valAsString)
 			case "localCache":
 				number, err := validateOrmInt(value, keyAsString)
 				if err != nil {
@@ -103,4 +110,12 @@ func validateOrmInt(value interface{}, key string) (int, error) {
 		return 0, fmt.Errorf("invalid orm value for %s: %v", key, value)
 	}
 	return asInt, nil
+}
+
+func validateOrmString(value interface{}, key string) (string, error) {
+	asString, ok := value.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid orm value for %s: %v", key, value)
+	}
+	return asString, nil
 }

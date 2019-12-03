@@ -51,6 +51,8 @@ orm:
     mysql: root:root@tcp(localhost:3310)/db
     redis: localhost:6379:0
     redisQueues: localhost:6379:1
+    lazyQueue: redisQueues
+    dirtyQueue: redisQueues
     localCache: 1000
     contextCache: 1000
   second_pool:
