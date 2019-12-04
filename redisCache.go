@@ -21,7 +21,6 @@ func (r *RedisCache) GetLock(key string, seconds int) (*redislock.Lock, error) {
 
 	locker := redislock.New(r.client)
 	lock, err := locker.Obtain(key, time.Duration(seconds)*time.Second, nil)
-	lock.Refresh()
 	if err == redislock.ErrNotObtained {
 		return nil, nil
 	} else if err != nil {
