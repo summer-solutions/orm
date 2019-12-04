@@ -3,7 +3,7 @@ package orm
 import (
 	"database/sql"
 	"fmt"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis"
 	"github.com/golang/groupcache/lru"
 	"math"
 	"reflect"

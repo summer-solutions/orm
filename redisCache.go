@@ -3,7 +3,8 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-redis/redis/v7"
+	"github.com/bsm/redislock"
+	"github.com/go-redis/redis"
 	"strings"
 	"time"
 )
@@ -15,6 +16,19 @@ type RedisCache struct {
 }
 
 type GetSetProvider func() interface{}
+
+func (r *RedisCache) GetLock(key string, seconds int) (*redislock.Lock, error) {
+
+	locker := redislock.New(r.client)
+	lock, err := locker.Obtain(key, time.Duration(seconds)*time.Second, nil)
+	lock.Refresh()
+	if err == redislock.ErrNotObtained {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return lock, nil
+}
 
 func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider) (interface{}, error) {
 	val, has, err := r.Get(key)
@@ -156,7 +170,7 @@ func (r *RedisCache) LLen(key string) (int64, error) {
 	return val, nil
 }
 
-func (r *RedisCache) ZAdd(key string, members ...*redis.Z) (int64, error) {
+func (r *RedisCache) ZAdd(key string, members ...redis.Z) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZAdd(key, members...).Result()
 	if err != nil {

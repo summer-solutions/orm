@@ -754,6 +754,32 @@ func main() {
 
 ```
 
+
+## Working with Shared lock
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    orm.RegisterRedis("localhost:6379", 0)
+    
+    lock, err := orm.GetRedis().GetLock("lock_name", 10, func())
+    if err != nil {
+        //...
+    }
+    defer lock.Release()
+    
+    if lock == nil {
+        fmt.Println("Lock not required")
+        return
+    } 
+}
+
+```
+
 ## Working with local cache
 
 ```go

@@ -2,7 +2,7 @@ package orm
 
 import (
 	"fmt"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis"
 	"strconv"
 	"strings"
 )
@@ -19,7 +19,7 @@ type DirtyData struct {
 	Deleted     bool
 }
 
-type DirtyHandler func([]DirtyData) (invalid []*redis.Z, err error)
+type DirtyHandler func([]DirtyData) (invalid []redis.Z, err error)
 
 func (r DirtyReceiver) Size() (int64, error) {
 	red, err := r.getRedis()
