@@ -13,52 +13,49 @@ func (r LazyReceiver) Size() (int64, error) {
 	return GetRedis(r.QueueName + "_queue").LLen("lazy_queue")
 }
 
-func (r LazyReceiver) Digest() error {
+func (r LazyReceiver) Digest() (has bool, err error) {
 	redis := GetRedis(r.QueueName + "_queue")
 	key := "lazy_queue"
-	for {
-		val, found, err := redis.RPop(key)
+	val, found, err := redis.RPop(key)
+	if err != nil {
+		return false, err
+	}
+	if !found {
+		return false, nil
+	}
+	var data interface{}
+	err = json.Unmarshal([]byte(val), &data)
+	if err != nil {
+		return true, err
+	}
+	brokenMap := make(map[string]interface{})
+	validMap, ok := data.(map[string]interface{})
+	if !ok {
+		return true, fmt.Errorf("invalid map: %v", data)
+	}
+	err = r.handleQueries(validMap, brokenMap)
+	if err != nil {
+		return true, err
+	}
+	err = r.handleClearCache(validMap, brokenMap, "cl")
+	if err != nil {
+		return true, err
+	}
+	err = r.handleClearCache(validMap, brokenMap, "cr")
+	if err != nil {
+		return true, err
+	}
+	if len(brokenMap) > 0 {
+		v, err := serializeForLazyQueue(brokenMap)
 		if err != nil {
-			return err
+			return true, err
 		}
-		if !found {
-			break
-		}
-		var data interface{}
-		err = json.Unmarshal([]byte(val), &data)
+		_, err = getRedisForQueue("default").RPush("lazy_queue", v)
 		if err != nil {
-			return err
-		}
-		brokenMap := make(map[string]interface{})
-		validMap, ok := data.(map[string]interface{})
-		errors := make([]error, 0)
-		if !ok {
-			errors = append(errors, fmt.Errorf("invalid map: %v", data))
-		}
-		err = r.handleQueries(validMap, brokenMap)
-		if err != nil {
-			errors = append(errors, err)
-		}
-		err = r.handleClearCache(validMap, brokenMap, "cl")
-		if err != nil {
-			errors = append(errors, err)
-		}
-		err = r.handleClearCache(validMap, brokenMap, "cr")
-		if err != nil {
-			errors = append(errors, err)
-		}
-		if len(brokenMap) > 0 {
-			v, err := serializeForLazyQueue(brokenMap)
-			if err != nil {
-				return err
-			}
-			_, _ = getRedisForQueue("default").RPush("lazy_queue", v)
-		}
-		if len(errors) > 0 {
-			return fmt.Errorf("errors: %v", err)
+			return true, err
 		}
 	}
-	return nil
+	return true, nil
 }
 
 func (r *LazyReceiver) handleQueries(validMap map[string]interface{}, brokenMap map[string]interface{}) error {

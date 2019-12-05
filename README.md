@@ -675,11 +675,13 @@ func main() {
     /* you should run a thread that is receiving lazy queries */
     lazyReceiver := orm.LazyReceiver{RedisName: "queues_pool"}
     for {
-        err = lazyReceiver.Digest()
+        has, err = lazyReceiver.Digest()
         if err != nil {
            ///...
         }
-        //sleep x seconds
+        if !has {
+            //sleep x seconds
+        }   
     }
 }
 
