@@ -692,7 +692,7 @@ func main() {
 Sometimes you are changing entity very often and you don't want to flush changes
 to database every time entity is changed. If entity is using shared cached (redis) you
 can use FlushInCache feature. When entity is changed new data is stored in cache but 
-from time to time FlushInCacheReceiver is flushing all differences between cache and database.
+from time to time FlushFromCacheReceiver is flushing all differences between cache and database.
 
 ```go
 package main
@@ -721,7 +721,7 @@ func main() {
     err = orm.FlushInCache(&user) //updated only in redis
     
     /* you should run a thread that is flushing changes in database */
-    lazyReceiver := orm.FlushInCacheReceiver{RedisName: "queues_pool"}
+    lazyReceiver := orm.FlushFromCacheReceiver{QueueName: "queues_pool"}
     for {
         //in our case it will only one query:
         // UPDATE `UserEntity` SET `Name` = "New name 2" WHERE `Id` = 1

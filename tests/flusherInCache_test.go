@@ -65,7 +65,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, LoggerRedisCache.Requests, 2)
 	assert.Equal(t, "GET TestEntityFlusherInCacheRedisce:1", LoggerRedisCache.Requests[1])
 
-	receiver := orm.FlushInCacheReceiver{QueueName: "default"}
+	receiver := orm.FlushFromCacheReceiver{QueueName: "default"}
 	size, err := receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)

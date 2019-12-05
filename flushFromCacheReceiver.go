@@ -7,15 +7,15 @@ import (
 	"strings"
 )
 
-type FlushInCacheReceiver struct {
+type FlushFromCacheReceiver struct {
 	QueueName string
 }
 
-func (r FlushInCacheReceiver) Size() (int64, error) {
+func (r FlushFromCacheReceiver) Size() (int64, error) {
 	return GetRedis(r.QueueName + "_queue").ZCard("dirty_queue")
 }
 
-func (r FlushInCacheReceiver) Digest() (has bool, err error) {
+func (r FlushFromCacheReceiver) Digest() (has bool, err error) {
 	cache := GetRedis(r.QueueName + "_queue")
 	values, err := cache.ZPopMin("dirty_queue", 1)
 	if err != nil {
