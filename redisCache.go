@@ -98,6 +98,18 @@ func (r *RedisCache) HMget(key string, fields ...string) (map[string]interface{}
 	return results, nil
 }
 
+func (r *RedisCache) HGetAll(key string) (map[string]string, error) {
+	start := time.Now()
+	val, err := r.client.HGetAll(key).Result()
+	if err != nil {
+		return nil, err
+	}
+	if r.loggers != nil {
+		r.log(key, "HGETALL", time.Now().Sub(start).Microseconds(), 0)
+	}
+	return val, nil
+}
+
 func (r *RedisCache) LPush(key string, values ...interface{}) (int64, error) {
 	start := time.Now()
 	val, err := r.client.LPush(key, values...).Result()
