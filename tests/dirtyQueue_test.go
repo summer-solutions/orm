@@ -39,7 +39,7 @@ func TestDirtyQueue(t *testing.T) {
 	size, err := receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(2), size)
-	err = receiver.Digest(2, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
+	has, err := receiver.Digest(2, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
 		assert.Len(t, data, 2)
 		assert.Equal(t, "TestEntityDirtyQueueAge", data[0].TableSchema.TableName)
 		assert.Equal(t, "TestEntityDirtyQueueAll", data[1].TableSchema.TableName)
@@ -54,6 +54,12 @@ func TestDirtyQueue(t *testing.T) {
 		return nil, nil
 	})
 	assert.Nil(t, err)
+	assert.True(t, has)
+	has, err = receiver.Digest(2, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
+		return nil, nil
+	})
+	assert.Nil(t, err)
+	assert.False(t, has)
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)
@@ -72,7 +78,7 @@ func TestDirtyQueue(t *testing.T) {
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)
-	err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "TestEntityDirtyQueueAll", data[0].TableSchema.TableName)
 		assert.Equal(t, uint64(1), data[0].Id)
@@ -82,6 +88,12 @@ func TestDirtyQueue(t *testing.T) {
 		return nil, nil
 	})
 	assert.Nil(t, err)
+	assert.True(t, has)
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
+		return nil, nil
+	})
+	assert.Nil(t, err)
+	assert.False(t, has)
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)
@@ -95,7 +107,7 @@ func TestDirtyQueue(t *testing.T) {
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)
-	err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "TestEntityDirtyQueueAge", data[0].TableSchema.TableName)
 		assert.Equal(t, uint64(1), data[0].Id)
@@ -105,6 +117,7 @@ func TestDirtyQueue(t *testing.T) {
 		return nil, nil
 	})
 	assert.Nil(t, err)
+	assert.True(t, has)
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)
@@ -116,7 +129,7 @@ func TestDirtyQueue(t *testing.T) {
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)
-	err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []redis.Z, err error) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "TestEntityDirtyQueueAge", data[0].TableSchema.TableName)
 		assert.Equal(t, uint64(1), data[0].Id)
@@ -126,6 +139,7 @@ func TestDirtyQueue(t *testing.T) {
 		return nil, nil
 	})
 	assert.Nil(t, err)
+	assert.True(t, has)
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)

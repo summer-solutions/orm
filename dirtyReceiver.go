@@ -29,48 +29,46 @@ func (r DirtyReceiver) Size() (int64, error) {
 	return red.ZCard(r.QueueCode)
 }
 
-func (r DirtyReceiver) Digest(max int, handler DirtyHandler) error {
+func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err error) {
 	cache, err := r.getRedis()
 	if err != nil {
-		return err
+		return false, err
 	}
-	for {
-		values, err := cache.ZPopMin(r.QueueCode, int64(max))
-		if err != nil {
-			return err
-		}
-		if len(values) == 0 {
-			break
-		}
-		results := make([]DirtyData, 0, len(values))
-		for _, v := range values {
-			val := strings.Split(v.Member.(string), ":")
-			if len(val) != 3 {
-				continue
-			}
-			tableSchema := getTableSchema(getEntityType(val[0]))
-			id, err := strconv.ParseUint(val[2], 10, 64)
-			if err != nil {
-				continue
-			}
-			data := DirtyData{
-				TableSchema: tableSchema,
-				Id:          id,
-				Inserted:    val[1] == "i",
-				Updated:     val[1] == "u",
-				Deleted:     val[1] == "d",
-			}
-			results = append(results, data)
-		}
-		invalid, err := handler(results)
-		if err != nil {
-			if invalid != nil {
-				_, _ = cache.ZAdd(r.QueueCode, invalid...)
-			}
-			return err
-		}
+	values, err := cache.ZPopMin(r.QueueCode, int64(max))
+	if err != nil {
+		return false, err
 	}
-	return nil
+	if len(values) == 0 {
+		return false, nil
+	}
+	results := make([]DirtyData, 0, len(values))
+	for _, v := range values {
+		val := strings.Split(v.Member.(string), ":")
+		if len(val) != 3 {
+			continue
+		}
+		tableSchema := getTableSchema(getEntityType(val[0]))
+		id, err := strconv.ParseUint(val[2], 10, 64)
+		if err != nil {
+			continue
+		}
+		data := DirtyData{
+			TableSchema: tableSchema,
+			Id:          id,
+			Inserted:    val[1] == "i",
+			Updated:     val[1] == "u",
+			Deleted:     val[1] == "d",
+		}
+		results = append(results, data)
+	}
+	invalid, err := handler(results)
+	if err != nil {
+		if invalid != nil {
+			_, _ = cache.ZAdd(r.QueueCode, invalid...)
+		}
+		return true, err
+	}
+	return true, nil
 }
 
 func (r DirtyReceiver) getRedis() (*RedisCache, error) {
