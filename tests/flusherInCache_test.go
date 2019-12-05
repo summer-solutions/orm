@@ -70,8 +70,12 @@ func TestFlushInCache(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)
 
-	err = receiver.Digest()
+	has, err := receiver.Digest()
 	assert.Nil(t, err)
+	assert.True(t, has)
+	has, err = receiver.Digest()
+	assert.Nil(t, err)
+	assert.False(t, has)
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)

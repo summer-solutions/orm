@@ -725,8 +725,10 @@ func main() {
     for {
         //in our case it will only one query:
         // UPDATE `UserEntity` SET `Name` = "New name 2" WHERE `Id` = 1
-        err = lazyReceiver.Digest()
-        //sleep x seconds
+        has, err := lazyReceiver.Digest()
+        if !has {
+            //sleep x seconds
+        }   
     }
 }
 
