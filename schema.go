@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -187,11 +188,19 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 func (tableSchema TableSchema) GetSchemaChanges() (has bool, alter Alter, err error) {
 	indexes := make(map[string]*index)
 	columns := tableSchema.checkStruct(tableSchema.t, indexes, "")
+	var newIndexes []string
 
 	createTableSql := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
 	columns[0][1] += " AUTO_INCREMENT"
 	for _, value := range columns {
 		createTableSql += fmt.Sprintf("  %s,\n", value[1])
+	}
+	for keyName, indexEntity := range indexes {
+		newIndexes = append(newIndexes, tableSchema.buildCreateIndexSql(keyName, indexEntity))
+	}
+	sort.Strings(newIndexes)
+	for _, value := range newIndexes {
+		createTableSql += fmt.Sprintf("  %s,\n", strings.TrimLeft(value, "ADD "))
 	}
 	createTableSql += fmt.Sprint("  PRIMARY KEY (`Id`)\n")
 	createTableSql += fmt.Sprint(") ENGINE=InnoDB DEFAULT CHARSET=utf8;")
@@ -311,7 +320,6 @@ OUTER:
 	}
 
 	var droppedIndexes []string
-	var newIndexes []string
 	for keyName, indexEntity := range indexes {
 		indexDB, has := indexesDB[keyName]
 		if !has {
@@ -353,10 +361,12 @@ OUTER:
 		alters = append(alters, fmt.Sprintf("    %s", value[0]))
 		comments = append(comments, value[1])
 	}
+	sort.Strings(droppedIndexes)
 	for _, value := range droppedIndexes {
 		alters = append(alters, fmt.Sprintf("    %s", value))
 		comments = append(comments, "")
 	}
+	sort.Strings(newIndexes)
 	for _, value := range newIndexes {
 		alters = append(alters, fmt.Sprintf("    %s", value))
 		comments = append(comments, "")
