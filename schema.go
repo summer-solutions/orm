@@ -184,7 +184,7 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 	return tableSchema
 }
 
-func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, unsafeAlter string, err error) {
+func (tableSchema TableSchema) GetSchemaChanges() (has bool, alter Alter, err error) {
 	indexes := make(map[string]*index)
 	columns := tableSchema.checkStruct(tableSchema.t, indexes, "")
 
@@ -204,7 +204,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 	}
 
 	if !hasTable {
-		safeAlter = createTableSql
+		alter = Alter{Sql: createTableSql, Safe: true, Pool: tableSchema.MysqlPoolName}
 		has = true
 		err = nil
 		return
@@ -214,7 +214,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 	var createTableDB string
 	err = tableSchema.GetMysql().QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.TableName)).Scan(&skip, &createTableDB)
 	if err != nil {
-		return false, "", "", err
+		return false, Alter{}, err
 	}
 	lines := strings.Split(createTableDB, "\n")
 	for x := 1; x < len(lines); x++ {
@@ -230,13 +230,13 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, safeAlter string, u
 	var rows []indexDB
 	results, err := tableSchema.GetMysql().Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
 	if err != nil {
-		return false, "", "", err
+		return false, Alter{}, err
 	}
 	for results.Next() {
 		var row indexDB
 		err = results.Scan(&row.Skip, &row.NonUnique, &row.KeyName, &row.Seq, &row.Column, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip)
 		if err != nil {
-			return false, "", "", err
+			return false, Alter{}, err
 		}
 		rows = append(rows, row)
 	}
@@ -377,12 +377,12 @@ OUTER:
 	}
 
 	if tableSchema.isTableEmpty() || (len(droppedColumns) == 0 && len(changedColumns) == 0) {
-		safeAlter = alterSql
+		alter = Alter{Sql: alterSql, Safe: true, Pool: tableSchema.MysqlPoolName}
 	} else {
-		unsafeAlter = alterSql
+		alter = Alter{Sql: alterSql, Safe: false, Pool: tableSchema.MysqlPoolName}
 	}
 	has = true
-	return has, safeAlter, unsafeAlter, nil
+	return has, alter, nil
 }
 
 func (tableSchema TableSchema) DropTable() error {
@@ -391,22 +391,14 @@ func (tableSchema TableSchema) DropTable() error {
 }
 
 func (tableSchema TableSchema) UpdateSchema() error {
-	has, safeAlter, unsafeAlter, err := tableSchema.GetSchemaChanges()
+	has, alter, err := tableSchema.GetSchemaChanges()
 	if err != nil {
 		return err
 	}
 	if has {
-		if safeAlter != "" {
-			_, err := tableSchema.GetMysql().Exec(safeAlter)
-			if err != nil {
-				return err
-			}
-		}
-		if unsafeAlter != "" {
-			_, err := tableSchema.GetMysql().Exec(unsafeAlter)
-			if err != nil {
-				return err
-			}
+		_, err := tableSchema.GetMysql().Exec(alter.Sql)
+		if err != nil {
+			return err
 		}
 	}
 	return nil

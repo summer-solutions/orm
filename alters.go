@@ -5,7 +5,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func GetAlters() (safeAlters []string, unsafeAlters []string, err error) {
+type Alter struct {
+	Sql  string
+	Safe bool
+	Pool string
+}
+
+func GetAlters() (alters []Alter, err error) {
 
 	tablesInDB := make(map[string]map[string]bool)
 	tablesInEntities := make(map[string]map[string]bool)
@@ -15,33 +21,30 @@ func GetAlters() (safeAlters []string, unsafeAlters []string, err error) {
 		tablesInDB[poolName] = make(map[string]bool)
 		results, err := GetMysql(poolName).Query("SHOW TABLES")
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		for results.Next() {
 			var row string
 			err = results.Scan(&row)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			tablesInDB[poolName][row] = true
 		}
 		tablesInEntities[poolName] = make(map[string]bool)
 	}
+	alters = make([]Alter, 0)
 	for _, t := range entities {
 		tableSchema := getTableSchema(t)
 		tablesInEntities[tableSchema.MysqlPoolName][tableSchema.TableName] = true
-		has, safeAlter, unsafeAlter, err := tableSchema.GetSchemaChanges()
+		has, alter, err := tableSchema.GetSchemaChanges()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if !has {
 			continue
 		}
-		if safeAlter != "" {
-			safeAlters = append(safeAlters, safeAlter)
-		} else if unsafeAlter != "" {
-			unsafeAlters = append(unsafeAlters, unsafeAlter)
-		}
+		alters = append(alters, alter)
 	}
 
 	for poolName, tables := range tablesInDB {
@@ -51,12 +54,12 @@ func GetAlters() (safeAlters []string, unsafeAlters []string, err error) {
 				dropSql := fmt.Sprintf("DROP TABLE `%s`;", tableName)
 				isEmpty, err := isTableEmptyInPool(poolName, tableName)
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 				if isEmpty {
-					safeAlters = append(safeAlters, dropSql)
+					alters = append(alters, Alter{Sql: dropSql, Safe: true, Pool: poolName})
 				} else {
-					unsafeAlters = append(unsafeAlters, dropSql)
+					alters = append(alters, Alter{Sql: dropSql, Safe: false, Pool: poolName})
 				}
 			}
 		}

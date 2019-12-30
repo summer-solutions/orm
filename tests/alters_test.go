@@ -55,8 +55,7 @@ func TestGetAlters(t *testing.T) {
 	err = tableSchema.DropTable()
 	assert.Nil(t, err)
 
-	safeAlters, unsafeAlters, err := orm.GetAlters()
+	alters, err := orm.GetAlters()
 	assert.Nil(t, err)
-	assert.Len(t, safeAlters, 1)
-	assert.Len(t, unsafeAlters, 0)
+	assert.Len(t, alters, 1)
 }
