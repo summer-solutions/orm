@@ -231,7 +231,7 @@ func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
 	return results, nil
 }
 
-func (r *RedisCache) Set(key string, value string, ttlSeconds int) error {
+func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) error {
 	start := time.Now()
 	err := r.client.Set(key, value, time.Duration(ttlSeconds)*time.Second).Err()
 	if err != nil {
