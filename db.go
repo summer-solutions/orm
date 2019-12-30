@@ -9,6 +9,7 @@ import (
 type DB struct {
 	db                           *sql.DB
 	code                         string
+	databaseName                 string
 	loggers                      []DatabaseLogger
 	transaction                  *sql.Tx
 	transactionCounter           int

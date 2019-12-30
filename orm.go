@@ -75,16 +75,22 @@ func RegisterMySqlPool(dataSourceName string, code ...string) error {
 	db := &DB{code: dbCode, db: sqlDB}
 	mySqlClients[dbCode] = db
 
+	var dbName string
+	err := db.QueryRow("SELECT DATABASE()").Scan(&dbName)
+	if err != nil {
+		return err
+	}
+	db.databaseName = dbName
 	var variable string
 	var maxConnections float64
 	var maxTime float64
-	err := db.QueryRow("SHOW VARIABLES LIKE 'max_connections'").Scan(&variable, &maxConnections)
+	err = db.QueryRow("SHOW VARIABLES LIKE 'max_connections'").Scan(&variable, &maxConnections)
 	if err != nil {
-		return nil
+		return err
 	}
 	err = db.QueryRow("SHOW VARIABLES LIKE 'interactive_timeout'").Scan(&variable, &maxTime)
 	if err != nil {
-		return nil
+		return err
 	}
 	maxConnectionsOrm := math.Ceil(maxConnections * 0.9)
 	maxIdleConnections := math.Ceil(maxConnections * 0.05)

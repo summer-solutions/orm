@@ -51,7 +51,7 @@ func GetAlters() (alters []Alter, err error) {
 		for tableName := range tables {
 			_, has := tablesInEntities[poolName][tableName]
 			if !has {
-				dropSql := fmt.Sprintf("DROP TABLE `%s`;", tableName)
+				dropSql := fmt.Sprintf("DROP TABLE`%s`,`%s`;", GetMysql(poolName).databaseName, tableName)
 				isEmpty, err := isTableEmptyInPool(poolName, tableName)
 				if err != nil {
 					return nil, err
