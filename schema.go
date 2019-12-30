@@ -188,7 +188,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, alter Alter, err er
 	indexes := make(map[string]*index)
 	columns := tableSchema.checkStruct(tableSchema.t, indexes, "")
 
-	createTableSql := fmt.Sprintf("CREATE TABLE `%s` (\n", tableSchema.TableName)
+	createTableSql := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", tableSchema.TableName, tableSchema.TableName)
 	columns[0][1] += " AUTO_INCREMENT"
 	for _, value := range columns {
 		createTableSql += fmt.Sprintf("  %s,\n", value[1])
@@ -338,7 +338,7 @@ OUTER:
 	if !hasAlters {
 		return
 	}
-	alterSql := fmt.Sprintf("ALTER TABLE `%s`\n", tableSchema.TableName)
+	alterSql := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", tableSchema.TableName, tableSchema.TableName)
 	alters := make([]string, 0)
 	comments := make([]string, 0)
 	for _, value := range droppedColumns {
