@@ -218,6 +218,7 @@ func (tableSchema TableSchema) GetSchemaChanges() (has bool, alter Alter, err er
 		err = nil
 		return
 	}
+	newIndexes = make([]string, 0)
 
 	var tableDBColumns = make([][2]string, 0)
 	var createTableDB string
