@@ -53,10 +53,10 @@ func initIfNeeded(value reflect.Value, entity interface{}) (*ORM, error) {
 					return nil, fmt.Errorf("missing ref tag")
 				}
 				if isOne {
-					def := ReferenceOne{t: getEntityType(reference)}
+					def := ReferenceOne{t: GetEntityType(reference)}
 					value.FieldByName(f.Name).Set(reflect.ValueOf(&def))
 				} else {
-					def := ReferenceMany{t: getEntityType(reference)}
+					def := ReferenceMany{t: GetEntityType(reference)}
 					value.FieldByName(f.Name).Set(reflect.ValueOf(&def))
 				}
 			}
@@ -203,7 +203,7 @@ func getRedisForQueue(code string) *RedisCache {
 	return client
 }
 
-func getEntityType(name string) reflect.Type {
+func GetEntityType(name string) reflect.Type {
 	t, has := entities[name]
 	if !has {
 		panic(fmt.Errorf("unregistered entity %s", name))

@@ -70,7 +70,7 @@ func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err erro
 		if len(val) != 3 {
 			continue
 		}
-		tableSchema := getTableSchema(getEntityType(val[0]))
+		tableSchema := getTableSchema(GetEntityType(val[0]))
 		id, err := strconv.ParseUint(val[2], 10, 64)
 		if err != nil {
 			continue

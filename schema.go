@@ -663,7 +663,7 @@ func (tableSchema TableSchema) handleReferenceOne(attributes map[string]string) 
 	if !has {
 		panic(fmt.Errorf("missing ref tag"))
 	}
-	typeAsString := getEntityType(reference).Field(1).Type.String()
+	typeAsString := GetEntityType(reference).Field(1).Type.String()
 	switch typeAsString {
 	case "uint":
 		return "int(10) unsigned"

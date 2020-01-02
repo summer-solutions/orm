@@ -327,5 +327,5 @@ func buildFieldList(t reflect.Type, prefix string) string {
 
 func getEntityTypeForSlice(sliceType reflect.Type) reflect.Type {
 	name := strings.Trim(sliceType.String(), "*[]")
-	return getEntityType(name)
+	return GetEntityType(name)
 }

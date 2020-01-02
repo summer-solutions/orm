@@ -32,7 +32,7 @@ func (r FlushFromCacheReceiver) Digest() (has bool, err error) {
 	if err != nil {
 		return true, err
 	}
-	schema := getTableSchema(getEntityType(val[0]))
+	schema := getTableSchema(GetEntityType(val[0]))
 	cacheEntity := schema.GetRedisCacheContainer()
 	if cacheEntity == nil {
 		return true, nil

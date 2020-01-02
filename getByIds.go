@@ -178,7 +178,7 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 		if !has {
 			return fmt.Errorf("missing reference tag %s", ref)
 		}
-		parentType := getEntityType(parentRef)
+		parentType := GetEntityType(parentRef)
 		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
 		l := rows.Len()
 		for i := 0; i < l; i++ {
