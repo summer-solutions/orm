@@ -29,6 +29,29 @@ func (r DirtyReceiver) Size() (int64, error) {
 	return red.ZCard(r.QueueCode)
 }
 
+func (r DirtyReceiver) GetEntities() []string {
+	results := make([]string, 0)
+Exit:
+	for name, t := range entities {
+		schema := getTableSchema(t)
+		for _, tags := range schema.tags {
+			queues, has := tags["dirty"]
+			if !has {
+				continue
+			}
+			queueNames := strings.Split(queues, ",")
+			for _, queueName := range queueNames {
+				if r.QueueCode == queueName {
+					results = append(results, name)
+					continue Exit
+				}
+
+			}
+		}
+	}
+	return results
+}
+
 func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err error) {
 	cache, err := r.getRedis()
 	if err != nil {

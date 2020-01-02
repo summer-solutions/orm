@@ -16,7 +16,7 @@ type TestEntityDirtyQueueAll struct {
 type TestEntityDirtyQueueAge struct {
 	Orm  *orm.ORM
 	Id   uint
-	Name string
+	Name string `orm:"dirty=test"`
 	Age  uint16 `orm:"dirty=test"`
 }
 
@@ -36,6 +36,10 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Equal(t, "ZADD 2 values test", LoggerRedisQueue.Requests[0])
 
 	receiver := orm.DirtyReceiver{QueueCode: "test"}
+
+	entities := receiver.GetEntities()
+	assert.Len(t, entities, 2)
+
 	size, err := receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(2), size)
