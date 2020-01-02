@@ -211,6 +211,18 @@ func (r *RedisCache) HMset(key string, fields map[string]interface{}) error {
 	return nil
 }
 
+func (r *RedisCache) HSet(key string, field string, value interface{}) error {
+	start := time.Now()
+	_, err := r.client.HSet(key, field, value).Result()
+	if err != nil {
+		return err
+	}
+	if r.loggers != nil {
+		r.log(key, fmt.Sprintf("HSET %s $s", key, value), time.Now().Sub(start).Microseconds(), 0)
+	}
+	return nil
+}
+
 func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
 	start := time.Now()
 	val, err := r.client.MGet(keys...).Result()
