@@ -149,6 +149,18 @@ func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
 	return val, true, nil
 }
 
+func (r *RedisCache) LSet(key string, index int64, value interface{}) error {
+	start := time.Now()
+	_, err := r.client.LSet(key, index, value).Result()
+	if err != nil {
+		return err
+	}
+	if r.loggers != nil {
+		r.log(key, fmt.Sprintf("LSET %d %s", index, value), time.Now().Sub(start).Microseconds(), 0)
+	}
+	return nil
+}
+
 func (r *RedisCache) ZCard(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZCard(key).Result()
