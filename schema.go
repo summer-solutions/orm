@@ -89,8 +89,12 @@ type index struct {
 
 var tableSchemas = make(map[reflect.Type]*TableSchema)
 
-func GetTableSchema(entity interface{}) *TableSchema {
-	return getTableSchema(reflect.TypeOf(entity))
+func GetTableSchema(entityOrType interface{}) *TableSchema {
+	asType, ok := entityOrType.(reflect.Type)
+	if ok {
+		return getTableSchema(asType)
+	}
+	return getTableSchema(reflect.TypeOf(entityOrType))
 }
 
 func getTableSchema(entityType reflect.Type) *TableSchema {
