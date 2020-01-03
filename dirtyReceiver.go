@@ -5,6 +5,7 @@ import (
 	"github.com/go-redis/redis"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type DirtyReceiver struct {
@@ -92,6 +93,19 @@ func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err erro
 		return true, err
 	}
 	return true, nil
+}
+
+func (r DirtyReceiver) MarkDirty(entityName string, ids ...uint64) error {
+	cache, err := r.getRedis()
+	if err != nil {
+		return err
+	}
+	data := make([]redis.Z, len(ids))
+	for index, id := range ids {
+		data[index] = redis.Z{Score: float64(time.Now().Unix()), Member: fmt.Sprintf("%s:%d", entityName, id)}
+	}
+	_, err = cache.ZAdd(r.QueueCode, data...)
+	return err
 }
 
 func (r DirtyReceiver) getRedis() (*RedisCache, error) {
