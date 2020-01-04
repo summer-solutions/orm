@@ -151,7 +151,7 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 				query = strings.Replace(query, variable, fmt.Sprintf("`%s`", fieldName), 1)
 			}
 			if query == "" {
-				query = "1"
+				query = "1 ORDER BY `Id`"
 			}
 			max := 1000
 			maxAttribute, has := values["max"]
