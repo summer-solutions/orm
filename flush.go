@@ -4,12 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis"
+	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
+
+type DuplicatedKeyError struct {
+	Message string
+	Index   string
+}
+
+func (err *DuplicatedKeyError) Error() string {
+	return err.Message
+}
 
 func Flush(entities ...interface{}) error {
 	return flush(false, entities...)
@@ -103,7 +114,7 @@ func flush(lazy bool, entities ...interface{}) error {
 				} else {
 					_, err := schema.GetMysql().Exec(sql, values...)
 					if err != nil {
-						return err
+						return convertToDuplicateKeyError(err)
 					}
 				}
 				old := make(map[string]interface{}, len(orm.dBData))
@@ -151,7 +162,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		} else {
 			res, err := db.Exec(sql, insertArguments[typeOf]...)
 			if err != nil {
-				return err
+				return convertToDuplicateKeyError(err)
 			}
 			insertId, err := res.LastInsertId()
 			if err != nil {
@@ -652,4 +663,16 @@ func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, va
 	lazyValue[1] = sql
 	lazyValue[2] = values
 	lazyMap["q"] = append(updatesMap.([]interface{}), lazyValue)
+}
+
+func convertToDuplicateKeyError(err error) error {
+	sqlErr, yes := err.(*mysql.MySQLError)
+	if yes && sqlErr.Number == 1062 {
+		var abortLabelReg, _ = regexp.Compile(` for key '(.*?)'`)
+		labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
+		if len(labels) > 0 {
+			return &DuplicatedKeyError{Message: sqlErr.Message, Index: labels[1]}
+		}
+	}
+	return err
 }
