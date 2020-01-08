@@ -567,7 +567,7 @@ func (tableSchema TableSchema) checkColumn(field *reflect.StructField, indexes m
 		addDefaultNullIfNullable = true
 	case "*orm.ReferenceMany":
 		definition = tableSchema.handleReferenceMany(attributes)
-		addNotNullIfNotSet = true
+		addNotNullIfNotSet = false
 		addDefaultNullIfNullable = true
 	case "*orm.CachedQuery":
 		return nil
