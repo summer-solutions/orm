@@ -12,9 +12,16 @@ type ReferenceMany struct {
 
 func (r *ReferenceMany) Len() int {
 	if r.Ids == nil {
-		return 0
+		if r.references == nil {
+			return 0
+		}
+		return len(r.references)
 	}
-	return len(r.Ids)
+	l := len(r.Ids)
+	if r.references != nil {
+		l += len(r.references)
+	}
+	return l
 }
 
 func (r *ReferenceMany) Has(id uint64) bool {
@@ -68,6 +75,7 @@ func (r *ReferenceMany) Remove(ids ...uint64) {
 
 func (r *ReferenceMany) Clear() {
 	r.Ids = nil
+	r.references = nil
 }
 
 func (r *ReferenceMany) Load(entities interface{}) error {
