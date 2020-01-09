@@ -354,7 +354,7 @@ func handleLazyReferences(entities ...interface{}) error {
 		}
 		for _, columnName := range schema.refMany {
 			refMany := value.FieldByName(columnName).Interface().(*ReferenceMany)
-			if (refMany.Ids == nil || len(refMany.Ids) == 0) && (refMany.references != nil && len(refMany.references) > 0) {
+			if refMany.references != nil && len(refMany.references) > 0 {
 				for _, ref := range refMany.references {
 					refId := reflect.Indirect(reflect.ValueOf(ref)).Field(1).Uint()
 					if refId > 0 {
