@@ -52,6 +52,10 @@ func flush(lazy bool, entities ...interface{}) error {
 		if err != nil {
 			return err
 		}
+
+		ormField := value.Field(0).Interface().(*ORM)
+		fmt.Printf("ISD %v\n", ormField.IsDirty())
+
 		isDirty, bind, err := orm.isDirty(value)
 		if err != nil {
 			return err
