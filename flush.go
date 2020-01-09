@@ -59,6 +59,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		if !isDirty {
 			continue
 		}
+		fmt.Printf("D:%v\n", entity)
 		bindLength := len(bind)
 
 		t := value.Type()
