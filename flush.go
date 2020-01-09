@@ -31,7 +31,6 @@ func FlushLazy(entities ...interface{}) error {
 }
 
 func flush(lazy bool, entities ...interface{}) error {
-	fmt.Printf("ENTITIES: %v\n", entities)
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
@@ -47,16 +46,11 @@ func flush(lazy bool, entities ...interface{}) error {
 	contextCache := GetContextCache()
 
 	for _, entity := range entities {
-		fmt.Printf("Es:%v\n", entity)
 		value := reflect.Indirect(reflect.ValueOf(entity))
 		orm, err := initIfNeeded(value, entity)
 		if err != nil {
 			return err
 		}
-
-		ormField := value.Field(0).Interface().(*ORM)
-		fmt.Printf("ISD %v\n", ormField.IsDirty())
-
 		isDirty, bind, err := orm.isDirty(value)
 		if err != nil {
 			return err
@@ -64,7 +58,6 @@ func flush(lazy bool, entities ...interface{}) error {
 		if !isDirty {
 			continue
 		}
-		fmt.Printf("D:%v\n", entity)
 		bindLength := len(bind)
 
 		t := value.Type()
