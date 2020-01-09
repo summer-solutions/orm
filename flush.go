@@ -31,6 +31,7 @@ func FlushLazy(entities ...interface{}) error {
 }
 
 func flush(lazy bool, entities ...interface{}) error {
+	fmt.Printf("ENTITIES: %v\n", entities)
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
