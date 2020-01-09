@@ -46,7 +46,7 @@ func flush(lazy bool, entities ...interface{}) error {
 	contextCache := GetContextCache()
 
 	for _, entity := range entities {
-		fmt.Printf("E:%v\n", entity)
+		fmt.Printf("Es:%v\n", entity)
 		value := reflect.Indirect(reflect.ValueOf(entity))
 		orm, err := initIfNeeded(value, entity)
 		if err != nil {
