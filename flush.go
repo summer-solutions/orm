@@ -358,10 +358,13 @@ func handleLazyReferences(entities ...interface{}) error {
 				for _, ref := range refMany.references {
 					refId := reflect.Indirect(reflect.ValueOf(ref)).Field(1).Uint()
 					if refId > 0 {
-						refMany.Add(refId)
-						dirty = true
+						if !refMany.Has(refId) {
+							refMany.Add(refId)
+							dirty = true
+						}
 					}
 				}
+				refMany.references = nil
 			}
 		}
 		if dirty {
