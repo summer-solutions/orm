@@ -617,6 +617,7 @@ func main() {
         Age                  uint16
         IndexAge             *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
         IndexAll             *orm.CachedQuery `query:""`
+        IndexName            *orm.CachedQuery `queryOne:":Name = ?"`
     }
     
     user := UserEntity{Name: "John", Age: 18}
@@ -625,6 +626,7 @@ func main() {
     var users []UserEntity
     totalRows, err := orm.CachedSearch(&users, "IndexAge", pager, 18)
     totalRows, err = orm.CachedSearch(&users, "IndexAll", pager)
+    has, err := orm.CachedSearchOne(&user, "IndexName", "John")
 
 }
 

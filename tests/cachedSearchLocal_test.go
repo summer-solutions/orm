@@ -8,12 +8,13 @@ import (
 )
 
 type TestEntityIndexTestLocal struct {
-	Orm      *orm.ORM `orm:"localCache"`
-	Id       uint
-	Name     string `orm:"length=100;index=FirstIndex"`
-	Age      uint16
-	IndexAge *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
-	IndexAll *orm.CachedQuery `query:""`
+	Orm       *orm.ORM `orm:"localCache"`
+	Id        uint
+	Name      string `orm:"length=100;index=FirstIndex"`
+	Age       uint16
+	IndexAge  *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
+	IndexAll  *orm.CachedQuery `query:""`
+	IndexName *orm.CachedQuery `queryOne:":Name = ?"`
 }
 
 func TestCachedSearchLocal(t *testing.T) {
@@ -138,6 +139,16 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 12)
+
+	var row TestEntityIndexTestLocal
+	has, err := orm.CachedSearchOne(&row, "IndexName", "Name 6")
+	assert.Nil(t, err)
+	assert.True(t, has)
+	assert.Equal(t, uint(6), row.Id)
+
+	has, err = orm.CachedSearchOne(&row, "IndexName", "Name 99")
+	assert.Nil(t, err)
+	assert.False(t, has)
 
 }
 

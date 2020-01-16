@@ -60,18 +60,19 @@ type cachedQueryDefinition struct {
 }
 
 type TableSchema struct {
-	TableName      string
-	MysqlPoolName  string
-	t              reflect.Type
-	tags           map[string]map[string]string
-	cachedIndexes  map[string]cachedQueryDefinition
-	columnNames    []string
-	refOne         []string
-	refMany        []string
-	columnsStamp   string
-	localCacheName string
-	redisCacheName string
-	cachePrefix    string
+	TableName        string
+	MysqlPoolName    string
+	t                reflect.Type
+	tags             map[string]map[string]string
+	cachedIndexes    map[string]cachedQueryDefinition
+	cachedIndexesOne map[string]cachedQueryDefinition
+	columnNames      []string
+	refOne           []string
+	refMany          []string
+	columnsStamp     string
+	localCacheName   string
+	redisCacheName   string
+	cachePrefix      string
 }
 
 type indexDB struct {
@@ -137,8 +138,14 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 	}
 	cachePrefix += table
 	cachedQueries := make(map[string]cachedQueryDefinition)
+	cachedQueriesOne := make(map[string]cachedQueryDefinition)
 	for key, values := range tags {
+		isOne := false
 		query, has := values["query"]
+		if !has {
+			query, has = values["queryOne"]
+			isOne = true
+		}
 		fields := make([]string, 0)
 		if has {
 			re := regexp.MustCompile(":([A-Za-z0-9])+")
@@ -153,16 +160,20 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 			if query == "" {
 				query = "1 ORDER BY `Id`"
 			}
-			max := 1000
-			maxAttribute, has := values["max"]
-			if has {
-				maxFromUser, err := strconv.Atoi(maxAttribute)
-				if err != nil {
-					panic(fmt.Errorf("invalid max value for cache index %s", maxAttribute))
+			if !isOne {
+				max := 1000
+				maxAttribute, has := values["max"]
+				if has {
+					maxFromUser, err := strconv.Atoi(maxAttribute)
+					if err != nil {
+						panic(fmt.Errorf("invalid max value for cache index %s", maxAttribute))
+					}
+					max = maxFromUser
 				}
-				max = maxFromUser
+				cachedQueries[key] = cachedQueryDefinition{max, query, fields}
+			} else {
+				cachedQueriesOne[key] = cachedQueryDefinition{1, query, fields}
 			}
-			cachedQueries[key] = cachedQueryDefinition{max, query, fields}
 		}
 		userValue, has = values["refType"]
 		if has {
@@ -174,17 +185,18 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 		}
 	}
 	tableSchema = &TableSchema{TableName: table,
-		MysqlPoolName:  mysql,
-		t:              entityType,
-		tags:           tags,
-		columnNames:    columnNames,
-		columnsStamp:   columnsStamp,
-		cachedIndexes:  cachedQueries,
-		localCacheName: localCache,
-		redisCacheName: redisCache,
-		refOne:         oneRefs,
-		refMany:        manyRefs,
-		cachePrefix:    cachePrefix}
+		MysqlPoolName:    mysql,
+		t:                entityType,
+		tags:             tags,
+		columnNames:      columnNames,
+		columnsStamp:     columnsStamp,
+		cachedIndexes:    cachedQueries,
+		cachedIndexesOne: cachedQueriesOne,
+		localCacheName:   localCache,
+		redisCacheName:   redisCache,
+		refOne:           oneRefs,
+		refMany:          manyRefs,
+		cachePrefix:      cachePrefix}
 	tableSchemas[entityType] = tableSchema
 	return tableSchema
 }
@@ -735,6 +747,13 @@ func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix stri
 				fields[field.Name] = make(map[string]string)
 			}
 			fields[field.Name]["query"] = query
+		}
+		query, has = field.Tag.Lookup("queryOne")
+		if has {
+			if fields[field.Name] == nil {
+				fields[field.Name] = make(map[string]string)
+			}
+			fields[field.Name]["queryOne"] = query
 		}
 		_, has = fields[field.Name]["ref"]
 		if has {
