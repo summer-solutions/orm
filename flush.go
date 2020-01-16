@@ -511,8 +511,11 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			ids := field.Interface().(*ReferenceMany).Ids
 			valueAsString := ""
 			if ids != nil && len(ids) > 0 {
-				valueAsString = fmt.Sprintf("%v", ids)
-				valueAsString = strings.Trim(valueAsString, "[]")
+				asJson, err := json.Marshal(ids)
+				if err != nil {
+					return nil, err
+				}
+				valueAsString = string(asJson)
 			}
 			if hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
 				continue

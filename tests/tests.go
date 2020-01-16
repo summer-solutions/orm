@@ -6,7 +6,7 @@ import (
 )
 
 func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
-	_ = orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/test")
+	_ = orm.RegisterMySqlPool("root:root@tcp(localhost:3308)/test")
 	_ = orm.RegisterRedis("localhost:6379", 15).FlushDB()
 	_ = orm.RegisterRedis("localhost:6379", 14, "default_queue").FlushDB()
 	orm.RegisterLazyQueue("default", "default_queue")

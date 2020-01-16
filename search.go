@@ -263,12 +263,12 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 			if ids == "" {
 				field.Interface().(*ReferenceMany).Ids = nil
 			} else {
-				val := strings.Split(ids, " ")
-				idsAsInt := make([]uint64, len(val))
-				for k, v := range val {
-					idsAsInt[k], _ = strconv.ParseUint(v, 10, 64)
+				var data []uint64
+				err := json.Unmarshal([]byte(ids), &data)
+				if err != nil {
+					data = make([]uint64, 0)
 				}
-				field.Interface().(*ReferenceMany).Ids = idsAsInt
+				field.Interface().(*ReferenceMany).Ids = data
 			}
 		case "*orm.CachedQuery":
 		case "interface {}":
