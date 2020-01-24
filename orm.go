@@ -232,6 +232,14 @@ func RegisterDatabaseLogger(logger DatabaseLogger) []*list.Element {
 	return res
 }
 
+func UnregisterDatabaseLoggers(elements ...*list.Element) {
+	for _, db := range mySqlClients {
+		for _, e := range elements {
+			db.UnregisterLogger(e)
+		}
+	}
+}
+
 func AddRedisLogger(logger CacheLogger) {
 	for _, red := range redisServers {
 		red.AddLogger(logger)
