@@ -33,8 +33,8 @@ func TestCachedSearchRedis(t *testing.T) {
 	err := orm.Flush(entities...)
 	assert.Nil(t, err)
 
-	DBLogger := TestDatabaseLogger{}
-	orm.GetMysql().AddLogger(&DBLogger)
+	DBLogger := &TestDatabaseLogger{}
+	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 	RedisLogger := TestCacheLogger{}
 	orm.GetRedis().AddLogger(&RedisLogger)
 

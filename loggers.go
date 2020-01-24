@@ -4,19 +4,16 @@ import (
 	"github.com/fatih/color"
 )
 
-type DatabaseLogger interface {
-	Log(mysqlCode string, query string, microseconds int64, args ...interface{})
-}
+type DatabaseLogger func(mysqlCode string, query string, microseconds int64, args ...interface{})
 
-type StandardDatabaseLogger struct {
-}
-
-func (l StandardDatabaseLogger) Log(mysqlCode string, query string, microseconds int64, args ...interface{}) {
-	if len(args) == 0 {
-		color.Green("[ORM][DB][%s] %s\n", mysqlCode, query)
-		return
+func NewStandardDatabaseLogger() DatabaseLogger {
+	return func(mysqlCode string, query string, microseconds int64, args ...interface{}) {
+		if len(args) == 0 {
+			color.Green("[ORM][DB][%s] %s\n", mysqlCode, query)
+			return
+		}
+		color.Green("[ORM][DB][%s][%d µs] %s %v\n", mysqlCode, microseconds, query, args)
 	}
-	color.Green("[ORM][DB][%s][%d µs] %s %v\n", mysqlCode, microseconds, query, args)
 }
 
 type CacheLogger interface {

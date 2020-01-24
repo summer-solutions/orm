@@ -17,8 +17,8 @@ func TestFlushLazy(t *testing.T) {
 	var entity TestEntityFlushLazy
 	PrepareTables(entity)
 
-	LoggerDB := TestDatabaseLogger{}
-	orm.GetMysql().AddLogger(&LoggerDB)
+	DBLogger := &TestDatabaseLogger{}
+	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 	LoggerQueue := TestCacheLogger{}
 	orm.GetRedis("default_queue").AddLogger(&LoggerQueue)
 
@@ -29,7 +29,7 @@ func TestFlushLazy(t *testing.T) {
 	}
 	err := orm.FlushLazy(entities...)
 	assert.Nil(t, err)
-	assert.Len(t, LoggerDB.Queries, 0)
+	assert.Len(t, DBLogger.Queries, 0)
 	assert.Len(t, LoggerQueue.Requests, 1)
 	assert.Equal(t, "LPUSH 1 values lazy_queue", LoggerQueue.Requests[0])
 
@@ -50,7 +50,7 @@ func TestFlushLazy(t *testing.T) {
 	size, err = LazyReceiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)
-	assert.Len(t, LoggerDB.Queries, 2)
+	assert.Len(t, DBLogger.Queries, 2)
 	assert.Len(t, LoggerQueue.Requests, 5)
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[3])
@@ -59,12 +59,12 @@ func TestFlushLazy(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, "Name 1", entity.Name)
 
-	LoggerDB.Queries = make([]string, 0)
+	DBLogger.Queries = make([]string, 0)
 	LoggerQueue.Requests = make([]string, 0)
 	entity.Name = "Name 1.1"
 	err = orm.FlushLazy(&entity)
 	assert.Nil(t, err)
-	assert.Len(t, LoggerDB.Queries, 0)
+	assert.Len(t, DBLogger.Queries, 0)
 	assert.Len(t, LoggerQueue.Requests, 1)
 	assert.Equal(t, "LPUSH 1 values lazy_queue", LoggerQueue.Requests[0])
 
@@ -74,7 +74,7 @@ func TestFlushLazy(t *testing.T) {
 	has, err = LazyReceiver.Digest()
 	assert.Nil(t, err)
 	assert.False(t, has)
-	assert.Len(t, LoggerDB.Queries, 1)
+	assert.Len(t, DBLogger.Queries, 1)
 	assert.Len(t, LoggerQueue.Requests, 3)
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[1])
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
@@ -83,12 +83,12 @@ func TestFlushLazy(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, "Name 1.1", entity.Name)
 
-	LoggerDB.Queries = make([]string, 0)
+	DBLogger.Queries = make([]string, 0)
 	LoggerQueue.Requests = make([]string, 0)
 	entity.Orm.MarkToDelete()
 	err = orm.FlushLazy(&entity)
 	assert.Nil(t, err)
-	assert.Len(t, LoggerDB.Queries, 0)
+	assert.Len(t, DBLogger.Queries, 0)
 	assert.Len(t, LoggerQueue.Requests, 1)
 	assert.Equal(t, "LPUSH 1 values lazy_queue", LoggerQueue.Requests[0])
 
@@ -98,7 +98,7 @@ func TestFlushLazy(t *testing.T) {
 	has, err = LazyReceiver.Digest()
 	assert.False(t, has)
 	assert.Nil(t, err)
-	assert.Len(t, LoggerDB.Queries, 1)
+	assert.Len(t, DBLogger.Queries, 1)
 	assert.Len(t, LoggerQueue.Requests, 3)
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[1])
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])

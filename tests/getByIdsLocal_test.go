@@ -20,8 +20,8 @@ func TestGetByIdsLocal(t *testing.T) {
 	err := orm.Flush(&TestEntityByIdsLocal{Name: "Hi"}, &TestEntityByIdsLocal{Name: "Hello"})
 	assert.Nil(t, err)
 
-	DBLogger := TestDatabaseLogger{}
-	orm.GetMysql().AddLogger(&DBLogger)
+	DBLogger := &TestDatabaseLogger{}
+	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
 	var found []TestEntityByIdsLocal
 	missing, err := orm.TryByIds([]uint64{2, 3, 1}, &found)

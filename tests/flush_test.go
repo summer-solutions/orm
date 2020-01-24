@@ -124,9 +124,9 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	entity := TestEntityFlushCacheLocal{Name: "Name"}
 	PrepareTables(entity)
 
-	DbLogger := TestDatabaseLogger{}
 	CacheLogger := TestCacheLogger{}
-	orm.GetMysql().AddLogger(&DbLogger)
+	DBLogger := &TestDatabaseLogger{}
+	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 	orm.GetLocalCache().AddLogger(&CacheLogger)
 
 	err := orm.GetMysql().BeginTransaction()
@@ -169,9 +169,9 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	entity := TestEntityFlushCacheRedis{Name: "Name"}
 	PrepareTables(entity)
 
-	DbLogger := TestDatabaseLogger{}
 	CacheLogger := TestCacheLogger{}
-	orm.GetMysql().AddLogger(&DbLogger)
+	DBLogger := &TestDatabaseLogger{}
+	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 	orm.GetRedis().AddLogger(&CacheLogger)
 
 	err := orm.GetMysql().BeginTransaction()

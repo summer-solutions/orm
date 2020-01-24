@@ -39,8 +39,8 @@ func TestFlushInCache(t *testing.T) {
 	assert.Equal(t, 0, totalRows)
 	assert.Len(t, rows, 0)
 
-	LoggerDB := TestDatabaseLogger{}
-	orm.GetMysql().AddLogger(&LoggerDB)
+	DBLogger := &TestDatabaseLogger{}
+	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 	LoggerRedisCache := TestCacheLogger{}
 	orm.GetRedis().AddLogger(&LoggerRedisCache)
 	LoggerRedisQueue := TestCacheLogger{}
@@ -51,8 +51,8 @@ func TestFlushInCache(t *testing.T) {
 
 	err = orm.FlushInCache(&entityLocal, &entityRedis)
 	assert.Nil(t, err)
-	assert.Len(t, LoggerDB.Queries, 1)
-	assert.Equal(t, "INSERT INTO TestEntityFlusherInCacheLocal() VALUES () []", LoggerDB.Queries[0])
+	assert.Len(t, DBLogger.Queries, 1)
+	assert.Equal(t, "INSERT INTO TestEntityFlusherInCacheLocal() VALUES () []", DBLogger.Queries[0])
 	assert.Len(t, LoggerRedisCache.Requests, 1)
 	assert.Equal(t, "MSET [TestEntityFlusherInCacheRedisce:1 ] ", LoggerRedisCache.Requests[0])
 	assert.Len(t, LoggerRedisQueue.Requests, 1)

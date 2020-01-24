@@ -51,8 +51,8 @@ func TestEntityByIdsRedis(t *testing.T) {
 
 	orm.EnableContextCache(100, 1)
 
-	DBLogger := TestDatabaseLogger{}
-	orm.GetMysql().AddLogger(&DBLogger)
+	DBLogger := &TestDatabaseLogger{}
+	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 	CacheLogger := TestCacheLogger{}
 	orm.GetRedis().AddLogger(&CacheLogger)
 

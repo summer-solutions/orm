@@ -53,8 +53,8 @@ func TestGetByIdRedis(t *testing.T) {
 
 	assert.False(t, entity.Orm.IsDirty())
 
-	DBLogger := TestDatabaseLogger{}
-	orm.GetMysql().AddLogger(&DBLogger)
+	DBLogger := &TestDatabaseLogger{}
+	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
 	found, err := orm.TryById(1, &entity)
 	assert.Nil(t, err)

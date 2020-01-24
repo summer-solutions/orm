@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"container/list"
 	"database/sql"
 	"fmt"
 	"github.com/go-redis/redis"
@@ -223,10 +224,12 @@ func GetContextCache() *LocalCache {
 	return contextCache
 }
 
-func AddDatabaseLogger(logger DatabaseLogger) {
+func RegisterDatabaseLogger(logger DatabaseLogger) []*list.Element {
+	res := make([]*list.Element, 0)
 	for _, db := range mySqlClients {
-		db.AddLogger(logger)
+		res = append(res, db.RegisterLogger(logger))
 	}
+	return res
 }
 
 func AddRedisLogger(logger CacheLogger) {

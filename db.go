@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"container/list"
 	"database/sql"
 	"fmt"
 	"time"
@@ -10,7 +11,7 @@ type DB struct {
 	db                           *sql.DB
 	code                         string
 	databaseName                 string
-	loggers                      []DatabaseLogger
+	loggers                      *list.List
 	transaction                  *sql.Tx
 	transactionCounter           int
 	afterCommitLocalCacheSets    map[string][]interface{}
@@ -127,17 +128,21 @@ func (db *DB) Rollback() error {
 	}
 }
 
-func (db *DB) AddLogger(logger DatabaseLogger) {
+func (db *DB) RegisterLogger(logger DatabaseLogger) *list.Element {
 	if db.loggers == nil {
-		db.loggers = make([]DatabaseLogger, 0)
+		db.loggers = list.New()
 	}
-	db.loggers = append(db.loggers, logger)
+	return db.loggers.PushFront(logger)
+}
+
+func (db *DB) UnregisterLogger(element *list.Element) {
+	db.loggers.Remove(element)
 }
 
 func (db *DB) log(query string, microseconds int64, args ...interface{}) {
 	if db.loggers != nil {
-		for _, logger := range db.loggers {
-			logger.Log(db.code, query, microseconds, args...)
+		for e := db.loggers.Front(); e != nil; e = e.Next() {
+			e.Value.(DatabaseLogger)(db.code, query, microseconds, args...)
 		}
 	}
 }

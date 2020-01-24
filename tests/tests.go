@@ -30,8 +30,10 @@ type TestDatabaseLogger struct {
 	Queries []string
 }
 
-func (l *TestDatabaseLogger) Log(mysqlCode string, query string, microseconds int64, args ...interface{}) {
-	l.Queries = append(l.Queries, fmt.Sprintf("%s %v", query, args))
+func (l *TestDatabaseLogger) Logger() orm.DatabaseLogger {
+	return func(mysqlCode string, query string, microseconds int64, args ...interface{}) {
+		l.Queries = append(l.Queries, fmt.Sprintf("%s %v", query, args))
+	}
 }
 
 type TestCacheLogger struct {

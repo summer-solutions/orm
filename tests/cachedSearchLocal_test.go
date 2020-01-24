@@ -35,8 +35,8 @@ func TestCachedSearchLocal(t *testing.T) {
 	err := orm.Flush(entities...)
 	assert.Nil(t, err)
 
-	DBLogger := TestDatabaseLogger{}
-	orm.GetMysql().AddLogger(&DBLogger)
+	DBLogger := &TestDatabaseLogger{}
+	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
 	pager := orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []TestEntityIndexTestLocal
