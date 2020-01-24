@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"container/list"
 	"fmt"
 	"github.com/golang/groupcache/lru"
 	"time"
@@ -9,7 +10,7 @@ import (
 type LocalCache struct {
 	code    string
 	lru     *lru.Cache
-	loggers []CacheLogger
+	loggers *list.List
 	ttl     int64
 	created int64
 }
@@ -145,17 +146,21 @@ func (c *LocalCache) Clear() {
 	c.log("", "CLEAR", time.Now().Sub(start).Microseconds(), 0)
 }
 
-func (c *LocalCache) AddLogger(logger CacheLogger) {
+func (c *LocalCache) RegisterLogger(logger CacheLogger) *list.Element {
 	if c.loggers == nil {
-		c.loggers = make([]CacheLogger, 0)
+		c.loggers = list.New()
 	}
-	c.loggers = append(c.loggers, logger)
+	return c.loggers.PushFront(logger)
+}
+
+func (c *LocalCache) UnregisterLogger(element *list.Element) {
+	c.loggers.Remove(element)
 }
 
 func (c *LocalCache) log(key string, operation string, microseconds int64, misses int) {
 	if c.loggers != nil {
-		for _, logger := range c.loggers {
-			logger.Log("LOCAL", c.code, key, operation, microseconds, misses)
+		for e := c.loggers.Front(); e != nil; e = e.Next() {
+			e.Value.(CacheLogger)("LOCAL", c.code, key, operation, microseconds, misses)
 		}
 	}
 }

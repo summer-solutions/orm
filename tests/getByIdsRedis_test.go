@@ -53,8 +53,8 @@ func TestEntityByIdsRedis(t *testing.T) {
 
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
-	CacheLogger := TestCacheLogger{}
-	orm.GetRedis().AddLogger(&CacheLogger)
+	CacheLogger := &TestCacheLogger{}
+	orm.GetRedis().RegisterLogger(CacheLogger.Logger())
 
 	var found []TestEntityByIdsRedisCache
 	missing, err := orm.TryByIds([]uint64{2, 13, 1}, &found)

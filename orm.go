@@ -240,8 +240,18 @@ func UnregisterDatabaseLoggers(elements ...*list.Element) {
 	}
 }
 
-func AddRedisLogger(logger CacheLogger) {
+func RegisterRedisLogger(logger CacheLogger) []*list.Element {
+	res := make([]*list.Element, 0)
 	for _, red := range redisServers {
-		red.AddLogger(logger)
+		res = append(res, red.RegisterLogger(logger))
+	}
+	return res
+}
+
+func UnregisterRedisLoggers(elements ...*list.Element) {
+	for _, red := range redisServers {
+		for _, e := range elements {
+			red.UnregisterLogger(e)
+		}
 	}
 }

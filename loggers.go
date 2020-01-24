@@ -16,19 +16,16 @@ func NewStandardDatabaseLogger() DatabaseLogger {
 	}
 }
 
-type CacheLogger interface {
-	Log(cacheType string, code string, key string, operation string, microseconds int64, misses int)
-}
+type CacheLogger func(cacheType string, code string, key string, operation string, microseconds int64, misses int)
 
-type StandardCacheLogger struct {
-}
-
-func (c StandardCacheLogger) Log(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
-	if misses == 1 {
-		color.Green("[ORM][%s][%s][%d µs][%s] %s [MISS]\n", cacheType, code, microseconds, operation, key)
-	} else if misses > 1 {
-		color.Green("[ORM][%s][%s][%d µs][%s] %s [MISSES %d]\n", cacheType, code, microseconds, operation, key, misses)
-	} else {
-		color.Green("[ORM][%s][%s][%d µs][%s] %s\n", cacheType, code, microseconds, operation, key)
+func NewStandardCacheLogger() CacheLogger {
+	return func(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
+		if misses == 1 {
+			color.Green("[ORM][%s][%s][%d µs][%s] %s [MISS]\n", cacheType, code, microseconds, operation, key)
+		} else if misses > 1 {
+			color.Green("[ORM][%s][%s][%d µs][%s] %s [MISSES %d]\n", cacheType, code, microseconds, operation, key, misses)
+		} else {
+			color.Green("[ORM][%s][%s][%d µs][%s] %s\n", cacheType, code, microseconds, operation, key)
+		}
 	}
 }

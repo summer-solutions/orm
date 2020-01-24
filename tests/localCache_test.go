@@ -10,8 +10,8 @@ func TestGetSetLocal(t *testing.T) {
 
 	orm.RegisterLocalCache(10)
 
-	testLogger := TestCacheLogger{}
-	orm.GetLocalCache().AddLogger(&testLogger)
+	testLogger := &TestCacheLogger{}
+	orm.GetLocalCache().RegisterLogger(testLogger.Logger())
 
 	val := orm.GetLocalCache().GetSet("test", 1, func() interface{} {
 		return "hello"

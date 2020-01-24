@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"container/list"
 	"encoding/json"
 	"fmt"
 	"github.com/bsm/redislock"
@@ -12,7 +13,7 @@ import (
 type RedisCache struct {
 	code    string
 	client  *redis.Client
-	loggers []CacheLogger
+	loggers *list.List
 }
 
 type GetSetProvider func() interface{}
@@ -314,17 +315,21 @@ func (r *RedisCache) FlushDB() error {
 	return nil
 }
 
-func (r *RedisCache) AddLogger(logger CacheLogger) {
+func (r *RedisCache) RegisterLogger(logger CacheLogger) *list.Element {
 	if r.loggers == nil {
-		r.loggers = make([]CacheLogger, 0)
+		r.loggers = list.New()
 	}
-	r.loggers = append(r.loggers, logger)
+	return r.loggers.PushFront(logger)
+}
+
+func (r *RedisCache) UnregisterLogger(element *list.Element) {
+	r.loggers.Remove(element)
 }
 
 func (r *RedisCache) log(key string, operation string, microseconds int64, misses int) {
 	if r.loggers != nil {
-		for _, logger := range r.loggers {
-			logger.Log("REDIS", r.code, key, operation, microseconds, misses)
+		for e := r.loggers.Front(); e != nil; e = e.Next() {
+			e.Value.(CacheLogger)("REDIS", r.code, key, operation, microseconds, misses)
 		}
 	}
 }

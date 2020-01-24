@@ -254,30 +254,26 @@ There are only two golden rules you need to remember defining entity struct:
      orm.EnableContextCache(100, 1)
    
      /*to enable simple logger that prints queries to standard output*/
-     dbLogger := orm.StandardDatabaseLogger{}
-     orm.GetMysql().AddLogger(dbLogger)
-     orm.GetMysql("second_pool").AddLogger(dbLogger)
+     dbLogger := orm.NewStandardDatabaseLogger()
+     el := orm.GetMysql().RegisterLogger(dbLogger)
+     defer orm.GetMysql().UnregisterLogger(el)
+     el = orm.GetMysql("second_pool").RegisterLogger(dbLogger)
+     defer orm.GetMysql("second_pool").UnregisterLogger(el)
     
-     cacheLogger := orm.StandardCacheLogger{}
-     orm.GetRedis().AddLogger(cacheLogger)   
-     orm.GetLocalCache().AddLogger(cacheLogger)
-     orm.GetContextCache().AddLogger(cacheLogger)
+     cacheLogger := orm.NewStandardCacheLogger()
+     el = orm.GetRedis().RegisterLogger(cacheLogger)   
+     defer orm.GetRedis().UnregisterLogger(el)
+     el = orm.GetLocalCache().RegisterLogger(cacheLogger)
+     defer orm.GetLocalCache().UnregisterLogger(el)
+     el = orm.GetContextCache().RegisterLogger(cacheLogger)
+     defer orm.GetContextCache().UnregisterLogger(el)
     
-    /*defining your own logger*/
-    type MyDatabaseLogger struct {
-    }
-    func (l *MyDatabaseLogger) Log(mysqlCode string, query string, microseconds int64, args ...interface{}) {
-    }
-
-    type MyCacheLogger struct {
-    }
-    func (l *MyCacheLogger) Log(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
-    }
     
     /* adding logger to all pools */
-    orm.AddDatabaseLogger(dbLogger)
-    orm.AddRedisLogger(cacheLogger)
-
+    elements := orm.RegisterDatabaseLogger(dbLogger)
+    defer orm.UnregisterDatabaseLoggers(elements...)
+    elements = orm.RegisterRedisLogger(cacheLogger)
+    defer orm.UnregisterRedisLoggers(elements...)    
  }
  
  ```

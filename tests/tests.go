@@ -40,6 +40,8 @@ type TestCacheLogger struct {
 	Requests []string
 }
 
-func (c *TestCacheLogger) Log(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
-	c.Requests = append(c.Requests, fmt.Sprintf("%s %s", operation, key))
+func (c *TestCacheLogger) Logger() orm.CacheLogger {
+	return func(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
+		c.Requests = append(c.Requests, fmt.Sprintf("%s %s", operation, key))
+	}
 }

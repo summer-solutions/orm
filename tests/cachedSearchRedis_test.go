@@ -35,8 +35,8 @@ func TestCachedSearchRedis(t *testing.T) {
 
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
-	RedisLogger := TestCacheLogger{}
-	orm.GetRedis().AddLogger(&RedisLogger)
+	RedisLogger := &TestCacheLogger{}
+	orm.GetRedis().RegisterLogger(RedisLogger.Logger())
 
 	pager := orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []TestEntityIndexTestRedis

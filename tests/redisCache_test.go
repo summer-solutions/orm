@@ -11,8 +11,8 @@ func TestGetSetRedis(t *testing.T) {
 	err := orm.RegisterRedis("localhost:6379", 15).FlushDB()
 	assert.Nil(t, err)
 
-	testLogger := TestCacheLogger{}
-	orm.GetRedis().AddLogger(&testLogger)
+	testLogger := &TestCacheLogger{}
+	orm.GetRedis().RegisterLogger(testLogger.Logger())
 
 	val, err := orm.GetRedis().GetSet("test", 1, func() interface{} {
 		return "hello"
