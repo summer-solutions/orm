@@ -271,6 +271,7 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 				field.Interface().(*ReferenceMany).Ids = data
 			}
 		case "*orm.CachedQuery":
+			continue
 		case "interface {}":
 			if data[index] != "" {
 				var f interface{}
