@@ -27,14 +27,15 @@ func RegisterEntity(entity ...interface{}) {
 	}
 }
 
-func Init(entity ...interface{}) {
+func Init(entity ...interface{}) error {
 	for _, e := range entity {
 		value := reflect.Indirect(reflect.ValueOf(e))
 		_, err := initIfNeeded(value, e)
 		if err != nil {
-			panic(err.Error())
+			return err
 		}
 	}
+	return nil
 }
 
 func initIfNeeded(value reflect.Value, entity interface{}) (*ORM, error) {

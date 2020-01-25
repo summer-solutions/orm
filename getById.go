@@ -51,7 +51,10 @@ func TryById(id uint64, entity interface{}) (found bool, err error) {
 			if err != nil {
 				return false, err
 			}
-			initIfNeeded(val, entity)
+			_, err := initIfNeeded(val, entity)
+			if err != nil {
+				return false, err
+			}
 			return true, nil
 		}
 	}
