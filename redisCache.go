@@ -184,6 +184,16 @@ func (r *RedisCache) ZCard(key string) (int64, error) {
 	return val, nil
 }
 
+func (r *RedisCache) ZCount(key string, min, max string) (int64, error) {
+	start := time.Now()
+	val, err := r.client.ZCount(key, min, max).Result()
+	r.log(key, "ZCOUNT", time.Now().Sub(start).Microseconds(), 0)
+	if err != nil {
+		return 0, err
+	}
+	return val, nil
+}
+
 func (r *RedisCache) ZPopMin(key string, count ...int64) ([]redis.Z, error) {
 	start := time.Now()
 	val, err := r.client.ZPopMin(key, count...).Result()
