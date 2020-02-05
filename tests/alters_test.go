@@ -45,7 +45,7 @@ type TestEntitySchema struct {
 
 func TestGetAlters(t *testing.T) {
 
-	orm.UnregisterMySqlPools()
+	orm.UnregisterSqlPools()
 	err := orm.RegisterMySqlPool("root:root@tcp(localhost:3308)/test_schema", "schema")
 	assert.Nil(t, err)
 

@@ -2,7 +2,6 @@ package orm
 
 import (
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"math"
 	"reflect"
 	"strconv"

@@ -4,10 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis"
-	"github.com/go-sql-driver/mysql"
-	_ "github.com/go-sql-driver/mysql"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -106,7 +103,7 @@ func flush(lazy bool, entities ...interface{}) error {
 					i++
 				}
 				schema := getTableSchema(t)
-				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
+				sql := schema.GetMysql().databaseInterface.GetUpdateQuery(schema.TableName, fields)
 				db := schema.GetMysql()
 				values[i] = currentId
 				if lazy && db.transaction == nil {
@@ -114,7 +111,7 @@ func flush(lazy bool, entities ...interface{}) error {
 				} else {
 					_, err := schema.GetMysql().Exec(sql, values...)
 					if err != nil {
-						return convertToDuplicateKeyError(err)
+						return convertToDuplicateKeyError(schema, err)
 					}
 				}
 				old := make(map[string]interface{}, len(orm.dBData))
@@ -151,7 +148,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		for key, val := range values {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
 		}
-		sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES %s", schema.TableName, strings.Join(finalValues, ","), insertValues[typeOf])
+		sql := schema.GetMysql().databaseInterface.GetInsertQuery(schema.TableName, finalValues, insertValues[typeOf])
 		for i := 1; i < totalInsert[typeOf]; i++ {
 			sql += "," + insertValues[typeOf]
 		}
@@ -162,7 +159,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		} else {
 			res, err := db.Exec(sql, insertArguments[typeOf]...)
 			if err != nil {
-				return convertToDuplicateKeyError(err)
+				return convertToDuplicateKeyError(schema, err)
 			}
 			insertId, err := res.LastInsertId()
 			if err != nil {
@@ -197,19 +194,18 @@ func flush(lazy bool, entities ...interface{}) error {
 	}
 	for typeOf, deleteBinds := range deleteBinds {
 		schema := getTableSchema(typeOf)
-		ids := make([]uint64, len(deleteBinds))
+		ids := make([]interface{}, len(deleteBinds))
 		i := 0
 		for id := range deleteBinds {
 			ids[i] = id
 			i++
 		}
-		where := NewWhere("`Id` IN ?", ids)
-		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, where)
+		sql := schema.GetMysql().databaseInterface.GetDeleteQuery(schema.TableName, ids)
 		db := schema.GetMysql()
 		if lazy && db.transaction == nil {
-			fillLazyQuery(lazyMap, db.code, sql, where.GetParameters())
+			fillLazyQuery(lazyMap, db.code, sql, ids)
 		} else {
-			_, err := db.Exec(sql, where.GetParameters()...)
+			_, err := db.Exec(sql, ids...)
 			if err != nil {
 				return err
 			}
@@ -671,14 +667,6 @@ func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, va
 	lazyMap["q"] = append(updatesMap.([]interface{}), lazyValue)
 }
 
-func convertToDuplicateKeyError(err error) error {
-	sqlErr, yes := err.(*mysql.MySQLError)
-	if yes && sqlErr.Number == 1062 {
-		var abortLabelReg, _ = regexp.Compile(` for key '(.*?)'`)
-		labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
-		if len(labels) > 0 {
-			return &DuplicatedKeyError{Message: sqlErr.Message, Index: labels[1]}
-		}
-	}
-	return err
+func convertToDuplicateKeyError(schema *TableSchema, err error) error {
+	return schema.GetMysql().databaseInterface.ConvertToDuplicateKeyError(err)
 }

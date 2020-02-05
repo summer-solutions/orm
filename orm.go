@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"github.com/golang/groupcache/lru"
-	"math"
 	"reflect"
 	"time"
 )
 
-var mySqlClients = make(map[string]*DB)
+var sqlClients = make(map[string]*DB)
+var sqlInterfaces = make(map[string]DbInterface)
 var localCacheContainers = make(map[string]*LocalCache)
 var redisServers = make(map[string]*RedisCache)
 var entities = make(map[string]reflect.Type)
@@ -69,47 +69,15 @@ func initIfNeeded(value reflect.Value, entity interface{}) (*ORM, error) {
 }
 
 func RegisterMySqlPool(dataSourceName string, code ...string) error {
-	sqlDB, _ := sql.Open("mysql", dataSourceName)
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	db := &DB{code: dbCode, db: sqlDB}
-	mySqlClients[dbCode] = db
-
-	var dbName string
-	err := db.QueryRow("SELECT DATABASE()").Scan(&dbName)
-	if err != nil {
-		return err
-	}
-	db.databaseName = dbName
-	var variable string
-	var maxConnections float64
-	var maxTime float64
-	err = db.QueryRow("SHOW VARIABLES LIKE 'max_connections'").Scan(&variable, &maxConnections)
-	if err != nil {
-		return err
-	}
-	err = db.QueryRow("SHOW VARIABLES LIKE 'interactive_timeout'").Scan(&variable, &maxTime)
-	if err != nil {
-		return err
-	}
-	maxConnectionsOrm := math.Ceil(maxConnections * 0.9)
-	maxIdleConnections := math.Ceil(maxConnections * 0.05)
-	maxConnectionsTime := math.Ceil(maxTime * 0.7)
-	if maxIdleConnections < 10 {
-		maxIdleConnections = maxConnectionsOrm
-	}
-
-	db.db.SetMaxOpenConns(int(maxConnectionsOrm))
-	db.db.SetMaxIdleConns(int(maxIdleConnections))
-	db.db.SetConnMaxLifetime(time.Duration(int(maxConnectionsTime)) * time.Second)
-
-	return nil
+	return registerSqlPool(dataSourceName, "mysql", code...)
 }
 
-func UnregisterMySqlPools() {
-	mySqlClients = make(map[string]*DB)
+func RegisterPostgresPool(dataSourceName string, code ...string) error {
+	return registerSqlPool(dataSourceName, "postgres", code...)
+}
+
+func UnregisterSqlPools() {
+	sqlClients = make(map[string]*DB)
 }
 
 func RegisterLocalCache(size int, code ...string) {
@@ -165,7 +133,7 @@ func GetMysql(code ...string) *DB {
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	db, has := mySqlClients[dbCode]
+	db, has := sqlClients[dbCode]
 	if !has {
 		panic(fmt.Errorf("unregistered database code: %s", dbCode))
 	}
@@ -227,14 +195,14 @@ func GetContextCache() *LocalCache {
 
 func RegisterDatabaseLogger(logger DatabaseLogger) []*list.Element {
 	res := make([]*list.Element, 0)
-	for _, db := range mySqlClients {
+	for _, db := range sqlClients {
 		res = append(res, db.RegisterLogger(logger))
 	}
 	return res
 }
 
 func UnregisterDatabaseLoggers(elements ...*list.Element) {
-	for _, db := range mySqlClients {
+	for _, db := range sqlClients {
 		for _, e := range elements {
 			db.UnregisterLogger(e)
 		}
@@ -255,4 +223,40 @@ func UnregisterRedisLoggers(elements ...*list.Element) {
 			red.UnregisterLogger(e)
 		}
 	}
+}
+
+func registerSqlPool(dataSourceName string, driverCode string, code ...string) error {
+	sqlDB, _ := sql.Open(driverCode, dataSourceName)
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	db := &DB{code: dbCode, db: sqlDB}
+	sqlClients[dbCode] = db
+
+	dbI, has := sqlInterfaces[driverCode]
+	if !has {
+		switch driverCode {
+		case "mysql":
+			dbI = Mysql{}
+			break
+		case "postgres":
+			dbI = Postgres{}
+			break
+		}
+		sqlInterfaces[driverCode] = dbI
+	}
+	db.databaseInterface = dbI
+	err := db.databaseInterface.InitDb(sqlDB)
+	if err != nil {
+		return err
+	}
+
+	dbName, err := db.databaseInterface.GetDatabaseName(sqlDB)
+	if err != nil {
+		return err
+	}
+	db.databaseName = dbName
+	db.databaseDriver = driverCode
+	return nil
 }

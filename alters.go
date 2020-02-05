@@ -2,7 +2,6 @@ package orm
 
 import (
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 type Alter struct {
@@ -16,7 +15,7 @@ func GetAlters() (alters []Alter, err error) {
 	tablesInDB := make(map[string]map[string]bool)
 	tablesInEntities := make(map[string]map[string]bool)
 
-	for _, pool := range mySqlClients {
+	for _, pool := range sqlClients {
 		poolName := pool.code
 		tablesInDB[poolName] = make(map[string]bool)
 		results, err := GetMysql(poolName).Query("SHOW TABLES")
@@ -68,13 +67,6 @@ func GetAlters() (alters []Alter, err error) {
 }
 
 func isTableEmptyInPool(poolName string, tableName string) (bool, error) {
-	var lastId uint64
-	err := GetMysql(poolName).QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableName)).Scan(&lastId)
-	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			return true, nil
-		}
-		return false, err
-	}
-	return false, nil
+	pool := GetMysql(poolName)
+	return pool.databaseInterface.IsTableEmpty(pool.db, tableName)
 }

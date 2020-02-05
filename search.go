@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"reflect"
 	"strconv"
 	"strings"
@@ -75,7 +74,8 @@ func search(where Where, pager Pager, withCount bool, entities reflect.Value) (i
 	schema := getTableSchema(entityType)
 
 	var fieldsList = buildFieldList(entityType, "")
-	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where, pager.String())
+	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
+		schema.GetMysql().databaseInterface.Limit(pager))
 	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
 	if err != nil {
 		return 0, err
@@ -109,7 +109,8 @@ func search(where Where, pager Pager, withCount bool, entities reflect.Value) (i
 
 func searchIds(where Where, pager Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
 	schema := getTableSchema(entityType)
-	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where, pager.String())
+	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where,
+		schema.GetMysql().databaseInterface.Limit(pager))
 	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
 	if err != nil {
 		panic(err.Error())

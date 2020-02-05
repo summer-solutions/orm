@@ -431,6 +431,15 @@ func (tableSchema TableSchema) UpdateSchema() error {
 	return nil
 }
 
+func (tableSchema TableSchema) UpdateSchemaAndTruncateTable() error {
+	err := tableSchema.UpdateSchema()
+	if err != nil {
+		return err
+	}
+	_, err = tableSchema.GetMysql().Exec(fmt.Sprintf("TRUNCATE TABLE `%s`", tableSchema.TableName))
+	return err
+}
+
 func (tableSchema TableSchema) GetMysql() *DB {
 	return GetMysql(tableSchema.MysqlPoolName)
 }
