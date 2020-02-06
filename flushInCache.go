@@ -2,7 +2,7 @@ package orm
 
 import (
 	"fmt"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 	"reflect"
 	"time"
 )
@@ -10,7 +10,7 @@ import (
 func FlushInCache(entities ...interface{}) error {
 
 	invalidEntities := make([]interface{}, 0)
-	validEntities := make([]redis.Z, 0)
+	validEntities := make([]*redis.Z, 0)
 	redisValues := make(map[string][]interface{})
 
 	for _, entity := range entities {
@@ -73,6 +73,6 @@ func FlushInCache(entities ...interface{}) error {
 	return nil
 }
 
-func createDirtyQueueMember(entityName string, id uint64) redis.Z {
-	return redis.Z{Score: float64(time.Now().Unix()), Member: fmt.Sprintf("%s:%d", entityName, id)}
+func createDirtyQueueMember(entityName string, id uint64) *redis.Z {
+	return &redis.Z{Score: float64(time.Now().Unix()), Member: fmt.Sprintf("%s:%d", entityName, id)}
 }

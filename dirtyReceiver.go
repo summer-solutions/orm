@@ -2,7 +2,7 @@ package orm
 
 import (
 	"fmt"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +20,7 @@ type DirtyData struct {
 	Deleted     bool
 }
 
-type DirtyHandler func([]DirtyData) (invalid []redis.Z, err error)
+type DirtyHandler func([]DirtyData) (invalid []*redis.Z, err error)
 
 func (r DirtyReceiver) Size() (int64, error) {
 	red, err := r.getRedis()
@@ -100,9 +100,9 @@ func (r DirtyReceiver) MarkDirty(entityName string, ids ...uint64) error {
 	if err != nil {
 		return err
 	}
-	data := make([]redis.Z, len(ids))
+	data := make([]*redis.Z, len(ids))
 	for index, id := range ids {
-		data[index] = redis.Z{Score: float64(time.Now().Unix()), Member: fmt.Sprintf("%s:%d", entityName, id)}
+		data[index] = &redis.Z{Score: float64(time.Now().Unix()), Member: fmt.Sprintf("%s:%d", entityName, id)}
 	}
 	_, err = cache.ZAdd(r.QueueCode, data...)
 	return err
