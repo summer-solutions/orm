@@ -31,6 +31,11 @@ func InitByYaml(yaml map[interface{}]interface{}) error {
 				if err != nil {
 					return err
 				}
+			case "postgres":
+				err := validateOrmPostgreslUri(value, keyAsString)
+				if err != nil {
+					return err
+				}
 			case "redis":
 				err := validateRedisUri(value, keyAsString)
 				if err != nil {
@@ -81,6 +86,23 @@ func validateOrmMysqlUri(value interface{}, key string) error {
 	err = GetMysql(key).QueryRow("SELECT 1").Scan(&row)
 	if err != nil {
 		return fmt.Errorf("mysql connetion error (%s): %s", key, err.Error())
+	}
+	return nil
+}
+
+func validateOrmPostgreslUri(value interface{}, key string) error {
+	asString, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("invalid posgres uri: %v", value)
+	}
+	err := RegisterPostgresPool(asString, key)
+	if err != nil {
+		return fmt.Errorf("posgres connetion error (%s): %s", key, err.Error())
+	}
+	var row string
+	err = GetMysql(key).QueryRow("SELECT 1").Scan(&row)
+	if err != nil {
+		return fmt.Errorf("posgres connetion error (%s): %s", key, err.Error())
 	}
 	return nil
 }
