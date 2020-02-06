@@ -12,19 +12,19 @@ type FlushFromCacheReceiver struct {
 }
 
 func (r FlushFromCacheReceiver) Size() (int64, error) {
-	return GetRedis(r.QueueName + "_queue").ZCard("dirty_queue")
+	return GetRedis(r.QueueName + "_queue").SCard("dirty_queue")
 }
 
 func (r FlushFromCacheReceiver) Digest() (has bool, err error) {
 	cache := GetRedis(r.QueueName + "_queue")
-	values, err := cache.ZPopMin("dirty_queue", 1)
+	value, has, err := cache.SPop("dirty_queue")
 	if err != nil {
 		return false, err
 	}
-	if len(values) == 0 {
+	if !has {
 		return false, nil
 	}
-	val := strings.Split(values[0].Member.(string), ":")
+	val := strings.Split(value, ":")
 	if len(val) != 2 {
 		return true, nil
 	}
@@ -93,7 +93,7 @@ func (r FlushFromCacheReceiver) Digest() (has bool, err error) {
 	sql := db.databaseInterface.GetUpdateQuery(schema.TableName, fields)
 	_, err = db.Exec(sql, attributes...)
 	if err != nil {
-		_, _ = getRedisForQueue("default").ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+		_, _ = getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 		return true, err
 	}
 	cacheKeys := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
@@ -101,7 +101,7 @@ func (r FlushFromCacheReceiver) Digest() (has bool, err error) {
 	if len(cacheKeys) > 0 {
 		err = cacheEntity.Del(cacheKeys...)
 		if err != nil {
-			_, _ = getRedisForQueue("default").ZAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+			_, _ = getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 			return true, err
 		}
 	}

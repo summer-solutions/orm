@@ -56,7 +56,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, LoggerRedisCache.Requests, 1)
 	assert.Equal(t, "MSET [TestEntityFlusherInCacheRedisce:1 ] ", LoggerRedisCache.Requests[0])
 	assert.Len(t, LoggerRedisQueue.Requests, 1)
-	assert.Equal(t, "ZADD 1 values dirty_queue", LoggerRedisQueue.Requests[0])
+	assert.Equal(t, "SADD 1 values dirty_queue", LoggerRedisQueue.Requests[0])
 
 	var loadedEntity TestEntityFlusherInCacheRedis
 	err = orm.GetById(1, &loadedEntity)

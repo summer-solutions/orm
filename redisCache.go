@@ -171,6 +171,16 @@ func (r *RedisCache) ZCard(key string) (int64, error) {
 	return val, nil
 }
 
+func (r *RedisCache) SCard(key string) (int64, error) {
+	start := time.Now()
+	val, err := r.client.SCard(key).Result()
+	r.log(key, "SCARD", time.Now().Sub(start).Microseconds(), 0)
+	if err != nil {
+		return 0, err
+	}
+	return val, nil
+}
+
 func (r *RedisCache) ZCount(key string, min, max string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZCount(key, min, max).Result()
@@ -181,11 +191,26 @@ func (r *RedisCache) ZCount(key string, min, max string) (int64, error) {
 	return val, nil
 }
 
-func (r *RedisCache) ZPopMin(key string, count ...int64) ([]redis.Z, error) {
+func (r *RedisCache) SPop(key string) (string, bool, error) {
 	start := time.Now()
-	val, err := r.client.ZPopMin(key, count...).Result()
+	val, err := r.client.SPop(key).Result()
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("ZPOPMIN %v", count), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("SPOP"), time.Now().Sub(start).Microseconds(), 0)
+	}
+	if err != nil {
+		if err == redis.Nil {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	return val, true, nil
+}
+
+func (r *RedisCache) SPopN(key string, max int64) ([]string, error) {
+	start := time.Now()
+	val, err := r.client.SPopN(key, max).Result()
+	if r.loggers != nil {
+		r.log(key, fmt.Sprintf("SPOP %d", max), time.Now().Sub(start).Microseconds(), 0)
 	}
 	if err != nil {
 		return nil, err
@@ -211,6 +236,18 @@ func (r *RedisCache) ZAdd(key string, members ...*redis.Z) (int64, error) {
 	}
 	if r.loggers != nil {
 		r.log(key, fmt.Sprintf("ZADD %d values", len(members)), time.Now().Sub(start).Microseconds(), 0)
+	}
+	return val, nil
+}
+
+func (r *RedisCache) SAdd(key string, members ...interface{}) (int64, error) {
+	start := time.Now()
+	val, err := r.client.SAdd(key, members...).Result()
+	if err != nil {
+		return 0, err
+	}
+	if r.loggers != nil {
+		r.log(key, fmt.Sprintf("SADD %d values", len(members)), time.Now().Sub(start).Microseconds(), 0)
 	}
 	return val, nil
 }

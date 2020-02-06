@@ -3,7 +3,6 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-redis/redis/v7"
 	"reflect"
 	"strconv"
 	"strings"
@@ -38,7 +37,7 @@ func flush(lazy bool, entities ...interface{}) error {
 	localCacheSets := make(map[string]map[string][]interface{})
 	localCacheDeletes := make(map[string]map[string]map[string]bool)
 	redisKeysToDelete := make(map[string]map[string]map[string]bool)
-	dirtyQueues := make(map[string][]*redis.Z)
+	dirtyQueues := make(map[string][]interface{})
 	lazyMap := make(map[string]interface{})
 	contextCache := GetContextCache()
 
@@ -324,7 +323,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		if !has {
 			return fmt.Errorf("unregistered lazy queue %s", k)
 		}
-		_, err := GetRedis(redisCode).ZAdd(k, v...)
+		_, err := GetRedis(redisCode).SAdd(k, v...)
 		if err != nil {
 			return err
 		}
@@ -625,8 +624,8 @@ func addCacheDeletes(cacheDeletes map[string]map[string]map[string]bool, dbCode 
 	}
 }
 
-func addDirtyQueues(keys map[string][]*redis.Z, bind map[string]interface{}, schema *TableSchema, id uint64, action string) {
-	results := make(map[string]*redis.Z)
+func addDirtyQueues(keys map[string][]interface{}, bind map[string]interface{}, schema *TableSchema, id uint64, action string) {
+	results := make(map[string]interface{})
 	key := createDirtyQueueMember(schema.t.String()+":"+action, id)
 	for column, tags := range schema.tags {
 		queues, has := tags["dirty"]

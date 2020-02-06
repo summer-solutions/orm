@@ -2,10 +2,8 @@ package orm
 
 import (
 	"fmt"
-	"github.com/go-redis/redis/v7"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type DirtyReceiver struct {
@@ -20,14 +18,14 @@ type DirtyData struct {
 	Deleted     bool
 }
 
-type DirtyHandler func([]DirtyData) (invalid []*redis.Z, err error)
+type DirtyHandler func([]DirtyData) (invalid []interface{}, err error)
 
 func (r DirtyReceiver) Size() (int64, error) {
 	red, err := r.getRedis()
 	if err != nil {
 		return 0, err
 	}
-	return red.ZCard(r.QueueCode)
+	return red.SCard(r.QueueCode)
 }
 
 func (r DirtyReceiver) GetEntities() []string {
@@ -58,7 +56,7 @@ func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err erro
 	if err != nil {
 		return false, err
 	}
-	values, err := cache.ZPopMin(r.QueueCode, int64(max))
+	values, err := cache.SPopN(r.QueueCode, int64(max))
 	if err != nil {
 		return false, err
 	}
@@ -67,7 +65,7 @@ func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err erro
 	}
 	results := make([]DirtyData, 0, len(values))
 	for _, v := range values {
-		val := strings.Split(v.Member.(string), ":")
+		val := strings.Split(v, ":")
 		if len(val) != 3 {
 			continue
 		}
@@ -88,7 +86,7 @@ func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err erro
 	invalid, err := handler(results)
 	if err != nil {
 		if invalid != nil {
-			_, _ = cache.ZAdd(r.QueueCode, invalid...)
+			_, _ = cache.SAdd(r.QueueCode, invalid...)
 		}
 		return true, err
 	}
@@ -100,11 +98,11 @@ func (r DirtyReceiver) MarkDirty(entityName string, ids ...uint64) error {
 	if err != nil {
 		return err
 	}
-	data := make([]*redis.Z, len(ids))
+	data := make([]interface{}, len(ids))
 	for index, id := range ids {
-		data[index] = &redis.Z{Score: float64(time.Now().Unix()), Member: fmt.Sprintf("%s:%d", entityName, id)}
+		data[index] = fmt.Sprintf("%s:%d", entityName, id)
 	}
-	_, err = cache.ZAdd(r.QueueCode, data...)
+	_, err = cache.SAdd(r.QueueCode, data...)
 	return err
 }
 

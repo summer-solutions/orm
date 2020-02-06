@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"github.com/go-redis/redis/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 	"testing"
@@ -33,7 +32,7 @@ func TestDirtyQueue(t *testing.T) {
 	err := orm.Flush(&entityAll, &entityAge)
 	assert.Nil(t, err)
 	assert.Len(t, LoggerRedisQueue.Requests, 1)
-	assert.Equal(t, "ZADD 2 values test", LoggerRedisQueue.Requests[0])
+	assert.Equal(t, "SADD 2 values test", LoggerRedisQueue.Requests[0])
 
 	receiver := orm.DirtyReceiver{QueueCode: "test"}
 
@@ -43,7 +42,7 @@ func TestDirtyQueue(t *testing.T) {
 	size, err := receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(2), size)
-	has, err := receiver.Digest(2, func(data []orm.DirtyData) (invalid []*redis.Z, err error) {
+	has, err := receiver.Digest(2, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 2)
 		assert.Equal(t, "TestEntityDirtyQueueAge", data[0].TableSchema.TableName)
 		assert.Equal(t, "TestEntityDirtyQueueAll", data[1].TableSchema.TableName)
@@ -59,7 +58,7 @@ func TestDirtyQueue(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	assert.True(t, has)
-	has, err = receiver.Digest(2, func(data []orm.DirtyData) (invalid []*redis.Z, err error) {
+	has, err = receiver.Digest(2, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		return nil, nil
 	})
 	assert.Nil(t, err)
@@ -72,7 +71,7 @@ func TestDirtyQueue(t *testing.T) {
 	err = orm.Flush(&entityAll)
 	assert.Nil(t, err)
 	assert.Len(t, LoggerRedisQueue.Requests, 6)
-	assert.Equal(t, "ZADD 1 values test", LoggerRedisQueue.Requests[5])
+	assert.Equal(t, "SADD 1 values test", LoggerRedisQueue.Requests[5])
 
 	entityAge.Name = "Name 2"
 	err = orm.Flush(&entityAll)
@@ -82,7 +81,7 @@ func TestDirtyQueue(t *testing.T) {
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)
-	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []*redis.Z, err error) {
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "TestEntityDirtyQueueAll", data[0].TableSchema.TableName)
 		assert.Equal(t, uint64(1), data[0].Id)
@@ -93,7 +92,7 @@ func TestDirtyQueue(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	assert.True(t, has)
-	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []*redis.Z, err error) {
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		return nil, nil
 	})
 	assert.Nil(t, err)
@@ -106,12 +105,12 @@ func TestDirtyQueue(t *testing.T) {
 	err = orm.Flush(&entityAge)
 	assert.Nil(t, err)
 	assert.Len(t, LoggerRedisQueue.Requests, 11)
-	assert.Equal(t, "ZADD 1 values test", LoggerRedisQueue.Requests[10])
+	assert.Equal(t, "SADD 1 values test", LoggerRedisQueue.Requests[10])
 
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)
-	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []*redis.Z, err error) {
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "TestEntityDirtyQueueAge", data[0].TableSchema.TableName)
 		assert.Equal(t, uint64(1), data[0].Id)
@@ -133,7 +132,7 @@ func TestDirtyQueue(t *testing.T) {
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)
-	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []*redis.Z, err error) {
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "TestEntityDirtyQueueAge", data[0].TableSchema.TableName)
 		assert.Equal(t, uint64(1), data[0].Id)
