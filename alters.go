@@ -1,9 +1,5 @@
 package orm
 
-import (
-	"fmt"
-)
-
 type Alter struct {
 	Sql  string
 	Safe bool
@@ -18,17 +14,12 @@ func GetAlters() (alters []Alter, err error) {
 	for _, pool := range sqlClients {
 		poolName := pool.code
 		tablesInDB[poolName] = make(map[string]bool)
-		results, err := GetMysql(poolName).Query("SHOW TABLES")
+		tables, err := GetMysql(poolName).databaseInterface.GetAllTables(GetMysql(poolName).db)
 		if err != nil {
 			return nil, err
 		}
-		for results.Next() {
-			var row string
-			err = results.Scan(&row)
-			if err != nil {
-				return nil, err
-			}
-			tablesInDB[poolName][row] = true
+		for _, table := range tables {
+			tablesInDB[poolName][table] = true
 		}
 		tablesInEntities[poolName] = make(map[string]bool)
 	}
@@ -50,7 +41,7 @@ func GetAlters() (alters []Alter, err error) {
 		for tableName := range tables {
 			_, has := tablesInEntities[poolName][tableName]
 			if !has {
-				dropSql := fmt.Sprintf("DROP TABLE `%s`.`%s`;", GetMysql(poolName).databaseName, tableName)
+				dropSql := GetMysql(poolName).databaseInterface.GetDropTableQuery(GetMysql(poolName).databaseName, tableName)
 				isEmpty, err := isTableEmptyInPool(poolName, tableName)
 				if err != nil {
 					return nil, err
