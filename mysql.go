@@ -511,11 +511,11 @@ func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string
 	var definition string
 	enum, hasEnum := attributes["enum"]
 	if hasEnum {
-		return m.handleSetEnum("enum", enum)
+		return m.handleSetEnum("enum", enum, attributes)
 	}
 	set, haSet := attributes["set"]
 	if haSet {
-		return m.handleSetEnum("set", set)
+		return m.handleSetEnum("set", set, attributes)
 	}
 	var addDefaultNullIfNullable = true
 	length, hasLength := attributes["length"]
@@ -538,7 +538,7 @@ func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string
 	return definition, false, addDefaultNullIfNullable, nil
 }
 
-func (m Mysql) handleSetEnum(fieldType string, attribute string) (string, bool, bool, error) {
+func (m Mysql) handleSetEnum(fieldType string, attribute string, attributes map[string]string) (string, bool, bool, error) {
 	enum, has := enums[attribute]
 	if !has {
 		return "", false, false, fmt.Errorf("unregistered enum %s", attribute)
@@ -556,7 +556,8 @@ func (m Mysql) handleSetEnum(fieldType string, attribute string) (string, bool, 
 		definition += fmt.Sprintf("'%s'", value)
 	}
 	definition += ")"
-	return definition, false, true, nil
+	_, hasNotNull := attributes["notnull"]
+	return definition, hasNotNull, true, nil
 }
 
 func (m Mysql) handleTime(attributes map[string]string) (string, bool, bool) {

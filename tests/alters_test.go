@@ -49,7 +49,7 @@ type TestEntitySchema struct {
 	Float64              float64
 	Float32Decimal       float32  `orm:"decimal=8,2"`
 	Float64DecimalSigned float64  `orm:"decimal=8,2;unsigned=false"`
-	Enum                 string   `orm:"enum=tests.Color;notnull=true"`
+	Enum                 string   `orm:"enum=tests.Color;notnull"`
 	Set                  []string `orm:"set=tests.Color"`
 	Year                 uint16   `orm:"year=true"`
 	Date                 time.Time
