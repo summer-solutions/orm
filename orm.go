@@ -15,6 +15,7 @@ var sqlInterfaces = make(map[string]DbInterface)
 var localCacheContainers = make(map[string]*LocalCache)
 var redisServers = make(map[string]*RedisCache)
 var entities = make(map[string]reflect.Type)
+var enums = make(map[string]reflect.Value)
 var dirtyQueuesCodes = make(map[string]string)
 var dirtyQueuesCodesNames = make([]string, 0)
 var lazyQueuesCodes = make(map[string]string)
@@ -25,6 +26,10 @@ func RegisterEntity(entity ...interface{}) {
 		t := reflect.TypeOf(e)
 		entities[t.String()] = t
 	}
+}
+
+func RegisterEnum(name string, enum interface{}) {
+	enums[name] = reflect.Indirect(reflect.ValueOf(enum))
 }
 
 func Init(entity ...interface{}) error {

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 	"testing"
@@ -10,6 +11,22 @@ import (
 type AddressSchema struct {
 	Street   string
 	Building uint16
+}
+
+type fieldsColors struct {
+	Red    string
+	Green  string
+	Blue   string
+	Yellow string
+	Purple string
+}
+
+var Color = &fieldsColors{
+	Red:    "Red",
+	Green:  "Green",
+	Blue:   "Blue",
+	Yellow: "Yellow",
+	Purple: "Purple",
 }
 
 type TestEntitySchema struct {
@@ -32,8 +49,8 @@ type TestEntitySchema struct {
 	Float64              float64
 	Float32Decimal       float32  `orm:"decimal=8,2"`
 	Float64DecimalSigned float64  `orm:"decimal=8,2;unsigned=false"`
-	Enum                 string   `orm:"enum=aaa,bbb,ccc"`
-	Set                  []string `orm:"set=vv,hh,dd"`
+	Enum                 string   `orm:"enum=tests.Color;notnull=true"`
+	Set                  []string `orm:"set=tests.Color"`
 	Year                 uint16   `orm:"year=true"`
 	Date                 time.Time
 	DateTime             time.Time `orm:"time=true"`
@@ -51,6 +68,7 @@ func TestGetAlters(t *testing.T) {
 
 	var entity TestEntitySchema
 	orm.RegisterEntity(entity)
+	orm.RegisterEnum("tests.Color", Color)
 	tableSchema := orm.GetTableSchema(entity)
 	err = tableSchema.DropTable()
 	assert.Nil(t, err)
@@ -58,4 +76,5 @@ func TestGetAlters(t *testing.T) {
 	alters, err := orm.GetAlters()
 	assert.Nil(t, err)
 	assert.Len(t, alters, 1)
+	fmt.Printf("%v", alters)
 }

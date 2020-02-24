@@ -118,7 +118,10 @@ func (m Mysql) GetTruncateTableQuery(database string, table string) string {
 
 func (m Mysql) GetSchemaChanges(tableSchema TableSchema) (has bool, alter Alter, err error) {
 	indexes := make(map[string]*index)
-	columns := m.checkStruct(tableSchema, tableSchema.t, indexes, "")
+	columns, err := m.checkStruct(tableSchema, tableSchema.t, indexes, "")
+	if err != nil {
+		return false, Alter{}, err
+	}
 	var newIndexes []string
 
 	createTableSql := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
@@ -339,23 +342,26 @@ func (m Mysql) isTableEmpty(tableSchema TableSchema) bool {
 	return false
 }
 
-func (m Mysql) checkStruct(tableSchema TableSchema, t reflect.Type, indexes map[string]*index, prefix string) (columns [][2]string) {
-	columns = make([][2]string, 0, t.NumField())
+func (m Mysql) checkStruct(tableSchema TableSchema, t reflect.Type, indexes map[string]*index, prefix string) ([][2]string, error) {
+	columns := make([][2]string, 0, t.NumField())
 	max := t.NumField() - 1
 	for i := 0; i <= max; i++ {
 		if i == 0 && prefix == "" {
 			continue
 		}
 		field := t.Field(i)
-		var fieldColumns = m.checkColumn(tableSchema, &field, indexes, prefix)
+		fieldColumns, err := m.checkColumn(tableSchema, &field, indexes, prefix)
+		if err != nil {
+			return nil, err
+		}
 		if fieldColumns != nil {
 			columns = append(columns, fieldColumns...)
 		}
 	}
-	return
+	return columns, nil
 }
 
-func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, indexes map[string]*index, prefix string) [][2]string {
+func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, indexes map[string]*index, prefix string) ([][2]string, error) {
 	var definition string
 	var addNotNullIfNotSet bool
 	addDefaultNullIfNullable := true
@@ -392,6 +398,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		}
 	}
 
+	var err error
 	switch typeAsString {
 	case "uint":
 		definition, addNotNullIfNotSet = m.handleInt("int(10) unsigned")
@@ -400,7 +407,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	case "uint16":
 		yearAttribute, _ := attributes["year"]
 		if yearAttribute == "true" {
-			return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) NOT NULL DEFAULT '0000'", columnName)}}
+			return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) NOT NULL DEFAULT '0000'", columnName)}}, nil
 		} else {
 			definition, addNotNullIfNotSet = m.handleInt("smallint(5) unsigned")
 		}
@@ -433,9 +440,15 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	case "bool":
 		definition, addNotNullIfNotSet = m.handleInt("tinyint(1)")
 	case "string", "[]string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable = m.handleString(attributes, false)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, err = m.handleString(attributes, false)
+		if err != nil {
+			return nil, err
+		}
 	case "interface {}", "[]uint64":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable = m.handleString(attributes, true)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, err = m.handleString(attributes, true)
+		if err != nil {
+			return nil, err
+		}
 	case "float32":
 		definition, addNotNullIfNotSet = m.handleFloat("float", attributes)
 	case "float64":
@@ -451,14 +464,17 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		addNotNullIfNotSet = false
 		addDefaultNullIfNullable = true
 	case "*orm.CachedQuery":
-		return nil
+		return nil, nil
 	default:
 		kind := field.Type.Kind().String()
 		if kind == "struct" {
-			structFields := m.checkStruct(tableSchema, field.Type, indexes, field.Name)
-			return structFields
+			structFields, err := m.checkStruct(tableSchema, field.Type, indexes, field.Name)
+			if err != nil {
+				return nil, err
+			}
+			return structFields, nil
 		}
-		panic(fmt.Errorf("unsoported field type: %s %s", field.Name, field.Type.String()))
+		return nil, fmt.Errorf("unsoported field type: %s %s", field.Name, field.Type.String())
 	}
 	isNotNull := false
 	if addNotNullIfNotSet {
@@ -468,7 +484,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	if !isNotNull && addDefaultNullIfNullable {
 		definition += " DEFAULT NULL"
 	}
-	return [][2]string{{columnName, fmt.Sprintf("`%s` %s", columnName, definition)}}
+	return [][2]string{{columnName, fmt.Sprintf("`%s` %s", columnName, definition)}}, nil
 }
 
 func (m Mysql) handleInt(definition string) (string, bool) {
@@ -491,7 +507,7 @@ func (m Mysql) handleFloat(floatDefinition string, attributes map[string]string)
 	return definition, true
 }
 
-func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string, bool, bool) {
+func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string, bool, bool, error) {
 	var definition string
 	enum, hasEnum := attributes["enum"]
 	if hasEnum {
@@ -519,11 +535,19 @@ func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string
 		}
 		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	}
-	return definition, false, addDefaultNullIfNullable
+	return definition, false, addDefaultNullIfNullable, nil
 }
 
-func (m Mysql) handleSetEnum(fieldType string, attribute string) (string, bool, bool) {
-	values := strings.Split(attribute, ",")
+func (m Mysql) handleSetEnum(fieldType string, attribute string) (string, bool, bool, error) {
+	enum, has := enums[attribute]
+	if !has {
+		return "", false, false, fmt.Errorf("unregistered enum %s", attribute)
+	}
+	values := make([]string, 0)
+	for i := 0; i < enum.Type().NumField(); i++ {
+		values = append(values, enum.Field(i).String())
+	}
+
 	var definition = fieldType + "("
 	for key, value := range values {
 		if key > 0 {
@@ -532,7 +556,7 @@ func (m Mysql) handleSetEnum(fieldType string, attribute string) (string, bool, 
 		definition += fmt.Sprintf("'%s'", value)
 	}
 	definition += ")"
-	return definition, false, true
+	return definition, false, true, nil
 }
 
 func (m Mysql) handleTime(attributes map[string]string) (string, bool, bool) {
