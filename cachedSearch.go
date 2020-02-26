@@ -36,7 +36,7 @@ func CachedSearchOne(entity interface{}, indexName string, arguments ...interfac
 	}
 	var id uint64
 	if fromCache["1"] == nil {
-		results, _ := searchIds(Where, Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
+		results, _ := searchIds(Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
 		l := len(results)
 		value := fmt.Sprintf("%d", l)
 		if l > 0 {
@@ -63,13 +63,16 @@ func CachedSearchOne(entity interface{}, indexName string, arguments ...interfac
 
 }
 
-func CachedSearch(entities interface{}, indexName string, pager Pager, arguments ...interface{}) (totalRows int, err error) {
+func CachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
 	value := reflect.ValueOf(entities)
 	entityType := getEntityTypeForSlice(value.Type())
 	schema := getTableSchema(entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
 		return 0, fmt.Errorf("uknown index %s", indexName)
+	}
+	if pager == nil {
+		pager = &Pager{CurrentPage: 1, PageSize: 50000}
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
@@ -160,7 +163,7 @@ func CachedSearch(entities interface{}, indexName string, pager Pager, arguments
 	}
 
 	if hasNil {
-		searchPager := Pager{minPage, maxPage * idsOnCachePage}
+		searchPager := &Pager{minPage, maxPage * idsOnCachePage}
 		results, total := searchIdsWithCount(Where, searchPager, entityType)
 		totalRows = total
 		cacheFields := make(map[string]interface{})

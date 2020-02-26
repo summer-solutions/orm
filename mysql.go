@@ -87,7 +87,7 @@ func (m Mysql) ConvertToDuplicateKeyError(err error) error {
 	return err
 }
 
-func (m Mysql) Limit(pager Pager) string {
+func (m Mysql) Limit(pager *Pager) string {
 	return fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize)
 }
 

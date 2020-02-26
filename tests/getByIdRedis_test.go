@@ -34,7 +34,6 @@ type TestEntityByIdRedis struct {
 	Float64              float64
 	Float32Decimal       float32  `orm:"decimal=8,2"`
 	Float64DecimalSigned float64  `orm:"decimal=8,4;unsigned=false"`
-	Enum                 string   `orm:"enum=aaa,bbb,ccc"`
 	Set                  []string `orm:"set=vv,hh,dd"`
 	Year                 uint16   `orm:"year=true"`
 	Date                 time.Time
@@ -78,7 +77,6 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.Equal(t, float64(0), entity.Float64)
 	assert.Equal(t, float32(0), entity.Float32Decimal)
 	assert.Equal(t, float64(0), entity.Float64DecimalSigned)
-	assert.Equal(t, "", entity.Enum)
 	assert.Len(t, entity.Set, 0)
 	assert.Equal(t, uint16(0), entity.Year)
 	assert.IsType(t, time.Time{}, entity.Date)
@@ -100,7 +98,6 @@ func TestGetByIdRedis(t *testing.T) {
 	entity.Float64 = 7.002
 	entity.Float32Decimal = 123.13
 	entity.Float64DecimalSigned = -12.01
-	entity.Enum = "bbb"
 	entity.Set = []string{"hh", "dd"}
 	entity.Year = 1982
 	entity.Date = time.Date(1982, 4, 6, 0, 0, 0, 0, time.UTC)
@@ -131,7 +128,6 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.Equal(t, 7.002, entity.Float64)
 	assert.Equal(t, float32(123.13), entity.Float32Decimal)
 	assert.Equal(t, -12.01, entity.Float64DecimalSigned)
-	assert.Equal(t, "bbb", entity.Enum)
 	assert.Equal(t, []string{"hh", "dd"}, entity.Set)
 	assert.Equal(t, uint16(1982), entity.Year)
 	assert.Equal(t, time.Date(1982, 4, 6, 0, 0, 0, 0, time.UTC), entity.Date)

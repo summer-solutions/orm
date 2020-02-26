@@ -34,7 +34,7 @@ func (p Postgres) ConvertToDuplicateKeyError(err error) error {
 	return err
 }
 
-func (p Postgres) Limit(pager Pager) string {
+func (p Postgres) Limit(pager *Pager) string {
 	return ""
 }
 

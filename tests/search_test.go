@@ -26,7 +26,7 @@ func TestSearch(t *testing.T) {
 	err := orm.Flush(entities...)
 	assert.Nil(t, err)
 
-	pager := orm.Pager{CurrentPage: 1, PageSize: 100}
+	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
 	where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
 	var rows []TestEntitySearch
 	err = orm.Search(where, pager, &rows)
@@ -35,7 +35,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, uint(2), rows[0].Id)
 	assert.Equal(t, uint(7), rows[5].Id)
 
-	pager = orm.Pager{CurrentPage: 1, PageSize: 4}
+	pager = &orm.Pager{CurrentPage: 1, PageSize: 4}
 
 	rows = make([]TestEntitySearch, 0)
 	totalRows, err := orm.SearchWithCount(where, pager, &rows)
@@ -45,7 +45,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, uint(2), rows[0].Id)
 	assert.Equal(t, uint(5), rows[3].Id)
 
-	pager = orm.Pager{CurrentPage: 2, PageSize: 4}
+	pager = &orm.Pager{CurrentPage: 2, PageSize: 4}
 	rows = make([]TestEntitySearch, 0)
 	totalRows, err = orm.SearchWithCount(where, pager, &rows)
 	assert.Nil(t, err)
@@ -54,7 +54,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, uint(6), rows[0].Id)
 	assert.Equal(t, uint(7), rows[1].Id)
 
-	pager = orm.Pager{CurrentPage: 1, PageSize: 6}
+	pager = &orm.Pager{CurrentPage: 1, PageSize: 6}
 	rows = make([]TestEntitySearch, 0)
 	totalRows, err = orm.SearchWithCount(where, pager, &rows)
 	assert.Nil(t, err)

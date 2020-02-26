@@ -16,8 +16,14 @@ func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
 	orm.DisableContextCache()
 	for _, entity := range entities {
 		TableSchema = orm.GetTableSchema(entity)
-		_ = TableSchema.DropTable()
-		_ = TableSchema.UpdateSchema()
+		err := TableSchema.DropTable()
+		if err != nil {
+			panic(err)
+		}
+		err = TableSchema.UpdateSchema()
+		if err != nil {
+			panic(err)
+		}
 		localCache := TableSchema.GetLocalCache()
 		if localCache != nil {
 			localCache.Clear()
