@@ -407,6 +407,10 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 		old, _ := oldData[name]
 		field := value.Field(i)
 		attributes := tableSchema.tags[name]
+		_, has := attributes["ignore"]
+		if has {
+			continue
+		}
 		switch field.Type().String() {
 		case "uint", "uint8", "uint16", "uint32", "uint64":
 			val := field.Uint()

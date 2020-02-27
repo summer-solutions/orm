@@ -370,6 +370,11 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 
 	attributes := tableSchema.tags[columnName]
 
+	_, has := attributes["ignore"]
+	if has {
+		return nil, nil
+	}
+
 	indexAttribute, has := attributes["index"]
 	unique := false
 	if !has {

@@ -39,6 +39,7 @@ type TestEntityByIdLocal struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressByIdLocal
 	Json                 interface{}
+	Ignored              []time.Time `orm:"ignore"`
 }
 
 func TestGetByIdLocal(t *testing.T) {

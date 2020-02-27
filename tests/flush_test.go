@@ -5,6 +5,7 @@ import (
 	"github.com/summer-solutions/orm"
 	"strconv"
 	"testing"
+	"time"
 )
 
 type TestEntityFlush struct {
@@ -13,6 +14,7 @@ type TestEntityFlush struct {
 	Name          string
 	ReferenceOne  *orm.ReferenceOne  `orm:"ref=tests.TestEntityFlush"`
 	ReferenceMany *orm.ReferenceMany `orm:"ref=tests.TestEntityFlush"`
+	Ignored       []time.Time        `orm:"ignore"`
 }
 
 type TestEntityFlushCacheLocal struct {

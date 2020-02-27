@@ -57,6 +57,7 @@ type TestEntitySchema struct {
 	Json                 interface{}
 	ReferenceOne         *orm.ReferenceOne  `orm:"ref=tests.TestEntitySchema"`
 	ReferenceMany        *orm.ReferenceMany `orm:"ref=tests.TestEntitySchema"`
+	IgnoreField          []time.Time        `orm:"ignore"`
 }
 
 func TestGetAlters(t *testing.T) {

@@ -183,6 +183,12 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 		field := value.Field(i)
 		name := prefix + t.Field(i).Name
 
+		tags := getTableSchema(t).tags[name]
+		_, has := tags["ignore"]
+		if has {
+			continue
+		}
+
 		fieldType := field.Type().String()
 		switch fieldType {
 		case "uint":
@@ -305,6 +311,11 @@ func buildFieldList(t reflect.Type, prefix string) string {
 	for i := 0; i < t.NumField(); i++ {
 		var columnNameRaw string
 		field := t.Field(i)
+		tags := getTableSchema(t).tags[field.Name]
+		_, has := tags["ignore"]
+		if has {
+			continue
+		}
 		if prefix == "" && (field.Name == "Id" || field.Name == "Orm") {
 			continue
 		}
