@@ -32,10 +32,9 @@ type TestEntityByIdLocal struct {
 	Float32              float32
 	Float32Precision     float32 `orm:"precision=10"`
 	Float64              float64
-	Float32Decimal       float32  `orm:"decimal=8,2"`
-	Float64DecimalSigned float64  `orm:"decimal=8,4;unsigned=false"`
-	Set                  []string `orm:"set=vv,hh,dd"`
-	Year                 uint16   `orm:"year=true"`
+	Float32Decimal       float32 `orm:"decimal=8,2"`
+	Float64DecimalSigned float64 `orm:"decimal=8,4;unsigned=false"`
+	Year                 uint16  `orm:"year=true"`
 	Date                 time.Time
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressByIdLocal
@@ -46,8 +45,15 @@ func TestGetByIdLocal(t *testing.T) {
 	var entity TestEntityByIdLocal
 	PrepareTables(entity)
 
+	found, err := orm.TryById(100, &entity)
+	assert.Nil(t, err)
+	assert.False(t, found)
+	found, err = orm.TryById(100, &entity)
+	assert.Nil(t, err)
+	assert.False(t, found)
+
 	entity = TestEntityByIdLocal{}
-	err := orm.Flush(&entity)
+	err = orm.Flush(&entity)
 	assert.Nil(t, err)
 
 	assert.False(t, entity.Orm.IsDirty())
@@ -55,7 +61,7 @@ func TestGetByIdLocal(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
-	found, err := orm.TryById(1, &entity)
+	found, err = orm.TryById(1, &entity)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -77,7 +83,6 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Equal(t, float64(0), entity.Float64)
 	assert.Equal(t, float32(0), entity.Float32Decimal)
 	assert.Equal(t, float64(0), entity.Float64DecimalSigned)
-	assert.Len(t, entity.Set, 0)
 	assert.Equal(t, uint16(0), entity.Year)
 	assert.IsType(t, time.Time{}, entity.Date)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
@@ -99,7 +104,6 @@ func TestGetByIdLocal(t *testing.T) {
 	entity.Float64 = 7.002
 	entity.Float32Decimal = 123.13
 	entity.Float64DecimalSigned = -12.01
-	entity.Set = []string{"hh", "dd"}
 	entity.Year = 1982
 	entity.Date = time.Date(1982, 4, 6, 0, 0, 0, 0, time.UTC)
 	entity.DateTime = time.Date(2019, 2, 11, 12, 34, 11, 0, time.UTC)
@@ -131,7 +135,6 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Equal(t, 7.002, entity2.Float64)
 	assert.Equal(t, float32(123.13), entity2.Float32Decimal)
 	assert.Equal(t, -12.01, entity2.Float64DecimalSigned)
-	assert.Equal(t, []string{"hh", "dd"}, entity2.Set)
 	assert.Equal(t, uint16(1982), entity2.Year)
 	assert.Equal(t, time.Date(1982, 4, 6, 0, 0, 0, 0, time.UTC), entity2.Date)
 	assert.Equal(t, time.Date(2019, 2, 11, 12, 34, 11, 0, time.UTC), entity2.DateTime)
