@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 	"testing"
@@ -55,7 +56,7 @@ type TestEntitySchema struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressSchema
 	Json                 interface{}
-	ReferenceOne         *orm.ReferenceOne  `orm:"ref=tests.TestEntitySchema"`
+	ReferenceOne         *orm.ReferenceOne  `orm:"ref=tests.TestEntitySchema;foreign=delete cascade"`
 	ReferenceMany        *orm.ReferenceMany `orm:"ref=tests.TestEntitySchema"`
 	IgnoreField          []time.Time        `orm:"ignore"`
 }
@@ -76,4 +77,7 @@ func TestGetAlters(t *testing.T) {
 	alters, err := orm.GetAlters()
 	assert.Nil(t, err)
 	assert.Len(t, alters, 1)
+
+	fmt.Printf("%v\n", tableSchema.GetUsage())
+
 }

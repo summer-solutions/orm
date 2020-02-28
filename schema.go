@@ -259,6 +259,23 @@ func (tableSchema TableSchema) getCacheKeySearch(indexName string, parameters ..
 	return fmt.Sprintf("%s_%s_%x", tableSchema.cachePrefix, indexName, md5Part[:5])
 }
 
+func (tableSchema *TableSchema) GetUsage() map[reflect.Type][]string {
+	results := make(map[reflect.Type][]string)
+	for _, t := range entities {
+		schema := GetTableSchema(t)
+		for _, columnName := range append(schema.refOne, schema.refMany...) {
+			_, has := schema.tags[columnName]["ref"]
+			if has {
+				if results[t] == nil {
+					results[t] = make([]string, 0)
+				}
+				results[t] = append(results[t], columnName)
+			}
+		}
+	}
+	return results
+}
+
 func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix string) (fields map[string]map[string]string, columnNames []string) {
 	fields = make(map[string]map[string]string)
 	columnNames = make([]string, 0)
