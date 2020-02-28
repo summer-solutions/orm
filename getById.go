@@ -69,7 +69,7 @@ func TryById(id uint64, entity interface{}) (found bool, err error) {
 		return false, nil
 	}
 	if localCache != nil {
-		localCache.Set(cacheKey, nil)
+		localCache.Set(cacheKey, reflect.Indirect(reflect.ValueOf(entity)).Interface())
 	}
 	if redisCache != nil {
 		err = redisCache.Set(cacheKey, buildRedisValue(entity, schema), 0)
