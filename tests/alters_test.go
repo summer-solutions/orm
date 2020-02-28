@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 	"testing"
@@ -77,7 +76,4 @@ func TestGetAlters(t *testing.T) {
 	alters, err := orm.GetAlters()
 	assert.Nil(t, err)
 	assert.Len(t, alters, 1)
-
-	fmt.Printf("%v\n", tableSchema.GetUsage())
-
 }
