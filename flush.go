@@ -439,6 +439,17 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			} else {
 				bind[name] = value
 			}
+		case "[]uint8":
+			value := field.Bytes()
+			valueAsString := string(value)
+			if hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
+				continue
+			}
+			if valueAsString == "" {
+				bind[name] = nil
+			} else {
+				bind[name] = value
+			}
 		case "bool":
 			value := "0"
 			if field.Bool() {

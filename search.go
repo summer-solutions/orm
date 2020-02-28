@@ -245,7 +245,11 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 				}
 				field.Set(slice)
 			}
-
+		case "[]uint8":
+			bytes := data[index]
+			if bytes != "" {
+				field.SetBytes([]byte(bytes))
+			}
 		case "bool":
 			val := false
 			if data[index] == "1" {
@@ -323,7 +327,7 @@ func buildFieldList(t reflect.Type, prefix string) string {
 			continue
 		}
 		switch field.Type.String() {
-		case "string", "[]string", "interface {}", "*orm.ReferenceMany":
+		case "string", "[]string", "[]uint8", "interface {}", "*orm.ReferenceMany":
 			columnNameRaw = prefix + t.Field(i).Name
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:

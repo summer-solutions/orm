@@ -58,6 +58,7 @@ type TestEntitySchema struct {
 	ReferenceOne         *orm.ReferenceOne  `orm:"ref=tests.TestEntitySchema;foreign=delete cascade"`
 	ReferenceMany        *orm.ReferenceMany `orm:"ref=tests.TestEntitySchema"`
 	IgnoreField          []time.Time        `orm:"ignore"`
+	Blob                 []byte
 }
 
 func TestGetAlters(t *testing.T) {

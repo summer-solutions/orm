@@ -460,6 +460,9 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		definition, addNotNullIfNotSet = m.handleFloat("double", attributes)
 	case "time.Time":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable = m.handleTime(attributes)
+	case "[]uint8":
+		definition = "blob"
+		addDefaultNullIfNullable = false
 	case "*orm.ReferenceOne":
 		definition = m.handleReferenceOne(attributes)
 		addNotNullIfNotSet = true

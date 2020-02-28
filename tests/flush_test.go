@@ -12,6 +12,7 @@ type TestEntityFlush struct {
 	Orm           *orm.ORM
 	Id            uint16
 	Name          string
+	Blob          []byte
 	ReferenceOne  *orm.ReferenceOne  `orm:"ref=tests.TestEntityFlush"`
 	ReferenceMany *orm.ReferenceMany `orm:"ref=tests.TestEntityFlush"`
 	Ignored       []time.Time        `orm:"ignore"`
