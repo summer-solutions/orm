@@ -264,8 +264,8 @@ func (tableSchema *TableSchema) GetUsage() map[reflect.Type][]string {
 	for _, t := range entities {
 		schema := GetTableSchema(t)
 		for _, columnName := range append(schema.refOne, schema.refMany...) {
-			_, has := schema.tags[columnName]["ref"]
-			if has {
+			ref, has := schema.tags[columnName]["ref"]
+			if has && ref == tableSchema.t.String() {
 				if results[t] == nil {
 					results[t] = make([]string, 0)
 				}
