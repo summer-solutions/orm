@@ -8,62 +8,25 @@ import (
 	"strings"
 )
 
-func CachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) (has bool, err error) {
-	value := reflect.ValueOf(entity)
-	entityType := value.Elem().Type()
-	schema := getTableSchema(entityType)
-	definition, has := schema.cachedIndexesOne[indexName]
-	if !has {
-		return false, fmt.Errorf("uknown index %s", indexName)
-	}
-	Where := NewWhere(definition.Query, arguments...)
-	localCache := schema.GetLocalCache()
-	contextCache := GetContextCache()
-	if localCache == nil && contextCache != nil {
-		localCache = contextCache
-	}
-	redisCache := schema.GetRedisCacheContainer()
-	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
-	var fromCache map[string]interface{}
-	if localCache != nil {
-		fromCache = localCache.HMget(cacheKey, "1")
-	}
-	if fromCache["1"] == nil && redisCache != nil {
-		fromCache, err = redisCache.HMget(cacheKey, "1")
-		if err != nil {
-			return false, err
-		}
-	}
-	var id uint64
-	if fromCache["1"] == nil {
-		results, _ := searchIds(Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
-		l := len(results)
-		value := fmt.Sprintf("%d", l)
-		if l > 0 {
-			id = results[0]
-			value += fmt.Sprintf(" %d", results[0])
-		}
-		fields := map[string]interface{}{"1": value}
-		if localCache != nil {
-			localCache.HMset(cacheKey, fields)
-		}
-		if redisCache != nil {
-			redisCache.HMset(cacheKey, fields)
-		}
-	} else {
-		ids := strings.Split(fromCache["1"].(string), " ")
-		if ids[0] != "0" {
-			id, _ = strconv.ParseUint(ids[1], 10, 64)
-		}
-	}
-	if id > 0 {
-		return true, GetById(id, entity)
-	}
-	return false, nil
+func ClearCachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) error {
+	_, err := cachedSearchOne(entity, indexName, true, arguments...)
+	return err
+}
 
+func CachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) (has bool, err error) {
+
+	return cachedSearchOne(entity, indexName, false, arguments...)
+}
+
+func ClearCachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
+	return cachedSearch(entities, indexName, true, pager, arguments...)
 }
 
 func CachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
+	return cachedSearch(entities, indexName, false, pager, arguments...)
+}
+
+func cachedSearch(entities interface{}, indexName string, clear bool, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
 	value := reflect.ValueOf(entities)
 	entityType := getEntityTypeForSlice(value.Type())
 	schema := getTableSchema(entityType)
@@ -89,6 +52,18 @@ func CachedSearch(entities interface{}, indexName string, pager *Pager, argument
 	var cacheKey string
 
 	cacheKey = schema.getCacheKeySearch(indexName, Where.GetParameters()...)
+	if clear {
+		if localCache != nil {
+			localCache.Remove(cacheKey)
+		}
+		if redisCache != nil {
+			err := redisCache.Del(cacheKey)
+			if err != nil {
+				return 0, err
+			}
+		}
+		return 0, nil
+	}
 	end := pager.GetPageSize()
 	if start+end > definition.Max {
 		end = totalRows - start
@@ -228,4 +203,78 @@ func CachedSearch(entities interface{}, indexName string, pager *Pager, argument
 		return 0, err
 	}
 	return
+}
+
+func cachedSearchOne(entity interface{}, indexName string, clear bool, arguments ...interface{}) (has bool, err error) {
+	value := reflect.ValueOf(entity)
+	entityType := value.Elem().Type()
+	schema := getTableSchema(entityType)
+	definition, has := schema.cachedIndexesOne[indexName]
+	if !has {
+		return false, fmt.Errorf("uknown index %s", indexName)
+	}
+	Where := NewWhere(definition.Query, arguments...)
+	localCache := schema.GetLocalCache()
+	contextCache := GetContextCache()
+	if localCache == nil && contextCache != nil {
+		localCache = contextCache
+	}
+	redisCache := schema.GetRedisCacheContainer()
+	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
+	if clear {
+		if localCache != nil {
+			localCache.Remove(cacheKey)
+		}
+		if redisCache != nil {
+			err := redisCache.Del(cacheKey)
+			if err != nil {
+				return false, err
+			}
+		}
+		return false, nil
+	}
+	var fromCache map[string]interface{}
+	if localCache != nil {
+		fromCache = localCache.HMget(cacheKey, "1")
+	}
+	if fromCache["1"] == nil && redisCache != nil {
+		fromCache, err = redisCache.HMget(cacheKey, "1")
+		if err != nil {
+			return false, err
+		}
+	}
+	var id uint64
+	if fromCache["1"] == nil {
+		results, _ := searchIds(Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
+		l := len(results)
+		value := fmt.Sprintf("%d", l)
+		if l > 0 {
+			id = results[0]
+			value += fmt.Sprintf(" %d", results[0])
+		}
+		fields := map[string]interface{}{"1": value}
+		if localCache != nil {
+			if clear {
+
+			} else {
+				localCache.HMset(cacheKey, fields)
+			}
+		}
+		if redisCache != nil {
+			err := redisCache.HMset(cacheKey, fields)
+			if err != nil {
+				return false, err
+			}
+		}
+	} else {
+		ids := strings.Split(fromCache["1"].(string), " ")
+		if ids[0] != "0" {
+			id, _ = strconv.ParseUint(ids[1], 10, 64)
+		}
+	}
+	if id > 0 {
+		return true, GetById(id, entity)
+	}
+	return false, nil
+
 }
