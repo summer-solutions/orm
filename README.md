@@ -137,6 +137,7 @@ func main() {
     	Json                 interface{}
     	ReferenceOne         *orm.ReferenceOne  `orm:"ref=TestEntity"`
     	ReferenceMany        *orm.ReferenceMany `orm:"ref=TestEntity;max=100"`
+        TemporaryField       bool `orm:"ignore"` //field wont be stored do db or cache
     }
     type TestEntitySecondPool struct {
     	Orm                  *orm.ORM `orm:"mysql=second_pool"`
@@ -513,7 +514,7 @@ func main() {
 
     /* accessing reference */
     user.School.Has() //returns true
-    has, err = :user.School.Load(&school) //has is true
+    has, err := user.School.Load(&school) //has is true
     
     /* deleting reference */
     user.School.Id = 0
