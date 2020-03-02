@@ -10,25 +10,25 @@ import (
 	"time"
 )
 
-func SearchWithCount(where Where, pager *Pager, entities interface{}) (totalRows int, err error) {
+func SearchWithCount(where *Where, pager *Pager, entities interface{}) (totalRows int, err error) {
 	return search(where, pager, true, reflect.ValueOf(entities).Elem())
 }
 
-func Search(where Where, pager *Pager, entities interface{}) error {
+func Search(where *Where, pager *Pager, entities interface{}) error {
 	_, err := search(where, pager, false, reflect.ValueOf(entities).Elem())
 	return err
 }
 
-func SearchIdsWithCount(where Where, pager *Pager, entity interface{}) (results []uint64, totalRows int) {
+func SearchIdsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int) {
 	return searchIdsWithCount(where, pager, reflect.TypeOf(entity))
 }
 
-func SearchIds(where Where, pager *Pager, entity interface{}) []uint64 {
+func SearchIds(where *Where, pager *Pager, entity interface{}) []uint64 {
 	results, _ := searchIds(where, pager, false, reflect.TypeOf(entity))
 	return results
 }
 
-func SearchOne(where Where, entity interface{}) (bool, error) {
+func SearchOne(where *Where, entity interface{}) (bool, error) {
 
 	value := reflect.Indirect(reflect.ValueOf(entity))
 	entityType := value.Type()
@@ -43,11 +43,11 @@ func SearchOne(where Where, entity interface{}) (bool, error) {
 	return has, nil
 }
 
-func searchIdsWithCount(where Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int) {
+func searchIdsWithCount(where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int) {
 	return searchIds(where, pager, true, entityType)
 }
 
-func searchRow(where Where, entityType reflect.Type, value reflect.Value) (bool, error) {
+func searchRow(where *Where, entityType reflect.Type, value reflect.Value) (bool, error) {
 
 	schema := getTableSchema(entityType)
 	var fieldsList = buildFieldList(entityType, "")
@@ -68,7 +68,7 @@ func searchRow(where Where, entityType reflect.Type, value reflect.Value) (bool,
 	return true, nil
 }
 
-func search(where Where, pager *Pager, withCount bool, entities reflect.Value) (int, error) {
+func search(where *Where, pager *Pager, withCount bool, entities reflect.Value) (int, error) {
 
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
@@ -110,7 +110,7 @@ func search(where Where, pager *Pager, withCount bool, entities reflect.Value) (
 	return totalRows, nil
 }
 
-func searchIds(where Where, pager *Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
+func searchIds(where *Where, pager *Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
 	schema := getTableSchema(entityType)
 	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where,
 		schema.GetMysql().databaseInterface.Limit(pager))
@@ -131,7 +131,7 @@ func searchIds(where Where, pager *Pager, withCount bool, entityType reflect.Typ
 	return result, totalRows
 }
 
-func getTotalRows(withCount bool, pager *Pager, where Where, schema *TableSchema, foundRows int) int {
+func getTotalRows(withCount bool, pager *Pager, where *Where, schema *TableSchema, foundRows int) int {
 	totalRows := 0
 	if withCount {
 		totalRows = foundRows

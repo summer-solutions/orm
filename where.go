@@ -6,24 +6,25 @@ import (
 	"strings"
 )
 
-type where struct {
+type Where struct {
 	query      string
 	parameters []interface{}
 }
 
-type Where interface {
-	GetParameters() []interface{}
-}
-
-func (where where) String() string {
+func (where *Where) String() string {
 	return where.query
 }
 
-func (where where) GetParameters() []interface{} {
+func (where *Where) GetParameters() []interface{} {
 	return where.parameters
 }
 
-func NewWhere(query string, parameters ...interface{}) Where {
+func (where *Where) Append(query string, parameters ...interface{}) {
+	where.query += " " + query
+	where.parameters = append(where.parameters, parameters...)
+}
+
+func NewWhere(query string, parameters ...interface{}) *Where {
 	finalParameters := make([]interface{}, 0, len(parameters))
 	for key, value := range parameters {
 		switch reflect.TypeOf(value).Kind().String() {
@@ -40,7 +41,7 @@ func NewWhere(query string, parameters ...interface{}) Where {
 		}
 		finalParameters = append(finalParameters, value)
 	}
-	return where{query, finalParameters}
+	return &Where{query, finalParameters}
 }
 
 func replaceNth(s, old, new string, n int) string {
