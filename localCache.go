@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/golang/groupcache/lru"
+	"sync"
 	"time"
 )
 
@@ -63,16 +64,22 @@ func (c *LocalCache) MGet(keys ...string) map[string]interface{} {
 
 func (c *LocalCache) Set(key string, value interface{}) {
 	start := time.Now()
+	m := &sync.Mutex{}
+	m.Lock()
 	c.lru.Add(key, value)
+	m.Unlock()
 	c.log(key, "ADD", time.Now().Sub(start).Microseconds(), 0)
 }
 
 func (c *LocalCache) MSet(pairs ...interface{}) {
 	start := time.Now()
 	max := len(pairs)
+	m := &sync.Mutex{}
+	m.Lock()
 	for i := 0; i < max; i += 2 {
 		c.lru.Add(pairs[i], pairs[i+1])
 	}
+	m.Unlock()
 
 	if c.loggers != nil {
 		keys := make([]string, max/2)
@@ -116,7 +123,10 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 	m, has := c.lru.Get(key)
 	if !has {
 		m = make(map[string]interface{})
+		mutex := &sync.Mutex{}
+		mutex.Lock()
 		c.lru.Add(key, m)
+		mutex.Unlock()
 	}
 	for k, v := range fields {
 		m.(map[string]interface{})[k] = v
@@ -134,15 +144,21 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 
 func (c *LocalCache) Remove(keys ...string) {
 	start := time.Now()
+	m := &sync.Mutex{}
+	m.Lock()
 	for _, v := range keys {
 		c.lru.Remove(v)
 	}
+	m.Unlock()
 	c.log("", fmt.Sprintf("REMOVE MANY %v", keys), time.Now().Sub(start).Microseconds(), 0)
 }
 
 func (c *LocalCache) Clear() {
 	start := time.Now()
+	m := &sync.Mutex{}
+	m.Lock()
 	c.lru.Clear()
+	m.Unlock()
 	c.log("", "CLEAR", time.Now().Sub(start).Microseconds(), 0)
 }
 
