@@ -137,7 +137,7 @@ func main() {
     	Json                 interface{}
     	ReferenceOne         *orm.ReferenceOne  `orm:"ref=TestEntity"`
     	ReferenceMany        *orm.ReferenceMany `orm:"ref=TestEntity;max=100"`
-        TemporaryField       bool `orm:"ignore"` //field wont be stored do db or cache
+        TemporaryField       bool `orm:"ignore"` //field wont be stored to db or cache
     }
     type TestEntitySecondPool struct {
     	Orm                  *orm.ORM `orm:"mysql=second_pool"`
