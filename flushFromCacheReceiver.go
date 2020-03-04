@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -46,7 +47,14 @@ func (r FlushFromCacheReceiver) Digest() (has bool, err error) {
 		return true, err
 	}
 	entityInCache := reflect.New(schema.t).Elem()
-	err = fillFromDBRow(inCache, entityInCache, schema.t)
+
+	var decoded []string
+	err = json.Unmarshal([]byte(inCache), &decoded)
+	if err != nil {
+		return true, err
+	}
+
+	err = fillFromDBRow(decoded, entityInCache, schema.t)
 	if err != nil {
 		return true, err
 	}

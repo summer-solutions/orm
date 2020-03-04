@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -51,17 +50,33 @@ func searchRow(where *Where, entityType reflect.Type, value reflect.Value) (bool
 
 	schema := getTableSchema(entityType)
 	var fieldsList = buildFieldList(entityType, "")
-	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
-	var row string
-	err := schema.GetMysql().QueryRow(query, where.GetParameters()...).Scan(&row)
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
+
+	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
+		return false, err
+	}
+	if !results.Next() {
+		return false, nil
+	}
+
+	columns, err := results.Columns()
+	if err != nil {
+		return false, err
+	}
+	count := len(columns)
+
+	values := make([]string, count)
+	valuePointers := make([]interface{}, count)
+	for i := range columns {
+		valuePointers[i] = &values[i]
+	}
+	err = results.Scan(valuePointers...)
+	if err != nil {
 		return false, err
 	}
 
-	err = fillFromDBRow(row, value, entityType)
+	err = fillFromDBRow(values, value, entityType)
 	if err != nil {
 		return false, err
 	}
@@ -77,23 +92,35 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value) 
 	schema := getTableSchema(entityType)
 
 	var fieldsList = buildFieldList(entityType, "")
-	query := fmt.Sprintf("SELECT CONCAT_WS('|', %s) FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
 		schema.GetMysql().databaseInterface.Limit(pager))
 	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
 	if err != nil {
 		return 0, err
 	}
+
+	columns, err := results.Columns()
+	if err != nil {
+		return 0, err
+	}
+	count := len(columns)
+
+	values := make([]string, count)
+	valuePointers := make([]interface{}, count)
+
 	valOrigin := entities
 	val := valOrigin
 	i := 0
 	for results.Next() {
-		var row string
-		err = results.Scan(&row)
+		for i := range columns {
+			valuePointers[i] = &values[i]
+		}
+		err = results.Scan(valuePointers...)
 		if err != nil {
 			panic(err.Error())
 		}
 		value := reflect.New(entityType).Elem()
-		err = fillFromDBRow(row, value, entityType)
+		err = fillFromDBRow(values, value, entityType)
 		if err != nil {
 			return 0, err
 		}
@@ -150,9 +177,7 @@ func getTotalRows(withCount bool, pager *Pager, where *Where, schema *TableSchem
 	return totalRows
 }
 
-func fillFromDBRow(row string, value reflect.Value, entityType reflect.Type) error {
-	data := strings.Split(row, "|")
-
+func fillFromDBRow(data []string, value reflect.Value, entityType reflect.Type) error {
 	e := value.Interface()
 	orm, err := initIfNeeded(value, &e)
 	if err != nil {

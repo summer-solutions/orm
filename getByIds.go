@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -53,7 +54,10 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 	if localCache != nil || redisCache != nil {
 		if localCache != nil {
 			resultsLocalCache := localCache.MGet(cacheKeys...)
-			cacheKeys = getKeysForNils(schema.t, resultsLocalCache, results, false)
+			cacheKeys, err = getKeysForNils(schema.t, resultsLocalCache, results, false)
+			if err != nil {
+				return nil, err
+			}
 			localCacheKeys = cacheKeys
 		}
 		if redisCache != nil && len(cacheKeys) > 0 {
@@ -61,7 +65,10 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 			if err != nil {
 				return nil, err
 			}
-			cacheKeys = getKeysForNils(schema.t, resultsRedis, results, true)
+			cacheKeys, err = getKeysForNils(schema.t, resultsRedis, results, true)
+			if err != nil {
+				return nil, err
+			}
 			redisCacheKeys = cacheKeys
 		}
 		ids = make([]uint64, len(cacheKeys))
@@ -71,7 +78,10 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 	}
 	l := len(ids)
 	if l > 0 {
-		search(NewWhere("`Id` IN ?", ids), &Pager{1, l}, false, entities)
+		_, err = search(NewWhere("`Id` IN ?", ids), &Pager{1, l}, false, entities)
+		if err != nil {
+			return nil, err
+		}
 		for i := 0; i < entities.Len(); i++ {
 			e := entities.Index(i)
 			id := e.Field(1).Uint()
@@ -141,7 +151,7 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 	return
 }
 
-func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, results map[string]interface{}, fromRedis bool) []string {
+func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, results map[string]interface{}, fromRedis bool) ([]string, error) {
 	keys := make([]string, 0)
 	for k, v := range rows {
 		if v == nil {
@@ -151,16 +161,29 @@ func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, result
 				results[k] = nil
 			} else if fromRedis {
 				value := reflect.New(entityType).Elem()
-				fillFromDBRow(v.(string), value, entityType)
+
+				var decoded []string
+				err := json.Unmarshal([]byte(v.(string)), &decoded)
+				if err != nil {
+					return nil, err
+				}
+
+				err = fillFromDBRow(decoded, value, entityType)
+				if err != nil {
+					return nil, err
+				}
 				e := value.Interface()
-				initIfNeeded(value, &e)
+				_, err = initIfNeeded(value, &e)
+				if err != nil {
+					return nil, err
+				}
 				results[k] = e
 			} else {
 				results[k] = v
 			}
 		}
 	}
-	return keys
+	return keys, nil
 }
 
 func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references []string) error {

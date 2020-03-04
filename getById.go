@@ -1,9 +1,9 @@
 package orm
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 func TryById(id uint64, entity interface{}) (found bool, err error) {
@@ -47,7 +47,12 @@ func TryById(id uint64, entity interface{}) (found bool, err error) {
 				return false, nil
 			}
 			val := reflect.ValueOf(entity).Elem()
-			err = fillFromDBRow(row, val, entityType)
+			var decoded []string
+			err = json.Unmarshal([]byte(row), &decoded)
+			if err != nil {
+				return true, err
+			}
+			err = fillFromDBRow(decoded, val, entityType)
 			if err != nil {
 				return false, err
 			}
@@ -102,5 +107,6 @@ func buildRedisValue(entity interface{}, schema *TableSchema) string {
 		}
 		value[i] = fmt.Sprintf("%s", v)
 	}
-	return strings.Join(value, "|")
+	encoded, _ := json.Marshal(value)
+	return string(encoded)
 }
