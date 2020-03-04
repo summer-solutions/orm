@@ -160,7 +160,7 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 				query = "1 ORDER BY `Id`"
 			}
 			if !isOne {
-				max := 1000
+				max := 50000
 				maxAttribute, has := values["max"]
 				if has {
 					maxFromUser, err := strconv.Atoi(maxAttribute)

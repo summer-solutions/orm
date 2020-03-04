@@ -35,7 +35,7 @@ func cachedSearch(entities interface{}, indexName string, clear bool, pager *Pag
 		return 0, fmt.Errorf("uknown index %s", indexName)
 	}
 	if pager == nil {
-		pager = &Pager{CurrentPage: 1, PageSize: 50000}
+		pager = &Pager{CurrentPage: 1, PageSize: definition.Max}
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
