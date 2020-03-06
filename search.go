@@ -345,7 +345,7 @@ func buildFieldList(t reflect.Type, prefix string) string {
 		if has {
 			continue
 		}
-		if prefix == "" && (field.Name == "Id" || field.Name == "Orm") {
+		if prefix == "" && (strings.ToLower(field.Name) == "id" || field.Name == "Orm") {
 			continue
 		}
 		if field.Type.String() == "*orm.CachedQuery" {
