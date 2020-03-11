@@ -456,9 +456,9 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 			return nil, err
 		}
 	case "float32":
-		definition, addNotNullIfNotSet = m.handleFloat("float", attributes)
+		definition, addNotNullIfNotSet, defaultValue = m.handleFloat("float", attributes)
 	case "float64":
-		definition, addNotNullIfNotSet = m.handleFloat("double", attributes)
+		definition, addNotNullIfNotSet, defaultValue = m.handleFloat("double", attributes)
 	case "time.Time":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable = m.handleTime(attributes)
 	case "[]uint8":
@@ -503,7 +503,7 @@ func (m Mysql) handleInt(definition string) (string, bool, string) {
 	return definition, true, "'0'"
 }
 
-func (m Mysql) handleFloat(floatDefinition string, attributes map[string]string) (string, bool) {
+func (m Mysql) handleFloat(floatDefinition string, attributes map[string]string) (string, bool, string) {
 	decimal, hasDecimal := attributes["decimal"]
 	var definition string
 	if hasDecimal {
@@ -516,7 +516,7 @@ func (m Mysql) handleFloat(floatDefinition string, attributes map[string]string)
 	if !hasUnsigned || unsigned == "true" {
 		definition += " unsigned"
 	}
-	return definition, true
+	return definition, true, "'0'"
 }
 
 func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string, bool, bool, error) {
