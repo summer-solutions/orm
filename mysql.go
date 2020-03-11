@@ -365,6 +365,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	var definition string
 	var addNotNullIfNotSet bool
 	addDefaultNullIfNullable := true
+	defaultValue := ""
 	var typeAsString = field.Type.String()
 	columnName := prefix + field.Name
 
@@ -406,44 +407,44 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	var err error
 	switch typeAsString {
 	case "uint":
-		definition, addNotNullIfNotSet = m.handleInt("int(10) unsigned")
+		definition, addNotNullIfNotSet, defaultValue = m.handleInt("int(10) unsigned")
 	case "uint8":
-		definition, addNotNullIfNotSet = m.handleInt("tinyint(3) unsigned")
+		definition, addNotNullIfNotSet, defaultValue = m.handleInt("tinyint(3) unsigned")
 	case "uint16":
 		yearAttribute, _ := attributes["year"]
 		if yearAttribute == "true" {
 			return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) NOT NULL DEFAULT '0000'", columnName)}}, nil
 		} else {
-			definition, addNotNullIfNotSet = m.handleInt("smallint(5) unsigned")
+			definition, addNotNullIfNotSet, defaultValue = m.handleInt("smallint(5) unsigned")
 		}
 	case "uint32":
 		mediumIntAttribute, _ := attributes["mediumint"]
 		if mediumIntAttribute == "true" {
-			definition, addNotNullIfNotSet = m.handleInt("mediumint(8) unsigned")
+			definition, addNotNullIfNotSet, defaultValue = m.handleInt("mediumint(8) unsigned")
 		} else {
-			definition, addNotNullIfNotSet = m.handleInt("int(10) unsigned")
+			definition, addNotNullIfNotSet, defaultValue = m.handleInt("int(10) unsigned")
 		}
 	case "uint64":
-		definition, addNotNullIfNotSet = m.handleInt("bigint(20) unsigned")
+		definition, addNotNullIfNotSet, defaultValue = m.handleInt("bigint(20) unsigned")
 	case "int8":
-		definition, addNotNullIfNotSet = m.handleInt("tinyint(4)")
+		definition, addNotNullIfNotSet, defaultValue = m.handleInt("tinyint(4)")
 	case "int16":
-		definition, addNotNullIfNotSet = m.handleInt("smallint(6)")
+		definition, addNotNullIfNotSet, defaultValue = m.handleInt("smallint(6)")
 	case "int32":
 		mediumIntAttribute, _ := attributes["mediumint"]
 		if mediumIntAttribute == "true" {
-			definition, addNotNullIfNotSet = m.handleInt("mediumint(9)")
+			definition, addNotNullIfNotSet, defaultValue = m.handleInt("mediumint(9)")
 		} else {
-			definition, addNotNullIfNotSet = m.handleInt("int(11)")
+			definition, addNotNullIfNotSet, defaultValue = m.handleInt("int(11)")
 		}
 	case "int64":
-		definition, addNotNullIfNotSet = m.handleInt("bigint(20)")
+		definition, addNotNullIfNotSet, defaultValue = m.handleInt("bigint(20)")
 	case "rune":
-		definition, addNotNullIfNotSet = m.handleInt("int(11)")
+		definition, addNotNullIfNotSet, defaultValue = m.handleInt("int(11)")
 	case "int":
-		definition, addNotNullIfNotSet = m.handleInt("int(11)")
+		definition, addNotNullIfNotSet, defaultValue = m.handleInt("int(11)")
 	case "bool":
-		definition, addNotNullIfNotSet = m.handleInt("tinyint(1)")
+		definition, addNotNullIfNotSet, defaultValue = m.handleInt("tinyint(1)")
 	case "string", "[]string":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, err = m.handleString(attributes, false)
 		if err != nil {
@@ -489,14 +490,16 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		definition += " NOT NULL"
 		isNotNull = true
 	}
-	if !isNotNull && addDefaultNullIfNullable {
+	if defaultValue != "" && columnName != "Id" {
+		definition += " DEFAULT " + defaultValue
+	} else if !isNotNull && addDefaultNullIfNullable {
 		definition += " DEFAULT NULL"
 	}
 	return [][2]string{{columnName, fmt.Sprintf("`%s` %s", columnName, definition)}}, nil
 }
 
-func (m Mysql) handleInt(definition string) (string, bool) {
-	return definition, true
+func (m Mysql) handleInt(definition string) (string, bool, string) {
+	return definition, true, "'0'"
 }
 
 func (m Mysql) handleFloat(floatDefinition string, attributes map[string]string) (string, bool) {
