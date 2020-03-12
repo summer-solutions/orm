@@ -365,7 +365,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	var definition string
 	var addNotNullIfNotSet bool
 	addDefaultNullIfNullable := true
-	defaultValue := ""
+	defaultValue := "nil"
 	var typeAsString = field.Type.String()
 	columnName := prefix + field.Name
 
@@ -382,6 +382,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		indexAttribute, has = attributes["unique"]
 		unique = true
 	}
+
 	if has {
 		indexColumns := strings.Split(indexAttribute, ",")
 		for _, value := range indexColumns {
@@ -404,6 +405,9 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		}
 	}
 
+	required, hasRequired := attributes["required"]
+	isRequired := hasRequired && required == "true"
+
 	var err error
 	switch typeAsString {
 	case "uint":
@@ -413,7 +417,11 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	case "uint16":
 		yearAttribute, _ := attributes["year"]
 		if yearAttribute == "true" {
-			return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) NOT NULL DEFAULT '0000'", columnName)}}, nil
+			if isRequired {
+				return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) NOT NULL DEFAULT '0000'", columnName)}}, nil
+			} else {
+				return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) DEFAULT NULL", columnName)}}, nil
+			}
 		} else {
 			definition, addNotNullIfNotSet, defaultValue = m.handleInt("smallint(5) unsigned")
 		}
@@ -446,12 +454,12 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	case "bool":
 		definition, addNotNullIfNotSet, defaultValue = m.handleInt("tinyint(1)")
 	case "string", "[]string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, err = m.handleString(attributes, false)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = m.handleString(attributes, false)
 		if err != nil {
 			return nil, err
 		}
 	case "interface {}", "[]uint64":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, err = m.handleString(attributes, true)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = m.handleString(attributes, true)
 		if err != nil {
 			return nil, err
 		}
@@ -460,7 +468,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	case "float64":
 		definition, addNotNullIfNotSet, defaultValue = m.handleFloat("double", attributes)
 	case "time.Time":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable = m.handleTime(attributes)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = m.handleTime(attributes)
 	case "[]uint8":
 		definition = "blob"
 		addDefaultNullIfNullable = false
@@ -487,11 +495,11 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		return nil, fmt.Errorf("unsoported field type: %s %s", field.Name, field.Type.String())
 	}
 	isNotNull := false
-	if addNotNullIfNotSet {
+	if addNotNullIfNotSet || isRequired {
 		definition += " NOT NULL"
 		isNotNull = true
 	}
-	if defaultValue != "" && columnName != "Id" {
+	if defaultValue != "nil" && columnName != "Id" {
 		definition += " DEFAULT " + defaultValue
 	} else if !isNotNull && addDefaultNullIfNullable {
 		definition += " DEFAULT NULL"
@@ -519,7 +527,7 @@ func (m Mysql) handleFloat(floatDefinition string, attributes map[string]string)
 	return definition, true, "'0'"
 }
 
-func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string, bool, bool, error) {
+func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
 	var definition string
 	enum, hasEnum := attributes["enum"]
 	if hasEnum {
@@ -547,13 +555,18 @@ func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string
 		}
 		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	}
-	return definition, false, addDefaultNullIfNullable, nil
+	defaultValue := "nil"
+	required, hasRequired := attributes["required"]
+	if hasRequired && required == "true" {
+		defaultValue = "''"
+	}
+	return definition, false, addDefaultNullIfNullable, defaultValue, nil
 }
 
-func (m Mysql) handleSetEnum(fieldType string, attribute string, attributes map[string]string) (string, bool, bool, error) {
+func (m Mysql) handleSetEnum(fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
 	enum, has := enums[attribute]
 	if !has {
-		return "", false, false, fmt.Errorf("unregistered enum %s", attribute)
+		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
 	}
 	values := make([]string, 0)
 	for i := 0; i < enum.Type().NumField(); i++ {
@@ -568,16 +581,29 @@ func (m Mysql) handleSetEnum(fieldType string, attribute string, attributes map[
 		definition += fmt.Sprintf("'%s'", value)
 	}
 	definition += ")"
-	_, hasNotNull := attributes["notnull"]
-	return definition, hasNotNull, true, nil
+	required, hasRequired := attributes["required"]
+	defaultValue := "nil"
+	if hasRequired && required == "true" {
+		defaultValue = fmt.Sprintf("'%s'", values[0])
+	}
+	return definition, hasRequired && required == "true", true, defaultValue, nil
 }
 
-func (m Mysql) handleTime(attributes map[string]string) (string, bool, bool) {
+func (m Mysql) handleTime(attributes map[string]string) (string, bool, bool, string) {
 	t, _ := attributes["time"]
+	required, hasRequired := attributes["required"]
+	isRequired := hasRequired && required == "true"
+	defaultValue := "nil"
 	if t == "true" {
-		return "datetime", true, true
+		if isRequired {
+			defaultValue = "'0001-01-01 00:00:00'"
+		}
+		return "datetime", isRequired, true, "nil"
 	}
-	return "date", true, true
+	if isRequired {
+		defaultValue = "'0001-01-01'"
+	}
+	return "date", isRequired, true, defaultValue
 }
 
 func (m Mysql) handleReferenceOne(attributes map[string]string) string {

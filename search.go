@@ -352,11 +352,11 @@ func buildFieldList(t reflect.Type, prefix string) string {
 			continue
 		}
 		switch field.Type.String() {
-		case "string", "[]string", "[]uint8", "interface {}", "*orm.ReferenceMany":
+		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*orm.ReferenceMany", "time.Time":
 			columnNameRaw = prefix + t.Field(i).Name
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:
-			if field.Type.Kind().String() == "struct" && field.Type.String() != "time.Time" {
+			if field.Type.Kind().String() == "struct" {
 				fieldsList += buildFieldList(field.Type, field.Name)
 			} else {
 				columnNameRaw = prefix + t.Field(i).Name

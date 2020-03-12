@@ -411,6 +411,8 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 		if has {
 			continue
 		}
+		required, hasRequired := attributes["required"]
+		isRequired := hasRequired && required == "true"
 		switch field.Type().String() {
 		case "uint", "uint8", "uint16", "uint32", "uint64":
 			val := field.Uint()
@@ -418,6 +420,15 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			year, _ := attributes["year"]
 			if year == "true" {
 				valString = fmt.Sprintf("%04d", val)
+				if hasOld && (old == valString || old == nil && valString == "0000") {
+					continue
+				}
+				if !isRequired && val == 0 {
+					bind[name] = nil
+				} else {
+					bind[name] = valString
+				}
+				continue
 			}
 			if hasOld && old == valString {
 				continue
@@ -435,7 +446,11 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 				continue
 			}
 			if value == "" {
-				bind[name] = nil
+				if isRequired {
+					bind[name] = ""
+				} else {
+					bind[name] = nil
+				}
 			} else {
 				bind[name] = value
 			}
@@ -540,10 +555,12 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 		case "time.Time":
 			value := field.Interface().(time.Time)
 			layout := "2006-01-02"
+			layoutEmpty := "0001-01-01"
 			fieldAttributes := tableSchema.tags[name]
 			timeAttribute, _ := fieldAttributes["time"]
 			var valueAsString string
 			if timeAttribute == "true" {
+				layoutEmpty += " 00:00:00"
 				if value.Year() == 1 {
 					valueAsString = "0001-01-01 00:00:00"
 				} else {
@@ -555,10 +572,21 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			if valueAsString == "" {
 				valueAsString = value.Format(layout)
 			}
-			if hasOld && old == valueAsString {
+			if isRequired {
+				if hasOld && old == valueAsString {
+					continue
+				}
+				bind[name] = valueAsString
 				continue
 			}
-			bind[name] = valueAsString
+			if hasOld && (old == valueAsString || old == nil && valueAsString == layoutEmpty) {
+				continue
+			}
+			if valueAsString == layoutEmpty {
+				bind[name] = nil
+			} else {
+				bind[name] = valueAsString
+			}
 		case "interface {}":
 			value := field.Interface()
 			var valString string

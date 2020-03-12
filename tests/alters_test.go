@@ -32,6 +32,7 @@ type TestEntitySchema struct {
 	Orm                  *orm.ORM `orm:"mysql=schema"`
 	Id                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
+	NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
 	BigName              string `orm:"length=max"`
 	Uint8                uint8  `orm:"unique=SecondIndex:2,ThirdIndex"`
 	Uint24               uint32 `orm:"mediumint=true"`
@@ -48,10 +49,13 @@ type TestEntitySchema struct {
 	Float64              float64
 	Float32Decimal       float32  `orm:"decimal=8,2"`
 	Float64DecimalSigned float64  `orm:"decimal=8,2;unsigned=false"`
-	Enum                 string   `orm:"enum=tests.Color;notnull"`
+	Enum                 string   `orm:"enum=tests.Color"`
+	EnumNotNull          string   `orm:"enum=tests.Color;required"`
 	Set                  []string `orm:"set=tests.Color"`
 	Year                 uint16   `orm:"year=true"`
+	YearNotNull          uint16   `orm:"year=true;required"`
 	Date                 time.Time
+	DateNotNull          time.Time `orm:"required"`
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressSchema
 	Json                 interface{}
