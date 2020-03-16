@@ -65,7 +65,7 @@ type TableSchema struct {
 	tags             map[string]map[string]string
 	cachedIndexes    map[string]cachedQueryDefinition
 	cachedIndexesOne map[string]cachedQueryDefinition
-	columnNames      []string
+	ColumnNames      []string
 	refOne           []string
 	refMany          []string
 	columnsStamp     string
@@ -187,7 +187,7 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 		MysqlPoolName:    mysql,
 		t:                entityType,
 		tags:             tags,
-		columnNames:      columnNames,
+		ColumnNames:      columnNames,
 		columnsStamp:     columnsStamp,
 		cachedIndexes:    cachedQueries,
 		cachedIndexesOne: cachedQueriesOne,
