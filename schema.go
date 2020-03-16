@@ -65,7 +65,8 @@ type TableSchema struct {
 	tags             map[string]map[string]string
 	cachedIndexes    map[string]cachedQueryDefinition
 	cachedIndexesOne map[string]cachedQueryDefinition
-	ColumnNames      []string
+	columnNames      []string
+	columnPathMap    map[string]string
 	refOne           []string
 	refMany          []string
 	columnsStamp     string
@@ -102,7 +103,7 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 	if has {
 		return tableSchema
 	}
-	tags, columnNames := tableSchema.extractTags(entityType, "")
+	tags, columnNames, columnPathMap := tableSchema.extractTags(entityType, "")
 	oneRefs := make([]string, 0)
 	manyRefs := make([]string, 0)
 	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", columnNames)))
@@ -187,7 +188,8 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 		MysqlPoolName:    mysql,
 		t:                entityType,
 		tags:             tags,
-		ColumnNames:      columnNames,
+		columnNames:      columnNames,
+		columnPathMap:    columnPathMap,
 		columnsStamp:     columnsStamp,
 		cachedIndexes:    cachedQueries,
 		cachedIndexesOne: cachedQueriesOne,
@@ -259,6 +261,10 @@ func (tableSchema TableSchema) getCacheKeySearch(indexName string, parameters ..
 	return fmt.Sprintf("%s_%s_%x", tableSchema.cachePrefix, indexName, md5Part[:5])
 }
 
+func (tableSchema *TableSchema) GetColumns() map[string]string {
+	return tableSchema.columnPathMap
+}
+
 func (tableSchema *TableSchema) GetUsage() map[reflect.Type][]string {
 	results := make(map[reflect.Type][]string)
 	for _, t := range entities {
@@ -276,38 +282,50 @@ func (tableSchema *TableSchema) GetUsage() map[reflect.Type][]string {
 	return results
 }
 
-func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix string) (fields map[string]map[string]string, columnNames []string) {
+func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix string) (fields map[string]map[string]string,
+	columnNames []string, columnPathMap map[string]string) {
 	fields = make(map[string]map[string]string)
 	columnNames = make([]string, 0)
+	columnPathMap = make(map[string]string)
 	for i := 0; i < entityType.NumField(); i++ {
 		field := entityType.Field(i)
 
-		subTags, subFields := tableSchema.extractTag(field)
+		subTags, subFields, subMap := tableSchema.extractTag(field)
 		for k, v := range subTags {
 			fields[prefix+k] = v
 		}
+		_, hasRef := fields[field.Name]["ref"]
+		query, hasQuery := field.Tag.Lookup("query")
+		queryOne, hasQueryOne := field.Tag.Lookup("queryOne")
 		if subFields != nil {
 			columnNames = append(columnNames, subFields...)
+			for k, v := range subMap {
+				columnPathMap[k] = v
+			}
 		} else if i != 0 || prefix != "" {
 			columnNames = append(columnNames, prefix+field.Name)
+			if !hasQuery && !hasQueryOne {
+				path := strings.TrimLeft(prefix+"."+field.Name, ".")
+				if hasRef {
+					path += ".Id"
+				}
+				columnPathMap[path] = prefix + field.Name
+			}
 		}
 
-		query, has := field.Tag.Lookup("query")
-		if has {
+		if hasQuery {
 			if fields[field.Name] == nil {
 				fields[field.Name] = make(map[string]string)
 			}
 			fields[field.Name]["query"] = query
 		}
-		query, has = field.Tag.Lookup("queryOne")
-		if has {
+		if hasQueryOne {
 			if fields[field.Name] == nil {
 				fields[field.Name] = make(map[string]string)
 			}
-			fields[field.Name]["queryOne"] = query
+			fields[field.Name]["queryOne"] = queryOne
 		}
-		_, has = fields[field.Name]["ref"]
-		if has {
+		if hasRef {
 			if fields[field.Name] == nil {
 				fields[field.Name] = make(map[string]string)
 			}
@@ -321,7 +339,7 @@ func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix stri
 	return
 }
 
-func (tableSchema *TableSchema) extractTag(field reflect.StructField) (map[string]map[string]string, []string) {
+func (tableSchema *TableSchema) extractTag(field reflect.StructField) (map[string]map[string]string, []string, map[string]string) {
 	tag, ok := field.Tag.Lookup("orm")
 	if ok {
 		args := strings.Split(tag, ";")
@@ -335,11 +353,11 @@ func (tableSchema *TableSchema) extractTag(field reflect.StructField) (map[strin
 				attributes[arg[0]] = arg[1]
 			}
 		}
-		return map[string]map[string]string{field.Name: attributes}, nil
+		return map[string]map[string]string{field.Name: attributes}, nil, nil
 	} else if field.Type.Kind().String() == "struct" {
 		if field.Type.String() != "time.Time" {
 			return tableSchema.extractTags(field.Type, field.Name)
 		}
 	}
-	return make(map[string]map[string]string), nil
+	return make(map[string]map[string]string), nil, nil
 }
