@@ -134,7 +134,7 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, 
 	}
 	totalRows := getTotalRows(withCount, pager, where, schema, i)
 	if len(references) > 0 && i > 0 {
-		err = warmUpReferences(schema, val, references)
+		err = warmUpReferences(schema, val, references, true)
 		if err != nil {
 			return 0, err
 		}

@@ -39,6 +39,7 @@ type TestEntityByIdRedis struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressByIdRedis
 	Json                 interface{}
+	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntityByIdRedis"`
 }
 
 func TestGetByIdRedis(t *testing.T) {
@@ -55,16 +56,21 @@ func TestGetByIdRedis(t *testing.T) {
 	entity = TestEntityByIdRedis{}
 	err = orm.Flush(&entity)
 	assert.Nil(t, err)
+	assert.False(t, entity.Orm.IsDirty())
 
+	entity.ReferenceOne.Id = 1
+	err = orm.Flush(&entity)
+	assert.Nil(t, err)
 	assert.False(t, entity.Orm.IsDirty())
 
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
-	found, err = orm.TryById(1, &entity)
+	found, err = orm.TryById(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
+	assert.NotNil(t, entity.ReferenceOne.Reference)
 	assert.Equal(t, uint(1), entity.Id)
 	assert.Equal(t, "", entity.Name)
 	assert.Equal(t, "", entity.BigName)

@@ -83,7 +83,7 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 		}
 	}
 	if len(references) > 0 {
-		err = warmUpReferences(schema, reflect.ValueOf([]interface{}{entity}), references)
+		err = warmUpReferences(schema, valEntity, references, false)
 		if err != nil {
 			return true, err
 		}
