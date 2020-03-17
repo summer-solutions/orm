@@ -33,6 +33,12 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 			for i := 0; i < valEntity.NumField(); i++ {
 				valEntity.Field(i).Set(valLocal.Field(i))
 			}
+			if len(references) > 0 {
+				err = warmUpReferences(schema, valEntity, references, false)
+				if err != nil {
+					return true, err
+				}
+			}
 			return true, nil
 		}
 	}
@@ -59,6 +65,12 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 			_, err := initIfNeeded(valEntity, entity)
 			if err != nil {
 				return false, err
+			}
+			if len(references) > 0 {
+				err = warmUpReferences(schema, valEntity, references, false)
+				if err != nil {
+					return true, err
+				}
 			}
 			return true, nil
 		}
