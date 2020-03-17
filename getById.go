@@ -6,11 +6,13 @@ import (
 	"reflect"
 )
 
-func TryById(id uint64, entity interface{}) (found bool, err error) {
+func TryById(id uint64, entity interface{}, references ...string) (found bool, err error) {
 	if reflect.TypeOf(entity).Kind() != reflect.Ptr {
 		return false, fmt.Errorf("pointer not provided")
 	}
-	entityType := reflect.ValueOf(entity).Elem().Type()
+	val := reflect.ValueOf(entity)
+	valEntity := val.Elem()
+	entityType := valEntity.Type()
 	schema := getTableSchema(entityType)
 	var cacheKey string
 	localCache := schema.GetLocalCache()
@@ -27,7 +29,6 @@ func TryById(id uint64, entity interface{}) (found bool, err error) {
 			if e == nil {
 				return false, nil
 			}
-			valEntity := reflect.ValueOf(entity).Elem()
 			valLocal := reflect.ValueOf(e)
 			for i := 0; i < valEntity.NumField(); i++ {
 				valEntity.Field(i).Set(valLocal.Field(i))
@@ -46,17 +47,16 @@ func TryById(id uint64, entity interface{}) (found bool, err error) {
 			if row == "nil" {
 				return false, nil
 			}
-			val := reflect.ValueOf(entity).Elem()
 			var decoded []string
 			err = json.Unmarshal([]byte(row), &decoded)
 			if err != nil {
 				return true, err
 			}
-			err = fillFromDBRow(decoded, val, entityType)
+			err = fillFromDBRow(decoded, valEntity, entityType)
 			if err != nil {
 				return false, err
 			}
-			_, err := initIfNeeded(val, entity)
+			_, err := initIfNeeded(valEntity, entity)
 			if err != nil {
 				return false, err
 			}
@@ -74,7 +74,7 @@ func TryById(id uint64, entity interface{}) (found bool, err error) {
 		return false, nil
 	}
 	if localCache != nil {
-		localCache.Set(cacheKey, reflect.Indirect(reflect.ValueOf(entity)).Interface())
+		localCache.Set(cacheKey, reflect.Indirect(val).Interface())
 	}
 	if redisCache != nil {
 		err = redisCache.Set(cacheKey, buildRedisValue(entity, schema), 0)
@@ -82,11 +82,17 @@ func TryById(id uint64, entity interface{}) (found bool, err error) {
 			return false, err
 		}
 	}
+	if len(references) > 0 {
+		err = warmUpReferences(schema, reflect.ValueOf([]interface{}{entity}), references)
+		if err != nil {
+			return true, err
+		}
+	}
 	return true, nil
 }
 
-func GetById(id uint64, entity interface{}) error {
-	found, err := TryById(id, entity)
+func GetById(id uint64, entity interface{}, references ...string) error {
+	found, err := TryById(id, entity, references...)
 	if err != nil {
 		return err
 	}
