@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-func SearchWithCount(where *Where, pager *Pager, entities interface{}) (totalRows int, err error) {
-	return search(where, pager, true, reflect.ValueOf(entities).Elem())
+func SearchWithCount(where *Where, pager *Pager, entities interface{}, references ...string) (totalRows int, err error) {
+	return search(where, pager, true, reflect.ValueOf(entities).Elem(), references...)
 }
 
 func Search(where *Where, pager *Pager, entities interface{}, references ...string) error {
