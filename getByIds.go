@@ -195,6 +195,9 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 	if many {
 		l = rows.Len()
 	}
+	if references[0] == "*" {
+		references = tableSchema.refOne
+	}
 	for _, ref := range references {
 		parts := strings.Split(ref, "/")
 		_, has := tableSchema.tags[parts[0]]
