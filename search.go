@@ -13,8 +13,8 @@ func SearchWithCount(where *Where, pager *Pager, entities interface{}) (totalRow
 	return search(where, pager, true, reflect.ValueOf(entities).Elem())
 }
 
-func Search(where *Where, pager *Pager, entities interface{}) error {
-	_, err := search(where, pager, false, reflect.ValueOf(entities).Elem())
+func Search(where *Where, pager *Pager, entities interface{}, references ...string) error {
+	_, err := search(where, pager, false, reflect.ValueOf(entities).Elem(), references...)
 	return err
 }
 
@@ -83,7 +83,7 @@ func searchRow(where *Where, entityType reflect.Type, value reflect.Value) (bool
 	return true, nil
 }
 
-func search(where *Where, pager *Pager, withCount bool, entities reflect.Value) (int, error) {
+func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
 
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
@@ -133,6 +133,12 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value) 
 		i++
 	}
 	totalRows := getTotalRows(withCount, pager, where, schema, i)
+	if len(references) > 0 && i > 0 {
+		err = warmUpReferences(schema, val, references)
+		if err != nil {
+			return 0, err
+		}
+	}
 	valOrigin.Set(val)
 	return totalRows, nil
 }

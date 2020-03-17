@@ -188,8 +188,10 @@ func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, result
 
 func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references []string) error {
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
+	warmUpRefs := make(map[reflect.Type]map[uint64]*ReferenceOne)
 	warmUpRowsIds := make(map[reflect.Type][]uint64)
 	warmUpSubRefs := make(map[reflect.Type][]string)
+	l := rows.Len()
 	for _, ref := range references {
 		parts := strings.Split(ref, "/")
 		_, has := tableSchema.tags[parts[0]]
@@ -202,7 +204,7 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 		}
 		parentType := GetEntityType(parentRef)
 		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
-		l := rows.Len()
+
 		for i := 0; i < l; i++ {
 			ref := rows.Index(i).FieldByName(parts[0]).Interface()
 			ids := make([]uint64, 0)
@@ -210,12 +212,17 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 			if ok {
 				if oneRef.Id != 0 {
 					ids = append(ids, oneRef.Id)
+					if warmUpRefs[parentType] == nil {
+						warmUpRefs[parentType] = make(map[uint64]*ReferenceOne)
+					}
+					warmUpRefs[parentType][oneRef.Id] = oneRef
 				}
 			} else {
 				manyRef, ok := ref.(*ReferenceMany)
 				if ok {
 					if manyRef.Ids != nil {
 						ids = append(ids, manyRef.Ids...)
+						//TODO add warmUpRefs
 					}
 				}
 			}
@@ -241,6 +248,15 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 		_, err := tryByIds(ids, sub, warmUpSubRefs[t])
 		if err != nil {
 			return err
+		}
+		subLen := sub.Len()
+		for i := 0; i < subLen; i++ {
+			v := sub.Index(i)
+			id := v.Field(1).Uint()
+			ref, has := warmUpRefs[t][id]
+			if has {
+				ref.Reference = v.Interface()
+			}
 		}
 	}
 	return nil

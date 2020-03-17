@@ -8,29 +8,44 @@ import (
 )
 
 type TestEntitySearch struct {
-	Orm  *orm.ORM
+	Orm          *orm.ORM
+	Id           uint
+	Name         string
+	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntitySearchRef"`
+}
+
+type TestEntitySearchRef struct {
+	Orm  *orm.ORM `orm:"redisCache"`
 	Id   uint
 	Name string
 }
 
 func TestSearch(t *testing.T) {
 
-	PrepareTables(TestEntitySearch{})
+	PrepareTables(TestEntitySearch{}, TestEntitySearchRef{})
 	var entity TestEntitySearch
 
 	var entities = make([]interface{}, 10)
+	var refs = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
+		r := TestEntitySearchRef{Name: "Name " + strconv.Itoa(i)}
+		refs[i-1] = &r
 		e := TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
+		orm.Init(&e)
+		e.ReferenceOne.Reference = &r
 		entities[i-1] = &e
 	}
-	err := orm.Flush(entities...)
+	err := orm.Flush(refs...)
+	assert.Nil(t, err)
+	err = orm.Flush(entities...)
 	assert.Nil(t, err)
 
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
 	where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
 	var rows []TestEntitySearch
-	err = orm.Search(where, pager, &rows)
+	err = orm.Search(where, pager, &rows, "ReferenceOne")
 	assert.Nil(t, err)
+	assert.NotNil(t, rows[0].ReferenceOne.Reference)
 	assert.Len(t, rows, 6)
 	assert.Equal(t, uint(2), rows[0].Id)
 	assert.Equal(t, uint(7), rows[5].Id)
