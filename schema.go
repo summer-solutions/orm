@@ -152,7 +152,7 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 			variables := re.FindAllString(query, -1)
 			for _, variable := range variables {
 				fieldName := variable[1:]
-				if fieldName != "Id" {
+				if fieldName != "Id" && fieldName != "ID" {
 					fields = append(fields, fieldName)
 				}
 				query = strings.Replace(query, variable, fmt.Sprintf("`%s`", fieldName), 1)

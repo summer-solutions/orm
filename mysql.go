@@ -499,7 +499,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		definition += " NOT NULL"
 		isNotNull = true
 	}
-	if defaultValue != "nil" && columnName != "Id" {
+	if defaultValue != "nil" && columnName != "Id" && columnName != "ID" {
 		definition += " DEFAULT " + defaultValue
 	} else if !isNotNull && addDefaultNullIfNullable {
 		definition += " DEFAULT NULL"
