@@ -18,5 +18,10 @@ func (r *ReferenceOne) Load(entity interface{}) (bool, error) {
 	if !r.Has() {
 		return false, nil
 	}
-	return TryById(r.Id, entity)
+	has, err := TryById(r.Id, entity)
+	if err != nil {
+		return has, err
+	}
+	r.Reference = entity
+	return has, err
 }

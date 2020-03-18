@@ -267,10 +267,11 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 		for i := 0; i < subLen; i++ {
 			v := sub.Index(i)
 			id := v.Field(1).Uint()
+			entity := v.Interface()
 			refs, has := warmUpRefs[t][id]
 			if has {
 				for _, ref := range refs {
-					ref.Reference = v.Interface()
+					ref.Reference = &entity
 				}
 			}
 		}
