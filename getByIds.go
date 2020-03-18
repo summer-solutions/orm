@@ -188,7 +188,7 @@ func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, result
 
 func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references []string, many bool) error {
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
-	warmUpRefs := make(map[reflect.Type]map[uint64]*ReferenceOne)
+	warmUpRefs := make(map[reflect.Type]map[uint64][]*ReferenceOne)
 	warmUpRowsIds := make(map[reflect.Type][]uint64)
 	warmUpSubRefs := make(map[reflect.Type][]string)
 	l := 1
@@ -224,9 +224,12 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 				if oneRef.Id != 0 {
 					ids = append(ids, oneRef.Id)
 					if warmUpRefs[parentType] == nil {
-						warmUpRefs[parentType] = make(map[uint64]*ReferenceOne)
+						warmUpRefs[parentType] = make(map[uint64][]*ReferenceOne)
 					}
-					warmUpRefs[parentType][oneRef.Id] = oneRef
+					if warmUpRefs[parentType][oneRef.Id] == nil {
+						warmUpRefs[parentType][oneRef.Id] = make([]*ReferenceOne, 0)
+					}
+					warmUpRefs[parentType][oneRef.Id] = append(warmUpRefs[parentType][oneRef.Id], oneRef)
 				}
 			} else {
 				manyRef, ok := ref.(*ReferenceMany)
@@ -264,9 +267,11 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 		for i := 0; i < subLen; i++ {
 			v := sub.Index(i)
 			id := v.Field(1).Uint()
-			ref, has := warmUpRefs[t][id]
+			refs, has := warmUpRefs[t][id]
 			if has {
-				ref.Reference = v.Interface()
+				for _, ref := range refs {
+					ref.Reference = v.Interface()
+				}
 			}
 		}
 	}
