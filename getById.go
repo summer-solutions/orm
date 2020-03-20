@@ -26,7 +26,7 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 		cacheKey = schema.getCacheKey(id)
 		e, has := localCache.Get(cacheKey)
 		if has {
-			if e == nil {
+			if e == "nil" {
 				return false, nil
 			}
 			err = fillFromDBRow(e.([]string), val, entityType)
@@ -78,12 +78,12 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 	}
 	if !found {
 		if localCache != nil {
-			localCache.Set(cacheKey, nil)
+			localCache.Set(cacheKey, "nil")
 		}
 		return false, nil
 	}
 	if localCache != nil {
-		localCache.Set(cacheKey, reflect.Indirect(val).Interface())
+		localCache.Set(cacheKey, buildLocalCacheValue(entity, schema))
 	}
 	if redisCache != nil {
 		err = redisCache.Set(cacheKey, buildRedisValue(entity, schema), 0)
