@@ -39,7 +39,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	orm.GetRedis().RegisterLogger(RedisLogger.Logger())
 
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
-	var rows []TestEntityIndexTestRedis
+	var rows []*TestEntityIndexTestRedis
 	totalRows, err := orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
@@ -94,13 +94,13 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Equal(t, uint(1), rows[0].Id)
 	assert.Len(t, DBLogger.Queries, 4)
 
-	entity = rows[0]
-	entity.Age = 18
-	err = orm.Flush(&entity)
+	rows[0].Age = 18
+	err = orm.Flush(rows[0])
 	assert.Nil(t, err)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 10}
 	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 18)
+
 	assert.Nil(t, err)
 	assert.Equal(t, 6, totalRows)
 	assert.Len(t, rows, 6)
@@ -121,9 +121,8 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 9)
 
-	entity = rows[1]
-	entity.Orm.MarkToDelete()
-	err = orm.Flush(&entity)
+	rows[1].Orm.MarkToDelete()
+	err = orm.Flush(rows[1])
 	assert.Nil(t, err)
 
 	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 10)

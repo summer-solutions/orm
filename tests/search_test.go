@@ -31,7 +31,8 @@ func TestSearch(t *testing.T) {
 		r := TestEntitySearchRef{Name: "Name " + strconv.Itoa(i)}
 		refs[i-1] = &r
 		e := TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
-		orm.Init(&e)
+		err := orm.Init(&e)
+		assert.Nil(t, err)
 		e.ReferenceOne.Reference = &r
 		entities[i-1] = &e
 	}
@@ -42,7 +43,7 @@ func TestSearch(t *testing.T) {
 
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
 	where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
-	var rows []TestEntitySearch
+	var rows []*TestEntitySearch
 	err = orm.Search(where, pager, &rows, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.NotNil(t, rows[0].ReferenceOne.Reference)
@@ -52,7 +53,7 @@ func TestSearch(t *testing.T) {
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 4}
 
-	rows = make([]TestEntitySearch, 0)
+	rows = make([]*TestEntitySearch, 0)
 	totalRows, err := orm.SearchWithCount(where, pager, &rows)
 	assert.Nil(t, err)
 	assert.Len(t, rows, 4)
@@ -61,7 +62,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, uint(5), rows[3].Id)
 
 	pager = &orm.Pager{CurrentPage: 2, PageSize: 4}
-	rows = make([]TestEntitySearch, 0)
+	rows = make([]*TestEntitySearch, 0)
 	totalRows, err = orm.SearchWithCount(where, pager, &rows)
 	assert.Nil(t, err)
 	assert.Len(t, rows, 2)
@@ -70,7 +71,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, uint(7), rows[1].Id)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 6}
-	rows = make([]TestEntitySearch, 0)
+	rows = make([]*TestEntitySearch, 0)
 	totalRows, err = orm.SearchWithCount(where, pager, &rows)
 	assert.Nil(t, err)
 	assert.Len(t, rows, 6)

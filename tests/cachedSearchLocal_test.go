@@ -39,11 +39,12 @@ func TestCachedSearchLocal(t *testing.T) {
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
-	var rows []TestEntityIndexTestLocal
+	var rows []*TestEntityIndexTestLocal
 	totalRows, err := orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
+
 	assert.Equal(t, uint(6), rows[0].Id)
 	assert.Equal(t, uint(7), rows[1].Id)
 	assert.Equal(t, uint(8), rows[2].Id)
@@ -78,9 +79,8 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, uint(1), rows[0].Id)
 	assert.Len(t, DBLogger.Queries, 2)
 
-	entity = rows[0]
-	entity.Age = 18
-	err = orm.Flush(&entity)
+	rows[0].Age = 18
+	err = orm.Flush(rows[0])
 	assert.Nil(t, err)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 10}
@@ -105,9 +105,8 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 6)
 
-	entity = rows[1]
-	entity.Orm.MarkToDelete()
-	err = orm.Flush(&entity)
+	rows[1].Orm.MarkToDelete()
+	err = orm.Flush(rows[1])
 	assert.Nil(t, err)
 
 	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 10)

@@ -23,18 +23,16 @@ func TestGetByIdsLocal(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
-	var found []TestEntityByIdsLocal
+	var found []*TestEntityByIdsLocal
 	missing, err := orm.TryByIds([]uint64{2, 3, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{3}, missing)
-	entity = found[0]
-	assert.Equal(t, uint(2), entity.Id)
-	assert.Equal(t, "Hello", entity.Name)
-	entity = found[1]
-	assert.Equal(t, uint(1), entity.Id)
-	assert.Equal(t, "Hi", entity.Name)
+	assert.Equal(t, uint(2), found[0].Id)
+	assert.Equal(t, "Hello", found[0].Name)
+	assert.Equal(t, uint(1), found[1].Id)
+	assert.Equal(t, "Hi", found[1].Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
 	missing, err = orm.TryByIds([]uint64{2, 3, 1}, &found)
@@ -42,10 +40,8 @@ func TestGetByIdsLocal(t *testing.T) {
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{3}, missing)
-	entity = found[0]
-	assert.Equal(t, uint(2), entity.Id)
-	entity = found[1]
-	assert.Equal(t, uint(1), entity.Id)
+	assert.Equal(t, uint(2), found[0].Id)
+	assert.Equal(t, uint(1), found[1].Id)
 	assert.Len(t, DBLogger.Queries, 1)
 
 	missing, err = orm.TryByIds([]uint64{5, 6, 7}, &found)

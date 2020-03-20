@@ -42,8 +42,9 @@ func flush(lazy bool, entities ...interface{}) error {
 	contextCache := GetContextCache()
 
 	for _, entity := range entities {
-		value := reflect.Indirect(reflect.ValueOf(entity))
-		orm, err := initIfNeeded(value, entity)
+		v := reflect.ValueOf(entity)
+		value := reflect.Indirect(v)
+		orm, err := initIfNeeded(v)
 		if err != nil {
 			return err
 		}
@@ -127,7 +128,7 @@ func flush(lazy bool, entities ...interface{}) error {
 
 				if localCache != nil {
 					db := schema.GetMysql()
-					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(currentId), value.Interface())
+					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(currentId), buildLocalCacheValue(value.Interface(), schema))
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, orm.dBData, false)...)
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
 				}
@@ -177,7 +178,7 @@ func flush(lazy bool, entities ...interface{}) error {
 			value.Field(1).SetUint(id)
 			if localCache != nil {
 				if !lazy {
-					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), value.Interface())
+					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), buildLocalCacheValue(value.Interface(), schema))
 				}
 				addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
@@ -217,7 +218,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		redisCache := schema.GetRedisCacheContainer()
 		if localCache != nil {
 			for id, bind := range deleteBinds {
-				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), nil)
+				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), "nil")
 				addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
 			}
 		}

@@ -84,7 +84,7 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 		}
 		for i := 0; i < entities.Len(); i++ {
 			e := entities.Index(i)
-			id := e.Field(1).Uint()
+			id := e.Elem().Field(1).Uint()
 			results[schema.getCacheKey(id)] = e.Interface()
 		}
 	}
@@ -98,6 +98,8 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 				val := results[key]
 				if val == nil {
 					val = "nil"
+				} else {
+					val = buildLocalCacheValue(val, schema)
 				}
 				pairs[i+1] = val
 				i += 2
@@ -138,7 +140,9 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 		if val == nil {
 			missing = append(missing, id)
 		} else {
-			v = reflect.Append(v, reflect.ValueOf(val))
+			e := reflect.ValueOf(val)
+			e.Elem().Field(1).SetUint(id)
+			v = reflect.Append(v, e)
 		}
 	}
 	valOrigin.Set(v)
@@ -160,26 +164,24 @@ func getKeysForNils(entityType reflect.Type, rows map[string]interface{}, result
 			if v == "nil" {
 				results[k] = nil
 			} else if fromRedis {
-				value := reflect.New(entityType).Elem()
-
+				value := reflect.New(entityType)
 				var decoded []string
 				err := json.Unmarshal([]byte(v.(string)), &decoded)
 				if err != nil {
 					return nil, err
 				}
-
 				err = fillFromDBRow(decoded, value, entityType)
 				if err != nil {
 					return nil, err
 				}
-				e := value.Interface()
-				_, err = initIfNeeded(value, &e)
+				results[k] = value.Interface()
+			} else {
+				value := reflect.New(entityType)
+				err := fillFromDBRow(v.([]string), value, entityType)
 				if err != nil {
 					return nil, err
 				}
-				results[k] = e
-			} else {
-				results[k] = v
+				results[k] = value.Interface()
 			}
 		}
 	}
@@ -214,7 +216,7 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 		for i := 0; i < l; i++ {
 			var ref interface{}
 			if many {
-				ref = rows.Index(i).FieldByName(parts[0]).Interface()
+				ref = rows.Index(i).Elem().FieldByName(parts[0]).Interface()
 			} else {
 				ref = rows.FieldByName(parts[0]).Interface()
 			}
@@ -230,14 +232,6 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 						warmUpRefs[parentType][oneRef.Id] = make([]*ReferenceOne, 0)
 					}
 					warmUpRefs[parentType][oneRef.Id] = append(warmUpRefs[parentType][oneRef.Id], oneRef)
-				}
-			} else {
-				manyRef, ok := ref.(*ReferenceMany)
-				if ok {
-					if manyRef.Ids != nil {
-						ids = append(ids, manyRef.Ids...)
-						//TODO add warmUpRefs
-					}
 				}
 			}
 			if len(ids) == 0 {
@@ -258,7 +252,8 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 		}
 	}
 	for t, ids := range warmUpRowsIds {
-		sub := reflect.New(reflect.SliceOf(t)).Elem()
+
+		sub := reflect.New(reflect.SliceOf(reflect.PtrTo(t))).Elem()
 		_, err := tryByIds(ids, sub, warmUpSubRefs[t])
 		if err != nil {
 			return err
@@ -266,12 +261,12 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 		subLen := sub.Len()
 		for i := 0; i < subLen; i++ {
 			v := sub.Index(i)
-			id := v.Field(1).Uint()
+			id := v.Elem().Field(1).Uint()
 			entity := v.Interface()
 			refs, has := warmUpRefs[t][id]
 			if has {
 				for _, ref := range refs {
-					ref.Reference = &entity
+					ref.Reference = entity
 				}
 			}
 		}

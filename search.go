@@ -29,13 +29,8 @@ func SearchIds(where *Where, pager *Pager, entity interface{}) []uint64 {
 
 func SearchOne(where *Where, entity interface{}) (bool, error) {
 
-	value := reflect.Indirect(reflect.ValueOf(entity))
-	entityType := value.Type()
-	has, err := searchRow(where, entityType, value)
-	if err != nil {
-		return false, err
-	}
-	_, err = initIfNeeded(value, entity)
+	value := reflect.ValueOf(entity)
+	has, err := searchRow(where, value)
 	if err != nil {
 		return false, err
 	}
@@ -46,8 +41,9 @@ func searchIdsWithCount(where *Where, pager *Pager, entityType reflect.Type) (re
 	return searchIds(where, pager, true, entityType)
 }
 
-func searchRow(where *Where, entityType reflect.Type, value reflect.Value) (bool, error) {
+func searchRow(where *Where, value reflect.Value) (bool, error) {
 
+	entityType := value.Elem().Type()
 	schema := getTableSchema(entityType)
 	var fieldsList = buildFieldList(entityType, "")
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
@@ -119,17 +115,12 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, 
 		if err != nil {
 			panic(err.Error())
 		}
-		value := reflect.New(entityType).Elem()
+		value := reflect.New(entityType)
 		err = fillFromDBRow(values, value, entityType)
 		if err != nil {
 			return 0, err
 		}
-		e := value.Interface()
-		val = reflect.Append(val, reflect.ValueOf(e))
-		_, err = initIfNeeded(value, &e)
-		if err != nil {
-			return 0, err
-		}
+		val = reflect.Append(val, value)
 		i++
 	}
 	totalRows := getTotalRows(withCount, pager, where, schema, i)
@@ -184,15 +175,15 @@ func getTotalRows(withCount bool, pager *Pager, where *Where, schema *TableSchem
 }
 
 func fillFromDBRow(data []string, value reflect.Value, entityType reflect.Type) error {
-	e := value.Interface()
-	orm, err := initIfNeeded(value, &e)
+	orm, err := initIfNeeded(value)
 	if err != nil {
 		return err
 	}
-	fillStruct(0, data, entityType, value, "")
+	elem := value.Elem()
+	fillStruct(0, data, entityType, elem, "")
 	orm.dBData["Id"] = data[0]
 
-	_, bind, err := orm.isDirty(value)
+	_, bind, err := orm.isDirty(elem)
 	if err != nil {
 		return err
 	}

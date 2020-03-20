@@ -11,8 +11,8 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 		return false, fmt.Errorf("pointer not provided")
 	}
 	val := reflect.ValueOf(entity)
-	valEntity := val.Elem()
-	entityType := valEntity.Type()
+	elem := val.Elem()
+	entityType := elem.Type()
 	schema := getTableSchema(entityType)
 	var cacheKey string
 	localCache := schema.GetLocalCache()
@@ -29,12 +29,13 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 			if e == nil {
 				return false, nil
 			}
-			valLocal := reflect.ValueOf(e)
-			for i := 0; i < valEntity.NumField(); i++ {
-				valEntity.Field(i).Set(valLocal.Field(i))
+			err = fillFromDBRow(e.([]string), val, entityType)
+			if err != nil {
+				return false, err
 			}
+			elem.Field(1).SetUint(id)
 			if len(references) > 0 {
-				err = warmUpReferences(schema, valEntity, references, false)
+				err = warmUpReferences(schema, elem, references, false)
 				if err != nil {
 					return true, err
 				}
@@ -58,16 +59,12 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 			if err != nil {
 				return true, err
 			}
-			err = fillFromDBRow(decoded, valEntity, entityType)
-			if err != nil {
-				return false, err
-			}
-			_, err := initIfNeeded(valEntity, entity)
+			err = fillFromDBRow(decoded, val, entityType)
 			if err != nil {
 				return false, err
 			}
 			if len(references) > 0 {
-				err = warmUpReferences(schema, valEntity, references, false)
+				err = warmUpReferences(schema, elem, references, false)
 				if err != nil {
 					return true, err
 				}
@@ -95,7 +92,7 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 		}
 	}
 	if len(references) > 0 {
-		err = warmUpReferences(schema, valEntity, references, false)
+		err = warmUpReferences(schema, elem, references, false)
 		if err != nil {
 			return true, err
 		}
@@ -127,4 +124,18 @@ func buildRedisValue(entity interface{}, schema *TableSchema) string {
 	}
 	encoded, _ := json.Marshal(value)
 	return string(encoded)
+}
+
+func buildLocalCacheValue(entity interface{}, schema *TableSchema) []string {
+	bind := reflect.Indirect(reflect.ValueOf(entity)).Field(0).Interface().(*ORM).dBData
+	length := len(schema.columnNames)
+	value := make([]string, length)
+	for i := 0; i < length; i++ {
+		v := bind[schema.columnNames[i]]
+		if v == nil {
+			v = ""
+		}
+		value[i] = fmt.Sprintf("%s", v)
+	}
+	return value
 }

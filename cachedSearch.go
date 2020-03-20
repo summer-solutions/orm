@@ -14,7 +14,6 @@ func ClearCachedSearchOne(entity interface{}, indexName string, arguments ...int
 }
 
 func CachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) (has bool, err error) {
-
 	return cachedSearchOne(entity, indexName, false, arguments...)
 }
 

@@ -34,8 +34,8 @@ func RegisterEnum(name string, enum interface{}) {
 
 func Init(entity ...interface{}) error {
 	for _, e := range entity {
-		value := reflect.Indirect(reflect.ValueOf(e))
-		_, err := initIfNeeded(value, e)
+		value := reflect.ValueOf(e)
+		_, err := initIfNeeded(value)
 		if err != nil {
 			return err
 		}
@@ -43,33 +43,33 @@ func Init(entity ...interface{}) error {
 	return nil
 }
 
-func initIfNeeded(value reflect.Value, entity interface{}) (*ORM, error) {
-	orm := value.Field(0).Interface().(*ORM)
+func initIfNeeded(value reflect.Value) (*ORM, error) {
+	elem := value.Elem()
+	orm := elem.Field(0).Interface().(*ORM)
 	if orm == nil {
-		orm = &ORM{dBData: make(map[string]interface{}), e: entity}
-		value.Field(0).Set(reflect.ValueOf(orm))
-		tableSchema := getTableSchema(value.Type())
-		for i := 2; i < value.NumField(); i++ {
-			field := value.Field(i)
+		orm = &ORM{dBData: make(map[string]interface{}), e: value.Interface()}
+		elem.Field(0).Set(reflect.ValueOf(orm))
+		tableSchema := getTableSchema(elem.Type())
+		for i := 2; i < elem.NumField(); i++ {
+			field := elem.Field(i)
 			isOne := field.Type().String() == "*orm.ReferenceOne"
 			isTwo := !isOne && field.Type().String() == "*orm.ReferenceMany"
 			if isOne || isTwo {
-				f := value.Type().Field(i)
+				f := elem.Type().Field(i)
 				reference, has := tableSchema.Tags[f.Name]["ref"]
 				if !has {
 					return nil, fmt.Errorf("missing ref tag")
 				}
 				if isOne {
 					def := ReferenceOne{t: GetEntityType(reference)}
-					value.FieldByName(f.Name).Set(reflect.ValueOf(&def))
+					elem.FieldByName(f.Name).Set(reflect.ValueOf(&def))
 				} else {
 					def := ReferenceMany{t: GetEntityType(reference)}
-					value.FieldByName(f.Name).Set(reflect.ValueOf(&def))
+					elem.FieldByName(f.Name).Set(reflect.ValueOf(&def))
 				}
 			}
 		}
 	}
-	orm.e = entity
 	return orm, nil
 }
 

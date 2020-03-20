@@ -84,7 +84,7 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, 0, edited1.ReferenceMany.Len())
 	assert.Equal(t, 2, edited2.ReferenceMany.Len())
 	assert.Equal(t, []uint64{3, 4}, edited2.ReferenceMany.Ids)
-	var refs []TestEntityFlush
+	var refs []*TestEntityFlush
 	err = edited2.ReferenceMany.Load(&refs)
 	assert.Nil(t, err)
 	assert.Len(t, refs, 2)
@@ -101,7 +101,7 @@ func TestFlush(t *testing.T) {
 	edited1.Name = "Name 2.2"
 	toDelete.Orm.MarkToDelete()
 	newEntity := TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
-	orm.Init(&newEntity)
+	err = orm.Init(&newEntity)
 	assert.Nil(t, err)
 	assert.True(t, edited1.Orm.IsDirty())
 	assert.Nil(t, err)

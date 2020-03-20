@@ -31,15 +31,17 @@ func TestEntityByIdsRedis(t *testing.T) {
 	flusher := orm.NewFlusher(100, false)
 	for i := 1; i <= 10; i++ {
 		e := TestEntityByIdsRedisCache{Name: "Name " + strconv.Itoa(i)}
-		orm.Init(&e)
+		err := orm.Init(&e)
+		assert.Nil(t, err)
 		if i > 4 {
 			e.ReferenceOne.Id = uint64(i - 3)
 			e.ReferenceMany.Add(uint64(i-2), uint64(i-1))
 		}
-		err := flusher.RegisterEntity(&e)
+		err = flusher.RegisterEntity(&e)
 		assert.Nil(t, err)
 		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
-		orm.Init(&e2)
+		err = orm.Init(&e2)
+		assert.Nil(t, err)
 		if i > 5 {
 			e2.ReferenceOne.Id = uint64(i - 4)
 		}
@@ -56,18 +58,16 @@ func TestEntityByIdsRedis(t *testing.T) {
 	CacheLogger := &TestCacheLogger{}
 	orm.GetRedis().RegisterLogger(CacheLogger.Logger())
 
-	var found []TestEntityByIdsRedisCache
+	var found []*TestEntityByIdsRedisCache
 	missing, err := orm.TryByIds([]uint64{2, 13, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{13}, missing)
-	entity = found[0]
-	assert.Equal(t, uint(2), entity.Id)
-	assert.Equal(t, "Name 2", entity.Name)
-	entity = found[1]
-	assert.Equal(t, uint(1), entity.Id)
-	assert.Equal(t, "Name 1", entity.Name)
+	assert.Equal(t, uint(2), found[0].Id)
+	assert.Equal(t, "Name 2", found[0].Name)
+	assert.Equal(t, uint(1), found[1].Id)
+	assert.Equal(t, "Name 1", found[1].Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
 	missing, err = orm.TryByIds([]uint64{2, 13, 1}, &found)
@@ -75,10 +75,8 @@ func TestEntityByIdsRedis(t *testing.T) {
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{13}, missing)
-	entity = found[0]
-	assert.Equal(t, uint(2), entity.Id)
-	entity = found[1]
-	assert.Equal(t, uint(1), entity.Id)
+	assert.Equal(t, uint(2), found[0].Id)
+	assert.Equal(t, uint(1), found[1].Id)
 	assert.Len(t, DBLogger.Queries, 1)
 
 	missing, err = orm.TryByIds([]uint64{25, 26, 27}, &found)
@@ -104,7 +102,7 @@ func TestEntityByIdsRedis(t *testing.T) {
 	assert.True(t, has)
 	assert.Equal(t, uint(5), ref1.Id)
 	assert.Equal(t, 2, found[0].ReferenceMany.Len())
-	var ref2 []TestEntityByIdsRedisCacheRef
+	var ref2 []*TestEntityByIdsRedisCacheRef
 	err = found[0].ReferenceMany.Load(&ref2)
 	assert.Nil(t, err)
 	assert.Len(t, ref2, 2)

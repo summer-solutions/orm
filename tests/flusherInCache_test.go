@@ -29,7 +29,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Nil(t, err)
 
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
-	var rows []TestEntityFlusherInCacheRedis
+	var rows []*TestEntityFlusherInCacheRedis
 	totalRows, err := orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, totalRows)

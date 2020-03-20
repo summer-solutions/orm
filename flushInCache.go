@@ -13,22 +13,23 @@ func FlushInCache(entities ...interface{}) error {
 
 	for _, entity := range entities {
 
-		value := reflect.Indirect(reflect.ValueOf(entity))
-		orm, err := initIfNeeded(value, entity)
+		value := reflect.ValueOf(entity)
+		elem := value.Elem()
+		orm, err := initIfNeeded(value)
 		if err != nil {
 			return err
 		}
-		value.Field(0).Interface().(*ORM).e = entity
-		t := value.Type()
+		elem.Field(0).Interface().(*ORM).e = entity
+		t := elem.Type()
 
-		id := value.Field(1).Uint()
+		id := elem.Field(1).Uint()
 		entityName := t.String()
 		schema := getTableSchema(t)
 		cache := schema.GetRedisCacheContainer()
 		if cache == nil || id == 0 {
 			invalidEntities = append(invalidEntities, entity)
 		} else {
-			isDirty, bind, err := orm.isDirty(value)
+			isDirty, bind, err := orm.isDirty(elem)
 			if err != nil {
 				return err
 			}
@@ -39,7 +40,7 @@ func FlushInCache(entities ...interface{}) error {
 			for k, v := range orm.dBData {
 				old[k] = v
 			}
-			injectBind(value, bind)
+			injectBind(elem, bind)
 			entityCacheKey := schema.getCacheKey(id)
 			entityCacheValue := buildRedisValue(entity, schema)
 			if redisValues[cache.code] == nil {

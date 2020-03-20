@@ -92,6 +92,7 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Equal(t, AddressByIdLocal{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.Json)
 	assert.Nil(t, err)
+
 	assert.False(t, entity.Orm.IsDirty())
 	assert.Len(t, DBLogger.Queries, 0)
 
@@ -141,7 +142,7 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Equal(t, time.Date(2019, 2, 11, 12, 34, 11, 0, time.UTC), entity2.DateTime)
 	assert.Equal(t, "wall street", entity2.Address.Street)
 	assert.Equal(t, uint16(12), entity2.Address.Building)
-	assert.Equal(t, map[string]string{"name": "John"}, entity2.Json)
+	assert.Equal(t, map[string]interface{}{"name": "John"}, entity2.Json)
 	assert.Len(t, DBLogger.Queries, 1)
 }
 
