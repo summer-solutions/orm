@@ -62,7 +62,7 @@ type TableSchema struct {
 	TableName        string
 	MysqlPoolName    string
 	t                reflect.Type
-	tags             map[string]map[string]string
+	Tags             map[string]map[string]string
 	cachedIndexes    map[string]cachedQueryDefinition
 	cachedIndexesOne map[string]cachedQueryDefinition
 	columnNames      []string
@@ -187,7 +187,7 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 	tableSchema = &TableSchema{TableName: table,
 		MysqlPoolName:    mysql,
 		t:                entityType,
-		tags:             tags,
+		Tags:             tags,
 		columnNames:      columnNames,
 		columnPathMap:    columnPathMap,
 		columnsStamp:     columnsStamp,
@@ -270,7 +270,7 @@ func (tableSchema *TableSchema) GetUsage() map[reflect.Type][]string {
 	for _, t := range entities {
 		schema := GetTableSchema(t)
 		for _, columnName := range append(schema.refOne, schema.refMany...) {
-			ref, has := schema.tags[columnName]["ref"]
+			ref, has := schema.Tags[columnName]["ref"]
 			if has && ref == tableSchema.t.String() {
 				if results[t] == nil {
 					results[t] = make([]string, 0)

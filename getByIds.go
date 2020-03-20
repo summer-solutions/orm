@@ -200,11 +200,11 @@ func warmUpReferences(tableSchema *TableSchema, rows reflect.Value, references [
 	}
 	for _, ref := range references {
 		parts := strings.Split(ref, "/")
-		_, has := tableSchema.tags[parts[0]]
+		_, has := tableSchema.Tags[parts[0]]
 		if !has {
 			return fmt.Errorf("invalid reference %s", ref)
 		}
-		parentRef, has := tableSchema.tags[parts[0]]["ref"]
+		parentRef, has := tableSchema.Tags[parts[0]]["ref"]
 		if !has {
 			return fmt.Errorf("missing reference tag %s", ref)
 		}

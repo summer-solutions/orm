@@ -214,7 +214,7 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 		field := value.Field(i)
 		name := prefix + t.Field(i).Name
 
-		tags := getTableSchema(t).tags[name]
+		tags := getTableSchema(t).Tags[name]
 		_, has := tags["ignore"]
 		if has {
 			continue
@@ -346,7 +346,7 @@ func buildFieldList(t reflect.Type, prefix string) string {
 	for i := 0; i < t.NumField(); i++ {
 		var columnNameRaw string
 		field := t.Field(i)
-		tags := getTableSchema(t).tags[field.Name]
+		tags := getTableSchema(t).Tags[field.Name]
 		_, has := tags["ignore"]
 		if has {
 			continue

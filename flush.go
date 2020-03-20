@@ -406,7 +406,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 		}
 		old, _ := oldData[name]
 		field := value.Field(i)
-		attributes := tableSchema.tags[name]
+		attributes := tableSchema.Tags[name]
 		_, has := attributes["ignore"]
 		if has {
 			continue
@@ -482,7 +482,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 				bitSize = 64
 				precision = 16
 			}
-			fieldAttributes := tableSchema.tags[name]
+			fieldAttributes := tableSchema.Tags[name]
 			precisionAttribute, has := fieldAttributes["precision"]
 			if has {
 				userPrecision, err := strconv.Atoi(precisionAttribute)
@@ -556,7 +556,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			value := field.Interface().(time.Time)
 			layout := "2006-01-02"
 			layoutEmpty := "0001-01-01"
-			fieldAttributes := tableSchema.tags[name]
+			fieldAttributes := tableSchema.Tags[name]
 			timeAttribute, _ := fieldAttributes["time"]
 			var valueAsString string
 			if timeAttribute == "true" {
@@ -670,7 +670,7 @@ func addCacheDeletes(cacheDeletes map[string]map[string]map[string]bool, dbCode 
 func addDirtyQueues(keys map[string][]interface{}, bind map[string]interface{}, schema *TableSchema, id uint64, action string) {
 	results := make(map[string]interface{})
 	key := createDirtyQueueMember(schema.t.String()+":"+action, id)
-	for column, tags := range schema.tags {
+	for column, tags := range schema.Tags {
 		queues, has := tags["dirty"]
 		if !has {
 			continue

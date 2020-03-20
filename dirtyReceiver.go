@@ -33,7 +33,7 @@ func (r DirtyReceiver) GetEntities() []string {
 Exit:
 	for name, t := range entities {
 		schema := getTableSchema(t)
-		for _, tags := range schema.tags {
+		for _, tags := range schema.Tags {
 			queues, has := tags["dirty"]
 			if !has {
 				continue

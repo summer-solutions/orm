@@ -55,7 +55,7 @@ func initIfNeeded(value reflect.Value, entity interface{}) (*ORM, error) {
 			isTwo := !isOne && field.Type().String() == "*orm.ReferenceMany"
 			if isOne || isTwo {
 				f := value.Type().Field(i)
-				reference, has := tableSchema.tags[f.Name]["ref"]
+				reference, has := tableSchema.Tags[f.Name]["ref"]
 				if !has {
 					return nil, fmt.Errorf("missing ref tag")
 				}

@@ -369,7 +369,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	var typeAsString = field.Type.String()
 	columnName := prefix + field.Name
 
-	attributes := tableSchema.tags[columnName]
+	attributes := tableSchema.Tags[columnName]
 
 	_, has := attributes["ignore"]
 	if has {
