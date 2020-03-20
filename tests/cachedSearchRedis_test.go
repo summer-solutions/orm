@@ -51,6 +51,21 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Equal(t, uint(10), rows[4].Id)
 	assert.Len(t, DBLogger.Queries, 2)
 
+	//@todo fix it
+	var testEntities = make([]interface{}, 10)
+	for i := 1; i <= 5; i++ {
+		e := TestEntityIndexTestRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
+		testEntities[i-1] = &e
+	}
+
+	err = orm.Flush(testEntities...)
+	assert.Nil(t, err)
+	pager = &orm.Pager{CurrentPage: 1, PageSize: 100}
+	var rowsTestEntities []TestEntityIndexTestRedis
+	totalRows, err = orm.CachedSearch(&rowsTestEntities, "IndexAge", pager, 18)
+	assert.Equal(t, 10, totalRows)
+	///
+
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 100}
 	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
