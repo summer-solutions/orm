@@ -8,23 +8,40 @@ import (
 )
 
 type TestEntityIndexTestLocal struct {
-	Orm       *orm.ORM `orm:"localCache"`
-	Id        uint
-	Name      string `orm:"length=100;index=FirstIndex"`
-	Age       uint16
-	IndexAge  *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
-	IndexAll  *orm.CachedQuery `query:""`
-	IndexName *orm.CachedQuery `queryOne:":Name = ?"`
+	Orm          *orm.ORM `orm:"localCache"`
+	Id           uint
+	Name         string `orm:"length=100;index=FirstIndex"`
+	Age          uint16
+	IndexAge     *orm.CachedQuery  `query:":Age = ? ORDER BY :Id"`
+	IndexAll     *orm.CachedQuery  `query:""`
+	IndexName    *orm.CachedQuery  `queryOne:":Name = ?"`
+	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityIndexTestLocalRef"`
+}
+
+type TestEntityIndexTestLocalRef struct {
+	Orm  *orm.ORM
+	Id   uint
+	Name string
 }
 
 func TestCachedSearchLocal(t *testing.T) {
 
 	var entity TestEntityIndexTestLocal
-	PrepareTables(entity)
+	var entityRef TestEntityIndexTestLocalRef
+	PrepareTables(entity, entityRef)
+
+	for i := 1; i <= 5; i++ {
+		e := &TestEntityIndexTestLocalRef{Name: "Name " + strconv.Itoa(i)}
+		err := orm.Flush(e)
+		assert.Nil(t, err)
+	}
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
 		e := TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
+		err := orm.Init(&e)
+		assert.Nil(t, err)
+		e.ReferenceOne.Id = uint64(i)
 		entities[i-1] = &e
 	}
 	for i := 6; i <= 10; i++ {
@@ -35,12 +52,19 @@ func TestCachedSearchLocal(t *testing.T) {
 	err := orm.Flush(entities...)
 	assert.Nil(t, err)
 
+	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
+	var rows []*TestEntityIndexTestLocal
+	totalRows, err := orm.CachedSearch(&rows, "IndexAge", pager, 10)
+	assert.Nil(t, err)
+	assert.Equal(t, 5, totalRows)
+	assert.Len(t, rows, 5)
+	assert.Equal(t, uint64(1), rows[0].ReferenceOne.Id)
+	assert.Equal(t, uint64(2), rows[1].ReferenceOne.Id)
+
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
-	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
-	var rows []*TestEntityIndexTestLocal
-	totalRows, err := orm.CachedSearch(&rows, "IndexAge", pager, 18)
+	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
@@ -77,7 +101,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
 	assert.Equal(t, uint(1), rows[0].Id)
-	assert.Len(t, DBLogger.Queries, 2)
+	assert.Len(t, DBLogger.Queries, 1)
 
 	rows[0].Age = 18
 	err = orm.Flush(rows[0])
@@ -90,20 +114,20 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, rows, 6)
 	assert.Equal(t, uint(1), rows[0].Id)
 	assert.Equal(t, uint(6), rows[1].Id)
-	assert.Len(t, DBLogger.Queries, 4)
+	assert.Len(t, DBLogger.Queries, 3)
 
 	totalRows, err = orm.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, 4, totalRows)
 	assert.Len(t, rows, 4)
 	assert.Equal(t, uint(2), rows[0].Id)
-	assert.Len(t, DBLogger.Queries, 5)
+	assert.Len(t, DBLogger.Queries, 4)
 
 	totalRows, err = orm.CachedSearch(&rows, "IndexAll", pager)
 	assert.Nil(t, err)
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
-	assert.Len(t, DBLogger.Queries, 6)
+	assert.Len(t, DBLogger.Queries, 5)
 
 	rows[1].Orm.MarkToDelete()
 	err = orm.Flush(rows[1])
@@ -114,13 +138,13 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, 3, totalRows)
 	assert.Len(t, rows, 3)
 	assert.Equal(t, uint(3), rows[0].Id)
-	assert.Len(t, DBLogger.Queries, 8)
+	assert.Len(t, DBLogger.Queries, 7)
 
 	totalRows, err = orm.CachedSearch(&rows, "IndexAll", pager)
 	assert.Nil(t, err)
 	assert.Equal(t, 9, totalRows)
 	assert.Len(t, rows, 9)
-	assert.Len(t, DBLogger.Queries, 9)
+	assert.Len(t, DBLogger.Queries, 8)
 
 	entity = TestEntityIndexTestLocal{Name: "Name 11", Age: uint16(18)}
 	err = orm.Flush(&entity)
@@ -131,13 +155,13 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, 7, totalRows)
 	assert.Len(t, rows, 7)
 	assert.Equal(t, uint(11), rows[6].Id)
-	assert.Len(t, DBLogger.Queries, 11)
+	assert.Len(t, DBLogger.Queries, 10)
 
 	totalRows, err = orm.CachedSearch(&rows, "IndexAll", pager)
 	assert.Nil(t, err)
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
-	assert.Len(t, DBLogger.Queries, 12)
+	assert.Len(t, DBLogger.Queries, 11)
 
 	var row TestEntityIndexTestLocal
 	has, err := orm.CachedSearchOne(&row, "IndexName", "Name 6")

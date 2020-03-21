@@ -298,13 +298,15 @@ func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix stri
 		query, hasQuery := field.Tag.Lookup("query")
 		queryOne, hasQueryOne := field.Tag.Lookup("queryOne")
 		if subFields != nil {
-			columnNames = append(columnNames, subFields...)
+			if !hasQuery && !hasQueryOne {
+				columnNames = append(columnNames, subFields...)
+			}
 			for k, v := range subMap {
 				columnPathMap[k] = v
 			}
 		} else if i != 0 || prefix != "" {
-			columnNames = append(columnNames, prefix+field.Name)
 			if !hasQuery && !hasQueryOne {
+				columnNames = append(columnNames, prefix+field.Name)
 				path := strings.TrimLeft(prefix+"."+field.Name, ".")
 				if hasRef {
 					path += ".Id"

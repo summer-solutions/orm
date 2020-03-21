@@ -54,7 +54,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 1)
 	assert.Equal(t, "INSERT INTO TestEntityFlusherInCacheLocal() VALUES () []", DBLogger.Queries[0])
 	assert.Len(t, LoggerRedisCache.Requests, 1)
-	assert.Equal(t, "MSET [TestEntityFlusherInCacheRedisce:1 ] ", LoggerRedisCache.Requests[0])
+	assert.Equal(t, "MSET [TestEntityFlusherInCacheRedis3c:1 ] ", LoggerRedisCache.Requests[0])
 	assert.Len(t, LoggerRedisQueue.Requests, 1)
 	assert.Equal(t, "SADD 1 values dirty_queue", LoggerRedisQueue.Requests[0])
 
@@ -63,7 +63,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2", loadedEntity.Name)
 	assert.Len(t, LoggerRedisCache.Requests, 2)
-	assert.Equal(t, "GET TestEntityFlusherInCacheRedisce:1", LoggerRedisCache.Requests[1])
+	assert.Equal(t, "GET TestEntityFlusherInCacheRedis3c:1", LoggerRedisCache.Requests[1])
 
 	receiver := orm.FlushFromCacheReceiver{QueueName: "default"}
 	size, err := receiver.Size()
