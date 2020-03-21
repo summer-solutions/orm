@@ -294,6 +294,10 @@ func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix stri
 		for k, v := range subTags {
 			fields[prefix+k] = v
 		}
+		_, hasIgnore := fields[field.Name]["ignore"]
+		if hasIgnore {
+			continue
+		}
 		_, hasRef := fields[field.Name]["ref"]
 		query, hasQuery := field.Tag.Lookup("query")
 		queryOne, hasQueryOne := field.Tag.Lookup("queryOne")

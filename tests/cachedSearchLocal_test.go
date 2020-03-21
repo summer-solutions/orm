@@ -12,6 +12,7 @@ type TestEntityIndexTestLocal struct {
 	Id           uint
 	Name         string `orm:"length=100;index=FirstIndex"`
 	Age          uint16
+	Ignore       uint16            `orm:"ignore"`
 	IndexAge     *orm.CachedQuery  `query:":Age = ? ORDER BY :Id"`
 	IndexAll     *orm.CachedQuery  `query:""`
 	IndexName    *orm.CachedQuery  `queryOne:":Name = ?"`
@@ -60,6 +61,9 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, rows, 5)
 	assert.Equal(t, uint64(1), rows[0].ReferenceOne.Id)
 	assert.Equal(t, uint64(2), rows[1].ReferenceOne.Id)
+	assert.Equal(t, uint64(3), rows[2].ReferenceOne.Id)
+	assert.Equal(t, uint64(4), rows[3].ReferenceOne.Id)
+	assert.Equal(t, uint64(5), rows[4].ReferenceOne.Id)
 
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
