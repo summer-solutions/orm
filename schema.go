@@ -257,6 +257,7 @@ func (tableSchema TableSchema) getCacheKey(id uint64) string {
 }
 
 func (tableSchema TableSchema) getCacheKeySearch(indexName string, parameters ...interface{}) string {
+	fmt.Printf("%s: %v\n", indexName, parameters)
 	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", parameters)))
 	return fmt.Sprintf("%s_%s_%x", tableSchema.cachePrefix, indexName, md5Part[:5])
 }

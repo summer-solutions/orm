@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 	"strconv"
@@ -16,7 +17,7 @@ type TestEntityIndexTestLocal struct {
 	IndexAge       *orm.CachedQuery  `query:":Age = ? ORDER BY :Id"`
 	IndexAll       *orm.CachedQuery  `query:""`
 	IndexName      *orm.CachedQuery  `queryOne:":Name = ?"`
-	IndexReference *orm.CachedQuery  `queryOne:":ReferenceOne = ?"`
+	IndexReference *orm.CachedQuery  `query:":ReferenceOne = ?"`
 	ReferenceOne   *orm.ReferenceOne `orm:"ref=tests.TestEntityIndexTestLocalRef"`
 }
 
@@ -178,6 +179,37 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, has)
 
+	totalRows, err = orm.CachedSearch(&rows, "IndexReference", pager, 5)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, totalRows)
+	assert.Len(t, rows, 1)
+	assert.Equal(t, uint64(5), rows[0].ReferenceOne.Id)
+
+	totalRows, err = orm.CachedSearch(&rows, "IndexReference", pager, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, 6, totalRows)
+	assert.Len(t, rows, 6)
+
+	e := TestEntityIndexTestLocal{Name: "Name 5.r"}
+	err = orm.Init(&e)
+	assert.Nil(t, err)
+	e.ReferenceOne.Id = uint64(5)
+	e2 := TestEntityIndexTestLocal{Name: "Name 99.r"}
+	fmt.Printf("NOW\n-----------------\n")
+	err = orm.Flush(&e, &e2)
+	assert.Nil(t, err)
+
+	totalRows, err = orm.CachedSearch(&rows, "IndexReference", pager, 5)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, totalRows)
+	assert.Len(t, rows, 2)
+	assert.Equal(t, uint64(5), rows[0].ReferenceOne.Id)
+	assert.Equal(t, uint64(5), rows[1].ReferenceOne.Id)
+
+	totalRows, err = orm.CachedSearch(&rows, "IndexReference", pager, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, 7, totalRows)
+	assert.Len(t, rows, 7)
 }
 
 func BenchmarkCachedSearchLocal(b *testing.B) {
