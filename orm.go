@@ -7,7 +7,6 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
 	"reflect"
-	"time"
 )
 
 var sqlClients = make(map[string]*DB)
@@ -93,14 +92,6 @@ func RegisterLocalCache(size int, code ...string) {
 	localCacheContainers[dbCode] = &LocalCache{code: dbCode, lru: lru.New(size)}
 }
 
-func EnableContextCache(size int, ttl int64) {
-	localCacheContainers["_context_cache"] = &LocalCache{code: "_context_cache", lru: lru.New(size), ttl: ttl, created: time.Now().Unix()}
-}
-
-func DisableContextCache() {
-	delete(localCacheContainers, "_context_cache")
-}
-
 func RegisterRedis(address string, db int, code ...string) *RedisCache {
 	client := redis.NewClient(&redis.Options{
 		Addr: address,
@@ -184,18 +175,6 @@ func GetEntityType(name string) reflect.Type {
 		panic(fmt.Errorf("unregistered entity %s", name))
 	}
 	return t
-}
-
-func GetContextCache() *LocalCache {
-	contextCache, has := localCacheContainers["_context_cache"]
-	if !has {
-		return nil
-	}
-	if time.Now().Unix()-contextCache.created+contextCache.ttl <= 0 {
-		contextCache.lru.Clear()
-		contextCache.created = time.Now().Unix()
-	}
-	return contextCache
 }
 
 func RegisterDatabaseLogger(logger DatabaseLogger) []*list.Element {

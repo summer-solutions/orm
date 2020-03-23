@@ -140,8 +140,6 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 16)
 
-	orm.EnableContextCache(100, 1)
-
 	totalRows, err = orm.CachedSearch(&rows, "IndexAll", pager)
 	assert.Nil(t, err)
 	assert.Equal(t, 10, totalRows)
@@ -152,7 +150,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	_, err = orm.CachedSearch(&rows, "IndexAll", pager)
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 16)
-	assert.Len(t, RedisLogger.Requests, 0)
+	assert.Len(t, RedisLogger.Requests, 2)
 
 	entity = TestEntityIndexTestRedis{Name: "Name 12", Age: uint16(18)}
 	err = orm.Flush(&entity)
@@ -164,7 +162,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 11, totalRows)
 	assert.Len(t, rows, 11)
-	assert.Len(t, DBLogger.Queries, 18)
+	assert.Len(t, DBLogger.Queries, 19)
 }
 
 func BenchmarkCachedRedis(b *testing.B) {

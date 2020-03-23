@@ -51,8 +51,6 @@ func TestEntityByIdsRedis(t *testing.T) {
 	err := flusher.Flush()
 	assert.Nil(t, err)
 
-	orm.EnableContextCache(100, 1)
-
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 	CacheLogger := &TestCacheLogger{}
@@ -91,7 +89,6 @@ func TestEntityByIdsRedis(t *testing.T) {
 	CacheLogger.Requests = make([]string, 0)
 
 	DBLogger.Queries = make([]string, 0)
-	orm.EnableContextCache(100, 1)
 	missing, err = orm.TryByIds([]uint64{8, 9, 10}, &found, "ReferenceOne", "ReferenceMany/ReferenceOne")
 	assert.Nil(t, err)
 	assert.Len(t, found, 3)

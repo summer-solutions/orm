@@ -33,10 +33,6 @@ func tryByIds(ids []uint64, entities reflect.Value, references []string) (missin
 
 	localCache := schema.GetLocalCache()
 	redisCache := schema.GetRedisCacheContainer()
-	contextCache := GetContextCache()
-	if localCache == nil && contextCache != nil {
-		localCache = contextCache
-	}
 	var localCacheKeys []string
 	var redisCacheKeys []string
 	results := make(map[string]interface{}, lenIDs)

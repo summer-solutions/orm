@@ -59,12 +59,6 @@ func InitByYaml(yaml map[interface{}]interface{}) error {
 					return err
 				}
 				RegisterLocalCache(number, keyAsString)
-			case "contextCache":
-				number, err := validateOrmInt(value, keyAsString)
-				if err != nil {
-					return err
-				}
-				EnableContextCache(number, 1)
 			default:
 				return fmt.Errorf("invalid key %s in orm section", dataKey)
 			}

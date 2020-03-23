@@ -39,7 +39,6 @@ func flush(lazy bool, entities ...interface{}) error {
 	redisKeysToDelete := make(map[string]map[string]map[string]bool)
 	dirtyQueues := make(map[string][]interface{})
 	lazyMap := make(map[string]interface{})
-	contextCache := GetContextCache()
 
 	for _, entity := range entities {
 		v := reflect.ValueOf(entity)
@@ -120,10 +119,6 @@ func flush(lazy bool, entities ...interface{}) error {
 				}
 				injectBind(value, bind)
 				localCache := schema.GetLocalCache()
-				contextCache := GetContextCache()
-				if localCache == nil && contextCache != nil {
-					localCache = contextCache
-				}
 				redisCache := schema.GetRedisCacheContainer()
 
 				if localCache != nil {
@@ -168,9 +163,6 @@ func flush(lazy bool, entities ...interface{}) error {
 			id = uint64(insertId)
 		}
 		localCache := schema.GetLocalCache()
-		if localCache == nil && contextCache != nil {
-			localCache = contextCache
-		}
 		redisCache := schema.GetRedisCacheContainer()
 		for key, value := range insertReflectValues[typeOf] {
 			bind := insertBinds[typeOf][key]
@@ -212,9 +204,6 @@ func flush(lazy bool, entities ...interface{}) error {
 		}
 
 		localCache := schema.GetLocalCache()
-		if localCache == nil && contextCache != nil {
-			localCache = contextCache
-		}
 		redisCache := schema.GetRedisCacheContainer()
 		if localCache != nil {
 			for id, bind := range deleteBinds {

@@ -35,9 +35,6 @@ func main() {
     //optionally you can define pool name as second argument
     orm.RegisterLocalCache(100, "second_pool")
 
-    /* Context cache (explain later) */
-    orm.EnableContextCache(100, 1)
-
 }
 
 ```
@@ -54,7 +51,6 @@ orm:
     lazyQueue: redisQueues
     dirtyQueue: redisQueues
     localCache: 1000
-    contextCache: 1000
   second_pool:
     mysql: root:root@tcp(localhost:3311)/db2
     redis: localhost:6380:1 
@@ -252,7 +248,6 @@ There are only two golden rules you need to remember defining entity struct:
      orm.RegisterMySqlPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
      orm.RegisterRedis("localhost:6379", 0)
      orm.RegisterLocalCache(1000)
-     orm.EnableContextCache(100, 1)
    
      /*to enable simple logger that prints queries to standard output*/
      dbLogger := orm.NewStandardDatabaseLogger()
@@ -266,9 +261,6 @@ There are only two golden rules you need to remember defining entity struct:
      defer orm.GetRedis().UnregisterLogger(el)
      el = orm.GetLocalCache().RegisterLogger(cacheLogger)
      defer orm.GetLocalCache().UnregisterLogger(el)
-     el = orm.GetContextCache().RegisterLogger(cacheLogger)
-     defer orm.GetContextCache().UnregisterLogger(el)
-    
     
     /* adding logger to all pools */
     elements := orm.RegisterDatabaseLogger(dbLogger)

@@ -13,7 +13,6 @@ func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
 	orm.RegisterLocalCache(1000)
 
 	orm.RegisterEntity(entities...)
-	orm.DisableContextCache()
 	for _, entity := range entities {
 		TableSchema = orm.GetTableSchema(entity)
 		err := TableSchema.DropTable()

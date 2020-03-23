@@ -17,11 +17,6 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 	var cacheKey string
 	localCache := schema.GetLocalCache()
 
-	contextCache := GetContextCache()
-	if localCache == nil && contextCache != nil {
-		localCache = contextCache
-	}
-
 	if localCache != nil {
 		cacheKey = schema.getCacheKey(id)
 		e, has := localCache.Get(cacheKey)
