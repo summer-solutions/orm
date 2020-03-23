@@ -44,9 +44,13 @@ func cachedSearch(entities interface{}, indexName string, clear bool, pager *Pag
 	Where := NewWhere(definition.Query, arguments...)
 	localCache := schema.GetLocalCache()
 	redisCache := schema.GetRedisCacheContainer()
+	if localCache == nil && redisCache == nil {
+		return 0, fmt.Errorf("missing entity cache definition")
+	}
 	var cacheKey string
 
 	cacheKey = schema.getCacheKeySearch(indexName, Where.GetParameters()...)
+	fmt.Printf("GETTING %s\n", cacheKey)
 	if clear {
 		if localCache != nil {
 			localCache.Remove(cacheKey)
@@ -211,6 +215,9 @@ func cachedSearchOne(entity interface{}, indexName string, clear bool, arguments
 	Where := NewWhere(definition.Query, arguments...)
 	localCache := schema.GetLocalCache()
 	redisCache := schema.GetRedisCacheContainer()
+	if localCache == nil && redisCache == nil {
+		return false, fmt.Errorf("missing entity cache definition")
+	}
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	if clear {
 		if localCache != nil {
