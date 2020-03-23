@@ -227,7 +227,6 @@ func flush(lazy bool, entities ...interface{}) error {
 		for cacheCode, keys := range values {
 			cache := GetLocalCache(cacheCode)
 			if db.transaction == nil {
-				fmt.Printf("SETS %v\n", keys)
 				cache.MSet(keys...)
 			} else {
 				if db.afterCommitLocalCacheSets == nil {
@@ -256,7 +255,6 @@ func flush(lazy bool, entities ...interface{}) error {
 					}
 					deletesLocalCache.(map[string][]string)[cacheCode] = keys
 				} else {
-					fmt.Printf("DELETES %v\n", keys)
 					cache.Remove(keys...)
 				}
 			} else {
@@ -619,7 +617,6 @@ func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data 
 		if addedDeleted && len(definition.Fields) == 0 {
 			keys = append(keys, schema.getCacheKeySearch(indexName))
 		}
-		fmt.Printf("TRACKED %v DATA %v\n", definition.Fields, data)
 		for _, trackedField := range definition.Fields {
 			_, has := bind[trackedField]
 			if has {
