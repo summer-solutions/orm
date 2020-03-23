@@ -619,6 +619,7 @@ func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data 
 		if addedDeleted && len(definition.Fields) == 0 {
 			keys = append(keys, schema.getCacheKeySearch(indexName))
 		}
+		fmt.Printf("TRACKED %v DATA %v\n", definition.Fields, data)
 		for _, trackedField := range definition.Fields {
 			_, has := bind[trackedField]
 			if has {
