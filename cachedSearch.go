@@ -50,7 +50,6 @@ func cachedSearch(entities interface{}, indexName string, clear bool, pager *Pag
 	var cacheKey string
 
 	cacheKey = schema.getCacheKeySearch(indexName, Where.GetParameters()...)
-	fmt.Printf("GETTING %s\n", cacheKey)
 	if clear {
 		if localCache != nil {
 			localCache.Remove(cacheKey)

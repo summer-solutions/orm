@@ -256,7 +256,6 @@ func flush(lazy bool, entities ...interface{}) error {
 					}
 					deletesLocalCache.(map[string][]string)[cacheCode] = keys
 				} else {
-					fmt.Printf("REMOVES: %v", keys)
 					cache.Remove(keys...)
 				}
 			} else {
@@ -286,7 +285,6 @@ func flush(lazy bool, entities ...interface{}) error {
 					}
 					deletesRedisCache.(map[string][]string)[cacheCode] = keys
 				} else {
-					fmt.Printf("DELETES: %v", keys)
 					err := cache.Del(keys...)
 					if err != nil {
 						return err
