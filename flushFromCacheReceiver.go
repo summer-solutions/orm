@@ -105,8 +105,15 @@ func (r FlushFromCacheReceiver) Digest() (has bool, err error) {
 		_, _ = getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 		return true, err
 	}
-	cacheKeys := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
-	cacheKeys = append(cacheKeys, getCacheQueriesKeys(schema, bind, newData, false)...)
+	cacheKeys, err := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
+	if err != nil {
+		return false, err
+	}
+	keys, err := getCacheQueriesKeys(schema, bind, newData, false)
+	if err != nil {
+		return false, err
+	}
+	cacheKeys = append(cacheKeys, keys...)
 	if len(cacheKeys) > 0 {
 		err = cacheEntity.Del(cacheKeys...)
 		if err != nil {

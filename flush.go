@@ -124,14 +124,30 @@ func flush(lazy bool, entities ...interface{}) error {
 				if localCache != nil {
 					db := schema.GetMysql()
 					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(currentId), buildLocalCacheValue(value.Interface(), schema))
-					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, orm.dBData, false)...)
-					addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
+					keys, err := getCacheQueriesKeys(schema, bind, orm.dBData, false)
+					if err != nil {
+						return err
+					}
+					addCacheDeletes(localCacheDeletes, db.code, localCache.code, keys...)
+					keys, err = getCacheQueriesKeys(schema, bind, old, false)
+					if err != nil {
+						return err
+					}
+					addCacheDeletes(localCacheDeletes, db.code, localCache.code, keys...)
 				}
 				if redisCache != nil {
 					db := schema.GetMysql()
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentId))
-					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, orm.dBData, false)...)
-					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, old, false)...)
+					keys, err := getCacheQueriesKeys(schema, bind, orm.dBData, false)
+					if err != nil {
+						return err
+					}
+					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
+					keys, err = getCacheQueriesKeys(schema, bind, old, false)
+					if err != nil {
+						return err
+					}
+					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 				}
 				addDirtyQueues(dirtyQueues, bind, schema, currentId, "u")
 			}
@@ -172,13 +188,21 @@ func flush(lazy bool, entities ...interface{}) error {
 				if !lazy {
 					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), buildLocalCacheValue(value.Interface(), schema))
 				}
-				addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
+				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
+				if err != nil {
+					return err
+				}
+				addCacheDeletes(localCacheDeletes, db.code, localCache.code, keys...)
 			}
 			if redisCache != nil {
 				if !lazy {
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(id))
 				}
-				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
+				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
+				if err != nil {
+					return err
+				}
+				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 			}
 			addDirtyQueues(dirtyQueues, bind, schema, id, "i")
 			id++
@@ -208,13 +232,21 @@ func flush(lazy bool, entities ...interface{}) error {
 		if localCache != nil {
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), "nil")
-				addCacheDeletes(localCacheDeletes, db.code, localCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
+				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
+				if err != nil {
+					return err
+				}
+				addCacheDeletes(localCacheDeletes, db.code, localCache.code, keys...)
 			}
 		}
 		if schema.redisCacheName != "" {
 			for id, bind := range deleteBinds {
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(id))
-				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, getCacheQueriesKeys(schema, bind, bind, true)...)
+				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
+				if err != nil {
+					return err
+				}
+				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 			}
 		}
 		for id, bind := range deleteBinds {
@@ -611,7 +643,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 	return
 }
 
-func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data map[string]interface{}, addedDeleted bool) (keys []string) {
+func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data map[string]interface{}, addedDeleted bool) (keys []string, err error) {
 	keys = make([]string, 0)
 	for indexName, definition := range schema.cachedIndexes {
 		if addedDeleted && len(definition.Fields) == 0 {
@@ -623,7 +655,10 @@ func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data 
 				attributes := make([]interface{}, len(definition.Fields))
 				i := 0
 				for _, trackedFieldSub := range definition.Fields {
-					attributes[i] = data[trackedFieldSub]
+					attributes[i], has = data[trackedFieldSub]
+					if !has {
+						return nil, fmt.Errorf("missing field %s in index", trackedFieldSub)
+					}
 					i++
 				}
 				keys = append(keys, schema.getCacheKeySearch(indexName, attributes...))
