@@ -8,15 +8,16 @@ import (
 )
 
 type TestEntityIndexTestLocal struct {
-	Orm          *orm.ORM `orm:"localCache"`
-	Id           uint
-	Name         string `orm:"length=100;index=FirstIndex"`
-	Age          uint16
-	Ignore       uint16            `orm:"ignore"`
-	IndexAge     *orm.CachedQuery  `query:":Age = ? ORDER BY :Id"`
-	IndexAll     *orm.CachedQuery  `query:""`
-	IndexName    *orm.CachedQuery  `queryOne:":Name = ?"`
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityIndexTestLocalRef"`
+	Orm            *orm.ORM `orm:"localCache"`
+	Id             uint
+	Name           string `orm:"length=100;index=FirstIndex"`
+	Age            uint16
+	Ignore         uint16            `orm:"ignore"`
+	IndexAge       *orm.CachedQuery  `query:":Age = ? ORDER BY :Id"`
+	IndexAll       *orm.CachedQuery  `query:""`
+	IndexName      *orm.CachedQuery  `queryOne:":Name = ?"`
+	IndexReference *orm.CachedQuery  `queryOne:":ReferenceOne = ?"`
+	ReferenceOne   *orm.ReferenceOne `orm:"ref=tests.TestEntityIndexTestLocalRef"`
 }
 
 type TestEntityIndexTestLocalRef struct {

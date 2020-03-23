@@ -227,7 +227,6 @@ func flush(lazy bool, entities ...interface{}) error {
 		for cacheCode, keys := range values {
 			cache := GetLocalCache(cacheCode)
 			if db.transaction == nil {
-				fmt.Printf("SETS: %v", keys)
 				cache.MSet(keys...)
 			} else {
 				if db.afterCommitLocalCacheSets == nil {
