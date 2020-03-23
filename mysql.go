@@ -514,9 +514,12 @@ func (m Mysql) handleInt(definition string) (string, bool, string) {
 func (m Mysql) handleFloat(floatDefinition string, attributes map[string]string) (string, bool, string) {
 	decimal, hasDecimal := attributes["decimal"]
 	var definition string
+	defaultValue := "'0'"
 	if hasDecimal {
 		decimalArgs := strings.Split(decimal, ",")
 		definition = fmt.Sprintf("decimal(%s,%s)", decimalArgs[0], decimalArgs[1])
+		defaultValue = fmt.Sprintf("'%s'", fmt.Sprintf("%."+decimalArgs[1]+"f", float32(0)))
+
 	} else {
 		definition = floatDefinition
 	}
@@ -524,7 +527,7 @@ func (m Mysql) handleFloat(floatDefinition string, attributes map[string]string)
 	if !hasUnsigned || unsigned == "true" {
 		definition += " unsigned"
 	}
-	return definition, true, "'0'"
+	return definition, true, defaultValue
 }
 
 func (m Mysql) handleString(attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
