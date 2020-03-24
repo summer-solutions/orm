@@ -19,7 +19,7 @@ func FlushInCache(entities ...interface{}) error {
 		if err != nil {
 			return err
 		}
-		elem.Field(0).Interface().(*ORM).e = entity
+		elem.Field(0).Interface().(*ORM).elem = elem
 		t := elem.Type()
 
 		id := elem.Field(1).Uint()

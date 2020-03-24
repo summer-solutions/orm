@@ -68,7 +68,7 @@ func (r FlushFromCacheReceiver) Digest() (has bool, err error) {
 		return true, err
 	}
 	ormFieldCache := entityElem.Field(0).Interface().(*ORM)
-	ormFieldCache.e = entityValue.Interface()
+	ormFieldCache.elem = entityElem
 	ormFieldDB, err := initIfNeeded(entityDBValue)
 	if err != nil {
 		return true, err

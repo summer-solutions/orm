@@ -46,7 +46,7 @@ func initIfNeeded(value reflect.Value) (*ORM, error) {
 	elem := value.Elem()
 	orm := elem.Field(0).Interface().(*ORM)
 	if orm == nil {
-		orm = &ORM{dBData: make(map[string]interface{}), e: value.Interface()}
+		orm = &ORM{dBData: make(map[string]interface{}), elem: elem}
 		elem.Field(0).Set(reflect.ValueOf(orm))
 		tableSchema := getTableSchema(elem.Type())
 		for _, code := range tableSchema.refOne {
