@@ -58,8 +58,8 @@ func BenchmarkGetByIdsLocal(b *testing.B) {
 
 	_ = orm.Flush(&TestEntityByIdsLocal{Name: "Hi 1"}, &TestEntityByIdsLocal{Name: "Hi 2"}, &TestEntityByIdsLocal{Name: "Hi 3"})
 
-	var found []TestEntityByIdsLocal
+	var found []*TestEntityByIdsLocal
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryByIds([]uint64{1, 2, 3}, found)
+		_, _ = orm.TryByIds([]uint64{1, 2, 3}, &found)
 	}
 }

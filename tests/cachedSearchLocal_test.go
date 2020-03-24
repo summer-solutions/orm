@@ -181,7 +181,8 @@ func TestCachedSearchLocal(t *testing.T) {
 
 func BenchmarkCachedSearchLocal(b *testing.B) {
 	var entity TestEntityIndexTestLocal
-	PrepareTables(entity)
+	var entityRef TestEntityIndexTestLocalRef
+	PrepareTables(entity, entityRef)
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
@@ -190,7 +191,7 @@ func BenchmarkCachedSearchLocal(b *testing.B) {
 	}
 	_ = orm.Flush(entities...)
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
-	var rows []TestEntityIndexTestLocal
+	var rows []*TestEntityIndexTestLocal
 	for n := 0; n < b.N; n++ {
 		_, _ = orm.CachedSearch(&rows, "IndexAge", pager, 18)
 	}

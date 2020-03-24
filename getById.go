@@ -7,9 +7,6 @@ import (
 )
 
 func TryById(id uint64, entity interface{}, references ...string) (found bool, err error) {
-	if reflect.TypeOf(entity).Kind() != reflect.Ptr {
-		return false, fmt.Errorf("pointer not provided")
-	}
 	val := reflect.ValueOf(entity)
 	elem := val.Elem()
 	entityType := elem.Type()
