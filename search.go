@@ -195,7 +195,6 @@ func fillFromDBRow(data []string, value reflect.Value, entityType reflect.Type) 
 
 func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) uint16 {
 
-	bind := make(map[string]interface{})
 	for i := 0; i < t.NumField(); i++ {
 
 		if index == 0 && i == 0 {
@@ -214,7 +213,6 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 		fieldType := field.Type().String()
 		switch fieldType {
 		case "uint":
-			bind[name] = data[index]
 			integer, _ := strconv.ParseUint(data[index], 10, 32)
 			field.SetUint(integer)
 		case "uint8":
