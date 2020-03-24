@@ -49,24 +49,15 @@ func initIfNeeded(value reflect.Value) (*ORM, error) {
 		orm = &ORM{dBData: make(map[string]interface{}), e: value.Interface()}
 		elem.Field(0).Set(reflect.ValueOf(orm))
 		tableSchema := getTableSchema(elem.Type())
-		for i := 2; i < elem.NumField(); i++ {
-			field := elem.Field(i)
-			isOne := field.Type().String() == "*orm.ReferenceOne"
-			isTwo := !isOne && field.Type().String() == "*orm.ReferenceMany"
-			if isOne || isTwo {
-				f := elem.Type().Field(i)
-				reference, has := tableSchema.Tags[f.Name]["ref"]
-				if !has {
-					return nil, fmt.Errorf("missing ref tag")
-				}
-				if isOne {
-					def := ReferenceOne{t: GetEntityType(reference)}
-					elem.FieldByName(f.Name).Set(reflect.ValueOf(&def))
-				} else {
-					def := ReferenceMany{t: GetEntityType(reference)}
-					elem.FieldByName(f.Name).Set(reflect.ValueOf(&def))
-				}
-			}
+		for _, code := range tableSchema.refOne {
+			reference := tableSchema.Tags[code]["ref"]
+			def := ReferenceOne{t: GetEntityType(reference)}
+			elem.FieldByName(code).Set(reflect.ValueOf(&def))
+		}
+		for _, code := range tableSchema.refMany {
+			reference := tableSchema.Tags[code]["ref"]
+			def := ReferenceMany{t: GetEntityType(reference)}
+			elem.FieldByName(code).Set(reflect.ValueOf(&def))
 		}
 	}
 	return orm, nil
