@@ -27,6 +27,10 @@ func RegisterEntity(entity ...interface{}) {
 	}
 }
 
+func UnregisterEntities() {
+	entities = make(map[string]reflect.Type)
+}
+
 func RegisterEnum(name string, enum interface{}) {
 	enums[name] = reflect.Indirect(reflect.ValueOf(enum))
 }

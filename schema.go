@@ -83,6 +83,21 @@ type index struct {
 	Columns map[int]string
 }
 
+type foreignIndex struct {
+	Column         string
+	Table          string
+	ParentDatabase string
+	OnDelete       string
+}
+
+type foreignKeyDB struct {
+	ConstraintName        string
+	ColumnName            string
+	ReferencedTableName   string
+	ReferencedTableSchema string
+	OnDelete              string
+}
+
 var tableSchemas = make(map[reflect.Type]*TableSchema)
 
 func GetTableSchema(entityOrType interface{}) *TableSchema {
@@ -197,7 +212,7 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 	return tableSchema
 }
 
-func (tableSchema TableSchema) GetSchemaChanges() (has bool, alter Alter, err error) {
+func (tableSchema TableSchema) GetSchemaChanges() (has bool, alters []Alter, err error) {
 	return tableSchema.GetMysql().databaseInterface.GetSchemaChanges(tableSchema)
 }
 
@@ -206,15 +221,33 @@ func (tableSchema TableSchema) DropTable() error {
 	return err
 }
 
+func (tableSchema TableSchema) TruncateTable() error {
+	_, err := tableSchema.GetMysql().Exec("SET FOREIGN_KEY_CHECKS = 0")
+	if err != nil {
+		return err
+	}
+	_, err = tableSchema.GetMysql().Exec(tableSchema.GetMysql().databaseInterface.GetTruncateTableQuery(tableSchema.GetMysql().databaseName, tableSchema.TableName))
+	if err != nil {
+		return err
+	}
+	_, err = tableSchema.GetMysql().Exec("SET FOREIGN_KEY_CHECKS = 1")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (tableSchema TableSchema) UpdateSchema() error {
-	has, alter, err := tableSchema.GetSchemaChanges()
+	has, alters, err := tableSchema.GetSchemaChanges()
 	if err != nil {
 		return err
 	}
 	if has {
-		_, err := tableSchema.GetMysql().Exec(alter.Sql)
-		if err != nil {
-			return err
+		for _, alter := range alters {
+			_, err := tableSchema.GetMysql().Exec(alter.Sql)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

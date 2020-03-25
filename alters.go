@@ -1,5 +1,10 @@
 package orm
 
+import (
+	"sort"
+	"strings"
+)
+
 type Alter struct {
 	Sql  string
 	Safe bool
@@ -27,14 +32,14 @@ func GetAlters() (alters []Alter, err error) {
 	for _, t := range entities {
 		tableSchema := getTableSchema(t)
 		tablesInEntities[tableSchema.MysqlPoolName][tableSchema.TableName] = true
-		has, alter, err := tableSchema.GetSchemaChanges()
+		has, newAlters, err := tableSchema.GetSchemaChanges()
 		if err != nil {
 			return nil, err
 		}
 		if !has {
 			continue
 		}
-		alters = append(alters, alter)
+		alters = append(alters, newAlters...)
 	}
 
 	for poolName, tables := range tablesInDB {
@@ -54,6 +59,23 @@ func GetAlters() (alters []Alter, err error) {
 			}
 		}
 	}
+	sort.Slice(alters, func(i, j int) bool {
+		leftSql := alters[i].Sql
+		rightSql := alters[j].Sql
+
+		leftHasDropForeignKey := strings.Index(leftSql, "DROP FOREIGN KEY") > 0
+		rightHasDropForeignKey := strings.Index(rightSql, "DROP FOREIGN KEY") > 0
+		if leftHasDropForeignKey && !rightHasDropForeignKey {
+			return true
+		}
+		leftHasAddForeignKey := strings.Index(leftSql, "ADD CONSTRAINT") > 0
+		rightHasAddForeignKey := strings.Index(rightSql, "ADD CONSTRAINT") > 0
+		if !leftHasAddForeignKey && rightHasAddForeignKey {
+			return true
+		}
+		return false
+
+	})
 	return
 }
 

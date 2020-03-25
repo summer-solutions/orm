@@ -116,15 +116,18 @@ func (m Mysql) GetTruncateTableQuery(database string, table string) string {
 	return fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", database, table)
 }
 
-func (m Mysql) GetSchemaChanges(tableSchema TableSchema) (has bool, alter Alter, err error) {
+func (m Mysql) GetSchemaChanges(tableSchema TableSchema) (has bool, alters []Alter, err error) {
 	indexes := make(map[string]*index)
-	columns, err := m.checkStruct(tableSchema, tableSchema.t, indexes, "")
+	foreignKeys := make(map[string]*foreignIndex)
+	columns, err := m.checkStruct(tableSchema, tableSchema.t, indexes, foreignKeys, "")
 	if err != nil {
-		return false, Alter{}, err
+		return false, nil, err
 	}
 	var newIndexes []string
+	var newForeignKeys []string
 
 	createTableSql := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
+	createTableForiegnKeysSql := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
 	columns[0][1] += " AUTO_INCREMENT"
 	for _, value := range columns {
 		createTableSql += fmt.Sprintf("  %s,\n", value[1])
@@ -136,6 +139,14 @@ func (m Mysql) GetSchemaChanges(tableSchema TableSchema) (has bool, alter Alter,
 	for _, value := range newIndexes {
 		createTableSql += fmt.Sprintf("  %s,\n", strings.TrimLeft(value, "ADD "))
 	}
+	for keyName, foreignKey := range foreignKeys {
+		newForeignKeys = append(newForeignKeys, m.buildCreateForeignKeySql(keyName, foreignKey))
+	}
+	sort.Strings(newForeignKeys)
+	for _, value := range newForeignKeys {
+		createTableForiegnKeysSql += fmt.Sprintf("  %s,\n", value)
+	}
+
 	createTableSql += fmt.Sprint("  PRIMARY KEY (`Id`)\n")
 	createTableSql += fmt.Sprint(") ENGINE=InnoDB DEFAULT CHARSET=utf8;")
 
@@ -147,18 +158,23 @@ func (m Mysql) GetSchemaChanges(tableSchema TableSchema) (has bool, alter Alter,
 	}
 
 	if !hasTable {
-		alter = Alter{Sql: createTableSql, Safe: true, Pool: tableSchema.MysqlPoolName}
+		alters = []Alter{{Sql: createTableSql, Safe: true, Pool: tableSchema.MysqlPoolName}}
+		if len(newForeignKeys) > 0 {
+			createTableForiegnKeysSql = strings.TrimRight(createTableForiegnKeysSql, ",\n") + ";"
+			alters = append(alters, Alter{Sql: createTableForiegnKeysSql, Safe: true, Pool: tableSchema.MysqlPoolName})
+		}
 		has = true
 		err = nil
 		return
 	}
 	newIndexes = make([]string, 0)
+	newForeignKeys = make([]string, 0)
 
 	var tableDBColumns = make([][2]string, 0)
 	var createTableDB string
 	err = tableSchema.GetMysql().QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.TableName)).Scan(&skip, &createTableDB)
 	if err != nil {
-		return false, Alter{}, err
+		return false, nil, err
 	}
 	lines := strings.Split(createTableDB, "\n")
 	for x := 1; x < len(lines); x++ {
@@ -174,13 +190,13 @@ func (m Mysql) GetSchemaChanges(tableSchema TableSchema) (has bool, alter Alter,
 	var rows []indexDB
 	results, err := tableSchema.GetMysql().Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
 	if err != nil {
-		return false, Alter{}, err
+		return false, nil, err
 	}
 	for results.Next() {
 		var row indexDB
 		err = results.Scan(&row.Skip, &row.NonUnique, &row.KeyName, &row.Seq, &row.Column, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip)
 		if err != nil {
-			return false, Alter{}, err
+			return false, nil, err
 		}
 		rows = append(rows, row)
 	}
@@ -193,6 +209,39 @@ func (m Mysql) GetSchemaChanges(tableSchema TableSchema) (has bool, alter Alter,
 		} else {
 			current.Columns[value.Seq] = value.Column
 		}
+	}
+
+	var rows2 []foreignKeyDB
+	query := "SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_TABLE_SCHEMA " +
+		"FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL " +
+		"AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
+	results, err = tableSchema.GetMysql().Query(fmt.Sprintf(query, tableSchema.GetMysql().databaseName, tableSchema.TableName))
+	if err != nil {
+		return false, nil, err
+	}
+	for results.Next() {
+		var row foreignKeyDB
+		err = results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
+		if err != nil {
+			return false, nil, err
+		}
+		row.OnDelete = "RESTRICT"
+		for _, line := range strings.Split(createTableDB, "\n") {
+			line = strings.TrimSpace(strings.TrimRight(line, ","))
+			if strings.Index(line, fmt.Sprintf("CONSTRAINT `%s`", row.ConstraintName)) == 0 {
+				words := strings.Split(line, " ")
+				if strings.ToUpper(words[len(words)-2]) == "DELETE" {
+					row.OnDelete = strings.ToUpper(words[len(words)-1])
+				}
+			}
+		}
+		rows2 = append(rows2, row)
+	}
+	var foreignKeysDB = make(map[string]*foreignIndex)
+	for _, value := range rows2 {
+		foreignKey := &foreignIndex{ParentDatabase: value.ReferencedTableSchema, Table: value.ReferencedTableName,
+			Column: value.ColumnName, OnDelete: value.OnDelete}
+		foreignKeysDB[value.ConstraintName] = foreignKey
 	}
 
 	var newColumns []string
@@ -270,10 +319,34 @@ OUTER:
 			}
 		}
 	}
+
+	var droppedForeignKeys []string
+	for keyName, indexEntity := range foreignKeys {
+		indexDB, has := foreignKeysDB[keyName]
+		if !has {
+			newForeignKeys = append(newForeignKeys, m.buildCreateForeignKeySql(keyName, indexEntity))
+			hasAlters = true
+		} else {
+			addIndexSqlEntity := m.buildCreateForeignKeySql(keyName, indexEntity)
+			addIndexSqlDB := m.buildCreateForeignKeySql(keyName, indexDB)
+			if addIndexSqlEntity != addIndexSqlDB {
+				droppedForeignKeys = append(droppedForeignKeys, fmt.Sprintf("DROP FOREIGN KEY `%s`", keyName))
+				newForeignKeys = append(newForeignKeys, addIndexSqlEntity)
+				hasAlters = true
+			}
+		}
+	}
 	for keyName := range indexesDB {
 		_, has := indexes[keyName]
 		if !has && keyName != "PRIMARY" {
 			droppedIndexes = append(droppedIndexes, fmt.Sprintf("DROP INDEX `%s`", keyName))
+			hasAlters = true
+		}
+	}
+	for keyName := range foreignKeysDB {
+		_, has := foreignKeys[keyName]
+		if !has {
+			droppedForeignKeys = append(droppedForeignKeys, fmt.Sprintf("DROP FOREIGN KEY `%s`", keyName))
 			hasAlters = true
 		}
 	}
@@ -282,52 +355,96 @@ OUTER:
 		return
 	}
 	alterSql := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
-	alters := make([]string, 0)
+	newAlters := make([]string, 0)
 	comments := make([]string, 0)
+	hasAlterNormal := false
+	hasAlterAddForeignKey := false
+	hasAlterRemoveForeignKey := false
+
+	alterSqlAddForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
+	newAltersAddForeignKey := make([]string, 0)
+	alterSqlRemoveForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
+	newAltersRemoveForeignKey := make([]string, 0)
+
 	for _, value := range droppedColumns {
-		alters = append(alters, fmt.Sprintf("    %s", value))
+		newAlters = append(newAlters, fmt.Sprintf("    %s", value))
 		comments = append(comments, "")
+		hasAlterNormal = true
 	}
 	for _, value := range newColumns {
-		alters = append(alters, fmt.Sprintf("    %s", value))
+		newAlters = append(newAlters, fmt.Sprintf("    %s", value))
 		comments = append(comments, "")
+		hasAlterNormal = true
 	}
 	for _, value := range changedColumns {
-		alters = append(alters, fmt.Sprintf("    %s", value[0]))
+		newAlters = append(newAlters, fmt.Sprintf("    %s", value[0]))
 		comments = append(comments, value[1])
 	}
 	sort.Strings(droppedIndexes)
 	for _, value := range droppedIndexes {
-		alters = append(alters, fmt.Sprintf("    %s", value))
+		newAlters = append(newAlters, fmt.Sprintf("    %s", value))
 		comments = append(comments, "")
+		hasAlterNormal = true
+	}
+	sort.Strings(droppedForeignKeys)
+	for _, value := range droppedForeignKeys {
+		newAltersRemoveForeignKey = append(newAltersRemoveForeignKey, fmt.Sprintf("    %s", value))
+		hasAlterRemoveForeignKey = true
 	}
 	sort.Strings(newIndexes)
 	for _, value := range newIndexes {
-		alters = append(alters, fmt.Sprintf("    %s", value))
+		newAlters = append(newAlters, fmt.Sprintf("    %s", value))
 		comments = append(comments, "")
+		hasAlterNormal = true
 	}
-	for x := 0; x < len(alters)-1; x++ {
-		alterSql += alters[x] + ","
+	sort.Strings(newForeignKeys)
+	for _, value := range newForeignKeys {
+		newAltersAddForeignKey = append(newAltersAddForeignKey, fmt.Sprintf("    %s", value))
+		hasAlterAddForeignKey = true
+	}
+	for x := 0; x < len(newAlters)-1; x++ {
+		alterSql += newAlters[x] + ","
 		if comments[x] != "" {
 			alterSql += fmt.Sprintf("/*%s*/", comments[x])
 		}
 		alterSql += "\n"
 	}
-	lastIndex := len(alters) - 1
+	lastIndex := len(newAlters) - 1
 	if lastIndex >= 0 {
-		alterSql += alters[lastIndex] + ";"
+		alterSql += newAlters[lastIndex] + ";"
 		if comments[lastIndex] != "" {
 			alterSql += fmt.Sprintf("/*%s*/", comments[lastIndex])
 		}
 	}
 
-	if m.isTableEmpty(tableSchema) || (len(droppedColumns) == 0 && len(changedColumns) == 0) {
-		alter = Alter{Sql: alterSql, Safe: true, Pool: tableSchema.MysqlPoolName}
-	} else {
-		alter = Alter{Sql: alterSql, Safe: false, Pool: tableSchema.MysqlPoolName}
+	for x := 0; x < len(newAltersAddForeignKey); x++ {
+		alterSqlAddForeignKey += newAltersAddForeignKey[x] + ","
+		alterSqlAddForeignKey += "\n"
 	}
+	for x := 0; x < len(newAltersRemoveForeignKey); x++ {
+		alterSqlRemoveForeignKey += newAltersRemoveForeignKey[x] + ","
+		alterSqlRemoveForeignKey += "\n"
+	}
+
+	alters = make([]Alter, 0)
+	if hasAlterNormal {
+		safe := false
+		if m.isTableEmpty(tableSchema) || (len(droppedColumns) == 0 && len(changedColumns) == 0) {
+			safe = true
+		}
+		alters = append(alters, Alter{Sql: alterSql, Safe: safe, Pool: tableSchema.MysqlPoolName})
+	}
+	if hasAlterRemoveForeignKey {
+		alterSqlRemoveForeignKey = strings.TrimRight(alterSqlRemoveForeignKey, ",\n") + ";"
+		alters = append(alters, Alter{Sql: alterSqlRemoveForeignKey, Safe: true, Pool: tableSchema.MysqlPoolName})
+	}
+	if hasAlterAddForeignKey {
+		alterSqlAddForeignKey = strings.TrimRight(alterSqlAddForeignKey, ",\n") + ";"
+		alters = append(alters, Alter{Sql: alterSqlAddForeignKey, Safe: true, Pool: tableSchema.MysqlPoolName})
+	}
+
 	has = true
-	return has, alter, nil
+	return has, alters, nil
 }
 
 func (m Mysql) isTableEmpty(tableSchema TableSchema) bool {
@@ -342,7 +459,8 @@ func (m Mysql) isTableEmpty(tableSchema TableSchema) bool {
 	return false
 }
 
-func (m Mysql) checkStruct(tableSchema TableSchema, t reflect.Type, indexes map[string]*index, prefix string) ([][2]string, error) {
+func (m Mysql) checkStruct(tableSchema TableSchema, t reflect.Type, indexes map[string]*index,
+	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	columns := make([][2]string, 0, t.NumField())
 	max := t.NumField() - 1
 	for i := 0; i <= max; i++ {
@@ -350,7 +468,7 @@ func (m Mysql) checkStruct(tableSchema TableSchema, t reflect.Type, indexes map[
 			continue
 		}
 		field := t.Field(i)
-		fieldColumns, err := m.checkColumn(tableSchema, &field, indexes, prefix)
+		fieldColumns, err := m.checkColumn(tableSchema, &field, indexes, foreignKeys, prefix)
 		if err != nil {
 			return nil, err
 		}
@@ -361,7 +479,8 @@ func (m Mysql) checkStruct(tableSchema TableSchema, t reflect.Type, indexes map[
 	return columns, nil
 }
 
-func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, indexes map[string]*index, prefix string) ([][2]string, error) {
+func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, indexes map[string]*index,
+	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	var definition string
 	var addNotNullIfNotSet bool
 	addDefaultNullIfNullable := true
@@ -381,6 +500,18 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	if !has {
 		indexAttribute, has = attributes["unique"]
 		unique = true
+	}
+	if typeAsString == "*orm.ReferenceOne" {
+		if !has {
+			has = true
+			indexAttribute = field.Name
+			unique = false
+		}
+		schema := GetTableSchema(GetEntityType(attributes["ref"]))
+		foreignKey := &foreignIndex{Column: field.Name, Table: schema.TableName,
+			ParentDatabase: schema.GetMysql().databaseName, OnDelete: "RESTRICT"}
+		name := fmt.Sprintf("%s:%s:%s", tableSchema.GetMysql().databaseName, tableSchema.TableName, field.Name)
+		foreignKeys[name] = foreignKey
 	}
 
 	if has {
@@ -485,7 +616,7 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 	default:
 		kind := field.Type.Kind().String()
 		if kind == "struct" {
-			structFields, err := m.checkStruct(tableSchema, field.Type, indexes, field.Name)
+			structFields, err := m.checkStruct(tableSchema, field.Type, indexes, foreignKeys, field.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -657,4 +788,9 @@ func (m Mysql) buildCreateIndexSql(keyName string, definition *index) string {
 		indexType = "UNIQUE " + indexType
 	}
 	return fmt.Sprintf("ADD %s `%s` (%s)", indexType, keyName, strings.Join(indexColumns, ","))
+}
+
+func (m Mysql) buildCreateForeignKeySql(keyName string, definition *foreignIndex) string {
+	return fmt.Sprintf("ADD CONSTRAINT `%s` FOREIGN KEY (`%s`) REFERENCES `%s`.`%s` (`Id`) ON DELETE %s",
+		keyName, definition.Column, definition.ParentDatabase, definition.Table, definition.OnDelete)
 }

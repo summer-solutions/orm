@@ -59,10 +59,16 @@ type TestEntitySchema struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressSchema
 	Json                 interface{}
-	ReferenceOne         *orm.ReferenceOne  `orm:"ref=tests.TestEntitySchema;foreign=delete cascade"`
+	ReferenceOne         *orm.ReferenceOne  `orm:"ref=tests.TestEntitySchemaRef"`
 	ReferenceMany        *orm.ReferenceMany `orm:"ref=tests.TestEntitySchema"`
 	IgnoreField          []time.Time        `orm:"ignore"`
 	Blob                 []byte
+}
+
+type TestEntitySchemaRef struct {
+	Orm  *orm.ORM `orm:"mysql=schema"`
+	Id   uint
+	Name string
 }
 
 func TestGetAlters(t *testing.T) {
@@ -72,13 +78,18 @@ func TestGetAlters(t *testing.T) {
 	assert.Nil(t, err)
 
 	var entity TestEntitySchema
-	orm.RegisterEntity(entity)
+	var entityRef TestEntitySchemaRef
+	orm.UnregisterEntities()
+	orm.RegisterEntity(entity, entityRef)
 	orm.RegisterEnum("tests.Color", Color)
 	tableSchema := orm.GetTableSchema(entity)
 	err = tableSchema.DropTable()
 	assert.Nil(t, err)
+	tableSchemaRef := orm.GetTableSchema(entityRef)
+	err = tableSchemaRef.DropTable()
+	assert.Nil(t, err)
 
 	alters, err := orm.GetAlters()
 	assert.Nil(t, err)
-	assert.Len(t, alters, 1)
+	assert.Len(t, alters, 3)
 }

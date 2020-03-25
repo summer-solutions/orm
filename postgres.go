@@ -50,6 +50,6 @@ func (p Postgres) GetTruncateTableQuery(database string, table string) string {
 	return ""
 }
 
-func (p Postgres) GetSchemaChanges(tableSchema TableSchema) (has bool, alter Alter, err error) {
-	return false, Alter{}, nil
+func (p Postgres) GetSchemaChanges(tableSchema TableSchema) (has bool, alters []Alter, err error) {
+	return false, nil, nil
 }
