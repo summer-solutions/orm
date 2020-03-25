@@ -339,8 +339,11 @@ OUTER:
 	for keyName := range indexesDB {
 		_, has := indexes[keyName]
 		if !has && keyName != "PRIMARY" {
-			droppedIndexes = append(droppedIndexes, fmt.Sprintf("DROP INDEX `%s`", keyName))
-			hasAlters = true
+			_, has = foreignKeys[keyName]
+			if !has {
+				droppedIndexes = append(droppedIndexes, fmt.Sprintf("DROP INDEX `%s`", keyName))
+				hasAlters = true
+			}
 		}
 	}
 	for keyName := range foreignKeysDB {
