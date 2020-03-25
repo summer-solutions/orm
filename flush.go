@@ -550,10 +550,14 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			}
 		case "*orm.ReferenceOne":
 			valueAsString := strconv.FormatUint(field.Interface().(*ReferenceOne).Id, 10)
-			if hasOld && old == valueAsString {
+			if hasOld && (old == valueAsString || (old == nil && valueAsString == "0")) {
 				continue
 			}
-			bind[name] = valueAsString
+			if valueAsString == "0" {
+				bind[name] = nil
+			} else {
+				bind[name] = valueAsString
+			}
 		case "*orm.ReferenceMany":
 			ids := field.Interface().(*ReferenceMany).Ids
 			valueAsString := ""

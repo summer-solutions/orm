@@ -347,7 +347,7 @@ func buildFieldList(t reflect.Type, prefix string) string {
 			continue
 		}
 		switch field.Type.String() {
-		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*orm.ReferenceMany", "time.Time":
+		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*orm.ReferenceOne", "*orm.ReferenceMany", "time.Time":
 			columnNameRaw = prefix + t.Field(i).Name
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:

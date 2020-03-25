@@ -474,9 +474,8 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		addDefaultNullIfNullable = false
 	case "*orm.ReferenceOne":
 		definition = m.handleReferenceOne(attributes)
-		addNotNullIfNotSet = true
+		addNotNullIfNotSet = false
 		addDefaultNullIfNullable = true
-		defaultValue = "'0'"
 	case "*orm.ReferenceMany":
 		definition = m.handleReferenceMany(attributes)
 		addNotNullIfNotSet = false
