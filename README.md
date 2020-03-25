@@ -132,7 +132,6 @@ func main() {
     	Address              Address
     	Json                 interface{}
     	ReferenceOne         *orm.ReferenceOne  `orm:"ref=TestEntity"`
-    	ReferenceMany        *orm.ReferenceMany `orm:"ref=TestEntity;max=100"`
         TemporaryField       bool `orm:"ignore"` //field wont be stored to db or cache
     }
     type TestEntitySecondPool struct {
@@ -527,66 +526,6 @@ func main() {
 
 ```
 
-## Reference one to many
-
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-
-   //.. register pools and entities
- 
-    type UserEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
-        Name                 string
-        Addresses            *orm.ReferenceMany  `orm:"ref=AddressEntity"`
-    }
-    
-    type AddressEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
-        City                 string
-        Street               string
-    }
-    
-    address1 := AddressEntity{City: "New York", Street: "Times Square 12"}
-    address2 := AddressEntity{City: "Boston", Street: "Main 1a"}
-    orm.Init(&address1, &address2)
-    err := orm.Flush(&address1, &address2)
-    
-    user := UserEntity{Name: "John"}
-    orm.Init(&user)
-    user.Addresses.Add(address1.Id, address2.Id)
-    err = orm.Flush(&user)
-
-    /* accessing reference */
-    user.Addresses.Has(address1.Id) //returns true
-    user.Addresses.Len() //returns 2
-    var addresses []AddressEntity
-    err = user.Addresses.Load(&addresses) //has is true
-    
-    /* deleting reference */
-    user.Addresses.Clear()
-    //or
-    user.Addresses.Remove(1, 2)
-
-    /* if you don't have ID yet you can still assign references */
-    newAddress := AddressEntity{City: "Boston", Street: "Main 12"}
-    user.Addresses.AddReference(&newAddress)
-    err = orm.Flush(&user, &newAddress)
-}
-
-```
-
-
-It's a good practice to use one to many reference 
-only if you are connecting no more than 50 rows. As you can se you can't use pager here so
-all rows are loaded at once. If you need to work with more rows you should use cached
-queries (explained below).
 
 ## Cached queries
 

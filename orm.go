@@ -58,11 +58,6 @@ func initIfNeeded(value reflect.Value) (*ORM, error) {
 			def := ReferenceOne{t: GetEntityType(reference)}
 			elem.FieldByName(code).Set(reflect.ValueOf(&def))
 		}
-		for _, code := range tableSchema.refMany {
-			reference := tableSchema.Tags[code]["ref"]
-			def := ReferenceMany{t: GetEntityType(reference)}
-			elem.FieldByName(code).Set(reflect.ValueOf(&def))
-		}
 	}
 	return orm, nil
 }

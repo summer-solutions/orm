@@ -9,20 +9,19 @@ import (
 )
 
 type TestEntityFlush struct {
-	Orm           *orm.ORM
-	Id            uint16
-	Name          string
-	NameNotNull   string `orm:"required"`
-	Blob          []byte
-	Enum          string `orm:"enum=tests.Color"`
-	EnumNotNull   string `orm:"enum=tests.Color;required"`
-	Year          uint16 `orm:"year=true"`
-	YearNotNull   uint16 `orm:"year=true;required"`
-	Date          time.Time
-	DateNotNull   time.Time          `orm:"required"`
-	ReferenceOne  *orm.ReferenceOne  `orm:"ref=tests.TestEntityFlush"`
-	ReferenceMany *orm.ReferenceMany `orm:"ref=tests.TestEntityFlush"`
-	Ignored       []time.Time        `orm:"ignore"`
+	Orm          *orm.ORM
+	Id           uint16
+	Name         string
+	NameNotNull  string `orm:"required"`
+	Blob         []byte
+	Enum         string `orm:"enum=tests.Color"`
+	EnumNotNull  string `orm:"enum=tests.Color;required"`
+	Year         uint16 `orm:"year=true"`
+	YearNotNull  uint16 `orm:"year=true;required"`
+	Date         time.Time
+	DateNotNull  time.Time         `orm:"required"`
+	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityFlush"`
+	Ignored      []time.Time       `orm:"ignore"`
 }
 
 type TestEntityFlushCacheLocal struct {
@@ -62,7 +61,6 @@ func TestFlush(t *testing.T) {
 	entities[1].Name = "Name 2.1"
 	entities[1].ReferenceOne.Id = 7
 	entities[7].Name = "Name 8.1"
-	entities[7].ReferenceMany.Add(3, 4)
 	assert.Nil(t, err)
 	assert.True(t, entities[1].Orm.IsDirty())
 	assert.True(t, entities[7].Orm.IsDirty())
@@ -81,16 +79,6 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint64(0), edited2.ReferenceOne.Id)
 	assert.True(t, edited1.ReferenceOne.Has())
 	assert.False(t, edited2.ReferenceOne.Has())
-	assert.Equal(t, 0, edited1.ReferenceMany.Len())
-	assert.Equal(t, 2, edited2.ReferenceMany.Len())
-	assert.Equal(t, []uint64{3, 4}, edited2.ReferenceMany.Ids)
-	var refs []*TestEntityFlush
-	err = edited2.ReferenceMany.Load(&refs)
-	assert.Nil(t, err)
-	assert.Len(t, refs, 2)
-	assert.Equal(t, uint16(3), refs[0].Id)
-	assert.Equal(t, uint16(4), refs[1].Id)
-
 	var ref TestEntityFlush
 	has, err := edited1.ReferenceOne.Load(&ref)
 	assert.Nil(t, err)

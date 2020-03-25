@@ -607,10 +607,6 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 		definition = m.handleReferenceOne(attributes)
 		addNotNullIfNotSet = false
 		addDefaultNullIfNullable = true
-	case "*orm.ReferenceMany":
-		definition = m.handleReferenceMany(attributes)
-		addNotNullIfNotSet = false
-		addDefaultNullIfNullable = true
 	case "*orm.CachedQuery":
 		return nil, nil
 	default:
@@ -763,14 +759,6 @@ func (m Mysql) handleReferenceOne(attributes map[string]string) string {
 		return "bigint(20) unsigned"
 	}
 	return "int(10) unsigned"
-}
-
-func (m Mysql) handleReferenceMany(attributes map[string]string) string {
-	_, has := attributes["ref"]
-	if !has {
-		panic(fmt.Errorf("missing ref tag"))
-	}
-	return "varchar(5000)"
 }
 
 func (m Mysql) buildCreateIndexSql(keyName string, definition *index) string {

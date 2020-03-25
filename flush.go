@@ -369,21 +369,6 @@ func handleLazyReferences(entities ...interface{}) error {
 				}
 			}
 		}
-		for _, columnName := range schema.refMany {
-			refMany := value.FieldByName(columnName).Interface().(*ReferenceMany)
-			if refMany.references != nil && len(refMany.references) > 0 {
-				for _, ref := range refMany.references {
-					refId := reflect.Indirect(reflect.ValueOf(ref)).Field(1).Uint()
-					if refId > 0 {
-						if !refMany.Has(refId) {
-							refMany.Add(refId)
-							dirty = true
-						}
-					}
-				}
-				refMany.references = nil
-			}
-		}
 		if dirty {
 			toFlush = append(toFlush, entity)
 		}
@@ -554,24 +539,6 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 				continue
 			}
 			if valueAsString == "0" {
-				bind[name] = nil
-			} else {
-				bind[name] = valueAsString
-			}
-		case "*orm.ReferenceMany":
-			ids := field.Interface().(*ReferenceMany).Ids
-			valueAsString := ""
-			if ids != nil && len(ids) > 0 {
-				asJson, err := json.Marshal(ids)
-				if err != nil {
-					return nil, err
-				}
-				valueAsString = string(asJson)
-			}
-			if hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
-				continue
-			}
-			if valueAsString == "" {
 				bind[name] = nil
 			} else {
 				bind[name] = valueAsString

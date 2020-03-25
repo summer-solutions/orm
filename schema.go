@@ -63,7 +63,6 @@ type TableSchema struct {
 	columnNames      []string
 	columnPathMap    map[string]string
 	refOne           []string
-	refMany          []string
 	columnsStamp     string
 	localCacheName   string
 	redisCacheName   string
@@ -115,7 +114,6 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 	}
 	tags, columnNames, columnPathMap := tableSchema.extractTags(entityType, "")
 	oneRefs := make([]string, 0)
-	manyRefs := make([]string, 0)
 	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", columnNames)))
 	columnsStamp := fmt.Sprintf("%x", md5Part[:1])
 	mysql, has := tags["Orm"]["mysql"]
@@ -185,13 +183,9 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 				cachedQueriesOne[key] = cachedQueryDefinition{1, query, fields}
 			}
 		}
-		userValue, has = values["refType"]
+		_, has = values["ref"]
 		if has {
-			if userValue == "one" {
-				oneRefs = append(oneRefs, key)
-			} else {
-				manyRefs = append(manyRefs, key)
-			}
+			oneRefs = append(oneRefs, key)
 		}
 	}
 	tableSchema = &TableSchema{TableName: table,
@@ -206,7 +200,6 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 		localCacheName:   localCache,
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
-		refMany:          manyRefs,
 		cachePrefix:      cachePrefix}
 	tableSchemas[entityType] = tableSchema
 	return tableSchema
@@ -297,7 +290,7 @@ func (tableSchema *TableSchema) GetUsage() map[reflect.Type][]string {
 	results := make(map[reflect.Type][]string)
 	for _, t := range entities {
 		schema := GetTableSchema(t)
-		for _, columnName := range append(schema.refOne, schema.refMany...) {
+		for _, columnName := range schema.refOne {
 			ref, has := schema.Tags[columnName]["ref"]
 			if has && ref == tableSchema.t.String() {
 				if results[t] == nil {
@@ -363,11 +356,6 @@ func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix stri
 			if fields[field.Name] == nil {
 				fields[field.Name] = make(map[string]string)
 			}
-			refType := "one"
-			if field.Type.String() == "*orm.ReferenceMany" {
-				refType = "many"
-			}
-			fields[field.Name]["refType"] = refType
 		}
 	}
 	return

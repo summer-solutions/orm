@@ -59,9 +59,8 @@ type TestEntitySchema struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressSchema
 	Json                 interface{}
-	ReferenceOne         *orm.ReferenceOne  `orm:"ref=tests.TestEntitySchemaRef"`
-	ReferenceMany        *orm.ReferenceMany `orm:"ref=tests.TestEntitySchema"`
-	IgnoreField          []time.Time        `orm:"ignore"`
+	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef"`
+	IgnoreField          []time.Time       `orm:"ignore"`
 	Blob                 []byte
 }
 

@@ -292,18 +292,6 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 		case "*orm.ReferenceOne":
 			integer, _ := strconv.ParseUint(data[index], 10, 64)
 			field.Interface().(*ReferenceOne).Id = integer
-		case "*orm.ReferenceMany":
-			ids := data[index]
-			if ids == "" {
-				field.Interface().(*ReferenceMany).Ids = nil
-			} else {
-				var data []uint64
-				err := json.Unmarshal([]byte(ids), &data)
-				if err != nil {
-					data = make([]uint64, 0)
-				}
-				field.Interface().(*ReferenceMany).Ids = data
-			}
 		case "*orm.CachedQuery":
 			continue
 		case "interface {}":
@@ -347,7 +335,7 @@ func buildFieldList(t reflect.Type, prefix string) string {
 			continue
 		}
 		switch field.Type.String() {
-		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*orm.ReferenceOne", "*orm.ReferenceMany", "time.Time":
+		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*orm.ReferenceOne", "time.Time":
 			columnNameRaw = prefix + t.Field(i).Name
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:
