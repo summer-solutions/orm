@@ -99,40 +99,68 @@ import (
 
 func main() {
 
-    type Address struct {
-    	Street   string
-    	Building uint16
+    type AddressSchema struct {
+        Street   string
+        Building uint16
     }
     
-    type TestEntity struct {
-    	Orm                  *orm.ORM
-    	Id                   uint
-    	Name                 string `orm:"length=100;index=FirstIndex"`
-    	BigName              string `orm:"length=max"`
-    	Uint8                uint8  `orm:"unique=SecondIndex:2,ThirdIndex"`
-    	Uint24               uint32 `orm:"mediumint=true"`
-    	Uint32               uint32
-    	Uint64               uint64 `orm:"unique=SecondIndex"`
-    	Int8                 int8
-    	Int16                int16
-    	Int32                int32
-    	Int64                int64
-    	Rune                 rune
-    	Int                  int
-    	Bool                 bool
-    	Float32              float32
-    	Float64              float64
-    	Float32Decimal       float32  `orm:"decimal=8,2"`
-    	Float64DecimalSigned float64  `orm:"decimal=8,2;unsigned=false"`
-    	Enum                 string   `orm:"enum=aaa,bbb,ccc"`
-    	Set                  []string `orm:"set=vv,hh,dd"`
-    	Year                 uint16   `orm:"year=true"`
-    	Date                 time.Time
-    	DateTime             time.Time `orm:"time=true"`
-    	Address              Address
-    	Json                 interface{}
-    	ReferenceOne         *orm.ReferenceOne  `orm:"ref=TestEntity"`
-        TemporaryField       bool `orm:"ignore"` //field wont be stored to db or cache
+    type fieldsColors struct {
+        Red    string
+        Green  string
+        Blue   string
+        Yellow string
+        Purple string
+    }
+    
+    var Color = &fieldsColors{
+        Red:    "Red",
+        Green:  "Green",
+        Blue:   "Blue",
+        Yellow: "Yellow",
+        Purple: "Purple",
+    }
+    
+    type TestEntitySchema struct {
+        Orm                  *orm.ORM
+        Id                   uint
+        Name                 string `orm:"length=100;index=FirstIndex"`
+        NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
+        BigName              string `orm:"length=max"`
+        Uint8                uint8  `orm:"unique=SecondIndex:2,ThirdIndex"`
+        Uint24               uint32 `orm:"mediumint=true"`
+        Uint32               uint32
+        Uint64               uint64 `orm:"unique=SecondIndex"`
+        Int8                 int8
+        Int16                int16
+        Int32                int32
+        Int64                int64
+        Rune                 rune
+        Int                  int
+        Bool                 bool
+        Float32              float32
+        Float64              float64
+        Float32Decimal       float32  `orm:"decimal=8,2"`
+        Float64DecimalSigned float64  `orm:"decimal=8,2;unsigned=false"`
+        Enum                 string   `orm:"enum=tests.Color"`
+        EnumNotNull          string   `orm:"enum=tests.Color;required"`
+        Set                  []string `orm:"set=tests.Color"`
+        Year                 uint16   `orm:"year=true"`
+        YearNotNull          uint16   `orm:"year=true;required"`
+        Date                 time.Time
+        DateNotNull          time.Time `orm:"required"`
+        DateTime             time.Time `orm:"time=true"`
+        Address              AddressSchema
+        Json                 interface{}
+        ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef"`
+        ReferenceOneCascade  *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef;cascade"`
+        IgnoreField          []time.Time       `orm:"ignore"`
+        Blob                 []byte
+    }
+    
+    type TestEntitySchemaRef struct {
+        Orm  *orm.ORM
+        Id   uint
+        Name string
     }
     type TestEntitySecondPool struct {
     	Orm                  *orm.ORM `orm:"mysql=second_pool"`
@@ -148,7 +176,7 @@ There are only two golden rules you need to remember defining entity struct:
  
  
  As you can see orm is not using null values like sql.NullString. Simply set empty string "" and orm will
- convert it to null in database. 
+ convert it to null in database if needed. 
  
  By default entity is not cached in local cache or redis, to change that simply use key "redisCache" or "localCache"
  in "orm" tag for "Orm" field:
@@ -217,55 +245,14 @@ There are only two golden rules you need to remember defining entity struct:
     var secondEntity SecondEntity
 	orm.RegisterEntity(firstEntity, secondEntity)
     
-    safeAlters, unsafeAlters, err := orm.GetAlters()
-
-    
-    /* in safeAlters and unsafeAlters you can find all sql queries (CREATE, DROP, ALTER TABLE) that needs
-    to be executed based on registered entities. "safeAlters" you can execute without any stress,
-    no data will be lost. But be careful executing queries from "unsafeAlters". You can loose some data, 
-    e.g. table needs to be dropped that contains some rows. */
+    alters, err := orm.GetAlters()
     
     /*optionally you can execute alters for each model*/
     orm.GetTableSchema(firstEntity).UpdateSchema() //it will create or alter table if needed
     orm.GetTableSchema(firstEntity).DropTable() //it will drop table if exist
+    orm.GetTableSchema(firstEntity).TruncateTable()
     //if you need to see queries:
-    has, safeAlters, unsafeAlters, err := orm.GetTableSchema(firstEntity).GetSchemaChanges()
- }
- 
- ```
-
- ## Logging
- 
- ```go
- package main
- 
- import "github.com/summer-solutions/orm"
- 
- func main() {
- 
-     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
-     orm.RegisterMySqlPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
-     orm.RegisterRedis("localhost:6379", 0)
-     orm.RegisterLocalCache(1000)
-   
-     /*to enable simple logger that prints queries to standard output*/
-     dbLogger := orm.NewStandardDatabaseLogger()
-     el := orm.GetMysql().RegisterLogger(dbLogger)
-     defer orm.GetMysql().UnregisterLogger(el)
-     el = orm.GetMysql("second_pool").RegisterLogger(dbLogger)
-     defer orm.GetMysql("second_pool").UnregisterLogger(el)
-    
-     cacheLogger := orm.NewStandardCacheLogger()
-     el = orm.GetRedis().RegisterLogger(cacheLogger)   
-     defer orm.GetRedis().UnregisterLogger(el)
-     el = orm.GetLocalCache().RegisterLogger(cacheLogger)
-     defer orm.GetLocalCache().UnregisterLogger(el)
-    
-    /* adding logger to all pools */
-    elements := orm.RegisterDatabaseLogger(dbLogger)
-    defer orm.UnregisterDatabaseLoggers(elements...)
-    elements = orm.RegisterRedisLogger(cacheLogger)
-    defer orm.UnregisterRedisLoggers(elements...)    
+    has, alters, err := orm.GetTableSchema(firstEntity).GetSchemaChanges()
  }
  
  ```
@@ -325,6 +312,10 @@ func main() {
     if err != nil {
        ///...
     }
+
+    /* flush can return 2 special errors */
+    orm.DuplicatedKeyError{} //when unique index is broken
+    orm.ForeignKeyError{} //whne foreign key is broken
 }
 
 ```
@@ -350,13 +341,13 @@ func main() {
     }
     var entity TestEntity
     found, err := orm.TryById(1, &entity) //found has false if row does not exists
-    orm.GetById(2, &entity) //will panic if row does not exist
+    err = orm.GetById(2, &entity) //if will return err if entity does not exists
 
-    var entities []TestEntity
+    var entities []*TestEntity
     //missing is []uint64 that contains id of rows that doesn't exists, 
     // in this cause $found slice has nil for such keys
     missing, err := orm.TryByIds([]uint64{2, 3, 1}, &entities) 
-    orm.GetByIds([]uint64{2, 3, 1}, &entities) //will panic if at least one row does not exist
+    err = orm.GetByIds([]uint64{2, 3, 1}, &entities) //will return error if at least one row does not exist
 }
 
 ```
@@ -378,7 +369,7 @@ func main() {
         Name                 string
     }
 
-    var entities []TestEntity
+    var entities []*TestEntity
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
     where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
     err := orm.Search(where, pager, &entities)
@@ -400,11 +391,11 @@ func main() {
 
 ```
 
-## Flusher
+## Flusher and AutoFlusher
 
 Very often you need to change more than one entity. It's hard to track all of them
 to see if some of them are dirty. Also it's better to update them at the same time trying
-to minimize number of requests to database and cache. To solve this problem simple use FLusher:
+to minimize number of requests to database and cache. To solve this problem simple use Flusher:
 
 ```go
 package main
@@ -421,46 +412,49 @@ func main() {
         Name                 string
     }
 
-    /* In this case flusher will keep maximum 100 entities. If you add more it will panic */
-    flusher := orm.NewFlusher(100, false)
+    /* In this case flusher will keep maximum 10000 entities. If you add more it will panic */
+    flusher := orm.Flusher{}
 
     var entity1 TestEntity
     var entity2 TestEntity
     entity3 := TestEntity{Name: "Hello"}
     err := orm.GetById(1, &entity1)
     err = orm.GetById(2, &entity2)
-    err = flusher.RegisterEntity(&entity1, &entity2, &entity3)
+    flusher.RegisterEntity(&entity1, &entity2, &entity3)
    
     entity1.Name = "New Name"
     entity1.Orm.MarkToDelete()
     
     err = flusher.Flush() //executes all queries at once
 
-     /* 
-        in this case flusher will keep maximum 1000 entities. 
+    /* 
+        in this case flusher will keep maximum 10000 entities. 
         If you add more it automatically flush all of them and unregister them in flusher 
     */
-    flusher = orm.NewFlusher(1000, true)
+    autoFlusher = orm.AutoFlusher()
     
-    var entities []TestEntity
+    var entities []*TestEntity
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
     where := orm.NewWhere("1")
     for {
         err = orm.Search(where, pager, &entities)
         for _, entity := range entities {
           entity.Name = "New Name"
-          err = flusher.RegisterEntity(&entity) //it will auto flush every 10 iterations
+          err = autoFlusher.RegisterEntity(&entity) //it will auto flush every 10 iterations
         }
         pager.IncrementPage()
         if len(entities) < pager.GetPageSize() {
             break
         }
     }
-    err = flusher.Flush()
+    err = autoFlusher.Flush()
     if err != nil {
        ///...
     }
-
+    /* to change limit, but try to avoid bug numbers */
+    flusher.Limit = 20000
+    /* to use flushLazy */
+    flusher.Lazy = true
 }
 
 ```
@@ -489,6 +483,17 @@ func main() {
         Id                   uint64
         Name                 string
     }
+
+    type UserHouse struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        User                 *orm.ReferenceOne  `orm:"ref=UserEntity;cascade"`
+    }
+
+    /* 
+        Orm will add index and foreign key automatically. By default 'ON DELETE RESTRICT' but
+        you can add tag "cascade" to force 'ON DELETE CASCADE'
+    */
     
     school := SchoolEntity{Name: "Name of school"}
     err := orm.Flush(&school)
@@ -551,7 +556,7 @@ func main() {
     user := UserEntity{Name: "John", Age: 18}
     err := orm.Flush(&user)
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
-    var users []UserEntity
+    var users []*UserEntity
     totalRows, err := orm.CachedSearch(&users, "IndexAge", pager, 18)
     totalRows, err = orm.CachedSearch(&users, "IndexAll", pager)
     has, err := orm.CachedSearchOne(&user, "IndexName", "John")
