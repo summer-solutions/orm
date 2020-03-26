@@ -84,6 +84,7 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, 
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
 	}
+	entities.SetLen(0)
 	entityType := getEntityTypeForSlice(entities.Type())
 	schema := getTableSchema(entityType)
 

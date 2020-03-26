@@ -13,7 +13,7 @@ type DbInterface interface {
 	GetDeleteQuery(tableName string, ids []interface{}) string
 	GetDropTableQuery(database string, table string) string
 	GetTruncateTableQuery(database string, table string) string
-	ConvertToDuplicateKeyError(err error) error
+	ConvertToError(err error) error
 	Limit(pager *Pager) string
 	GetAllTables(db *sql.DB) ([]string, error)
 	GetSchemaChanges(tableSchema TableSchema) (has bool, alters []Alter, err error)

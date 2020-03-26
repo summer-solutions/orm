@@ -30,7 +30,7 @@ func (p Postgres) GetDeleteQuery(tableName string, ids []interface{}) string {
 	return ""
 }
 
-func (p Postgres) ConvertToDuplicateKeyError(err error) error {
+func (p Postgres) ConvertToError(err error) error {
 	return err
 }
 

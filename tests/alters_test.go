@@ -60,6 +60,7 @@ type TestEntitySchema struct {
 	Address              AddressSchema
 	Json                 interface{}
 	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef"`
+	ReferenceOneCascade  *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef;cascade"`
 	IgnoreField          []time.Time       `orm:"ignore"`
 	Blob                 []byte
 }

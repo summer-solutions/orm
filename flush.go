@@ -18,6 +18,15 @@ func (err *DuplicatedKeyError) Error() string {
 	return err.Message
 }
 
+type ForeignKeyError struct {
+	Message    string
+	Constraint string
+}
+
+func (err *ForeignKeyError) Error() string {
+	return err.Message
+}
+
 func Flush(entities ...interface{}) error {
 	return flush(false, entities...)
 }
@@ -91,8 +100,8 @@ func flush(lazy bool, entities ...interface{}) error {
 			if orm.dBData["_delete"] == true {
 				if deleteBinds[t] == nil {
 					deleteBinds[t] = make(map[uint64]map[string]interface{})
-					deleteBinds[t][currentId] = orm.dBData
 				}
+				deleteBinds[t][currentId] = orm.dBData
 			} else {
 				fields := make([]string, bindLength)
 				i := 0
@@ -110,7 +119,7 @@ func flush(lazy bool, entities ...interface{}) error {
 				} else {
 					_, err := schema.GetMysql().Exec(sql, values...)
 					if err != nil {
-						return convertToDuplicateKeyError(schema, err)
+						return convertToError(schema, err)
 					}
 				}
 				old := make(map[string]interface{}, len(orm.dBData))
@@ -170,7 +179,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		} else {
 			res, err := db.Exec(sql, insertArguments[typeOf]...)
 			if err != nil {
-				return convertToDuplicateKeyError(schema, err)
+				return convertToError(schema, err)
 			}
 			insertId, err := res.LastInsertId()
 			if err != nil {
@@ -221,9 +230,52 @@ func flush(lazy bool, entities ...interface{}) error {
 		if lazy && db.transaction == nil {
 			fillLazyQuery(lazyMap, db.code, sql, ids)
 		} else {
+
+			usage := schema.GetUsage()
+			if len(usage) > 0 {
+				for refT, refColumns := range usage {
+					for _, refColumn := range refColumns {
+						refSchema := getTableSchema(refT)
+						_, isCascade := refSchema.Tags[refColumn]["cascade"]
+						if isCascade {
+							subValue := reflect.New(reflect.SliceOf(reflect.PtrTo(refT)))
+							subElem := subValue.Elem()
+							sub := subValue.Interface()
+							pager := &Pager{CurrentPage: 1, PageSize: 1000}
+							where := NewWhere(fmt.Sprintf("`%s` IN ?", refColumn), ids)
+							max := 10
+							for {
+								err := Search(where, pager, sub)
+								if err != nil {
+									return err
+								}
+								total := subElem.Len()
+								if total == 0 {
+									break
+								}
+								toDeleteAll := make([]interface{}, total)
+								for i := 0; i < total; i++ {
+									toDeleteValue := subElem.Index(i)
+									toDeleteValue.Elem().Field(0).Interface().(*ORM).MarkToDelete()
+									toDelete := toDeleteValue.Interface()
+									toDeleteAll[i] = toDelete
+								}
+								err = Flush(toDeleteAll...)
+								if err != nil {
+									return err
+								}
+								max--
+								if max == 0 {
+									return fmt.Errorf("cascade limit exceeded")
+								}
+							}
+						}
+					}
+				}
+			}
 			_, err := db.Exec(sql, ids...)
 			if err != nil {
-				return err
+				return convertToError(schema, err)
 			}
 		}
 
@@ -704,6 +756,6 @@ func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, va
 	lazyMap["q"] = append(updatesMap.([]interface{}), lazyValue)
 }
 
-func convertToDuplicateKeyError(schema *TableSchema, err error) error {
-	return schema.GetMysql().databaseInterface.ConvertToDuplicateKeyError(err)
+func convertToError(schema *TableSchema, err error) error {
+	return schema.GetMysql().databaseInterface.ConvertToError(err)
 }

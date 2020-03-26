@@ -75,13 +75,21 @@ func (m Mysql) GetDeleteQuery(tableName string, ids []interface{}) string {
 	return fmt.Sprintf("DELETE FROM `%s` WHERE %s", tableName, where)
 }
 
-func (m Mysql) ConvertToDuplicateKeyError(err error) error {
+func (m Mysql) ConvertToError(err error) error {
 	sqlErr, yes := err.(*mysql.MySQLError)
-	if yes && sqlErr.Number == 1062 {
-		var abortLabelReg, _ = regexp.Compile(` for key '(.*?)'`)
-		labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
-		if len(labels) > 0 {
-			return &DuplicatedKeyError{Message: sqlErr.Message, Index: labels[1]}
+	if yes {
+		if sqlErr.Number == 1062 {
+			var abortLabelReg, _ = regexp.Compile(` for key '(.*?)'`)
+			labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
+			if len(labels) > 0 {
+				return &DuplicatedKeyError{Message: sqlErr.Message, Index: labels[1]}
+			}
+		} else if sqlErr.Number == 1451 {
+			var abortLabelReg, _ = regexp.Compile(" CONSTRAINT `(.*?)`")
+			labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
+			if len(labels) > 0 {
+				return &ForeignKeyError{Message: sqlErr.Message, Constraint: labels[1]}
+			}
 		}
 	}
 	return err
@@ -511,8 +519,13 @@ func (m Mysql) checkColumn(tableSchema TableSchema, field *reflect.StructField, 
 			unique = false
 		}
 		schema := GetTableSchema(GetEntityType(attributes["ref"]))
+		onDelete := "RESTRICT"
+		_, hasCascade := attributes["cascade"]
+		if hasCascade {
+			onDelete = "CASCADE"
+		}
 		foreignKey := &foreignIndex{Column: field.Name, Table: schema.TableName,
-			ParentDatabase: schema.GetMysql().databaseName, OnDelete: "RESTRICT"}
+			ParentDatabase: schema.GetMysql().databaseName, OnDelete: onDelete}
 		name := fmt.Sprintf("%s:%s:%s", tableSchema.GetMysql().databaseName, tableSchema.TableName, field.Name)
 		foreignKeys[name] = foreignKey
 	}
