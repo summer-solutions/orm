@@ -29,7 +29,7 @@ func TestCachedSearchLocal(t *testing.T) {
 
 	var entity TestEntityIndexTestLocal
 	var entityRef TestEntityIndexTestLocalRef
-	PrepareTables(entity, entityRef)
+	PrepareTables(entityRef, entity)
 
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestLocalRef{Name: "Name " + strconv.Itoa(i)}
@@ -40,8 +40,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
 		e := TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
-		err := orm.Init(&e)
-		assert.Nil(t, err)
+		orm.Init(&e)
 		e.ReferenceOne.Id = uint64(i)
 		entities[i-1] = &e
 	}

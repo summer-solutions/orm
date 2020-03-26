@@ -35,18 +35,14 @@ func RegisterEnum(name string, enum interface{}) {
 	enums[name] = reflect.Indirect(reflect.ValueOf(enum))
 }
 
-func Init(entity ...interface{}) error {
+func Init(entity ...interface{}) {
 	for _, e := range entity {
 		value := reflect.ValueOf(e)
-		_, err := initIfNeeded(value)
-		if err != nil {
-			return err
-		}
+		initIfNeeded(value)
 	}
-	return nil
 }
 
-func initIfNeeded(value reflect.Value) (*ORM, error) {
+func initIfNeeded(value reflect.Value) *ORM {
 	elem := value.Elem()
 	orm := elem.Field(0).Interface().(*ORM)
 	if orm == nil {
@@ -59,7 +55,7 @@ func initIfNeeded(value reflect.Value) (*ORM, error) {
 			elem.FieldByName(code).Set(reflect.ValueOf(&def))
 		}
 	}
-	return orm, nil
+	return orm
 }
 
 func RegisterMySqlPool(dataSourceName string, code ...string) error {

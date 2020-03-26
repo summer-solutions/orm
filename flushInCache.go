@@ -15,10 +15,7 @@ func FlushInCache(entities ...interface{}) error {
 
 		value := reflect.ValueOf(entity)
 		elem := value.Elem()
-		orm, err := initIfNeeded(value)
-		if err != nil {
-			return err
-		}
+		orm := initIfNeeded(value)
 		elem.Field(0).Interface().(*ORM).elem = elem
 		t := elem.Type()
 

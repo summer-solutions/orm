@@ -21,12 +21,11 @@ func TestFlushLazyReference(t *testing.T) {
 	entity2 := TestEntityFlushLazyReference{Name: "Name 2"}
 	entity3 := TestEntityFlushLazyReference{Name: "Name 3"}
 	entity4 := TestEntityFlushLazyReference{Name: "Name 4"}
-	err := orm.Init(&entity1, &entity2, &entity3, &entity4)
-	assert.Nil(t, err)
+	orm.Init(&entity1, &entity2, &entity3, &entity4)
 
 	entity1.ReferenceOne.Reference = &entity2
 
-	err = orm.Flush(&entity1, &entity2, &entity3, &entity4)
+	err := orm.Flush(&entity1, &entity2, &entity3, &entity4)
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(2), entity1.ReferenceOne.Id)
 

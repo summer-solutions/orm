@@ -176,10 +176,7 @@ func getTotalRows(withCount bool, pager *Pager, where *Where, schema *TableSchem
 }
 
 func fillFromDBRow(data []string, value reflect.Value, entityType reflect.Type) error {
-	orm, err := initIfNeeded(value)
-	if err != nil {
-		return err
-	}
+	orm := initIfNeeded(value)
 	elem := value.Elem()
 	fillStruct(0, data, entityType, elem, "")
 	orm.dBData["Id"] = data[0]
