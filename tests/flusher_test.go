@@ -27,22 +27,20 @@ func TestFlusherAuto(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
-	flusher := orm.NewFlusher(5, true)
+	flusher := orm.AutoFlusher{Limit: 5}
 
 	for i := 1; i <= 10; i++ {
 		e := TestEntityFlusherAuto{Name: "Name " + strconv.Itoa(i)}
-		err := flusher.RegisterEntity(&e)
-		assert.Nil(t, err)
+		flusher.RegisterEntity(&e)
 	}
 	assert.Len(t, DBLogger.Queries, 1)
 	assert.Equal(t, "INSERT INTO TestEntityFlusherAuto(`Name`) VALUES (?),(?),(?),(?),(?) [Name 1 Name 2 Name 3 Name 4 Name 5]", DBLogger.Queries[0])
 	e := TestEntityFlusherAuto{Name: "Name 11"}
-	err := flusher.RegisterEntity(&e)
-	assert.Nil(t, err)
+	flusher.RegisterEntity(&e)
 	assert.Len(t, DBLogger.Queries, 2)
 	assert.Equal(t, "INSERT INTO TestEntityFlusherAuto(`Name`) VALUES (?),(?),(?),(?),(?) [Name 6 Name 7 Name 8 Name 9 Name 10]", DBLogger.Queries[1])
 
-	err = flusher.Flush()
+	err := flusher.Flush()
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 3)
 	assert.Equal(t, "INSERT INTO TestEntityFlusherAuto(`Name`) VALUES (?) [Name 11]", DBLogger.Queries[2])
@@ -56,12 +54,11 @@ func TestFlusherManual(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	orm.GetMysql().RegisterLogger(DBLogger.Logger())
 
-	flusher := orm.NewFlusher(100, false)
+	flusher := orm.Flusher{Limit: 100}
 
 	for i := 1; i <= 3; i++ {
 		e := TestEntityFlusherManual{Name: "Name " + strconv.Itoa(i)}
-		err := flusher.RegisterEntity(&e)
-		assert.Nil(t, err)
+		flusher.RegisterEntity(&e)
 	}
 	assert.Len(t, DBLogger.Queries, 0)
 

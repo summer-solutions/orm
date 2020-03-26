@@ -25,16 +25,14 @@ func TestEntityByIdsRedis(t *testing.T) {
 	var entityRef TestEntityByIdsRedisCacheRef
 	PrepareTables(entityRef, entity)
 
-	flusher := orm.NewFlusher(100, false)
+	flusher := orm.Flusher{}
 	for i := 1; i <= 10; i++ {
 		e := TestEntityByIdsRedisCache{Name: "Name " + strconv.Itoa(i)}
 		orm.Init(&e)
-		err := flusher.RegisterEntity(&e)
-		assert.Nil(t, err)
+		flusher.RegisterEntity(&e)
 		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
 		orm.Init(&e2)
-		err = flusher.RegisterEntity(&e2)
-		assert.Nil(t, err)
+		flusher.RegisterEntity(&e2)
 	}
 	err := flusher.Flush()
 	assert.Nil(t, err)

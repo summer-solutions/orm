@@ -42,11 +42,10 @@ func TestFlush(t *testing.T) {
 	PrepareTables(entity)
 
 	var entities = make([]*TestEntityFlush, 10)
-	flusher := orm.NewFlusher(100, false)
+	flusher := orm.Flusher{}
 	for i := 1; i <= 10; i++ {
 		e := TestEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: Color.Red}
-		err := flusher.RegisterEntity(&e)
-		assert.Nil(t, err)
+		flusher.RegisterEntity(&e)
 		entities[i-1] = &e
 	}
 	err := flusher.Flush()

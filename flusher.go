@@ -3,27 +3,38 @@ package orm
 import "fmt"
 
 type Flusher struct {
-	limit        int
-	autoFlush    bool
+	Limit        int
+	Lazy         bool
 	entities     []interface{}
 	currentIndex int
-	lazy         bool
 }
 
-func NewFlusher(limit int, autoFlush bool) *Flusher {
-	return &Flusher{limit: limit, autoFlush: autoFlush, entities: make([]interface{}, 0, limit), lazy: false}
+type AutoFlusher struct {
+	Limit        int
+	Lazy         bool
+	entities     []interface{}
+	currentIndex int
 }
 
-func NewLazyFlusher(limit int, autoFlush bool) *Flusher {
-	return &Flusher{limit: limit, autoFlush: autoFlush, entities: make([]interface{}, 0, limit), lazy: true}
-}
-
-func (f *Flusher) RegisterEntity(entities ...interface{}) error {
+func (f *Flusher) RegisterEntity(entities ...interface{}) {
+	if f.Limit == 0 {
+		f.Limit = 10000
+	}
 	for _, entity := range entities {
-		if f.currentIndex == f.limit {
-			if !f.autoFlush {
-				return fmt.Errorf("flusher limit %d exceeded", entity)
-			}
+		if f.currentIndex == f.Limit {
+			panic(fmt.Errorf("flusher limit %d exceeded", f.Limit))
+		}
+		f.entities = append(f.entities, entity)
+		f.currentIndex = f.currentIndex + 1
+	}
+}
+
+func (f *AutoFlusher) RegisterEntity(entities ...interface{}) error {
+	if f.Limit == 0 {
+		f.Limit = 10000
+	}
+	for _, entity := range entities {
+		if f.currentIndex == f.Limit {
 			err := f.Flush()
 			if err != nil {
 				return err
@@ -36,11 +47,21 @@ func (f *Flusher) RegisterEntity(entities ...interface{}) error {
 }
 
 func (f *Flusher) Flush() error {
-	err := flush(f.lazy, f.entities...)
+	err := flush(f.Lazy, f.entities...)
 	if err != nil {
 		return err
 	}
 	f.currentIndex = 0
-	f.entities = make([]interface{}, 0, f.limit)
+	f.entities = make([]interface{}, 0)
+	return nil
+}
+
+func (f *AutoFlusher) Flush() error {
+	err := flush(f.Lazy, f.entities...)
+	if err != nil {
+		return err
+	}
+	f.currentIndex = 0
+	f.entities = make([]interface{}, 0)
 	return nil
 }

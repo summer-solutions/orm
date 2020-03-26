@@ -12,13 +12,13 @@ func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
 	orm.RegisterLazyQueue("default", "default_queue")
 	orm.RegisterLocalCache(1000)
 
-	orm.UnregisterEntities()
 	orm.RegisterEntity(entities...)
 
 	alters, _ := orm.GetAlters()
 	for _, alter := range alters {
 		_, err := orm.GetMysql(alter.Pool).Exec(alter.Sql)
 		if err != nil {
+			fmt.Printf("%s\n", alter.Sql)
 			panic(err)
 		}
 	}
