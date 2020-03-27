@@ -54,6 +54,10 @@ func initIfNeeded(value reflect.Value) *ORM {
 			def := ReferenceOne{t: GetEntityType(reference)}
 			elem.FieldByName(code).Set(reflect.ValueOf(&def))
 		}
+		defaultInterface, is := value.Interface().(DefaultValuesInterface)
+		if is {
+			defaultInterface.SetDefaults()
+		}
 	}
 	return orm
 }

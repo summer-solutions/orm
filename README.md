@@ -669,6 +669,27 @@ func main() {
 
 ```
 
+## Set defaults
+
+If you need to define default values for entity simply extend orm.DefaultValuesInterface.
+
+```go
+func main() {
+
+    type UserEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        Name                 string
+    }
+
+    func (e *UserEntity) SetDefaults() {
+        e.Name = "Tom"
+    }
+    
+}
+
+```
+
 ## Working with Redis
 
 ```go
