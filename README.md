@@ -690,6 +690,52 @@ func main() {
 
 ```
 
+## Validate
+
+If you need to define validation for entity simply extend orm.ValidateInterface.
+
+```go
+func main() {
+
+    type UserEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        Name                 string
+    }
+
+    func (e *UserEntity) Validate() error {
+        if e.Name == "Tom" {
+            return fmt.Errorf("Tom is not allowed")
+        }
+        return nil
+    }
+    
+}
+
+```
+
+## After saved
+
+If you need to execute code after entity is added or updated simply extend orm.AfterSavedInterface.
+
+```go
+func main() {
+
+    type UserEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        Value                int
+        Calculated           string `orm:"ignore"`
+    }
+
+    func (e *UserEntity) AfterSaved() error {
+        e.Calculated = e.Value + 1
+        return nil
+    }
+}
+
+```
+
 ## Working with Redis
 
 ```go

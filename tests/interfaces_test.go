@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 	"testing"
@@ -12,6 +13,7 @@ type TestEntityInterfaces struct {
 	Uint         uint
 	Name         string
 	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityInterfacesRef"`
+	Calculated   int               `orm:"ignore"`
 }
 
 type TestEntityInterfacesRef struct {
@@ -22,14 +24,43 @@ type TestEntityInterfacesRef struct {
 func (e *TestEntityInterfaces) SetDefaults() {
 	e.Uint = 3
 	e.Name = "hello"
-	e.ReferenceOne.Id = 5
+	e.ReferenceOne.Id = 1
+}
+
+func (e *TestEntityInterfaces) Validate() error {
+	if e.Uint < 5 {
+		return fmt.Errorf("uint too low")
+	}
+	return nil
+}
+
+func (e *TestEntityInterfaces) AfterSaved() error {
+	e.Calculated = int(e.Uint) + int(e.ReferenceOne.Id)
+	return nil
 }
 
 func TestInterfaces(t *testing.T) {
 	PrepareTables(TestEntityInterfaces{}, TestEntityInterfacesRef{})
+
+	err := orm.Flush(&TestEntityInterfacesRef{})
+	assert.Nil(t, err)
+
 	entity := &TestEntityInterfaces{}
 	orm.Init(entity)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)
-	assert.Equal(t, uint64(5), entity.ReferenceOne.Id)
+	assert.Equal(t, uint64(1), entity.ReferenceOne.Id)
+
+	err = orm.Flush(entity)
+	assert.NotNil(t, err)
+	assert.Error(t, err, "uint too low")
+	entity.Uint = 5
+	err = orm.Flush(entity)
+	assert.Nil(t, err)
+	assert.Equal(t, 6, entity.Calculated)
+
+	entity.Uint = 10
+	err = orm.Flush(entity)
+	assert.Nil(t, err)
+	assert.Equal(t, 11, entity.Calculated)
 }

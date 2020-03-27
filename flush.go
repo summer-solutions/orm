@@ -50,6 +50,13 @@ func flush(lazy bool, entities ...interface{}) error {
 	lazyMap := make(map[string]interface{})
 
 	for _, entity := range entities {
+		validate, is := entity.(ValidateInterface)
+		if is {
+			err := validate.Validate()
+			if err != nil {
+				return err
+			}
+		}
 		v := reflect.ValueOf(entity)
 		value := reflect.Indirect(v)
 		orm := initIfNeeded(v)
@@ -88,7 +95,7 @@ func flush(lazy bool, entities ...interface{}) error {
 				insertValues[t] = fmt.Sprintf("(%s)", strings.Join(valuesKeys, ","))
 			}
 			insertArguments[t] = append(insertArguments[t], values...)
-			insertReflectValues[t] = append(insertReflectValues[t], value)
+			insertReflectValues[t] = append(insertReflectValues[t], v)
 			insertBinds[t] = append(insertBinds[t], bind)
 			totalInsert[t]++
 		} else {
@@ -117,6 +124,13 @@ func flush(lazy bool, entities ...interface{}) error {
 					_, err := schema.GetMysql().Exec(sql, values...)
 					if err != nil {
 						return convertToError(schema, err)
+					}
+					afterSaved, is := v.Interface().(AfterSavedInterface)
+					if is {
+						err := afterSaved.AfterSaved()
+						if err != nil {
+							return err
+						}
 					}
 				}
 				old := make(map[string]interface{}, len(orm.dBData))
@@ -187,12 +201,14 @@ func flush(lazy bool, entities ...interface{}) error {
 		localCache := schema.GetLocalCache()
 		redisCache := schema.GetRedisCacheContainer()
 		for key, value := range insertReflectValues[typeOf] {
+			elem := value.Elem()
+			entity := value.Interface()
 			bind := insertBinds[typeOf][key]
-			injectBind(value, bind)
-			value.Field(1).SetUint(id)
+			injectBind(elem, bind)
+			elem.Field(1).SetUint(id)
 			if localCache != nil {
 				if !lazy {
-					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), buildLocalCacheValue(value.Interface(), schema))
+					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), buildLocalCacheValue(entity, schema))
 				}
 				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
 				if err != nil {
@@ -212,6 +228,13 @@ func flush(lazy bool, entities ...interface{}) error {
 			}
 			addDirtyQueues(dirtyQueues, bind, schema, id, "i")
 			id++
+			afterSaveInterface, is := entity.(AfterSavedInterface)
+			if is {
+				err := afterSaveInterface.AfterSaved()
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	for typeOf, deleteBinds := range deleteBinds {
