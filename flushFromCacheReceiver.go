@@ -96,7 +96,7 @@ func (r FlushFromCacheReceiver) Digest() (has bool, err error) {
 	}
 	attributes[i] = id
 	db := schema.GetMysql()
-	sql := db.databaseInterface.GetUpdateQuery(schema.TableName, fields)
+	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
 	_, err = db.Exec(sql, attributes...)
 	if err != nil {
 		_, _ = getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))

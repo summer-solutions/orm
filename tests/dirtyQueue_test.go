@@ -44,8 +44,8 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Equal(t, int64(2), size)
 	has, err := receiver.Digest(2, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 2)
-		assert.Equal(t, "TestEntityDirtyQueueAll", data[1].TableSchema.TableName)
-		assert.Equal(t, "TestEntityDirtyQueueAge", data[0].TableSchema.TableName)
+		assert.Equal(t, "TestEntityDirtyQueueAge", data[1].TableSchema.TableName)
+		assert.Equal(t, "TestEntityDirtyQueueAll", data[0].TableSchema.TableName)
 		assert.Equal(t, uint64(1), data[0].Id)
 		assert.Equal(t, uint64(1), data[1].Id)
 		assert.True(t, data[0].Inserted)

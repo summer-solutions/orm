@@ -1,6 +1,8 @@
 package orm
 
 import (
+	"database/sql"
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -19,7 +21,7 @@ func GetAlters() (alters []Alter, err error) {
 	for _, pool := range sqlClients {
 		poolName := pool.code
 		tablesInDB[poolName] = make(map[string]bool)
-		tables, err := GetMysql(poolName).databaseInterface.GetAllTables(GetMysql(poolName).db)
+		tables, err := getAllTables(GetMysql(poolName).db)
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +48,7 @@ func GetAlters() (alters []Alter, err error) {
 		for tableName := range tables {
 			_, has := tablesInEntities[poolName][tableName]
 			if !has {
-				dropSql := GetMysql(poolName).databaseInterface.GetDropTableQuery(GetMysql(poolName).databaseName, tableName)
+				dropSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", GetMysql(poolName).databaseName, tableName)
 				isEmpty, err := isTableEmptyInPool(poolName, tableName)
 				if err != nil {
 					return nil, err
@@ -81,5 +83,34 @@ func GetAlters() (alters []Alter, err error) {
 
 func isTableEmptyInPool(poolName string, tableName string) (bool, error) {
 	pool := GetMysql(poolName)
-	return pool.databaseInterface.IsTableEmpty(pool.db, tableName)
+	return isTableEmpty(pool.db, tableName)
+}
+
+func getAllTables(db *sql.DB) ([]string, error) {
+	tables := make([]string, 0)
+	results, err := db.Query("SHOW TABLES")
+	if err != nil {
+		return nil, err
+	}
+	for results.Next() {
+		var row string
+		err = results.Scan(&row)
+		if err != nil {
+			return nil, err
+		}
+		tables = append(tables, row)
+	}
+	return tables, nil
+}
+
+func isTableEmpty(db *sql.DB, tableName string) (bool, error) {
+	var lastId uint64
+	err := db.QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableName)).Scan(&lastId)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
 }

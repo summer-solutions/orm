@@ -10,7 +10,6 @@ import (
 )
 
 var sqlClients = make(map[string]*DB)
-var sqlInterfaces = make(map[string]DbInterface)
 var localCacheContainers = make(map[string]*LocalCache)
 var redisServers = make(map[string]*RedisCache)
 var entities = make(map[string]reflect.Type)
@@ -63,11 +62,7 @@ func initIfNeeded(value reflect.Value) *ORM {
 }
 
 func RegisterMySqlPool(dataSourceName string, code ...string) error {
-	return registerSqlPool(dataSourceName, "mysql", code...)
-}
-
-func RegisterPostgresPool(dataSourceName string, code ...string) error {
-	return registerSqlPool(dataSourceName, "postgres", code...)
+	return registerSqlPool(dataSourceName, code...)
 }
 
 func UnregisterSqlPools() {
@@ -199,8 +194,8 @@ func UnregisterRedisLoggers(elements ...*list.Element) {
 	}
 }
 
-func registerSqlPool(dataSourceName string, driverCode string, code ...string) error {
-	sqlDB, _ := sql.Open(driverCode, dataSourceName)
+func registerSqlPool(dataSourceName string, code ...string) error {
+	sqlDB, _ := sql.Open("mysql", dataSourceName)
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
@@ -208,29 +203,11 @@ func registerSqlPool(dataSourceName string, driverCode string, code ...string) e
 	db := &DB{code: dbCode, db: sqlDB}
 	sqlClients[dbCode] = db
 
-	dbI, has := sqlInterfaces[driverCode]
-	if !has {
-		switch driverCode {
-		case "mysql":
-			dbI = Mysql{}
-			break
-		case "postgres":
-			dbI = Postgres{}
-			break
-		}
-		sqlInterfaces[driverCode] = dbI
-	}
-	db.databaseInterface = dbI
-	err := db.databaseInterface.InitDb(sqlDB)
-	if err != nil {
-		return err
-	}
-
-	dbName, err := db.databaseInterface.GetDatabaseName(sqlDB)
+	var dbName string
+	err := db.QueryRow("SELECT DATABASE()").Scan(&dbName)
 	if err != nil {
 		return err
 	}
 	db.databaseName = dbName
-	db.databaseDriver = driverCode
 	return nil
 }

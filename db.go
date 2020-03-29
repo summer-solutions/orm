@@ -11,8 +11,6 @@ type DB struct {
 	db                           *sql.DB
 	code                         string
 	databaseName                 string
-	databaseDriver               string
-	databaseInterface            DbInterface
 	loggers                      *list.List
 	transaction                  *sql.Tx
 	transactionCounter           int

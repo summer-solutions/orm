@@ -90,7 +90,7 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, 
 
 	var fieldsList = buildFieldList(entityType, "")
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
-		schema.GetMysql().databaseInterface.Limit(pager))
+		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
 	if err != nil {
 		return 0, err
@@ -138,7 +138,7 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, 
 func searchIds(where *Where, pager *Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
 	schema := getTableSchema(entityType)
 	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where,
-		schema.GetMysql().databaseInterface.Limit(pager))
+		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
 	if err != nil {
 		panic(err.Error())

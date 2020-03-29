@@ -3,7 +3,9 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-sql-driver/mysql"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -115,7 +117,7 @@ func flush(lazy bool, entities ...interface{}) error {
 					i++
 				}
 				schema := getTableSchema(t)
-				sql := schema.GetMysql().databaseInterface.GetUpdateQuery(schema.TableName, fields)
+				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
 				db := schema.GetMysql()
 				values[i] = currentId
 				if lazy && db.transaction == nil {
@@ -123,7 +125,7 @@ func flush(lazy bool, entities ...interface{}) error {
 				} else {
 					_, err := schema.GetMysql().Exec(sql, values...)
 					if err != nil {
-						return convertToError(schema, err)
+						return convertToError(err)
 					}
 					afterSaved, is := v.Interface().(AfterSavedInterface)
 					if is {
@@ -179,7 +181,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		for key, val := range values {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
 		}
-		sql := schema.GetMysql().databaseInterface.GetInsertQuery(schema.TableName, finalValues, insertValues[typeOf])
+		sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES %s", schema.TableName, strings.Join(finalValues, ","), insertValues[typeOf])
 		for i := 1; i < totalInsert[typeOf]; i++ {
 			sql += "," + insertValues[typeOf]
 		}
@@ -190,7 +192,7 @@ func flush(lazy bool, entities ...interface{}) error {
 		} else {
 			res, err := db.Exec(sql, insertArguments[typeOf]...)
 			if err != nil {
-				return convertToError(schema, err)
+				return convertToError(err)
 			}
 			insertId, err := res.LastInsertId()
 			if err != nil {
@@ -245,7 +247,7 @@ func flush(lazy bool, entities ...interface{}) error {
 			ids[i] = id
 			i++
 		}
-		sql := schema.GetMysql().databaseInterface.GetDeleteQuery(schema.TableName, ids)
+		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, NewWhere("`Id` IN ?", ids))
 		db := schema.GetMysql()
 		if lazy && db.transaction == nil {
 			fillLazyQuery(lazyMap, db.code, sql, ids)
@@ -295,7 +297,7 @@ func flush(lazy bool, entities ...interface{}) error {
 			}
 			_, err := db.Exec(sql, ids...)
 			if err != nil {
-				return convertToError(schema, err)
+				return convertToError(err)
 			}
 		}
 
@@ -776,6 +778,22 @@ func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, va
 	lazyMap["q"] = append(updatesMap.([]interface{}), lazyValue)
 }
 
-func convertToError(schema *TableSchema, err error) error {
-	return schema.GetMysql().databaseInterface.ConvertToError(err)
+func convertToError(err error) error {
+	sqlErr, yes := err.(*mysql.MySQLError)
+	if yes {
+		if sqlErr.Number == 1062 {
+			var abortLabelReg, _ = regexp.Compile(` for key '(.*?)'`)
+			labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
+			if len(labels) > 0 {
+				return &DuplicatedKeyError{Message: sqlErr.Message, Index: labels[1]}
+			}
+		} else if sqlErr.Number == 1451 {
+			var abortLabelReg, _ = regexp.Compile(" CONSTRAINT `(.*?)`")
+			labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
+			if len(labels) > 0 {
+				return &ForeignKeyError{Message: sqlErr.Message, Constraint: labels[1]}
+			}
+		}
+	}
+	return err
 }
