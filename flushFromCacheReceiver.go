@@ -21,7 +21,7 @@ func (r *FlushFromCacheReceiver) Size() (int64, error) {
 	return r.engine.GetRedis(r.queueName + "_queue").SCard("dirty_queue")
 }
 
-func (r *FlushFromCacheReceiver) Digest(engine *Engine) (has bool, err error) {
+func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	cache := r.engine.GetRedis(r.queueName + "_queue")
 	value, has, err := cache.SPop("dirty_queue")
 	if err != nil {
@@ -38,8 +38,8 @@ func (r *FlushFromCacheReceiver) Digest(engine *Engine) (has bool, err error) {
 	if err != nil {
 		return true, err
 	}
-	schema := getTableSchema(engine.config, r.engine.config.GetEntityType(val[0]))
-	cacheEntity := schema.GetRedisCacheContainer(engine)
+	schema := getTableSchema(r.engine.config, r.engine.config.GetEntityType(val[0]))
+	cacheEntity := schema.GetRedisCacheContainer(r.engine)
 	if cacheEntity == nil {
 		return true, nil
 	}
@@ -60,12 +60,12 @@ func (r *FlushFromCacheReceiver) Digest(engine *Engine) (has bool, err error) {
 		return true, err
 	}
 
-	err = fillFromDBRow(engine, decoded, entityValue, schema.t)
+	err = fillFromDBRow(r.engine, decoded, entityValue, schema.t)
 	if err != nil {
 		return true, err
 	}
 	entityDBValue := reflect.New(schema.t)
-	found, err := searchRow(engine, NewWhere("`Id` = ?", id), entityDBValue)
+	found, err := searchRow(r.engine, NewWhere("`Id` = ?", id), entityDBValue)
 	if err != nil {
 		return true, err
 	}
@@ -74,7 +74,7 @@ func (r *FlushFromCacheReceiver) Digest(engine *Engine) (has bool, err error) {
 	}
 	ormFieldCache := entityElem.Field(0).Interface().(*ORM)
 	ormFieldCache.elem = entityElem
-	ormFieldDB := engine.initIfNeeded(entityDBValue)
+	ormFieldDB := r.engine.initIfNeeded(entityDBValue)
 	newData := make(map[string]interface{}, len(ormFieldCache.dBData))
 	for k, v := range ormFieldCache.dBData {
 		newData[k] = v
@@ -100,11 +100,11 @@ func (r *FlushFromCacheReceiver) Digest(engine *Engine) (has bool, err error) {
 		i++
 	}
 	attributes[i] = id
-	db := schema.GetMysql(engine)
+	db := schema.GetMysql(r.engine)
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
 	_, err = db.Exec(sql, attributes...)
 	if err != nil {
-		_, _ = engine.getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+		_, _ = r.engine.getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 		return true, err
 	}
 	cacheKeys, err := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
@@ -119,7 +119,7 @@ func (r *FlushFromCacheReceiver) Digest(engine *Engine) (has bool, err error) {
 	if len(cacheKeys) > 0 {
 		err = cacheEntity.Del(cacheKeys...)
 		if err != nil {
-			_, _ = engine.getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+			_, _ = r.engine.getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 			return true, err
 		}
 	}

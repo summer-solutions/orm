@@ -18,7 +18,7 @@ func (r *LazyReceiver) Size() (int64, error) {
 	return r.engine.GetRedis(r.queueName + "_queue").LLen("lazy_queue")
 }
 
-func (r *LazyReceiver) Digest(engine *Engine) (has bool, err error) {
+func (r *LazyReceiver) Digest() (has bool, err error) {
 	redis := r.engine.GetRedis(r.queueName + "_queue")
 	key := "lazy_queue"
 	val, found, err := redis.RPop(key)
@@ -38,7 +38,7 @@ func (r *LazyReceiver) Digest(engine *Engine) (has bool, err error) {
 	if !ok {
 		return true, fmt.Errorf("invalid map: %v", data)
 	}
-	err = r.handleQueries(engine, validMap, brokenMap)
+	err = r.handleQueries(r.engine, validMap, brokenMap)
 	if err != nil {
 		return true, err
 	}
@@ -55,7 +55,7 @@ func (r *LazyReceiver) Digest(engine *Engine) (has bool, err error) {
 		if err != nil {
 			return true, err
 		}
-		_, err = engine.getRedisForQueue("default").RPush("lazy_queue", v)
+		_, err = r.engine.getRedisForQueue("default").RPush("lazy_queue", v)
 		if err != nil {
 			return true, err
 		}
