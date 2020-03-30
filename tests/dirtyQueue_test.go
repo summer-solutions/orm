@@ -23,18 +23,19 @@ func TestDirtyQueue(t *testing.T) {
 
 	entityAll := TestEntityDirtyQueueAll{Name: "Name"}
 	entityAge := TestEntityDirtyQueueAge{Name: "Name", Age: 18}
-	PrepareTables(entityAll, entityAge)
-	orm.RegisterDirtyQueue("test", "default_queue")
+	config := &orm.Config{}
+	config.RegisterDirtyQueue("test", "default_queue")
+	engine := PrepareTables(t, config, entityAll, entityAge)
 
 	LoggerRedisQueue := &TestCacheLogger{}
-	orm.GetRedis("default_queue").RegisterLogger(LoggerRedisQueue.Logger())
+	engine.GetRedis("default_queue").RegisterLogger(LoggerRedisQueue.Logger())
 
-	err := orm.Flush(&entityAll, &entityAge)
+	err := engine.Flush(&entityAll, &entityAge)
 	assert.Nil(t, err)
 	assert.Len(t, LoggerRedisQueue.Requests, 1)
 	assert.Equal(t, "SADD 2 values test", LoggerRedisQueue.Requests[0])
 
-	receiver := orm.DirtyReceiver{QueueCode: "test"}
+	receiver := orm.NewDirtyReceiver(engine, "test")
 
 	entities := receiver.GetEntities()
 	assert.Len(t, entities, 2)
@@ -44,8 +45,6 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Equal(t, int64(2), size)
 	has, err := receiver.Digest(2, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 2)
-		assert.Equal(t, "TestEntityDirtyQueueAge", data[1].TableSchema.TableName)
-		assert.Equal(t, "TestEntityDirtyQueueAll", data[0].TableSchema.TableName)
 		assert.Equal(t, uint64(1), data[0].Id)
 		assert.Equal(t, uint64(1), data[1].Id)
 		assert.True(t, data[0].Inserted)
@@ -68,13 +67,13 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Equal(t, int64(0), size)
 
 	entityAll.Name = "Name 2"
-	err = orm.Flush(&entityAll)
+	err = engine.Flush(&entityAll)
 	assert.Nil(t, err)
 	assert.Len(t, LoggerRedisQueue.Requests, 6)
 	assert.Equal(t, "SADD 1 values test", LoggerRedisQueue.Requests[5])
 
 	entityAge.Name = "Name 2"
-	err = orm.Flush(&entityAll)
+	err = engine.Flush(&entityAll)
 	assert.Nil(t, err)
 	assert.Len(t, LoggerRedisQueue.Requests, 6)
 
@@ -102,7 +101,7 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Equal(t, int64(0), size)
 
 	entityAge.Age = 10
-	err = orm.Flush(&entityAge)
+	err = engine.Flush(&entityAge)
 	assert.Nil(t, err)
 	assert.Len(t, LoggerRedisQueue.Requests, 11)
 	assert.Equal(t, "SADD 1 values test", LoggerRedisQueue.Requests[10])
@@ -126,7 +125,7 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Equal(t, int64(0), size)
 
 	entityAge.Orm.MarkToDelete()
-	err = orm.Flush(&entityAge)
+	err = engine.Flush(&entityAge)
 	assert.Nil(t, err)
 
 	size, err = receiver.Size()

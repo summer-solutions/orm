@@ -29,13 +29,13 @@ func (f *Flusher) RegisterEntity(entities ...interface{}) {
 	}
 }
 
-func (f *AutoFlusher) RegisterEntity(entities ...interface{}) error {
+func (f *AutoFlusher) RegisterEntity(engine *Engine, entities ...interface{}) error {
 	if f.Limit == 0 {
 		f.Limit = 10000
 	}
 	for _, entity := range entities {
 		if f.currentIndex == f.Limit {
-			err := f.Flush()
+			err := f.Flush(engine)
 			if err != nil {
 				return err
 			}
@@ -46,8 +46,8 @@ func (f *AutoFlusher) RegisterEntity(entities ...interface{}) error {
 	return nil
 }
 
-func (f *Flusher) Flush() error {
-	err := flush(f.Lazy, f.entities...)
+func (f *Flusher) Flush(engine *Engine) error {
+	err := flush(engine, f.Lazy, f.entities...)
 	if err != nil {
 		return err
 	}
@@ -56,8 +56,8 @@ func (f *Flusher) Flush() error {
 	return nil
 }
 
-func (f *AutoFlusher) Flush() error {
-	err := flush(f.Lazy, f.entities...)
+func (f *AutoFlusher) Flush(engine *Engine) error {
+	err := flush(engine, f.Lazy, f.entities...)
 	if err != nil {
 		return err
 	}

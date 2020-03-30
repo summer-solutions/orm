@@ -8,12 +8,14 @@ import (
 
 func TestGetSetLocal(t *testing.T) {
 
-	orm.RegisterLocalCache(10)
+	config := &orm.Config{}
+	engine := orm.NewEngine(config)
+	config.RegisterLocalCache(10)
 
 	testLogger := &TestCacheLogger{}
-	orm.GetLocalCache().RegisterLogger(testLogger.Logger())
+	engine.GetLocalCache().RegisterLogger(testLogger.Logger())
 
-	val := orm.GetLocalCache().GetSet("test", 1, func() interface{} {
+	val := engine.GetLocalCache().GetSet("test", 1, func() interface{} {
 		return "hello"
 	})
 	assert.Equal(t, "hello", val)

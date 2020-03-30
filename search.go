@@ -9,46 +9,18 @@ import (
 	"time"
 )
 
-func SearchWithCount(where *Where, pager *Pager, entities interface{}, references ...string) (totalRows int, err error) {
-	return search(where, pager, true, reflect.ValueOf(entities).Elem(), references...)
+func searchIdsWithCount(engine *Engine, where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int, err error) {
+	return searchIds(engine, where, pager, true, entityType)
 }
 
-func Search(where *Where, pager *Pager, entities interface{}, references ...string) error {
-	_, err := search(where, pager, false, reflect.ValueOf(entities).Elem(), references...)
-	return err
-}
-
-func SearchIdsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int) {
-	return searchIdsWithCount(where, pager, reflect.TypeOf(entity))
-}
-
-func SearchIds(where *Where, pager *Pager, entity interface{}) []uint64 {
-	results, _ := searchIds(where, pager, false, reflect.TypeOf(entity))
-	return results
-}
-
-func SearchOne(where *Where, entity interface{}) (bool, error) {
-
-	value := reflect.ValueOf(entity)
-	has, err := searchRow(where, value)
-	if err != nil {
-		return false, err
-	}
-	return has, nil
-}
-
-func searchIdsWithCount(where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int) {
-	return searchIds(where, pager, true, entityType)
-}
-
-func searchRow(where *Where, value reflect.Value) (bool, error) {
+func searchRow(engine *Engine, where *Where, value reflect.Value) (bool, error) {
 
 	entityType := value.Elem().Type()
-	schema := getTableSchema(entityType)
-	var fieldsList = buildFieldList(entityType, "")
+	schema := getTableSchema(engine.config, entityType)
+	var fieldsList = buildFieldList(engine.config, entityType, "")
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
 
-	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
+	results, err := schema.GetMysql(engine).Query(query, where.GetParameters()...)
 	if err != nil {
 		return false, err
 	}
@@ -72,26 +44,26 @@ func searchRow(where *Where, value reflect.Value) (bool, error) {
 		return false, err
 	}
 
-	err = fillFromDBRow(values, value, entityType)
+	err = fillFromDBRow(engine, values, value, entityType)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
+func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
 
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
 	}
 	entities.SetLen(0)
-	entityType := getEntityTypeForSlice(entities.Type())
-	schema := getTableSchema(entityType)
+	entityType := getEntityTypeForSlice(engine.config, entities.Type())
+	schema := getTableSchema(engine.config, entityType)
 
-	var fieldsList = buildFieldList(entityType, "")
+	var fieldsList = buildFieldList(engine.config, entityType, "")
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
-	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
+	results, err := schema.GetMysql(engine).Query(query, where.GetParameters()...)
 	if err != nil {
 		return 0, err
 	}
@@ -117,16 +89,16 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, 
 			panic(err.Error())
 		}
 		value := reflect.New(entityType)
-		err = fillFromDBRow(values, value, entityType)
+		err = fillFromDBRow(engine, values, value, entityType)
 		if err != nil {
 			return 0, err
 		}
 		val = reflect.Append(val, value)
 		i++
 	}
-	totalRows := getTotalRows(withCount, pager, where, schema, i)
+	totalRows := getTotalRows(engine, withCount, pager, where, schema, i)
 	if len(references) > 0 && i > 0 {
-		err = warmUpReferences(schema, val, references, true)
+		err = warmUpReferences(engine, schema, val, references, true)
 		if err != nil {
 			return 0, err
 		}
@@ -135,13 +107,23 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, 
 	return totalRows, nil
 }
 
-func searchIds(where *Where, pager *Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
-	schema := getTableSchema(entityType)
+func searchOne(engine *Engine, where *Where, entity interface{}) (bool, error) {
+
+	value := reflect.ValueOf(entity)
+	has, err := searchRow(engine, where, value)
+	if err != nil {
+		return false, err
+	}
+	return has, nil
+}
+
+func searchIds(engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int, err error) {
+	schema := getTableSchema(engine.config, entityType)
 	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
-	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
+	results, err := schema.GetMysql(engine).Query(query, where.GetParameters()...)
 	if err != nil {
-		panic(err.Error())
+		return nil, 0, err
 	}
 	result := make([]uint64, 0, pager.GetPageSize())
 	for results.Next() {
@@ -152,18 +134,18 @@ func searchIds(where *Where, pager *Pager, withCount bool, entityType reflect.Ty
 		}
 		result = append(result, row)
 	}
-	totalRows := getTotalRows(withCount, pager, where, schema, len(result))
-	return result, totalRows
+	totalRows := getTotalRows(engine, withCount, pager, where, schema, len(result))
+	return result, totalRows, nil
 }
 
-func getTotalRows(withCount bool, pager *Pager, where *Where, schema *TableSchema, foundRows int) int {
+func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *TableSchema, foundRows int) int {
 	totalRows := 0
 	if withCount {
 		totalRows = foundRows
 		if totalRows == pager.GetPageSize() {
 			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.TableName, where)
 			var foundTotal string
-			err := schema.GetMysql().QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
+			err := schema.GetMysql(engine).QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
 			if err != nil {
 				panic(err.Error())
 			}
@@ -175,13 +157,13 @@ func getTotalRows(withCount bool, pager *Pager, where *Where, schema *TableSchem
 	return totalRows
 }
 
-func fillFromDBRow(data []string, value reflect.Value, entityType reflect.Type) error {
-	orm := initIfNeeded(value)
+func fillFromDBRow(engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
+	orm := engine.initIfNeeded(value)
 	elem := value.Elem()
-	fillStruct(0, data, entityType, elem, "")
+	fillStruct(engine.config, 0, data, entityType, elem, "")
 	orm.dBData["Id"] = data[0]
 
-	_, bind, err := orm.isDirty(elem)
+	_, bind, err := isDirty(elem)
 	if err != nil {
 		return err
 	}
@@ -191,7 +173,7 @@ func fillFromDBRow(data []string, value reflect.Value, entityType reflect.Type) 
 	return nil
 }
 
-func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) uint16 {
+func fillStruct(config *Config, index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) uint16 {
 
 	for i := 0; i < t.NumField(); i++ {
 
@@ -202,7 +184,7 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 		field := value.Field(i)
 		name := prefix + t.Field(i).Name
 
-		tags := getTableSchema(t).Tags[name]
+		tags := getTableSchema(config, t).Tags[name]
 		_, has := tags["ignore"]
 		if has {
 			continue
@@ -305,7 +287,7 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 			if field.Kind().String() == "struct" {
 				newVal := reflect.New(field.Type())
 				value := newVal.Elem()
-				index = fillStruct(index, data, field.Type(), value, name)
+				index = fillStruct(config, index, data, field.Type(), value, name)
 				field.Set(value)
 				continue
 			}
@@ -316,12 +298,12 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 	return index
 }
 
-func buildFieldList(t reflect.Type, prefix string) string {
+func buildFieldList(config *Config, t reflect.Type, prefix string) string {
 	fieldsList := ""
 	for i := 0; i < t.NumField(); i++ {
 		var columnNameRaw string
 		field := t.Field(i)
-		tags := getTableSchema(t).Tags[field.Name]
+		tags := getTableSchema(config, t).Tags[field.Name]
 		_, has := tags["ignore"]
 		if has {
 			continue
@@ -338,7 +320,7 @@ func buildFieldList(t reflect.Type, prefix string) string {
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:
 			if field.Type.Kind().String() == "struct" {
-				fieldsList += buildFieldList(field.Type, field.Name)
+				fieldsList += buildFieldList(config, field.Type, field.Name)
 			} else {
 				columnNameRaw = prefix + t.Field(i).Name
 				fieldsList += fmt.Sprintf(",`%s`", columnNameRaw)
@@ -351,7 +333,7 @@ func buildFieldList(t reflect.Type, prefix string) string {
 	return fieldsList
 }
 
-func getEntityTypeForSlice(sliceType reflect.Type) reflect.Type {
+func getEntityTypeForSlice(config *Config, sliceType reflect.Type) reflect.Type {
 	name := strings.Trim(sliceType.String(), "*[]")
-	return GetEntityType(name)
+	return config.GetEntityType(name)
 }

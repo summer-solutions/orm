@@ -44,29 +44,29 @@ type TestEntityByIdRedis struct {
 
 func TestGetByIdRedis(t *testing.T) {
 	var entity TestEntityByIdRedis
-	PrepareTables(entity)
+	engine := PrepareTables(t, &orm.Config{}, entity)
 
-	found, err := orm.TryById(100, &entity)
+	found, err := engine.TryById(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-	found, err = orm.TryById(100, &entity)
+	found, err = engine.TryById(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
 	entity = TestEntityByIdRedis{}
-	err = orm.Flush(&entity)
+	err = engine.Flush(&entity)
 	assert.Nil(t, err)
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, engine.IsDirty(&entity))
 
 	entity.ReferenceOne.Id = 1
-	err = orm.Flush(&entity)
+	err = engine.Flush(&entity)
 	assert.Nil(t, err)
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, engine.IsDirty(&entity))
 
 	DBLogger := &TestDatabaseLogger{}
-	orm.GetMysql().RegisterLogger(DBLogger.Logger())
+	engine.GetMysql().RegisterLogger(DBLogger.Logger())
 
-	found, err = orm.TryById(1, &entity, "ReferenceOne")
+	found, err = engine.TryById(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -96,7 +96,7 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.Equal(t, AddressByIdRedis{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.Json)
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Queries, 1)
 
 	entity.Name = "Test name"
@@ -116,15 +116,15 @@ func TestGetByIdRedis(t *testing.T) {
 	entity.Address.Building = 12
 	entity.Json = map[string]string{"name": "John"}
 
-	assert.True(t, entity.Orm.IsDirty())
+	assert.True(t, engine.IsDirty(&entity))
 
-	err = orm.Flush(&entity)
+	err = engine.Flush(&entity)
 	assert.Nil(t, err)
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, engine.IsDirty(&entity))
 
 	assert.Len(t, DBLogger.Queries, 2)
 
-	found, err = orm.TryById(1, &entity)
+	found, err = engine.TryById(1, &entity)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -146,19 +146,19 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"name": "John"}, entity.Json)
 	assert.Len(t, DBLogger.Queries, 3)
 
-	_, err = orm.TryById(1, &entity)
+	_, err = engine.TryById(1, &entity)
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 3)
 }
 
 func BenchmarkGetById(b *testing.B) {
 	var entity TestEntityByIdRedis
-	PrepareTables(entity)
+	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity)
 
 	entity = TestEntityByIdRedis{}
-	_ = orm.Flush(&entity)
+	_ = engine.Flush(&entity)
 
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryById(1, &entity)
+		_, _ = engine.TryById(1, &entity)
 	}
 }

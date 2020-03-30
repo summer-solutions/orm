@@ -12,40 +12,15 @@ import (
 )
 
 type ORM struct {
-	dBData map[string]interface{}
-	elem   reflect.Value
+	dBData      map[string]interface{}
+	elem        reflect.Value
+	tableSchema *TableSchema
 }
 
 type CachedQuery struct{}
 
 func (orm *ORM) MarkToDelete() {
 	orm.dBData["_delete"] = true
-}
-
-func (orm *ORM) IsDirty() bool {
-	if orm.dBData["_delete"] == true {
-		return true
-	}
-	t := orm.elem.Type()
-	bind, err := createBind(getTableSchema(t), t, orm.elem, orm.dBData, "")
-	if err != nil {
-		panic(err.Error())
-	}
-	return orm.elem.Field(1).Uint() == 0 || len(bind) > 0
-}
-
-func (orm *ORM) isDirty(value reflect.Value) (is bool, bind map[string]interface{}, err error) {
-	t := value.Type()
-	ormField := value.Field(0).Interface().(*ORM)
-	if ormField.dBData["_delete"] == true {
-		return true, nil, nil
-	}
-	bind, err = createBind(getTableSchema(t), t, value, ormField.dBData, "")
-	if err != nil {
-		return false, nil, err
-	}
-	is = value.Field(1).Uint() == 0 || len(bind) > 0
-	return is, bind, nil
 }
 
 type cachedQueryDefinition struct {
@@ -98,18 +73,19 @@ type foreignKeyDB struct {
 	OnDelete              string
 }
 
-var tableSchemas = make(map[reflect.Type]*TableSchema)
-
-func GetTableSchema(entityOrType interface{}) *TableSchema {
+func getTableSchema(c *Config, entityOrType interface{}) *TableSchema {
 	asType, ok := entityOrType.(reflect.Type)
 	if ok {
-		return getTableSchema(asType)
+		return getTableSchemaFromValue(c, asType)
 	}
-	return getTableSchema(reflect.TypeOf(entityOrType))
+	return getTableSchemaFromValue(c, reflect.TypeOf(entityOrType))
 }
 
-func getTableSchema(entityType reflect.Type) *TableSchema {
-	tableSchema, has := tableSchemas[entityType]
+func getTableSchemaFromValue(c *Config, entityType reflect.Type) *TableSchema {
+	if c.tableSchemas == nil {
+		c.tableSchemas = make(map[reflect.Type]*TableSchema)
+	}
+	tableSchema, has := c.tableSchemas[entityType]
 	if has {
 		return tableSchema
 	}
@@ -202,39 +178,41 @@ func getTableSchema(entityType reflect.Type) *TableSchema {
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
 		cachePrefix:      cachePrefix}
-	tableSchemas[entityType] = tableSchema
+	c.tableSchemas[entityType] = tableSchema
 	return tableSchema
 }
 
-func (tableSchema TableSchema) DropTable() error {
-	_, err := tableSchema.GetMysql().Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", tableSchema.GetMysql().databaseName, tableSchema.TableName))
+func (tableSchema *TableSchema) DropTable(engine *Engine) error {
+	_, err := tableSchema.GetMysql(engine).Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;",
+		tableSchema.GetMysql(engine).databaseName, tableSchema.TableName))
 	return err
 }
 
-func (tableSchema TableSchema) TruncateTable() error {
-	_, err := tableSchema.GetMysql().Exec("SET FOREIGN_KEY_CHECKS = 0")
+func (tableSchema *TableSchema) TruncateTable(engine *Engine) error {
+	_, err := tableSchema.GetMysql(engine).Exec("SET FOREIGN_KEY_CHECKS = 0")
 	if err != nil {
 		return err
 	}
-	_, err = tableSchema.GetMysql().Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", tableSchema.GetMysql().databaseName, tableSchema.TableName))
+	_, err = tableSchema.GetMysql(engine).Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;",
+		tableSchema.GetMysql(engine).databaseName, tableSchema.TableName))
 	if err != nil {
 		return err
 	}
-	_, err = tableSchema.GetMysql().Exec("SET FOREIGN_KEY_CHECKS = 1")
+	_, err = tableSchema.GetMysql(engine).Exec("SET FOREIGN_KEY_CHECKS = 1")
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (tableSchema TableSchema) UpdateSchema() error {
-	has, alters, err := tableSchema.GetSchemaChanges()
+func (tableSchema *TableSchema) UpdateSchema(engine *Engine) error {
+	has, alters, err := tableSchema.GetSchemaChanges(engine)
 	if err != nil {
 		return err
 	}
 	if has {
 		for _, alter := range alters {
-			_, err := tableSchema.GetMysql().Exec(alter.Sql)
+			_, err := tableSchema.GetMysql(engine).Exec(alter.Sql)
 			if err != nil {
 				return err
 			}
@@ -243,31 +221,32 @@ func (tableSchema TableSchema) UpdateSchema() error {
 	return nil
 }
 
-func (tableSchema TableSchema) UpdateSchemaAndTruncateTable() error {
-	err := tableSchema.UpdateSchema()
+func (tableSchema *TableSchema) UpdateSchemaAndTruncateTable(engine *Engine) error {
+	err := tableSchema.UpdateSchema(engine)
 	if err != nil {
 		return err
 	}
-	_, err = tableSchema.GetMysql().Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", tableSchema.GetMysql().databaseName, tableSchema.TableName))
+	_, err = tableSchema.GetMysql(engine).Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;",
+		tableSchema.GetMysql(engine).databaseName, tableSchema.TableName))
 	return err
 }
 
-func (tableSchema TableSchema) GetMysql() *DB {
-	return GetMysql(tableSchema.MysqlPoolName)
+func (tableSchema *TableSchema) GetMysql(engine *Engine) *DB {
+	return engine.GetMysql(tableSchema.MysqlPoolName)
 }
 
-func (tableSchema TableSchema) GetLocalCache() *LocalCache {
+func (tableSchema *TableSchema) GetLocalCache(engine *Engine) *LocalCache {
 	if tableSchema.localCacheName == "" {
 		return nil
 	}
-	return GetLocalCache(tableSchema.localCacheName)
+	return engine.GetLocalCache(tableSchema.localCacheName)
 }
 
-func (tableSchema TableSchema) GetRedisCacheContainer() *RedisCache {
+func (tableSchema *TableSchema) GetRedisCacheContainer(engine *Engine) *RedisCache {
 	if tableSchema.redisCacheName == "" {
 		return nil
 	}
-	return GetRedis(tableSchema.redisCacheName)
+	return engine.GetRedis(tableSchema.redisCacheName)
 }
 
 func (tableSchema TableSchema) getCacheKey(id uint64) string {
@@ -283,35 +262,37 @@ func (tableSchema *TableSchema) GetColumns() map[string]string {
 	return tableSchema.columnPathMap
 }
 
-func (tableSchema *TableSchema) GetUsage() map[reflect.Type][]string {
+func (tableSchema *TableSchema) GetUsage(config *Config) map[reflect.Type][]string {
 	results := make(map[reflect.Type][]string)
-	for _, t := range entities {
-		schema := GetTableSchema(t)
-		for _, columnName := range schema.refOne {
-			ref, has := schema.Tags[columnName]["ref"]
-			if has && ref == tableSchema.t.String() {
-				if results[t] == nil {
-					results[t] = make([]string, 0)
+	if config.entities != nil {
+		for _, t := range config.entities {
+			schema := config.GetTableSchema(t)
+			for _, columnName := range schema.refOne {
+				ref, has := schema.Tags[columnName]["ref"]
+				if has && ref == tableSchema.t.String() {
+					if results[t] == nil {
+						results[t] = make([]string, 0)
+					}
+					results[t] = append(results[t], columnName)
 				}
-				results[t] = append(results[t], columnName)
 			}
 		}
 	}
 	return results
 }
 
-func (tableSchema *TableSchema) GetSchemaChanges() (has bool, alters []Alter, err error) {
+func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alters []Alter, err error) {
 	indexes := make(map[string]*index)
 	foreignKeys := make(map[string]*foreignIndex)
-	columns, err := tableSchema.checkStruct(tableSchema.t, indexes, foreignKeys, "")
+	columns, err := tableSchema.checkStruct(engine, tableSchema.t, indexes, foreignKeys, "")
 	if err != nil {
 		return false, nil, err
 	}
 	var newIndexes []string
 	var newForeignKeys []string
 
-	createTableSql := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
-	createTableForiegnKeysSql := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
+	createTableSql := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", engine.GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
+	createTableForiegnKeysSql := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", engine.GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
 	columns[0][1] += " AUTO_INCREMENT"
 	for _, value := range columns {
 		createTableSql += fmt.Sprintf("  %s,\n", value[1])
@@ -335,7 +316,7 @@ func (tableSchema *TableSchema) GetSchemaChanges() (has bool, alters []Alter, er
 	createTableSql += fmt.Sprint(") ENGINE=InnoDB DEFAULT CHARSET=utf8;")
 
 	var skip string
-	err = tableSchema.GetMysql().QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.TableName)).Scan(&skip)
+	err = tableSchema.GetMysql(engine).QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.TableName)).Scan(&skip)
 	hasTable := true
 	if err != nil {
 		hasTable = false
@@ -356,7 +337,7 @@ func (tableSchema *TableSchema) GetSchemaChanges() (has bool, alters []Alter, er
 
 	var tableDBColumns = make([][2]string, 0)
 	var createTableDB string
-	err = tableSchema.GetMysql().QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.TableName)).Scan(&skip, &createTableDB)
+	err = tableSchema.GetMysql(engine).QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.TableName)).Scan(&skip, &createTableDB)
 	if err != nil {
 		return false, nil, err
 	}
@@ -372,7 +353,7 @@ func (tableSchema *TableSchema) GetSchemaChanges() (has bool, alters []Alter, er
 	}
 
 	var rows []indexDB
-	results, err := tableSchema.GetMysql().Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
+	results, err := tableSchema.GetMysql(engine).Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
 	if err != nil {
 		return false, nil, err
 	}
@@ -395,37 +376,9 @@ func (tableSchema *TableSchema) GetSchemaChanges() (has bool, alters []Alter, er
 		}
 	}
 
-	var rows2 []foreignKeyDB
-	query := "SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_TABLE_SCHEMA " +
-		"FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL " +
-		"AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
-	results, err = tableSchema.GetMysql().Query(fmt.Sprintf(query, tableSchema.GetMysql().databaseName, tableSchema.TableName))
+	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableSchema.TableName, tableSchema.MysqlPoolName)
 	if err != nil {
 		return false, nil, err
-	}
-	for results.Next() {
-		var row foreignKeyDB
-		err = results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
-		if err != nil {
-			return false, nil, err
-		}
-		row.OnDelete = "RESTRICT"
-		for _, line := range strings.Split(createTableDB, "\n") {
-			line = strings.TrimSpace(strings.TrimRight(line, ","))
-			if strings.Index(line, fmt.Sprintf("CONSTRAINT `%s`", row.ConstraintName)) == 0 {
-				words := strings.Split(line, " ")
-				if strings.ToUpper(words[len(words)-2]) == "DELETE" {
-					row.OnDelete = strings.ToUpper(words[len(words)-1])
-				}
-			}
-		}
-		rows2 = append(rows2, row)
-	}
-	var foreignKeysDB = make(map[string]*foreignIndex)
-	for _, value := range rows2 {
-		foreignKey := &foreignIndex{ParentDatabase: value.ReferencedTableSchema, Table: value.ReferencedTableName,
-			Column: value.ColumnName, OnDelete: value.OnDelete}
-		foreignKeysDB[value.ConstraintName] = foreignKey
 	}
 
 	var newColumns []string
@@ -541,16 +494,16 @@ OUTER:
 	if !hasAlters {
 		return
 	}
-	alterSql := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
+	alterSql := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", engine.GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
 	newAlters := make([]string, 0)
 	comments := make([]string, 0)
 	hasAlterNormal := false
 	hasAlterAddForeignKey := false
 	hasAlterRemoveForeignKey := false
 
-	alterSqlAddForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
+	alterSqlAddForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", engine.GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
 	newAltersAddForeignKey := make([]string, 0)
-	alterSqlRemoveForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
+	alterSqlRemoveForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", engine.GetMysql(tableSchema.MysqlPoolName).databaseName, tableSchema.TableName)
 	newAltersRemoveForeignKey := make([]string, 0)
 
 	for _, value := range droppedColumns {
@@ -616,7 +569,7 @@ OUTER:
 	alters = make([]Alter, 0)
 	if hasAlterNormal {
 		safe := false
-		if tableSchema.isTableEmpty() || (len(droppedColumns) == 0 && len(changedColumns) == 0) {
+		if tableSchema.isTableEmpty(engine) || (len(droppedColumns) == 0 && len(changedColumns) == 0) {
 			safe = true
 		}
 		alters = append(alters, Alter{Sql: alterSql, Safe: safe, Pool: tableSchema.MysqlPoolName})
@@ -715,7 +668,7 @@ func (tableSchema *TableSchema) extractTag(field reflect.StructField) (map[strin
 	return make(map[string]map[string]string), nil, nil
 }
 
-func (tableSchema *TableSchema) checkColumn(field *reflect.StructField, indexes map[string]*index,
+func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.StructField, indexes map[string]*index,
 	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	var definition string
 	var addNotNullIfNotSet bool
@@ -743,15 +696,15 @@ func (tableSchema *TableSchema) checkColumn(field *reflect.StructField, indexes 
 			indexAttribute = field.Name
 			unique = false
 		}
-		schema := GetTableSchema(GetEntityType(attributes["ref"]))
+		schema := engine.config.GetTableSchema(engine.config.GetEntityType(attributes["ref"]))
 		onDelete := "RESTRICT"
 		_, hasCascade := attributes["cascade"]
 		if hasCascade {
 			onDelete = "CASCADE"
 		}
 		foreignKey := &foreignIndex{Column: field.Name, Table: schema.TableName,
-			ParentDatabase: schema.GetMysql().databaseName, OnDelete: onDelete}
-		name := fmt.Sprintf("%s:%s:%s", tableSchema.GetMysql().databaseName, tableSchema.TableName, field.Name)
+			ParentDatabase: schema.GetMysql(engine).databaseName, OnDelete: onDelete}
+		name := fmt.Sprintf("%s:%s:%s", tableSchema.GetMysql(engine).databaseName, tableSchema.TableName, field.Name)
 		foreignKeys[name] = foreignKey
 	}
 
@@ -826,12 +779,12 @@ func (tableSchema *TableSchema) checkColumn(field *reflect.StructField, indexes 
 	case "bool":
 		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("tinyint(1)")
 	case "string", "[]string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = tableSchema.handleString(attributes, false)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = tableSchema.handleString(engine.config, attributes, false)
 		if err != nil {
 			return nil, err
 		}
 	case "interface {}", "[]uint64":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = tableSchema.handleString(attributes, true)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = tableSchema.handleString(engine.config, attributes, true)
 		if err != nil {
 			return nil, err
 		}
@@ -845,7 +798,7 @@ func (tableSchema *TableSchema) checkColumn(field *reflect.StructField, indexes 
 		definition = "blob"
 		addDefaultNullIfNullable = false
 	case "*orm.ReferenceOne":
-		definition = tableSchema.handleReferenceOne(attributes)
+		definition = tableSchema.handleReferenceOne(engine.config, attributes)
 		addNotNullIfNotSet = false
 		addDefaultNullIfNullable = true
 	case "*orm.CachedQuery":
@@ -853,7 +806,7 @@ func (tableSchema *TableSchema) checkColumn(field *reflect.StructField, indexes 
 	default:
 		kind := field.Type.Kind().String()
 		if kind == "struct" {
-			structFields, err := tableSchema.checkStruct(field.Type, indexes, foreignKeys, field.Name)
+			structFields, err := tableSchema.checkStruct(engine, field.Type, indexes, foreignKeys, field.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -897,15 +850,15 @@ func (tableSchema *TableSchema) handleFloat(floatDefinition string, attributes m
 	return definition, true, defaultValue
 }
 
-func (tableSchema *TableSchema) handleString(attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
+func (tableSchema *TableSchema) handleString(config *Config, attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
 	var definition string
 	enum, hasEnum := attributes["enum"]
 	if hasEnum {
-		return tableSchema.handleSetEnum("enum", enum, attributes)
+		return tableSchema.handleSetEnum(config, "enum", enum, attributes)
 	}
 	set, haSet := attributes["set"]
 	if haSet {
-		return tableSchema.handleSetEnum("set", set, attributes)
+		return tableSchema.handleSetEnum(config, "set", set, attributes)
 	}
 	var addDefaultNullIfNullable = true
 	length, hasLength := attributes["length"]
@@ -933,8 +886,11 @@ func (tableSchema *TableSchema) handleString(attributes map[string]string, force
 	return definition, false, addDefaultNullIfNullable, defaultValue, nil
 }
 
-func (tableSchema *TableSchema) handleSetEnum(fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
-	enum, has := enums[attribute]
+func (tableSchema *TableSchema) handleSetEnum(config *Config, fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
+	if config.enums == nil {
+		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
+	}
+	enum, has := config.enums[attribute]
 	if !has {
 		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
 	}
@@ -976,12 +932,12 @@ func (tableSchema *TableSchema) handleTime(attributes map[string]string) (string
 	return "date", isRequired, true, defaultValue
 }
 
-func (tableSchema *TableSchema) handleReferenceOne(attributes map[string]string) string {
+func (tableSchema *TableSchema) handleReferenceOne(config *Config, attributes map[string]string) string {
 	reference, has := attributes["ref"]
 	if !has {
 		panic(fmt.Errorf("missing ref tag"))
 	}
-	typeAsString := GetEntityType(reference).Field(1).Type.String()
+	typeAsString := config.GetEntityType(reference).Field(1).Type.String()
 	switch typeAsString {
 	case "uint":
 		return "int(10) unsigned"
@@ -1002,7 +958,7 @@ func (tableSchema *TableSchema) handleReferenceOne(attributes map[string]string)
 	return "int(10) unsigned"
 }
 
-func (tableSchema *TableSchema) checkStruct(t reflect.Type, indexes map[string]*index,
+func (tableSchema *TableSchema) checkStruct(engine *Engine, t reflect.Type, indexes map[string]*index,
 	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	columns := make([][2]string, 0, t.NumField())
 	max := t.NumField() - 1
@@ -1011,7 +967,7 @@ func (tableSchema *TableSchema) checkStruct(t reflect.Type, indexes map[string]*
 			continue
 		}
 		field := t.Field(i)
-		fieldColumns, err := tableSchema.checkColumn(&field, indexes, foreignKeys, prefix)
+		fieldColumns, err := tableSchema.checkColumn(engine, &field, indexes, foreignKeys, prefix)
 		if err != nil {
 			return nil, err
 		}
@@ -1044,9 +1000,9 @@ func (tableSchema *TableSchema) buildCreateForeignKeySql(keyName string, definit
 		keyName, definition.Column, definition.ParentDatabase, definition.Table, definition.OnDelete)
 }
 
-func (tableSchema *TableSchema) isTableEmpty() bool {
+func (tableSchema *TableSchema) isTableEmpty(engine *Engine) bool {
 	var lastId uint64
-	err := tableSchema.GetMysql().QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableSchema.TableName)).Scan(&lastId)
+	err := tableSchema.GetMysql(engine).QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableSchema.TableName)).Scan(&lastId)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			return true
@@ -1054,4 +1010,65 @@ func (tableSchema *TableSchema) isTableEmpty() bool {
 		panic(err.Error())
 	}
 	return false
+}
+
+func getForeignKeys(engine *Engine, createTableDB string, tableName string, poolName string) (map[string]*foreignIndex, error) {
+	var rows2 []foreignKeyDB
+	query := "SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_TABLE_SCHEMA " +
+		"FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL " +
+		"AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
+	pool := engine.GetMysql(poolName)
+	results, err := pool.Query(fmt.Sprintf(query, pool.databaseName, tableName))
+	if err != nil {
+		return nil, err
+	}
+	for results.Next() {
+		var row foreignKeyDB
+		err = results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
+		if err != nil {
+			return nil, err
+		}
+		row.OnDelete = "RESTRICT"
+		for _, line := range strings.Split(createTableDB, "\n") {
+			line = strings.TrimSpace(strings.TrimRight(line, ","))
+			if strings.Index(line, fmt.Sprintf("CONSTRAINT `%s`", row.ConstraintName)) == 0 {
+				words := strings.Split(line, " ")
+				if strings.ToUpper(words[len(words)-2]) == "DELETE" {
+					row.OnDelete = strings.ToUpper(words[len(words)-1])
+				}
+			}
+		}
+		rows2 = append(rows2, row)
+	}
+	var foreignKeysDB = make(map[string]*foreignIndex)
+	for _, value := range rows2 {
+		foreignKey := &foreignIndex{ParentDatabase: value.ReferencedTableSchema, Table: value.ReferencedTableName,
+			Column: value.ColumnName, OnDelete: value.OnDelete}
+		foreignKeysDB[value.ConstraintName] = foreignKey
+	}
+	return foreignKeysDB, nil
+}
+
+func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) (string, error) {
+	var skip string
+	var createTableDB string
+	err := engine.GetMysql(poolName).QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableName)).Scan(&skip, &createTableDB)
+	if err != nil {
+		return "", err
+	}
+	alter := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", engine.GetMysql(poolName).databaseName, tableName)
+	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableName, poolName)
+	if err != nil {
+		return "", err
+	}
+	if len(foreignKeysDB) == 0 {
+		return "", nil
+	}
+	droppedForeignKeys := make([]string, 0)
+	for keyName, _ := range foreignKeysDB {
+		droppedForeignKeys = append(droppedForeignKeys, fmt.Sprintf("DROP FOREIGN KEY `%s`", keyName))
+	}
+	alter += strings.Join(droppedForeignKeys, ",\t\n")
+	alter = strings.TrimRight(alter, ",") + ";"
+	return alter, nil
 }

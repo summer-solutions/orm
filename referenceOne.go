@@ -14,11 +14,11 @@ func (r *ReferenceOne) Has() bool {
 	return r.Id != 0
 }
 
-func (r *ReferenceOne) Load(entity interface{}) (bool, error) {
+func (r *ReferenceOne) Load(engine *Engine, entity interface{}) (bool, error) {
 	if !r.Has() {
 		return false, nil
 	}
-	has, err := TryById(r.Id, entity)
+	has, err := engine.TryById(r.Id, entity)
 	if err != nil {
 		return has, err
 	}

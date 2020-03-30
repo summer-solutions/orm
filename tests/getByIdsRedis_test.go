@@ -23,27 +23,27 @@ func TestEntityByIdsRedis(t *testing.T) {
 
 	var entity TestEntityByIdsRedisCache
 	var entityRef TestEntityByIdsRedisCacheRef
-	PrepareTables(entityRef, entity)
+	engine := PrepareTables(t, &orm.Config{}, entityRef, entity)
 
 	flusher := orm.Flusher{}
 	for i := 1; i <= 10; i++ {
 		e := TestEntityByIdsRedisCache{Name: "Name " + strconv.Itoa(i)}
-		orm.Init(&e)
+		engine.Init(&e)
 		flusher.RegisterEntity(&e)
 		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
-		orm.Init(&e2)
+		engine.Init(&e2)
 		flusher.RegisterEntity(&e2)
 	}
-	err := flusher.Flush()
+	err := flusher.Flush(engine)
 	assert.Nil(t, err)
 
 	DBLogger := &TestDatabaseLogger{}
-	orm.GetMysql().RegisterLogger(DBLogger.Logger())
+	engine.GetMysql().RegisterLogger(DBLogger.Logger())
 	CacheLogger := &TestCacheLogger{}
-	orm.GetRedis().RegisterLogger(CacheLogger.Logger())
+	engine.GetRedis().RegisterLogger(CacheLogger.Logger())
 
 	var found []*TestEntityByIdsRedisCache
-	missing, err := orm.TryByIds([]uint64{2, 13, 1}, &found)
+	missing, err := engine.TryByIds([]uint64{2, 13, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
@@ -54,7 +54,7 @@ func TestEntityByIdsRedis(t *testing.T) {
 	assert.Equal(t, "Name 1", found[1].Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = orm.TryByIds([]uint64{2, 13, 1}, &found)
+	missing, err = engine.TryByIds([]uint64{2, 13, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
@@ -63,25 +63,25 @@ func TestEntityByIdsRedis(t *testing.T) {
 	assert.Equal(t, uint(1), found[1].Id)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = orm.TryByIds([]uint64{25, 26, 27}, &found)
+	missing, err = engine.TryByIds([]uint64{25, 26, 27}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
 	assert.Len(t, DBLogger.Queries, 2)
 
-	err = orm.GetRedis().FlushDB()
+	err = engine.GetRedis().FlushDB()
 	assert.Nil(t, err)
 	DBLogger.Queries = make([]string, 0)
 	CacheLogger.Requests = make([]string, 0)
 
 	DBLogger.Queries = make([]string, 0)
-	missing, err = orm.TryByIds([]uint64{8, 9, 10}, &found)
+	missing, err = engine.TryByIds([]uint64{8, 9, 10}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = orm.TryByIds([]uint64{8, 9, 10}, &found)
+	missing, err = engine.TryByIds([]uint64{8, 9, 10}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
@@ -90,11 +90,11 @@ func TestEntityByIdsRedis(t *testing.T) {
 
 func BenchmarkGetByIdsRedis(b *testing.B) {
 	var entity TestEntityByIdsRedisCache
-	PrepareTables(entity)
+	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity)
 
-	_ = orm.Flush(&TestEntityByIdsRedisCache{Name: "Hi 1"}, &TestEntityByIdsRedisCache{Name: "Hi 2"}, &TestEntityByIdsRedisCache{Name: "Hi 3"})
+	_ = engine.Flush(&TestEntityByIdsRedisCache{Name: "Hi 1"}, &TestEntityByIdsRedisCache{Name: "Hi 2"}, &TestEntityByIdsRedisCache{Name: "Hi 3"})
 	var found []TestEntityByIdsRedisCache
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryByIds([]uint64{1, 2, 3}, &found)
+		_, _ = engine.TryByIds([]uint64{1, 2, 3}, &found)
 	}
 }

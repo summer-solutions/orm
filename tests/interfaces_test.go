@@ -40,27 +40,27 @@ func (e *TestEntityInterfaces) AfterSaved() error {
 }
 
 func TestInterfaces(t *testing.T) {
-	PrepareTables(TestEntityInterfaces{}, TestEntityInterfacesRef{})
+	engine := PrepareTables(t, &orm.Config{}, TestEntityInterfaces{}, TestEntityInterfacesRef{})
 
-	err := orm.Flush(&TestEntityInterfacesRef{})
+	err := engine.Flush(&TestEntityInterfacesRef{})
 	assert.Nil(t, err)
 
 	entity := &TestEntityInterfaces{}
-	orm.Init(entity)
+	engine.Init(entity)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)
 	assert.Equal(t, uint64(1), entity.ReferenceOne.Id)
 
-	err = orm.Flush(entity)
+	err = engine.Flush(entity)
 	assert.NotNil(t, err)
 	assert.Error(t, err, "uint too low")
 	entity.Uint = 5
-	err = orm.Flush(entity)
+	err = engine.Flush(entity)
 	assert.Nil(t, err)
 	assert.Equal(t, 6, entity.Calculated)
 
 	entity.Uint = 10
-	err = orm.Flush(entity)
+	err = engine.Flush(entity)
 	assert.Nil(t, err)
 	assert.Equal(t, 11, entity.Calculated)
 }

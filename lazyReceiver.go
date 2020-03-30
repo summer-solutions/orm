@@ -6,15 +6,20 @@ import (
 )
 
 type LazyReceiver struct {
-	QueueName string
+	engine    *Engine
+	queueName string
 }
 
-func (r LazyReceiver) Size() (int64, error) {
-	return GetRedis(r.QueueName + "_queue").LLen("lazy_queue")
+func NewLazyReceiver(engine *Engine, queueName string) *LazyReceiver {
+	return &LazyReceiver{engine: engine, queueName: queueName}
 }
 
-func (r LazyReceiver) Digest() (has bool, err error) {
-	redis := GetRedis(r.QueueName + "_queue")
+func (r *LazyReceiver) Size() (int64, error) {
+	return r.engine.GetRedis(r.queueName + "_queue").LLen("lazy_queue")
+}
+
+func (r *LazyReceiver) Digest(engine *Engine) (has bool, err error) {
+	redis := r.engine.GetRedis(r.queueName + "_queue")
 	key := "lazy_queue"
 	val, found, err := redis.RPop(key)
 	if err != nil {
@@ -33,7 +38,7 @@ func (r LazyReceiver) Digest() (has bool, err error) {
 	if !ok {
 		return true, fmt.Errorf("invalid map: %v", data)
 	}
-	err = r.handleQueries(validMap, brokenMap)
+	err = r.handleQueries(engine, validMap, brokenMap)
 	if err != nil {
 		return true, err
 	}
@@ -50,7 +55,7 @@ func (r LazyReceiver) Digest() (has bool, err error) {
 		if err != nil {
 			return true, err
 		}
-		_, err = getRedisForQueue("default").RPush("lazy_queue", v)
+		_, err = engine.getRedisForQueue("default").RPush("lazy_queue", v)
 		if err != nil {
 			return true, err
 		}
@@ -58,7 +63,7 @@ func (r LazyReceiver) Digest() (has bool, err error) {
 	return true, nil
 }
 
-func (r *LazyReceiver) handleQueries(validMap map[string]interface{}, brokenMap map[string]interface{}) error {
+func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interface{}, brokenMap map[string]interface{}) error {
 	queries, has := validMap["q"]
 	if has {
 		validQueries, ok := queries.([]interface{})
@@ -70,7 +75,7 @@ func (r *LazyReceiver) handleQueries(validMap map[string]interface{}, brokenMap 
 			if !ok {
 				return fmt.Errorf("invalid query: %v", validInsert)
 			}
-			db := GetMysql(validInsert[0].(string))
+			db := engine.GetMysql(validInsert[0].(string))
 			sql := validInsert[1].(string)
 			attributes := validInsert[2].([]interface{})
 			_, err := db.Exec(sql, attributes...)
@@ -100,13 +105,19 @@ func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, brokenM
 				stringKeys[i] = v.(string)
 			}
 			if key == "cl" {
-				cache, has := localCacheContainers[cacheCode]
+				if r.engine.localCache == nil {
+					return fmt.Errorf("unknown local cache %s", cacheCode)
+				}
+				cache, has := r.engine.localCache[cacheCode]
 				if !has {
 					return fmt.Errorf("unknown local cache %s", cacheCode)
 				}
 				cache.Remove(stringKeys...)
 			} else {
-				cache, has := redisServers[cacheCode]
+				if r.engine.redis == nil {
+					return fmt.Errorf("unknown redis cache %s", cacheCode)
+				}
+				cache, has := r.engine.redis[cacheCode]
 				if !has {
 					return fmt.Errorf("unknown redis cache %s", cacheCode)
 				}

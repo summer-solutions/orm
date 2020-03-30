@@ -10,6 +10,7 @@ import (
 )
 
 type RedisCache struct {
+	engine  *Engine
 	code    string
 	client  *redis.Client
 	loggers *list.List

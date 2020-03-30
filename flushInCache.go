@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-func FlushInCache(entities ...interface{}) error {
+func flushInCache(engine *Engine, entities ...interface{}) error {
 
 	invalidEntities := make([]interface{}, 0)
 	validEntities := make([]interface{}, 0)
@@ -15,18 +15,18 @@ func FlushInCache(entities ...interface{}) error {
 
 		value := reflect.ValueOf(entity)
 		elem := value.Elem()
-		orm := initIfNeeded(value)
+		orm := engine.initIfNeeded(value)
 		elem.Field(0).Interface().(*ORM).elem = elem
 		t := elem.Type()
 
 		id := elem.Field(1).Uint()
 		entityName := t.String()
-		schema := getTableSchema(t)
-		cache := schema.GetRedisCacheContainer()
+		schema := orm.tableSchema
+		cache := schema.GetRedisCacheContainer(engine)
 		if cache == nil || id == 0 {
 			invalidEntities = append(invalidEntities, entity)
 		} else {
-			isDirty, bind, err := orm.isDirty(elem)
+			isDirty, bind, err := isDirty(elem)
 			if err != nil {
 				return err
 			}
@@ -49,18 +49,18 @@ func FlushInCache(entities ...interface{}) error {
 		}
 	}
 	if len(invalidEntities) > 0 {
-		err := Flush(invalidEntities...)
+		err := engine.Flush(invalidEntities...)
 		if err != nil {
 			return err
 		}
 	}
 	if len(validEntities) > 0 {
-		_, err := getRedisForQueue("default").SAdd("dirty_queue", validEntities...)
+		_, err := engine.getRedisForQueue("default").SAdd("dirty_queue", validEntities...)
 		if err != nil {
 			return err
 		}
 		for cacheCode, keys := range redisValues {
-			err = GetRedis(cacheCode).MSet(keys...)
+			err = engine.GetRedis(cacheCode).MSet(keys...)
 			if err != nil {
 				return err
 			}

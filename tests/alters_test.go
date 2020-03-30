@@ -73,23 +73,23 @@ type TestEntitySchemaRef struct {
 
 func TestGetAlters(t *testing.T) {
 
-	orm.UnregisterSqlPools()
-	err := orm.RegisterMySqlPool("root:root@tcp(localhost:3308)/test_schema", "schema")
+	config := &orm.Config{}
+	err := config.RegisterMySqlPool("root:root@tcp(localhost:3308)/test_schema", "schema")
 	assert.Nil(t, err)
+	engine := orm.NewEngine(config)
 
 	var entity TestEntitySchema
 	var entityRef TestEntitySchemaRef
-	orm.UnregisterEntities()
-	orm.RegisterEntity(entity, entityRef)
-	orm.RegisterEnum("tests.Color", Color)
-	tableSchema := orm.GetTableSchema(entity)
-	err = tableSchema.DropTable()
+	config.RegisterEntity(entity, entityRef)
+	config.RegisterEnum("tests.Color", Color)
+	tableSchema := config.GetTableSchema(entity)
+	err = tableSchema.DropTable(engine)
 	assert.Nil(t, err)
-	tableSchemaRef := orm.GetTableSchema(entityRef)
-	err = tableSchemaRef.DropTable()
+	tableSchemaRef := config.GetTableSchema(entityRef)
+	err = tableSchemaRef.DropTable(engine)
 	assert.Nil(t, err)
 
-	alters, err := orm.GetAlters()
+	alters, err := engine.GetAlters()
 	assert.Nil(t, err)
 	assert.Len(t, alters, 3)
 }

@@ -15,16 +15,16 @@ type TestEntityByIdsLocal struct {
 func TestGetByIdsLocal(t *testing.T) {
 
 	var entity TestEntityByIdsLocal
-	PrepareTables(entity)
+	engine := PrepareTables(t, &orm.Config{}, entity)
 
-	err := orm.Flush(&TestEntityByIdsLocal{Name: "Hi"}, &TestEntityByIdsLocal{Name: "Hello"})
+	err := engine.Flush(&TestEntityByIdsLocal{Name: "Hi"}, &TestEntityByIdsLocal{Name: "Hello"})
 	assert.Nil(t, err)
 
 	DBLogger := &TestDatabaseLogger{}
-	orm.GetMysql().RegisterLogger(DBLogger.Logger())
+	engine.GetMysql().RegisterLogger(DBLogger.Logger())
 
 	var found []*TestEntityByIdsLocal
-	missing, err := orm.TryByIds([]uint64{2, 3, 1}, &found)
+	missing, err := engine.TryByIds([]uint64{2, 3, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
@@ -35,7 +35,7 @@ func TestGetByIdsLocal(t *testing.T) {
 	assert.Equal(t, "Hi", found[1].Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = orm.TryByIds([]uint64{2, 3, 1}, &found)
+	missing, err = engine.TryByIds([]uint64{2, 3, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
@@ -44,7 +44,7 @@ func TestGetByIdsLocal(t *testing.T) {
 	assert.Equal(t, uint(1), found[1].Id)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = orm.TryByIds([]uint64{5, 6, 7}, &found)
+	missing, err = engine.TryByIds([]uint64{5, 6, 7}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
@@ -54,12 +54,12 @@ func TestGetByIdsLocal(t *testing.T) {
 
 func BenchmarkGetByIdsLocal(b *testing.B) {
 	var entity TestEntityByIdsLocal
-	PrepareTables(entity)
+	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity)
 
-	_ = orm.Flush(&TestEntityByIdsLocal{Name: "Hi 1"}, &TestEntityByIdsLocal{Name: "Hi 2"}, &TestEntityByIdsLocal{Name: "Hi 3"})
+	_ = engine.Flush(&TestEntityByIdsLocal{Name: "Hi 1"}, &TestEntityByIdsLocal{Name: "Hi 2"}, &TestEntityByIdsLocal{Name: "Hi 3"})
 
 	var found []*TestEntityByIdsLocal
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryByIds([]uint64{1, 2, 3}, &found)
+		_, _ = engine.TryByIds([]uint64{1, 2, 3}, &found)
 	}
 }

@@ -2,43 +2,46 @@ package tests
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
+	"testing"
 )
 
-func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
-	_ = orm.RegisterMySqlPool("root:root@tcp(localhost:3308)/test")
-	_ = orm.RegisterRedis("localhost:6379", 15).FlushDB()
-	_ = orm.RegisterRedis("localhost:6379", 14, "default_queue").FlushDB()
-	orm.RegisterLazyQueue("default", "default_queue")
-	orm.RegisterLocalCache(1000)
+func PrepareTables(t *testing.T, config *orm.Config, entities ...interface{}) *orm.Engine {
+	err := config.RegisterMySqlPool("root:root@tcp(localhost:3308)/test")
+	assert.Nil(t, err)
+	config.RegisterRedis("localhost:6379", 15)
+	config.RegisterRedis("localhost:6379", 14, "default_queue")
+	config.RegisterLazyQueue("default", "default_queue")
+	config.RegisterLocalCache(1000)
 
-	orm.RegisterEntity(entities...)
+	config.RegisterEntity(entities...)
 
-	alters, _ := orm.GetAlters()
+	engine := orm.NewEngine(config)
+	err = engine.GetRedis().FlushDB()
+	assert.Nil(t, err)
+	err = engine.GetRedis("default_queue").FlushDB()
+	assert.Nil(t, err)
+
+	alters, err := engine.GetAlters()
+	assert.Nil(t, err)
 	for _, alter := range alters {
-		_, err := orm.GetMysql(alter.Pool).Exec(alter.Sql)
-		if err != nil {
-			fmt.Printf("%s\n", alter.Sql)
-			panic(err)
-		}
+		_, err := engine.GetMysql(alter.Pool).Exec(alter.Sql)
+		assert.Nil(t, err)
 	}
 
 	for _, entity := range entities {
-		TableSchema = orm.GetTableSchema(entity)
-		err := TableSchema.TruncateTable()
-		if err != nil {
-			panic(err)
-		}
-		err = TableSchema.UpdateSchema()
-		if err != nil {
-			panic(err)
-		}
-		localCache := TableSchema.GetLocalCache()
+		tableSchema := config.GetTableSchema(entity)
+		err := tableSchema.TruncateTable(engine)
+		assert.Nil(t, err)
+		err = tableSchema.UpdateSchema(engine)
+		assert.Nil(t, err)
+		localCache := tableSchema.GetLocalCache(engine)
 		if localCache != nil {
 			localCache.Clear()
 		}
 	}
-	return
+	return engine
 }
 
 type TestDatabaseLogger struct {

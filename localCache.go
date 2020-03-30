@@ -9,6 +9,7 @@ import (
 )
 
 type LocalCache struct {
+	engine  *Engine
 	code    string
 	lru     *lru.Cache
 	loggers *list.List

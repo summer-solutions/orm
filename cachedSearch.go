@@ -8,27 +8,10 @@ import (
 	"strings"
 )
 
-func ClearCachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) error {
-	_, err := cachedSearchOne(entity, indexName, true, arguments...)
-	return err
-}
-
-func CachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) (has bool, err error) {
-	return cachedSearchOne(entity, indexName, false, arguments...)
-}
-
-func ClearCachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
-	return cachedSearch(entities, indexName, true, pager, arguments...)
-}
-
-func CachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
-	return cachedSearch(entities, indexName, false, pager, arguments...)
-}
-
-func cachedSearch(entities interface{}, indexName string, clear bool, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
+func cachedSearch(engine *Engine, entities interface{}, indexName string, clear bool, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
 	value := reflect.ValueOf(entities)
-	entityType := getEntityTypeForSlice(value.Type())
-	schema := getTableSchema(entityType)
+	entityType := getEntityTypeForSlice(engine.config, value.Type())
+	schema := getTableSchema(engine.config, entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
 		return 0, fmt.Errorf("uknown index %s", indexName)
@@ -42,8 +25,8 @@ func cachedSearch(entities interface{}, indexName string, clear bool, pager *Pag
 	}
 
 	Where := NewWhere(definition.Query, arguments...)
-	localCache := schema.GetLocalCache()
-	redisCache := schema.GetRedisCacheContainer()
+	localCache := schema.GetLocalCache(engine)
+	redisCache := schema.GetRedisCacheContainer(engine)
 	if localCache == nil && redisCache == nil {
 		return 0, fmt.Errorf("missing entity cache definition")
 	}
@@ -137,7 +120,10 @@ func cachedSearch(entities interface{}, indexName string, clear bool, pager *Pag
 
 	if hasNil {
 		searchPager := &Pager{minPage, maxPage * idsOnCachePage}
-		results, total := searchIdsWithCount(Where, searchPager, entityType)
+		results, total, err := searchIdsWithCount(engine, Where, searchPager, entityType)
+		if err != nil {
+			return 0, err
+		}
 		totalRows = total
 		cacheFields := make(map[string]interface{})
 		for key, ids := range fromCache {
@@ -196,24 +182,24 @@ func cachedSearch(entities interface{}, indexName string, clear bool, pager *Pag
 		sliceEnd = length
 	}
 	idsToReturn := resultsIds[sliceStart:sliceEnd]
-	err = GetByIds(idsToReturn, entities)
+	err = engine.GetByIds(idsToReturn, entities)
 	if err != nil {
 		return 0, err
 	}
 	return
 }
 
-func cachedSearchOne(entity interface{}, indexName string, clear bool, arguments ...interface{}) (has bool, err error) {
+func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear bool, arguments ...interface{}) (has bool, err error) {
 	value := reflect.ValueOf(entity)
 	entityType := value.Elem().Type()
-	schema := getTableSchema(entityType)
+	schema := getTableSchema(engine.config, entityType)
 	definition, has := schema.cachedIndexesOne[indexName]
 	if !has {
 		return false, fmt.Errorf("uknown index %s", indexName)
 	}
 	Where := NewWhere(definition.Query, arguments...)
-	localCache := schema.GetLocalCache()
-	redisCache := schema.GetRedisCacheContainer()
+	localCache := schema.GetLocalCache(engine)
+	redisCache := schema.GetRedisCacheContainer(engine)
 	if localCache == nil && redisCache == nil {
 		return false, fmt.Errorf("missing entity cache definition")
 	}
@@ -242,7 +228,10 @@ func cachedSearchOne(entity interface{}, indexName string, clear bool, arguments
 	}
 	var id uint64
 	if fromCache["1"] == nil {
-		results, _ := searchIds(Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
+		results, _, err := searchIds(engine, Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
+		if err != nil {
+			return false, err
+		}
 		l := len(results)
 		value := fmt.Sprintf("%d", l)
 		if l > 0 {
@@ -270,7 +259,7 @@ func cachedSearchOne(entity interface{}, indexName string, clear bool, arguments
 		}
 	}
 	if id > 0 {
-		return true, GetById(id, entity)
+		return true, engine.GetById(id, entity)
 	}
 	return false, nil
 

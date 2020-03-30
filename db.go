@@ -8,6 +8,7 @@ import (
 )
 
 type DB struct {
+	engine                       *Engine
 	db                           *sql.DB
 	code                         string
 	databaseName                 string
@@ -82,19 +83,19 @@ func (db *DB) Commit() error {
 		if err == nil {
 			if db.afterCommitLocalCacheSets != nil {
 				for cacheCode, pairs := range db.afterCommitLocalCacheSets {
-					GetLocalCache(cacheCode).MSet(pairs...)
+					db.engine.GetLocalCache(cacheCode).MSet(pairs...)
 				}
 			}
 			db.afterCommitLocalCacheSets = nil
 			if db.afterCommitLocalCacheDeletes != nil {
 				for cacheCode, keys := range db.afterCommitLocalCacheDeletes {
-					GetLocalCache(cacheCode).Remove(keys...)
+					db.engine.GetLocalCache(cacheCode).Remove(keys...)
 				}
 			}
 			db.afterCommitLocalCacheDeletes = nil
 			if db.afterCommitRedisCacheDeletes != nil {
 				for cacheCode, keys := range db.afterCommitRedisCacheDeletes {
-					err := GetRedis(cacheCode).Del(keys...)
+					err := db.engine.GetRedis(cacheCode).Del(keys...)
 					if err != nil {
 						return err
 					}

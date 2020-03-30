@@ -44,25 +44,25 @@ type TestEntityByIdLocal struct {
 
 func TestGetByIdLocal(t *testing.T) {
 	var entity TestEntityByIdLocal
-	PrepareTables(entity)
+	engine := PrepareTables(t, &orm.Config{}, entity)
 
-	found, err := orm.TryById(100, &entity)
+	found, err := engine.TryById(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-	found, err = orm.TryById(100, &entity)
+	found, err = engine.TryById(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
 	entity = TestEntityByIdLocal{}
-	err = orm.Flush(&entity)
+	err = engine.Flush(&entity)
 	assert.Nil(t, err)
 
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, engine.IsDirty(&entity))
 
 	DBLogger := &TestDatabaseLogger{}
-	orm.GetMysql().RegisterLogger(DBLogger.Logger())
+	engine.GetMysql().RegisterLogger(DBLogger.Logger())
 
-	found, err = orm.TryById(1, &entity)
+	found, err = engine.TryById(1, &entity)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -93,7 +93,7 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Nil(t, entity.Json)
 	assert.Nil(t, err)
 
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Queries, 0)
 
 	entity.Name = "Test name"
@@ -114,16 +114,16 @@ func TestGetByIdLocal(t *testing.T) {
 	entity.Json = map[string]string{"name": "John"}
 
 	assert.Nil(t, err)
-	assert.True(t, entity.Orm.IsDirty())
+	assert.True(t, engine.IsDirty(&entity))
 
-	err = orm.Flush(&entity)
+	err = engine.Flush(&entity)
 	assert.Nil(t, err)
 	assert.Nil(t, err)
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Queries, 1)
 
 	var entity2 TestEntityByIdLocal
-	found, err = orm.TryById(1, &entity2)
+	found, err = engine.TryById(1, &entity2)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity2)
@@ -148,12 +148,12 @@ func TestGetByIdLocal(t *testing.T) {
 
 func BenchmarkGetByIdLocal(b *testing.B) {
 	var entity TestEntityByIdLocal
-	PrepareTables(entity)
+	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity)
 
 	entity = TestEntityByIdLocal{}
-	_ = orm.Flush(&entity)
+	_ = engine.Flush(&entity)
 
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryById(1, &entity)
+		_, _ = engine.TryById(1, &entity)
 	}
 }

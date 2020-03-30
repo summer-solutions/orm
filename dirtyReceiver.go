@@ -7,7 +7,8 @@ import (
 )
 
 type DirtyReceiver struct {
-	QueueCode string
+	engine    *Engine
+	queueCode string
 }
 
 type DirtyData struct {
@@ -18,45 +19,50 @@ type DirtyData struct {
 	Deleted     bool
 }
 
+func NewDirtyReceiver(engine *Engine, queueCode string) *DirtyReceiver {
+	return &DirtyReceiver{engine: engine, queueCode: queueCode}
+}
+
 type DirtyHandler func([]DirtyData) (invalid []interface{}, err error)
 
-func (r DirtyReceiver) Size() (int64, error) {
+func (r *DirtyReceiver) Size() (int64, error) {
 	red, err := r.getRedis()
 	if err != nil {
 		return 0, err
 	}
-	return red.SCard(r.QueueCode)
+	return red.SCard(r.queueCode)
 }
 
-func (r DirtyReceiver) GetEntities() []string {
+func (r *DirtyReceiver) GetEntities() []string {
 	results := make([]string, 0)
-Exit:
-	for name, t := range entities {
-		schema := getTableSchema(t)
-		for _, tags := range schema.Tags {
-			queues, has := tags["dirty"]
-			if !has {
-				continue
-			}
-			queueNames := strings.Split(queues, ",")
-			for _, queueName := range queueNames {
-				if r.QueueCode == queueName {
-					results = append(results, name)
-					continue Exit
+	if r.engine.config.entities != nil {
+	Exit:
+		for name, t := range r.engine.config.entities {
+			schema := getTableSchema(r.engine.config, t)
+			for _, tags := range schema.Tags {
+				queues, has := tags["dirty"]
+				if !has {
+					continue
 				}
-
+				queueNames := strings.Split(queues, ",")
+				for _, queueName := range queueNames {
+					if r.queueCode == queueName {
+						results = append(results, name)
+						continue Exit
+					}
+				}
 			}
 		}
 	}
 	return results
 }
 
-func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err error) {
+func (r *DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err error) {
 	cache, err := r.getRedis()
 	if err != nil {
 		return false, err
 	}
-	values, err := cache.SPopN(r.QueueCode, int64(max))
+	values, err := cache.SPopN(r.queueCode, int64(max))
 	if err != nil {
 		return false, err
 	}
@@ -69,7 +75,7 @@ func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err erro
 		if len(val) != 3 {
 			continue
 		}
-		tableSchema := getTableSchema(GetEntityType(val[0]))
+		tableSchema := getTableSchema(r.engine.config, r.engine.config.GetEntityType(val[0]))
 		id, err := strconv.ParseUint(val[2], 10, 64)
 		if err != nil {
 			continue
@@ -86,14 +92,14 @@ func (r DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err erro
 	invalid, err := handler(results)
 	if err != nil {
 		if invalid != nil {
-			_, _ = cache.SAdd(r.QueueCode, invalid...)
+			_, _ = cache.SAdd(r.queueCode, invalid...)
 		}
 		return true, err
 	}
 	return true, nil
 }
 
-func (r DirtyReceiver) MarkDirty(entityName string, ids ...uint64) error {
+func (r *DirtyReceiver) MarkDirty(entityName string, ids ...uint64) error {
 	cache, err := r.getRedis()
 	if err != nil {
 		return err
@@ -102,14 +108,17 @@ func (r DirtyReceiver) MarkDirty(entityName string, ids ...uint64) error {
 	for index, id := range ids {
 		data[index] = fmt.Sprintf("%s:%d", entityName, id)
 	}
-	_, err = cache.SAdd(r.QueueCode, data...)
+	_, err = cache.SAdd(r.queueCode, data...)
 	return err
 }
 
-func (r DirtyReceiver) getRedis() (*RedisCache, error) {
-	redisCode, has := dirtyQueuesCodes[r.QueueCode]
-	if !has {
-		return nil, fmt.Errorf("unregistered dirty queue %s", r.QueueCode)
+func (r *DirtyReceiver) getRedis() (*RedisCache, error) {
+	if r.engine.config.dirtyQueuesCodes == nil {
+		return nil, fmt.Errorf("unregistered dirty queue %s", r.queueCode)
 	}
-	return GetRedis(redisCode), nil
+	redisCode, has := r.engine.config.dirtyQueuesCodes[r.queueCode]
+	if !has {
+		return nil, fmt.Errorf("unregistered dirty queue %s", r.queueCode)
+	}
+	return r.engine.GetRedis(redisCode), nil
 }

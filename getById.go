@@ -6,13 +6,13 @@ import (
 	"reflect"
 )
 
-func TryById(id uint64, entity interface{}, references ...string) (found bool, err error) {
+func tryById(engine *Engine, id uint64, entity interface{}, references ...string) (found bool, err error) {
 	val := reflect.ValueOf(entity)
 	elem := val.Elem()
 	entityType := elem.Type()
-	schema := getTableSchema(entityType)
+	schema := getTableSchema(engine.config, entityType)
 	var cacheKey string
-	localCache := schema.GetLocalCache()
+	localCache := schema.GetLocalCache(engine)
 
 	if localCache != nil {
 		cacheKey = schema.getCacheKey(id)
@@ -21,13 +21,13 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 			if e == "nil" {
 				return false, nil
 			}
-			err = fillFromDBRow(e.([]string), val, entityType)
+			err = fillFromDBRow(engine, e.([]string), val, entityType)
 			if err != nil {
 				return false, err
 			}
 			elem.Field(1).SetUint(id)
 			if len(references) > 0 {
-				err = warmUpReferences(schema, elem, references, false)
+				err = warmUpReferences(engine, schema, elem, references, false)
 				if err != nil {
 					return true, err
 				}
@@ -35,7 +35,7 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 			return true, nil
 		}
 	}
-	redisCache := schema.GetRedisCacheContainer()
+	redisCache := schema.GetRedisCacheContainer(engine)
 	if redisCache != nil {
 		cacheKey = schema.getCacheKey(id)
 		row, has, err := redisCache.Get(cacheKey)
@@ -51,12 +51,12 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 			if err != nil {
 				return true, err
 			}
-			err = fillFromDBRow(decoded, val, entityType)
+			err = fillFromDBRow(engine, decoded, val, entityType)
 			if err != nil {
 				return false, err
 			}
 			if len(references) > 0 {
-				err = warmUpReferences(schema, elem, references, false)
+				err = warmUpReferences(engine, schema, elem, references, false)
 				if err != nil {
 					return true, err
 				}
@@ -64,7 +64,7 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 			return true, nil
 		}
 	}
-	found, err = SearchOne(NewWhere("`Id` = ?", id), entity)
+	found, err = engine.SearchOne(NewWhere("`Id` = ?", id), entity)
 	if err != nil {
 		return false, err
 	}
@@ -84,7 +84,7 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 		}
 	}
 	if len(references) > 0 {
-		err = warmUpReferences(schema, elem, references, false)
+		err = warmUpReferences(engine, schema, elem, references, false)
 		if err != nil {
 			return true, err
 		}
@@ -92,8 +92,8 @@ func TryById(id uint64, entity interface{}, references ...string) (found bool, e
 	return true, nil
 }
 
-func GetById(id uint64, entity interface{}, references ...string) error {
-	found, err := TryById(id, entity, references...)
+func getById(engine *Engine, id uint64, entity interface{}, references ...string) error {
+	found, err := engine.TryById(id, entity, references...)
 	if err != nil {
 		return err
 	}
