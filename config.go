@@ -121,6 +121,16 @@ func (c *Config) GetEntityType(name string) reflect.Type {
 	return t
 }
 
+func (c *Config) Validate() error {
+	for _, entity := range c.entities {
+		_, err := getTableSchemaFromValue(c, entity)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *Config) getRedisForQueue(code string) *RedisCacheConfig {
 	if c.redisServers == nil {
 		panic(fmt.Errorf("unregistered redis queue: %s", code))

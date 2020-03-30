@@ -32,6 +32,9 @@ func main() {
     config.RegisterLocalCache(1000) //you need to define cache size
     //optionally you can define pool name as second argument
     config.RegisterLocalCache(100, "second_pool")
+    
+    //you should execute at least once
+    err := config.Validate()
 
 }
 

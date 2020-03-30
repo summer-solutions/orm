@@ -76,18 +76,20 @@ type foreignKeyDB struct {
 func getTableSchema(c *Config, entityOrType interface{}) *TableSchema {
 	asType, ok := entityOrType.(reflect.Type)
 	if ok {
-		return getTableSchemaFromValue(c, asType)
+		schema, _ := getTableSchemaFromValue(c, asType)
+		return schema
 	}
-	return getTableSchemaFromValue(c, reflect.TypeOf(entityOrType))
+	schema, _ := getTableSchemaFromValue(c, reflect.TypeOf(entityOrType))
+	return schema
 }
 
-func getTableSchemaFromValue(c *Config, entityType reflect.Type) *TableSchema {
+func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, error) {
 	if c.tableSchemas == nil {
 		c.tableSchemas = make(map[reflect.Type]*TableSchema)
 	}
 	tableSchema, has := c.tableSchemas[entityType]
 	if has {
-		return tableSchema
+		return tableSchema, nil
 	}
 	tags, columnNames, columnPathMap := tableSchema.extractTags(entityType, "")
 	oneRefs := make([]string, 0)
@@ -151,7 +153,7 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) *TableSchema {
 				if has {
 					maxFromUser, err := strconv.Atoi(maxAttribute)
 					if err != nil {
-						panic(fmt.Errorf("invalid max value for cache index %s", maxAttribute))
+						return nil, err
 					}
 					max = maxFromUser
 				}
@@ -179,7 +181,7 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) *TableSchema {
 		refOne:           oneRefs,
 		cachePrefix:      cachePrefix}
 	c.tableSchemas[entityType] = tableSchema
-	return tableSchema
+	return tableSchema, nil
 }
 
 func (tableSchema *TableSchema) DropTable(engine *Engine) error {
