@@ -29,10 +29,7 @@ func searchRow(engine *Engine, where *Where, value reflect.Value) (bool, error) 
 	}
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
 
-	pool, has := schema.GetMysql(engine)
-	if !has {
-		return false, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
-	}
+	pool := schema.GetMysql(engine)
 	results, err := pool.Query(query, where.GetParameters()...)
 	if err != nil {
 		return false, err
@@ -87,10 +84,7 @@ func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities
 	}
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
-	pool, has := schema.GetMysql(engine)
-	if !has {
-		return 0, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
-	}
+	pool := schema.GetMysql(engine)
 	results, err := pool.Query(query, where.GetParameters()...)
 	if err != nil {
 		return 0, err
@@ -158,10 +152,7 @@ func searchIds(engine *Engine, where *Where, pager *Pager, withCount bool, entit
 	}
 	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
-	pool, has := schema.GetMysql(engine)
-	if !has {
-		return nil, 0, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
-	}
+	pool := schema.GetMysql(engine)
 	results, err := pool.Query(query, where.GetParameters()...)
 	if err != nil {
 		return nil, 0, err
@@ -189,10 +180,7 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 		if totalRows == pager.GetPageSize() {
 			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.TableName, where)
 			var foundTotal string
-			pool, has := schema.GetMysql(engine)
-			if !has {
-				return 0, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
-			}
+			pool := schema.GetMysql(engine)
 			err := pool.QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
 			if err != nil {
 				return 0, err

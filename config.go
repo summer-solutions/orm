@@ -113,8 +113,16 @@ func (c *Config) RegisterDirtyQueue(code string, redisCode string) {
 	c.dirtyQueuesCodesNames = append(c.dirtyQueuesCodesNames, code)
 }
 
-func (c *Config) GetTableSchema(entityOrType interface{}) (schema *TableSchema, has bool, err error) {
-	return getTableSchema(c, entityOrType)
+func (c *Config) GetTableSchema(entityOrTypeOrName interface{}) (schema *TableSchema, has bool, err error) {
+	asString, is := entityOrTypeOrName.(string)
+	if is {
+		t, has := c.getEntityType(asString)
+		if !has {
+			return nil, false, nil
+		}
+		return getTableSchema(c, t)
+	}
+	return getTableSchema(c, entityOrTypeOrName)
 }
 
 func (c *Config) GetDirtyQueueCodes() []string {

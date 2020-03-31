@@ -113,10 +113,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				}
 				schema := orm.tableSchema
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
-				db, has := schema.GetMysql(engine)
-				if !has {
-					return DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
-				}
+				db := schema.GetMysql(engine)
 				values[i] = currentId
 				if lazy && db.transaction == nil {
 					fillLazyQuery(lazyMap, db.code, sql, values)
@@ -187,10 +184,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			sql += "," + insertValues[typeOf]
 		}
 		id := uint64(0)
-		db, has := schema.GetMysql(engine)
-		if !has {
-			return DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
-		}
+		db := schema.GetMysql(engine)
 		if lazy {
 			fillLazyQuery(lazyMap, db.code, sql, insertArguments[typeOf])
 		} else {
@@ -258,10 +252,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			i++
 		}
 		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, NewWhere("`Id` IN ?", ids))
-		db, has := schema.GetMysql(engine)
-		if !has {
-			return DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
-		}
+		db := schema.GetMysql(engine)
 		if lazy && db.transaction == nil {
 			fillLazyQuery(lazyMap, db.code, sql, ids)
 		} else {

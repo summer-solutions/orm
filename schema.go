@@ -183,20 +183,13 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 }
 
 func (tableSchema *TableSchema) DropTable(engine *Engine) error {
-	pool, has := tableSchema.GetMysql(engine)
-	if !has {
-		return DBPoolNotRegisteredError{Name: tableSchema.MysqlPoolName}
-	}
-	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;",
-		pool.databaseName, tableSchema.TableName))
+	pool := tableSchema.GetMysql(engine)
+	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.databaseName, tableSchema.TableName))
 	return err
 }
 
 func (tableSchema *TableSchema) TruncateTable(engine *Engine) error {
-	pool, has := tableSchema.GetMysql(engine)
-	if !has {
-		return DBPoolNotRegisteredError{Name: tableSchema.MysqlPoolName}
-	}
+	pool := tableSchema.GetMysql(engine)
 	_, err := pool.Exec("SET FOREIGN_KEY_CHECKS = 0")
 	if err != nil {
 		return err
@@ -214,10 +207,7 @@ func (tableSchema *TableSchema) TruncateTable(engine *Engine) error {
 }
 
 func (tableSchema *TableSchema) UpdateSchema(engine *Engine) error {
-	pool, has := tableSchema.GetMysql(engine)
-	if !has {
-		return DBPoolNotRegisteredError{Name: tableSchema.MysqlPoolName}
-	}
+	pool := tableSchema.GetMysql(engine)
 	has, alters, err := tableSchema.GetSchemaChanges(engine)
 	if err != nil {
 		return err
@@ -238,16 +228,14 @@ func (tableSchema *TableSchema) UpdateSchemaAndTruncateTable(engine *Engine) err
 	if err != nil {
 		return err
 	}
-	pool, has := tableSchema.GetMysql(engine)
-	if !has {
-		return DBPoolNotRegisteredError{Name: tableSchema.MysqlPoolName}
-	}
+	pool := tableSchema.GetMysql(engine)
 	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.databaseName, tableSchema.TableName))
 	return err
 }
 
-func (tableSchema *TableSchema) GetMysql(engine *Engine) (db *DB, has bool) {
-	return engine.GetMysql(tableSchema.MysqlPoolName)
+func (tableSchema *TableSchema) GetMysql(engine *Engine) *DB {
+	db, _ := engine.GetMysql(tableSchema.MysqlPoolName)
+	return db
 }
 
 func (tableSchema *TableSchema) GetLocalCache(engine *Engine) (cache *LocalCache, has bool) {
@@ -740,10 +728,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 		if hasCascade {
 			onDelete = "CASCADE"
 		}
-		pool, has := tableSchema.GetMysql(engine)
-		if !has {
-			return nil, DBPoolNotRegisteredError{Name: tableSchema.MysqlPoolName}
-		}
+		pool := tableSchema.GetMysql(engine)
 		foreignKey := &foreignIndex{Column: field.Name, Table: schema.TableName,
 			ParentDatabase: pool.databaseName, OnDelete: onDelete}
 		name := fmt.Sprintf("%s:%s:%s", pool.databaseName, tableSchema.TableName, field.Name)
@@ -1035,10 +1020,7 @@ func (tableSchema *TableSchema) buildCreateForeignKeySql(keyName string, definit
 
 func (tableSchema *TableSchema) isTableEmpty(engine *Engine) (bool, error) {
 	var lastId uint64
-	pool, has := tableSchema.GetMysql(engine)
-	if !has {
-		return false, DBPoolNotRegisteredError{Name: tableSchema.MysqlPoolName}
-	}
+	pool := tableSchema.GetMysql(engine)
 	err := pool.QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableSchema.TableName)).Scan(&lastId)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {

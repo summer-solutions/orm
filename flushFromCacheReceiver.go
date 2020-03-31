@@ -119,10 +119,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 		i++
 	}
 	attributes[i] = id
-	db, has := schema.GetMysql(r.engine)
-	if !has {
-		return false, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
-	}
+	db := schema.GetMysql(r.engine)
 
 	redisQueueName := "default"
 	redisQueue, has := r.engine.getRedisForQueue(redisQueueName)
