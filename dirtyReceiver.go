@@ -80,6 +80,9 @@ func (r *DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err err
 			return false, EntityNotRegistered{Name: val[0]}
 		}
 		tableSchema, has, err := getTableSchema(r.engine.config, t)
+		if err != nil {
+			continue
+		}
 		if !has {
 			return false, EntityNotRegistered{Name: val[0]}
 		}

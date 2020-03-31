@@ -46,7 +46,8 @@ func TestInterfaces(t *testing.T) {
 	assert.Nil(t, err)
 
 	entity := &TestEntityInterfaces{}
-	engine.Init(entity)
+	err = engine.Init(entity)
+	assert.Nil(t, err)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)
 	assert.Equal(t, uint64(1), entity.ReferenceOne.Id)

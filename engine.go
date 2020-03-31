@@ -68,8 +68,8 @@ func (e *Engine) IsDirty(entity interface{}) bool {
 	return is
 }
 
-func (e *Engine) Init(entity ...interface{}) {
-	e.initEntities(entity...)
+func (e *Engine) Init(entity ...interface{}) error {
+	return e.initEntities(entity...)
 }
 
 func (e *Engine) Flush(entities ...interface{}) error {

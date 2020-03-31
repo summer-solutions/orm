@@ -33,7 +33,8 @@ func TestDeleteReference(t *testing.T) {
 	assert.Nil(t, err)
 
 	entityRestrict := &TestEntityDeleteReferenceRefRestrict{}
-	engine.Init(entityRestrict)
+	err = engine.Init(entityRestrict)
+	assert.Nil(t, err)
 	entityRestrict.ReferenceOne.Id = 1
 	err = engine.Flush(entityRestrict)
 	assert.Nil(t, err)
@@ -46,7 +47,8 @@ func TestDeleteReference(t *testing.T) {
 
 	entityCascade := &TestEntityDeleteReferenceRefCascade{}
 	entityCascade2 := &TestEntityDeleteReferenceRefCascade{}
-	engine.Init(entityCascade, entityCascade2)
+	err = engine.Init(entityCascade, entityCascade2)
+	assert.Nil(t, err)
 	entityCascade.ReferenceOne.Id = 2
 	entityCascade2.ReferenceOne.Id = 2
 	err = engine.Flush(entityCascade, entityCascade2)

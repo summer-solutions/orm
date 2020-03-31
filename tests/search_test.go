@@ -31,7 +31,8 @@ func TestSearch(t *testing.T) {
 		r := TestEntitySearchRef{Name: "Name " + strconv.Itoa(i)}
 		refs[i-1] = &r
 		e := TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
-		engine.Init(&e)
+		err := engine.Init(&e)
+		assert.Nil(t, err)
 		e.ReferenceOne.Reference = &r
 		entities[i-1] = &e
 	}

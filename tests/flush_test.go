@@ -89,7 +89,8 @@ func TestFlush(t *testing.T) {
 	edited1.Name = "Name 2.2"
 	toDelete.Orm.MarkToDelete()
 	newEntity := TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
-	engine.Init(&newEntity)
+	err = engine.Init(&newEntity)
+	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(&edited1))
 	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(&edited2))
