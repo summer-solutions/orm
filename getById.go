@@ -15,12 +15,12 @@ func tryById(engine *Engine, id uint64, entity interface{}, references ...string
 		return false, err
 	}
 	if !has {
-		return false, EntityNotRegistered{Name: entityType.String()}
+		return false, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	var cacheKey string
-	localCache := schema.GetLocalCache(engine)
+	localCache, hasLocalCache := schema.GetLocalCache(engine)
 
-	if localCache != nil {
+	if hasLocalCache {
 		cacheKey = schema.getCacheKey(id)
 		e, has := localCache.Get(cacheKey)
 		if has {
@@ -41,8 +41,8 @@ func tryById(engine *Engine, id uint64, entity interface{}, references ...string
 			return true, nil
 		}
 	}
-	redisCache := schema.GetRedisCacheContainer(engine)
-	if redisCache != nil {
+	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
+	if hasRedis {
 		cacheKey = schema.getCacheKey(id)
 		row, has, err := redisCache.Get(cacheKey)
 		if err != nil {

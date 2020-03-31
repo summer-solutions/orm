@@ -18,11 +18,20 @@ func NewFlushFromCacheReceiver(engine *Engine, queueName string) *FlushFromCache
 }
 
 func (r *FlushFromCacheReceiver) Size() (int64, error) {
-	return r.engine.GetRedis(r.queueName + "_queue").SCard("dirty_queue")
+	name := r.queueName + "_queue"
+	redis, has := r.engine.GetRedis(name)
+	if !has {
+		return 0, RedisCachePoolNotRegisteredError{Name: name}
+	}
+	return redis.SCard("dirty_queue")
 }
 
 func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
-	cache := r.engine.GetRedis(r.queueName + "_queue")
+	name := r.queueName + "_queue"
+	cache, has := r.engine.GetRedis(name)
+	if !has {
+		return false, RedisCachePoolNotRegisteredError{Name: name}
+	}
 	value, has, err := cache.SPop("dirty_queue")
 	if err != nil {
 		return false, err
@@ -40,14 +49,14 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	}
 	t, has := r.engine.config.getEntityType(val[0])
 	if !has {
-		return false, EntityNotRegistered{Name: val[0]}
+		return false, EntityNotRegisteredError{Name: val[0]}
 	}
 	schema, _, err := getTableSchema(r.engine.config, t)
 	if err != nil {
 		return false, err
 	}
-	cacheEntity := schema.GetRedisCacheContainer(r.engine)
-	if cacheEntity == nil {
+	cacheEntity, hasRedis := schema.GetRedisCacheContainer(r.engine)
+	if !hasRedis {
 		return true, nil
 	}
 	cacheKey := schema.getCacheKey(id)
@@ -110,11 +119,20 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 		i++
 	}
 	attributes[i] = id
-	db := schema.GetMysql(r.engine)
+	db, has := schema.GetMysql(r.engine)
+	if !has {
+		return false, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
+	}
+
+	redisQueueName := "default"
+	redisQueue, has := r.engine.getRedisForQueue(redisQueueName)
+	if !has {
+		return false, RedisCachePoolNotRegisteredError{Name: redisQueueName}
+	}
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
 	_, err = db.Exec(sql, attributes...)
 	if err != nil {
-		_, _ = r.engine.getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+		_, _ = redisQueue.SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 		return true, err
 	}
 	cacheKeys, err := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
@@ -129,7 +147,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	if len(cacheKeys) > 0 {
 		err = cacheEntity.Del(cacheKeys...)
 		if err != nil {
-			_, _ = r.engine.getRedisForQueue("default").SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
+			_, _ = redisQueue.SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 			return true, err
 		}
 	}

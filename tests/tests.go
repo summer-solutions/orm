@@ -18,15 +18,21 @@ func PrepareTables(t *testing.T, config *orm.Config, entities ...interface{}) *o
 	config.RegisterEntity(entities...)
 
 	engine := orm.NewEngine(config)
-	err = engine.GetRedis().FlushDB()
+	redisCache, has := engine.GetRedis()
+	assert.True(t, has)
+	err = redisCache.FlushDB()
 	assert.Nil(t, err)
-	err = engine.GetRedis("default_queue").FlushDB()
+	redisCache, has = engine.GetRedis("default_queue")
+	assert.True(t, has)
+	err = redisCache.FlushDB()
 	assert.Nil(t, err)
 
 	alters, err := engine.GetAlters()
 	assert.Nil(t, err)
 	for _, alter := range alters {
-		_, err := engine.GetMysql(alter.Pool).Exec(alter.Sql)
+		pool, has := engine.GetMysql(alter.Pool)
+		assert.True(t, has)
+		_, err := pool.Exec(alter.Sql)
 		assert.Nil(t, err)
 	}
 
@@ -38,8 +44,8 @@ func PrepareTables(t *testing.T, config *orm.Config, entities ...interface{}) *o
 		assert.Nil(t, err)
 		err = tableSchema.UpdateSchema(engine)
 		assert.Nil(t, err)
-		localCache := tableSchema.GetLocalCache(engine)
-		if localCache != nil {
+		localCache, has := tableSchema.GetLocalCache(engine)
+		if has {
 			localCache.Clear()
 		}
 	}

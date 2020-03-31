@@ -15,11 +15,20 @@ func NewLazyReceiver(engine *Engine, queueName string) *LazyReceiver {
 }
 
 func (r *LazyReceiver) Size() (int64, error) {
-	return r.engine.GetRedis(r.queueName + "_queue").LLen("lazy_queue")
+	code := r.queueName + "_queue"
+	redis, has := r.engine.GetRedis(code)
+	if !has {
+		return 0, RedisCachePoolNotRegisteredError{Name: code}
+	}
+	return redis.LLen("lazy_queue")
 }
 
 func (r *LazyReceiver) Digest() (has bool, err error) {
-	redis := r.engine.GetRedis(r.queueName + "_queue")
+	code := r.queueName + "_queue"
+	redis, has := r.engine.GetRedis(code)
+	if !has {
+		return false, RedisCachePoolNotRegisteredError{Name: code}
+	}
 	key := "lazy_queue"
 	val, found, err := redis.RPop(key)
 	if err != nil {
@@ -55,7 +64,12 @@ func (r *LazyReceiver) Digest() (has bool, err error) {
 		if err != nil {
 			return true, err
 		}
-		_, err = r.engine.getRedisForQueue("default").RPush("lazy_queue", v)
+		code := "default"
+		redis, has := r.engine.getRedisForQueue(code)
+		if !has {
+			return false, RedisCachePoolNotRegisteredError{Name: code}
+		}
+		_, err = redis.RPush("lazy_queue", v)
 		if err != nil {
 			return true, err
 		}
@@ -75,7 +89,11 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 			if !ok {
 				return fmt.Errorf("invalid query: %v", validInsert)
 			}
-			db := engine.GetMysql(validInsert[0].(string))
+			code := validInsert[0].(string)
+			db, has := engine.GetMysql(code)
+			if !has {
+				return DBPoolNotRegisteredError{Name: code}
+			}
 			sql := validInsert[1].(string)
 			attributes := validInsert[2].([]interface{})
 			_, err := db.Exec(sql, attributes...)

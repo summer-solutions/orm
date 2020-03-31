@@ -9,12 +9,36 @@ import (
 	"strings"
 )
 
-type EntityNotRegistered struct {
+type EntityNotRegisteredError struct {
 	Name string
 }
 
-func (e EntityNotRegistered) Error() string {
+func (e EntityNotRegisteredError) Error() string {
 	return fmt.Sprintf("entity is not registered %s", strings.Trim(e.Name, "*[]"))
+}
+
+type DBPoolNotRegisteredError struct {
+	Name string
+}
+
+func (e DBPoolNotRegisteredError) Error() string {
+	return fmt.Sprintf("db pool %s is not registered", e.Name)
+}
+
+type LocalCachePoolNotRegisteredError struct {
+	Name string
+}
+
+func (e LocalCachePoolNotRegisteredError) Error() string {
+	return fmt.Sprintf("local cache pool %s is not registered", e.Name)
+}
+
+type RedisCachePoolNotRegisteredError struct {
+	Name string
+}
+
+func (e RedisCachePoolNotRegisteredError) Error() string {
+	return fmt.Sprintf("redis cache pool %s is not registered", e.Name)
 }
 
 type Config struct {

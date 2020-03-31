@@ -77,14 +77,14 @@ func (r *DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err err
 		}
 		t, has := r.engine.config.getEntityType(val[0])
 		if !has {
-			return false, EntityNotRegistered{Name: val[0]}
+			return false, EntityNotRegisteredError{Name: val[0]}
 		}
 		tableSchema, has, err := getTableSchema(r.engine.config, t)
 		if err != nil {
 			continue
 		}
 		if !has {
-			return false, EntityNotRegistered{Name: val[0]}
+			return false, EntityNotRegisteredError{Name: val[0]}
 		}
 		id, err := strconv.ParseUint(val[2], 10, 64)
 		if err != nil {
@@ -130,5 +130,9 @@ func (r *DirtyReceiver) getRedis() (*RedisCache, error) {
 	if !has {
 		return nil, fmt.Errorf("unregistered dirty queue %s", r.queueCode)
 	}
-	return r.engine.GetRedis(redisCode), nil
+	redis, has := r.engine.GetRedis(redisCode)
+	if !has {
+		return nil, RedisCachePoolNotRegisteredError{Name: redisCode}
+	}
+	return redis, nil
 }

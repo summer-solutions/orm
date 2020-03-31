@@ -25,8 +25,8 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 		id := elem.Field(1).Uint()
 		entityName := t.String()
 		schema := orm.tableSchema
-		cache := schema.GetRedisCacheContainer(engine)
-		if cache == nil || id == 0 {
+		cache, hasRedis := schema.GetRedisCacheContainer(engine)
+		if !hasRedis || id == 0 {
 			invalidEntities = append(invalidEntities, entity)
 		} else {
 			isDirty, bind, err := isDirty(elem)
@@ -58,12 +58,21 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 		}
 	}
 	if len(validEntities) > 0 {
-		_, err := engine.getRedisForQueue("default").SAdd("dirty_queue", validEntities...)
+		code := "default"
+		redis, has := engine.getRedisForQueue(code)
+		if !has {
+			return RedisCachePoolNotRegisteredError{Name: code}
+		}
+		_, err := redis.SAdd("dirty_queue", validEntities...)
 		if err != nil {
 			return err
 		}
 		for cacheCode, keys := range redisValues {
-			err = engine.GetRedis(cacheCode).MSet(keys...)
+			redis, has := engine.GetRedis(cacheCode)
+			if !has {
+				return RedisCachePoolNotRegisteredError{Name: cacheCode}
+			}
+			err = redis.MSet(keys...)
 			if err != nil {
 				return err
 			}

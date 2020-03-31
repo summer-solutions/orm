@@ -27,7 +27,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 	}
 	t, has := getEntityTypeForSlice(engine.config, entities.Type())
 	if !has {
-		return nil, EntityNotRegistered{Name: entities.Type().String()}
+		return nil, EntityNotRegisteredError{Name: entities.Type().String()}
 
 	}
 
@@ -36,11 +36,11 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 		return nil, err
 	}
 	if !has {
-		return nil, EntityNotRegistered{Name: t.String()}
+		return nil, EntityNotRegisteredError{Name: t.String()}
 	}
 
-	localCache := schema.GetLocalCache(engine)
-	redisCache := schema.GetRedisCacheContainer(engine)
+	localCache, hasLocalCache := schema.GetLocalCache(engine)
+	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
 	var localCacheKeys []string
 	var redisCacheKeys []string
 	results := make(map[string]interface{}, lenIDs)
@@ -55,8 +55,8 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 		results[cacheKey] = nil
 	}
 
-	if localCache != nil || redisCache != nil {
-		if localCache != nil {
+	if hasLocalCache || hasRedis {
+		if hasLocalCache {
 			resultsLocalCache := localCache.MGet(cacheKeys...)
 			cacheKeys, err = getKeysForNils(engine, schema.t, resultsLocalCache, results, false)
 			if err != nil {
@@ -64,7 +64,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 			}
 			localCacheKeys = cacheKeys
 		}
-		if redisCache != nil && len(cacheKeys) > 0 {
+		if hasRedis && len(cacheKeys) > 0 {
 			resultsRedis, err := redisCache.MGet(cacheKeys...)
 			if err != nil {
 				return nil, err
@@ -92,7 +92,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 			results[schema.getCacheKey(id)] = e.Interface()
 		}
 	}
-	if localCache != nil {
+	if hasLocalCache {
 		l = len(localCacheKeys)
 		if l > 0 {
 			pairs := make([]interface{}, l*2)
@@ -112,7 +112,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 		}
 	}
 
-	if redisCache != nil {
+	if hasRedis {
 		l = len(redisCacheKeys)
 		if l > 0 {
 			pairs := make([]interface{}, l*2)
@@ -216,7 +216,7 @@ func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Val
 		}
 		parentType, has := engine.config.getEntityType(parentRef)
 		if !has {
-			return EntityNotRegistered{Name: tableSchema.Tags[parts[0]]["ref"]}
+			return EntityNotRegisteredError{Name: tableSchema.Tags[parts[0]]["ref"]}
 		}
 		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
 

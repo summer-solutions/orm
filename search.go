@@ -21,7 +21,7 @@ func searchRow(engine *Engine, where *Where, value reflect.Value) (bool, error) 
 		return false, err
 	}
 	if !has {
-		return false, EntityNotRegistered{Name: entityType.String()}
+		return false, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	fieldsList, err := buildFieldList(engine.config, entityType, "")
 	if err != nil {
@@ -29,7 +29,11 @@ func searchRow(engine *Engine, where *Where, value reflect.Value) (bool, error) 
 	}
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
 
-	results, err := schema.GetMysql(engine).Query(query, where.GetParameters()...)
+	pool, has := schema.GetMysql(engine)
+	if !has {
+		return false, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
+	}
+	results, err := pool.Query(query, where.GetParameters()...)
 	if err != nil {
 		return false, err
 	}
@@ -67,14 +71,14 @@ func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities
 	entities.SetLen(0)
 	entityType, has := getEntityTypeForSlice(engine.config, entities.Type())
 	if !has {
-		return 0, EntityNotRegistered{Name: entities.String()}
+		return 0, EntityNotRegisteredError{Name: entities.String()}
 	}
 	schema, has, err := getTableSchema(engine.config, entityType)
 	if err != nil {
 		return 0, err
 	}
 	if !has {
-		return 0, EntityNotRegistered{Name: entityType.String()}
+		return 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
 
 	fieldsList, err := buildFieldList(engine.config, entityType, "")
@@ -83,7 +87,11 @@ func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities
 	}
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
-	results, err := schema.GetMysql(engine).Query(query, where.GetParameters()...)
+	pool, has := schema.GetMysql(engine)
+	if !has {
+		return 0, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
+	}
+	results, err := pool.Query(query, where.GetParameters()...)
 	if err != nil {
 		return 0, err
 	}
@@ -146,11 +154,15 @@ func searchIds(engine *Engine, where *Where, pager *Pager, withCount bool, entit
 		return nil, 0, err
 	}
 	if !has {
-		return nil, 0, EntityNotRegistered{Name: entityType.String()}
+		return nil, 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
-	results, err := schema.GetMysql(engine).Query(query, where.GetParameters()...)
+	pool, has := schema.GetMysql(engine)
+	if !has {
+		return nil, 0, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
+	}
+	results, err := pool.Query(query, where.GetParameters()...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -177,7 +189,11 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 		if totalRows == pager.GetPageSize() {
 			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.TableName, where)
 			var foundTotal string
-			err := schema.GetMysql(engine).QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
+			pool, has := schema.GetMysql(engine)
+			if !has {
+				return 0, DBPoolNotRegisteredError{Name: schema.MysqlPoolName}
+			}
+			err := pool.QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
 			if err != nil {
 				return 0, err
 			}
@@ -227,7 +243,7 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 			return 0, err
 		}
 		if !has {
-			return 0, EntityNotRegistered{Name: t.String()}
+			return 0, EntityNotRegisteredError{Name: t.String()}
 		}
 		tags := schema.Tags[name]
 		_, has = tags["ignore"]
@@ -357,7 +373,7 @@ func buildFieldList(config *Config, t reflect.Type, prefix string) (string, erro
 			return "", err
 		}
 		if !has {
-			return "", EntityNotRegistered{Name: t.String()}
+			return "", EntityNotRegisteredError{Name: t.String()}
 		}
 		tags := schema.Tags[field.Name]
 		_, has = tags["ignore"]

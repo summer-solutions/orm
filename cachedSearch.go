@@ -12,14 +12,14 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	value := reflect.ValueOf(entities)
 	entityType, has := getEntityTypeForSlice(engine.config, value.Type())
 	if !has {
-		return 0, EntityNotRegistered{Name: entityType.String()}
+		return 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	schema, has, err := getTableSchema(engine.config, entityType)
 	if err != nil {
 		return 0, err
 	}
 	if !has {
-		return 0, EntityNotRegistered{Name: entityType.String()}
+		return 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
@@ -34,17 +34,17 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	}
 
 	Where := NewWhere(definition.Query, arguments...)
-	localCache := schema.GetLocalCache(engine)
-	redisCache := schema.GetRedisCacheContainer(engine)
-	if localCache == nil && redisCache == nil {
+	localCache, hasLocalCache := schema.GetLocalCache(engine)
+	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
+	if !hasLocalCache && !hasRedis {
 		return 0, fmt.Errorf("missing entity cache definition")
 	}
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	if clear {
-		if localCache != nil {
+		if hasLocalCache {
 			localCache.Remove(cacheKey)
 		}
-		if redisCache != nil {
+		if hasRedis {
 			err := redisCache.Del(cacheKey)
 			if err != nil {
 				return 0, err
@@ -65,7 +65,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	}
 	var fromCache map[string]interface{}
 	var nilsKeys []string
-	if localCache != nil {
+	if hasLocalCache {
 		nils := make(map[int]int)
 		nilsKeys = make([]string, 0)
 		i := 0
@@ -78,7 +78,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 				nilsKeys = append(nilsKeys, key)
 			}
 		}
-		if redisCache != nil && len(nilsKeys) > 0 {
+		if hasRedis && len(nilsKeys) > 0 {
 			fromRedis, err := redisCache.HMget(cacheKey, nilsKeys...)
 			if err != nil {
 				return 0, err
@@ -87,7 +87,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 				fromCache[key] = idsFromRedis
 			}
 		}
-	} else if redisCache != nil {
+	} else if hasRedis {
 		fromCache, err = redisCache.HMget(cacheKey, pages...)
 		if err != nil {
 			return 0, err
@@ -149,7 +149,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 				cacheFields[page] = cacheValue
 			}
 		}
-		if redisCache != nil {
+		if hasRedis {
 			err := redisCache.HMset(cacheKey, cacheFields)
 			if err != nil {
 				return 0, err
@@ -158,7 +158,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	}
 
 	nilKeysLen := len(nilsKeys)
-	if localCache != nil && nilKeysLen > 0 {
+	if hasLocalCache && nilKeysLen > 0 {
 		fields := make(map[string]interface{}, nilKeysLen)
 		for _, v := range nilsKeys {
 			values := []uint64{uint64(totalRows)}
@@ -198,24 +198,24 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 		return false, err
 	}
 	if !has {
-		return false, EntityNotRegistered{Name: entityType.String()}
+		return false, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	definition, has := schema.cachedIndexesOne[indexName]
 	if !has {
 		return false, fmt.Errorf("uknown index %s", indexName)
 	}
 	Where := NewWhere(definition.Query, arguments...)
-	localCache := schema.GetLocalCache(engine)
-	redisCache := schema.GetRedisCacheContainer(engine)
-	if localCache == nil && redisCache == nil {
+	localCache, hasLocalCache := schema.GetLocalCache(engine)
+	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
+	if !hasLocalCache && !hasRedis {
 		return false, fmt.Errorf("missing entity cache definition")
 	}
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	if clear {
-		if localCache != nil {
+		if hasLocalCache {
 			localCache.Remove(cacheKey)
 		}
-		if redisCache != nil {
+		if hasRedis {
 			err := redisCache.Del(cacheKey)
 			if err != nil {
 				return false, err
@@ -224,10 +224,10 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 		return false, nil
 	}
 	var fromCache map[string]interface{}
-	if localCache != nil {
+	if hasLocalCache {
 		fromCache = localCache.HMget(cacheKey, "1")
 	}
-	if fromCache["1"] == nil && redisCache != nil {
+	if fromCache["1"] == nil && hasRedis {
 		fromCache, err = redisCache.HMget(cacheKey, "1")
 		if err != nil {
 			return false, err
@@ -246,14 +246,10 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 			value += fmt.Sprintf(" %d", results[0])
 		}
 		fields := map[string]interface{}{"1": value}
-		if localCache != nil {
-			if clear {
-
-			} else {
-				localCache.HMset(cacheKey, fields)
-			}
+		if hasLocalCache && !clear {
+			localCache.HMset(cacheKey, fields)
 		}
-		if redisCache != nil {
+		if hasRedis {
 			err := redisCache.HMset(cacheKey, fields)
 			if err != nil {
 				return false, err

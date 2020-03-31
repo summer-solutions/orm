@@ -11,18 +11,18 @@ func clearByIds(engine *Engine, entity interface{}, ids ...uint64) error {
 		return err
 	}
 	if !has {
-		return EntityNotRegistered{Name: entityType.String()}
+		return EntityNotRegisteredError{Name: entityType.String()}
 	}
 	cacheKeys := make([]string, len(ids))
 	for i, id := range ids {
 		cacheKeys[i] = schema.getCacheKey(id)
 	}
-	localCache := schema.GetLocalCache(engine)
-	if localCache != nil {
+	localCache, has := schema.GetLocalCache(engine)
+	if has {
 		localCache.Remove(cacheKeys...)
 	}
-	redisCache := schema.GetRedisCacheContainer(engine)
-	if redisCache != nil {
+	redisCache, has := schema.GetRedisCacheContainer(engine)
+	if has {
 		return redisCache.Del(cacheKeys...)
 	}
 	return nil

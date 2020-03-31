@@ -39,28 +39,31 @@ func (e *Engine) GetConfig() *Config {
 	return e.config
 }
 
-func (e *Engine) GetMysql(code ...string) *DB {
+func (e *Engine) GetMysql(code ...string) (db *DB, has bool) {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	return e.dbs[dbCode]
+	db, has = e.dbs[dbCode]
+	return db, has
 }
 
-func (e *Engine) GetLocalCache(code ...string) *LocalCache {
+func (e *Engine) GetLocalCache(code ...string) (cache *LocalCache, has bool) {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	return e.localCache[dbCode]
+	cache, has = e.localCache[dbCode]
+	return cache, has
 }
 
-func (e *Engine) GetRedis(code ...string) *RedisCache {
+func (e *Engine) GetRedis(code ...string) (cache *RedisCache, has bool) {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	return e.redis[dbCode]
+	cache, has = e.redis[dbCode]
+	return cache, has
 }
 
 func (e *Engine) IsDirty(entity interface{}) bool {
@@ -172,7 +175,7 @@ func (e *Engine) initIfNeeded(value reflect.Value) (*ORM, error) {
 			return nil, err
 		}
 		if !has {
-			return nil, EntityNotRegistered{Name: elem.Type().String()}
+			return nil, EntityNotRegisteredError{Name: elem.Type().String()}
 		}
 		orm = &ORM{dBData: make(map[string]interface{}), elem: elem, tableSchema: tableSchema}
 		elem.Field(0).Set(reflect.ValueOf(orm))
@@ -180,7 +183,7 @@ func (e *Engine) initIfNeeded(value reflect.Value) (*ORM, error) {
 			reference := tableSchema.Tags[code]["ref"]
 			t, has := e.config.getEntityType(reference)
 			if !has {
-				return nil, EntityNotRegistered{Name: elem.Type().String()}
+				return nil, EntityNotRegisteredError{Name: elem.Type().String()}
 			}
 			def := ReferenceOne{t: t}
 			elem.FieldByName(code).Set(reflect.ValueOf(&def))
@@ -204,6 +207,6 @@ func (e *Engine) initEntities(entity ...interface{}) error {
 	return nil
 }
 
-func (e *Engine) getRedisForQueue(code string) *RedisCache {
+func (e *Engine) getRedisForQueue(code string) (*RedisCache, bool) {
 	return e.GetRedis(code + "_queue")
 }

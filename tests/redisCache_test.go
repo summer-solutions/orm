@@ -8,15 +8,17 @@ import (
 
 func TestGetSetRedis(t *testing.T) {
 	config := &orm.Config{}
-	engine := orm.NewEngine(config)
 	config.RegisterRedis("localhost:6379", 15)
-	err := engine.GetRedis().FlushDB()
+	engine := orm.NewEngine(config)
+	redis, has := engine.GetRedis()
+	assert.True(t, has)
+	err := redis.FlushDB()
 	assert.Nil(t, err)
 
 	testLogger := &TestCacheLogger{}
-	engine.GetRedis().RegisterLogger(testLogger.Logger())
+	redis.RegisterLogger(testLogger.Logger())
 
-	val, err := engine.GetRedis().GetSet("test", 1, func() interface{} {
+	val, err := redis.GetSet("test", 1, func() interface{} {
 		return "hello"
 	})
 	assert.Nil(t, err)
