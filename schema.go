@@ -571,8 +571,14 @@ OUTER:
 	alters = make([]Alter, 0)
 	if hasAlterNormal {
 		safe := false
-		if tableSchema.isTableEmpty(engine) || (len(droppedColumns) == 0 && len(changedColumns) == 0) {
+		if len(droppedColumns) == 0 && len(changedColumns) == 0 {
 			safe = true
+		} else {
+			isEmpty, err := tableSchema.isTableEmpty(engine)
+			if err != nil {
+				return false, nil, err
+			}
+			safe = isEmpty
 		}
 		alters = append(alters, Alter{Sql: alterSql, Safe: safe, Pool: tableSchema.MysqlPoolName})
 	}
@@ -718,7 +724,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 			if len(indexColumn) > 1 {
 				userLocation, err := strconv.Atoi(indexColumn[1])
 				if err != nil {
-					panic(err.Error())
+					return nil, err
 				}
 				location = userLocation
 			}
@@ -873,10 +879,10 @@ func (tableSchema *TableSchema) handleString(config *Config, attributes map[stri
 	} else {
 		i, err := strconv.Atoi(length)
 		if err != nil {
-			panic(fmt.Errorf("wrong lenght: %s", length))
+			return "", false, false, "", err
 		}
 		if i > 65535 {
-			panic(fmt.Errorf("lenght to heigh: %s", length))
+			return "", false, false, "", fmt.Errorf("lenght to heigh: %s", length)
 		}
 		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	}
@@ -935,10 +941,7 @@ func (tableSchema *TableSchema) handleTime(attributes map[string]string) (string
 }
 
 func (tableSchema *TableSchema) handleReferenceOne(config *Config, attributes map[string]string) string {
-	reference, has := attributes["ref"]
-	if !has {
-		panic(fmt.Errorf("missing ref tag"))
-	}
+	reference := attributes["ref"]
 	typeAsString := config.GetEntityType(reference).Field(1).Type.String()
 	switch typeAsString {
 	case "uint":
@@ -1002,16 +1005,16 @@ func (tableSchema *TableSchema) buildCreateForeignKeySql(keyName string, definit
 		keyName, definition.Column, definition.ParentDatabase, definition.Table, definition.OnDelete)
 }
 
-func (tableSchema *TableSchema) isTableEmpty(engine *Engine) bool {
+func (tableSchema *TableSchema) isTableEmpty(engine *Engine) (bool, error) {
 	var lastId uint64
 	err := tableSchema.GetMysql(engine).QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableSchema.TableName)).Scan(&lastId)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
-			return true
+			return true, nil
 		}
-		panic(err.Error())
+		return false, err
 	}
-	return false
+	return false, nil
 }
 
 func getForeignKeys(engine *Engine, createTableDB string, tableName string, poolName string) (map[string]*foreignIndex, error) {

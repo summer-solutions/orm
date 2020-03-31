@@ -1,12 +1,8 @@
 package orm
 
-import "fmt"
-
 type Flusher struct {
-	Limit        int
-	Lazy         bool
-	entities     []interface{}
-	currentIndex int
+	Lazy     bool
+	entities []interface{}
 }
 
 type AutoFlusher struct {
@@ -17,15 +13,8 @@ type AutoFlusher struct {
 }
 
 func (f *Flusher) RegisterEntity(entities ...interface{}) {
-	if f.Limit == 0 {
-		f.Limit = 10000
-	}
 	for _, entity := range entities {
-		if f.currentIndex == f.Limit {
-			panic(fmt.Errorf("flusher limit %d exceeded", f.Limit))
-		}
 		f.entities = append(f.entities, entity)
-		f.currentIndex = f.currentIndex + 1
 	}
 }
 
@@ -51,7 +40,6 @@ func (f *Flusher) Flush(engine *Engine) error {
 	if err != nil {
 		return err
 	}
-	f.currentIndex = 0
 	f.entities = make([]interface{}, 0)
 	return nil
 }

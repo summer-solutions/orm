@@ -86,7 +86,7 @@ func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities
 		}
 		err = results.Scan(valuePointers...)
 		if err != nil {
-			panic(err.Error())
+			return 0, err
 		}
 		value := reflect.New(entityType)
 		err = fillFromDBRow(engine, values, value, entityType)
@@ -96,7 +96,10 @@ func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities
 		val = reflect.Append(val, value)
 		i++
 	}
-	totalRows := getTotalRows(engine, withCount, pager, where, schema, i)
+	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, i)
+	if err != nil {
+		return 0, err
+	}
 	if len(references) > 0 && i > 0 {
 		err = warmUpReferences(engine, schema, val, references, true)
 		if err != nil {
@@ -130,15 +133,18 @@ func searchIds(engine *Engine, where *Where, pager *Pager, withCount bool, entit
 		var row uint64
 		err = results.Scan(&row)
 		if err != nil {
-			panic(err.Error())
+			return nil, 0, err
 		}
 		result = append(result, row)
 	}
-	totalRows := getTotalRows(engine, withCount, pager, where, schema, len(result))
+	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, len(result))
+	if err != nil {
+		return nil, 0, err
+	}
 	return result, totalRows, nil
 }
 
-func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *TableSchema, foundRows int) int {
+func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *TableSchema, foundRows int) (int, error) {
 	totalRows := 0
 	if withCount {
 		totalRows = foundRows
@@ -147,14 +153,14 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 			var foundTotal string
 			err := schema.GetMysql(engine).QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
 			if err != nil {
-				panic(err.Error())
+				return 0, err
 			}
 			totalRows, _ = strconv.Atoi(foundTotal)
 		} else {
 			totalRows += (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 		}
 	}
-	return totalRows
+	return totalRows, nil
 }
 
 func fillFromDBRow(engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
@@ -173,7 +179,7 @@ func fillFromDBRow(engine *Engine, data []string, value reflect.Value, entityTyp
 	return nil
 }
 
-func fillStruct(config *Config, index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) uint16 {
+func fillStruct(config *Config, index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) (uint16, error) {
 
 	for i := 0; i < t.NumField(); i++ {
 
@@ -279,7 +285,7 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 				var f interface{}
 				err := json.Unmarshal([]byte(data[index]), &f)
 				if err != nil {
-					panic(fmt.Errorf("invalid json: %s", data[index]))
+					return 0, err
 				}
 				field.Set(reflect.ValueOf(f))
 			}
@@ -287,15 +293,19 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 			if field.Kind().String() == "struct" {
 				newVal := reflect.New(field.Type())
 				value := newVal.Elem()
-				index = fillStruct(config, index, data, field.Type(), value, name)
+				newIndex, err := fillStruct(config, index, data, field.Type(), value, name)
+				if err != nil {
+					return 0, err
+				}
+				index = newIndex
 				field.Set(value)
 				continue
 			}
-			panic(fmt.Errorf("unsoported field type: %s", field.Type().String()))
+			return 0, fmt.Errorf("unsoported field type: %s", field.Type().String())
 		}
 		index++
 	}
-	return index
+	return index, nil
 }
 
 func buildFieldList(config *Config, t reflect.Type, prefix string) string {

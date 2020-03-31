@@ -111,12 +111,9 @@ func (c *Config) GetLazyQueueCodes() []string {
 }
 
 func (c *Config) GetEntityType(name string) reflect.Type {
-	if c.entities == nil {
-		panic(fmt.Errorf("unregistered entity %s", name))
-	}
 	t, has := c.entities[name]
 	if !has {
-		panic(fmt.Errorf("unregistered entity %s", name))
+		return nil
 	}
 	return t
 }
@@ -131,16 +128,13 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func (c *Config) getRedisForQueue(code string) *RedisCacheConfig {
-	if c.redisServers == nil {
-		panic(fmt.Errorf("unregistered redis queue: %s", code))
-	}
+func (c *Config) getRedisForQueue(code string) (*RedisCacheConfig, error) {
 	queueCode := code + "_queue"
 	client, has := c.redisServers[queueCode]
 	if !has {
-		panic(fmt.Errorf("unregistered redis queue: %s", code))
+		return nil, fmt.Errorf("unregistered redis queue: %s", code)
 	}
-	return client
+	return client, nil
 }
 
 func (c *Config) registerSqlPool(dataSourceName string, code ...string) error {

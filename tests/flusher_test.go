@@ -56,7 +56,7 @@ func TestFlusherManual(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	engine.GetMysql().RegisterLogger(DBLogger.Logger())
 
-	flusher := orm.Flusher{Limit: 100}
+	flusher := orm.Flusher{}
 
 	for i := 1; i <= 3; i++ {
 		e := TestEntityFlusherManual{Name: "Name " + strconv.Itoa(i)}

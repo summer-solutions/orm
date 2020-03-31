@@ -2,7 +2,6 @@ package orm
 
 import (
 	"container/list"
-	"fmt"
 	"reflect"
 )
 
@@ -34,11 +33,11 @@ func (e *Engine) GetMysql(code ...string) *DB {
 		return db
 	}
 	if e.config.sqlClients == nil {
-		panic(fmt.Errorf("unregistered database code: %s", dbCode))
+		return nil
 	}
 	dbConfig, has := e.config.sqlClients[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered database code: %s", dbCode))
+		return nil
 	}
 	e.dbs[dbCode] = &DB{engine: e, code: dbConfig.code, databaseName: dbConfig.databaseName, db: dbConfig.db}
 	return e.dbs[dbCode]
@@ -57,11 +56,11 @@ func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 		return cache
 	}
 	if e.config.localCacheContainers == nil {
-		panic(fmt.Errorf("unregistered local cache: %s", dbCode))
+		return nil
 	}
 	cacheConfig, has := e.config.localCacheContainers[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered local cache: %s", dbCode))
+		return nil
 	}
 	e.localCache[dbCode] = &LocalCache{engine: e, code: cacheConfig.code, lru: cacheConfig.lru, ttl: cacheConfig.ttl}
 	return e.localCache[dbCode]
@@ -80,11 +79,11 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 		return client
 	}
 	if e.config.redisServers == nil {
-		panic(fmt.Errorf("unregistered redis code: %s", dbCode))
+		return nil
 	}
 	clientConfig, has := e.config.redisServers[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered redis code: %s", dbCode))
+		return nil
 	}
 	e.redis[dbCode] = &RedisCache{engine: e, code: clientConfig.code, client: clientConfig.client}
 	return e.redis[dbCode]
