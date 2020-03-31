@@ -273,7 +273,7 @@ func (tableSchema *TableSchema) GetUsage(config *Config) (map[reflect.Type][]str
 	results := make(map[reflect.Type][]string)
 	if config.entities != nil {
 		for _, t := range config.entities {
-			schema, _, err := config.GetTableSchema(t)
+			schema, err := config.GetTableSchema(t)
 			if err != nil {
 				return nil, err
 			}
@@ -720,12 +720,9 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 		if !has {
 			return nil, EntityNotRegisteredError{Name: attributes["ref"]}
 		}
-		schema, has, err := engine.config.GetTableSchema(t)
+		schema, err := engine.config.GetTableSchema(t)
 		if err != nil {
 			return nil, err
-		}
-		if !has {
-			return nil, EntityNotRegisteredError{Name: attributes["ref"]}
 		}
 		onDelete := "RESTRICT"
 		_, hasCascade := attributes["cascade"]
