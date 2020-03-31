@@ -182,6 +182,10 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 	return tableSchema, true, nil
 }
 
+func (tableSchema *TableSchema) GetType() reflect.Type {
+	return tableSchema.t
+}
+
 func (tableSchema *TableSchema) DropTable(engine *Engine) error {
 	pool := tableSchema.GetMysql(engine)
 	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.databaseName, tableSchema.TableName))
