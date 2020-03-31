@@ -10,7 +10,13 @@ func tryById(engine *Engine, id uint64, entity interface{}, references ...string
 	val := reflect.ValueOf(entity)
 	elem := val.Elem()
 	entityType := elem.Type()
-	schema := getTableSchema(engine.config, entityType)
+	schema, has, err := getTableSchema(engine.config, entityType)
+	if err != nil {
+		return false, err
+	}
+	if !has {
+		return false, EntityNotRegistered{Name: entityType.String()}
+	}
 	var cacheKey string
 	localCache := schema.GetLocalCache(engine)
 

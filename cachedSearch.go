@@ -10,8 +10,17 @@ import (
 
 func cachedSearch(engine *Engine, entities interface{}, indexName string, clear bool, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
 	value := reflect.ValueOf(entities)
-	entityType := getEntityTypeForSlice(engine.config, value.Type())
-	schema := getTableSchema(engine.config, entityType)
+	entityType, has := getEntityTypeForSlice(engine.config, value.Type())
+	if !has {
+		return 0, EntityNotRegistered{Name: entityType.String()}
+	}
+	schema, has, err := getTableSchema(engine.config, entityType)
+	if err != nil {
+		return 0, err
+	}
+	if !has {
+		return 0, EntityNotRegistered{Name: entityType.String()}
+	}
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
 		return 0, fmt.Errorf("uknown index %s", indexName)
@@ -184,7 +193,13 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear bool, arguments ...interface{}) (has bool, err error) {
 	value := reflect.ValueOf(entity)
 	entityType := value.Elem().Type()
-	schema := getTableSchema(engine.config, entityType)
+	schema, has, err := getTableSchema(engine.config, entityType)
+	if err != nil {
+		return false, err
+	}
+	if !has {
+		return false, EntityNotRegistered{Name: entityType.String()}
+	}
 	definition, has := schema.cachedIndexesOne[indexName]
 	if !has {
 		return false, fmt.Errorf("uknown index %s", indexName)

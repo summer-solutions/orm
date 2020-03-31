@@ -31,8 +31,10 @@ func PrepareTables(t *testing.T, config *orm.Config, entities ...interface{}) *o
 	}
 
 	for _, entity := range entities {
-		tableSchema := config.GetTableSchema(entity)
-		err := tableSchema.TruncateTable(engine)
+		tableSchema, has, err := config.GetTableSchema(entity)
+		assert.True(t, has)
+		assert.Nil(t, err)
+		err = tableSchema.TruncateTable(engine)
 		assert.Nil(t, err)
 		err = tableSchema.UpdateSchema(engine)
 		assert.Nil(t, err)

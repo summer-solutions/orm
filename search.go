@@ -16,8 +16,17 @@ func searchIdsWithCount(engine *Engine, where *Where, pager *Pager, entityType r
 func searchRow(engine *Engine, where *Where, value reflect.Value) (bool, error) {
 
 	entityType := value.Elem().Type()
-	schema := getTableSchema(engine.config, entityType)
-	var fieldsList = buildFieldList(engine.config, entityType, "")
+	schema, has, err := getTableSchema(engine.config, entityType)
+	if err != nil {
+		return false, err
+	}
+	if !has {
+		return false, EntityNotRegistered{Name: entityType.String()}
+	}
+	fieldsList, err := buildFieldList(engine.config, entityType, "")
+	if err != nil {
+		return false, err
+	}
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
 
 	results, err := schema.GetMysql(engine).Query(query, where.GetParameters()...)
@@ -52,15 +61,26 @@ func searchRow(engine *Engine, where *Where, value reflect.Value) (bool, error) 
 }
 
 func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
-
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
 	}
 	entities.SetLen(0)
-	entityType := getEntityTypeForSlice(engine.config, entities.Type())
-	schema := getTableSchema(engine.config, entityType)
+	entityType, has := getEntityTypeForSlice(engine.config, entities.Type())
+	if !has {
+		return 0, EntityNotRegistered{Name: entities.String()}
+	}
+	schema, has, err := getTableSchema(engine.config, entityType)
+	if err != nil {
+		return 0, err
+	}
+	if !has {
+		return 0, EntityNotRegistered{Name: entityType.String()}
+	}
 
-	var fieldsList = buildFieldList(engine.config, entityType, "")
+	fieldsList, err := buildFieldList(engine.config, entityType, "")
+	if err != nil {
+		return 0, err
+	}
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	results, err := schema.GetMysql(engine).Query(query, where.GetParameters()...)
@@ -121,7 +141,13 @@ func searchOne(engine *Engine, where *Where, entity interface{}) (bool, error) {
 }
 
 func searchIds(engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int, err error) {
-	schema := getTableSchema(engine.config, entityType)
+	schema, has, err := getTableSchema(engine.config, entityType)
+	if err != nil {
+		return nil, 0, err
+	}
+	if !has {
+		return nil, 0, EntityNotRegistered{Name: entityType.String()}
+	}
 	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	results, err := schema.GetMysql(engine).Query(query, where.GetParameters()...)
@@ -164,9 +190,12 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 }
 
 func fillFromDBRow(engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
-	orm := engine.initIfNeeded(value)
+	orm, err := engine.initIfNeeded(value)
+	if err != nil {
+		return err
+	}
 	elem := value.Elem()
-	_, err := fillStruct(engine.config, 0, data, entityType, elem, "")
+	_, err = fillStruct(engine.config, 0, data, entityType, elem, "")
 	if err != nil {
 		return err
 	}
@@ -193,8 +222,15 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 		field := value.Field(i)
 		name := prefix + t.Field(i).Name
 
-		tags := getTableSchema(config, t).Tags[name]
-		_, has := tags["ignore"]
+		schema, has, err := getTableSchema(config, t)
+		if err != nil {
+			return 0, err
+		}
+		if !has {
+			return 0, EntityNotRegistered{Name: t.String()}
+		}
+		tags := schema.Tags[name]
+		_, has = tags["ignore"]
 		if has {
 			continue
 		}
@@ -311,13 +347,20 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 	return index, nil
 }
 
-func buildFieldList(config *Config, t reflect.Type, prefix string) string {
+func buildFieldList(config *Config, t reflect.Type, prefix string) (string, error) {
 	fieldsList := ""
 	for i := 0; i < t.NumField(); i++ {
 		var columnNameRaw string
 		field := t.Field(i)
-		tags := getTableSchema(config, t).Tags[field.Name]
-		_, has := tags["ignore"]
+		schema, has, err := getTableSchema(config, t)
+		if err != nil {
+			return "", err
+		}
+		if !has {
+			return "", EntityNotRegistered{Name: t.String()}
+		}
+		tags := schema.Tags[field.Name]
+		_, has = tags["ignore"]
 		if has {
 			continue
 		}
@@ -333,7 +376,11 @@ func buildFieldList(config *Config, t reflect.Type, prefix string) string {
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:
 			if field.Type.Kind().String() == "struct" {
-				fieldsList += buildFieldList(config, field.Type, field.Name)
+				f, err := buildFieldList(config, field.Type, field.Name)
+				if err != nil {
+					return "", err
+				}
+				fieldsList += f
 			} else {
 				columnNameRaw = prefix + t.Field(i).Name
 				fieldsList += fmt.Sprintf(",`%s`", columnNameRaw)
@@ -343,10 +390,10 @@ func buildFieldList(config *Config, t reflect.Type, prefix string) string {
 	if prefix == "" {
 		fieldsList = "`Id`" + fieldsList
 	}
-	return fieldsList
+	return fieldsList, nil
 }
 
-func getEntityTypeForSlice(config *Config, sliceType reflect.Type) reflect.Type {
+func getEntityTypeForSlice(config *Config, sliceType reflect.Type) (reflect.Type, bool) {
 	name := strings.Trim(sliceType.String(), "*[]")
-	return config.GetEntityType(name)
+	return config.getEntityType(name)
 }

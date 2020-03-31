@@ -73,23 +73,21 @@ type foreignKeyDB struct {
 	OnDelete              string
 }
 
-func getTableSchema(c *Config, entityOrType interface{}) *TableSchema {
+func getTableSchema(c *Config, entityOrType interface{}) (schema *TableSchema, has bool, err error) {
 	asType, ok := entityOrType.(reflect.Type)
 	if ok {
-		schema, _ := getTableSchemaFromValue(c, asType)
-		return schema
+		return getTableSchemaFromValue(c, asType)
 	}
-	schema, _ := getTableSchemaFromValue(c, reflect.TypeOf(entityOrType))
-	return schema
+	return getTableSchemaFromValue(c, reflect.TypeOf(entityOrType))
 }
 
-func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, error) {
+func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, bool, error) {
 	if c.tableSchemas == nil {
 		c.tableSchemas = make(map[reflect.Type]*TableSchema)
 	}
 	tableSchema, has := c.tableSchemas[entityType]
 	if has {
-		return tableSchema, nil
+		return tableSchema, true, nil
 	}
 	tags, columnNames, columnPathMap := tableSchema.extractTags(entityType, "")
 	oneRefs := make([]string, 0)
@@ -153,7 +151,7 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 				if has {
 					maxFromUser, err := strconv.Atoi(maxAttribute)
 					if err != nil {
-						return nil, err
+						return nil, false, err
 					}
 					max = maxFromUser
 				}
@@ -181,7 +179,7 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 		refOne:           oneRefs,
 		cachePrefix:      cachePrefix}
 	c.tableSchemas[entityType] = tableSchema
-	return tableSchema, nil
+	return tableSchema, true, nil
 }
 
 func (tableSchema *TableSchema) DropTable(engine *Engine) error {
@@ -264,11 +262,14 @@ func (tableSchema *TableSchema) GetColumns() map[string]string {
 	return tableSchema.columnPathMap
 }
 
-func (tableSchema *TableSchema) GetUsage(config *Config) map[reflect.Type][]string {
+func (tableSchema *TableSchema) GetUsage(config *Config) (map[reflect.Type][]string, error) {
 	results := make(map[reflect.Type][]string)
 	if config.entities != nil {
 		for _, t := range config.entities {
-			schema := config.GetTableSchema(t)
+			schema, _, err := config.GetTableSchema(t)
+			if err != nil {
+				return nil, err
+			}
 			for _, columnName := range schema.refOne {
 				ref, has := schema.Tags[columnName]["ref"]
 				if has && ref == tableSchema.t.String() {
@@ -280,7 +281,7 @@ func (tableSchema *TableSchema) GetUsage(config *Config) map[reflect.Type][]stri
 			}
 		}
 	}
-	return results
+	return results, nil
 }
 
 func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alters []Alter, err error) {
@@ -704,7 +705,17 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 			indexAttribute = field.Name
 			unique = false
 		}
-		schema := engine.config.GetTableSchema(engine.config.GetEntityType(attributes["ref"]))
+		t, has := engine.config.getEntityType(attributes["ref"])
+		if !has {
+			return nil, EntityNotRegistered{Name: attributes["ref"]}
+		}
+		schema, has, err := engine.config.GetTableSchema(t)
+		if err != nil {
+			return nil, err
+		}
+		if !has {
+			return nil, EntityNotRegistered{Name: attributes["ref"]}
+		}
 		onDelete := "RESTRICT"
 		_, hasCascade := attributes["cascade"]
 		if hasCascade {
@@ -936,7 +947,8 @@ func (tableSchema *TableSchema) handleTime(attributes map[string]string) (string
 
 func (tableSchema *TableSchema) handleReferenceOne(config *Config, attributes map[string]string) string {
 	reference := attributes["ref"]
-	typeAsString := config.GetEntityType(reference).Field(1).Type.String()
+	t, _ := config.getEntityType(reference)
+	typeAsString := t.Field(1).Type.String()
 	switch typeAsString {
 	case "uint":
 		return "int(10) unsigned"

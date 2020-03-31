@@ -2,11 +2,20 @@ package orm
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
 	"reflect"
 	"strings"
 )
+
+type EntityNotRegistered struct {
+	Name string
+}
+
+func (e EntityNotRegistered) Error() string {
+	return fmt.Sprintf("entity is not registered %s", strings.Trim(e.Name, "*[]"))
+}
 
 type Config struct {
 	tableSchemas          map[reflect.Type]*TableSchema
@@ -80,7 +89,7 @@ func (c *Config) RegisterDirtyQueue(code string, redisCode string) {
 	c.dirtyQueuesCodesNames = append(c.dirtyQueuesCodesNames, code)
 }
 
-func (c *Config) GetTableSchema(entityOrType interface{}) *TableSchema {
+func (c *Config) GetTableSchema(entityOrType interface{}) (schema *TableSchema, has bool, err error) {
 	return getTableSchema(c, entityOrType)
 }
 
@@ -109,17 +118,9 @@ func (c *Config) GetLazyQueueCodes() []string {
 	return c.lazyQueuesCodesNames
 }
 
-func (c *Config) GetEntityType(name string) reflect.Type {
-	t, has := c.entities[name]
-	if !has {
-		return nil
-	}
-	return t
-}
-
 func (c *Config) Validate() error {
 	for _, entity := range c.entities {
-		_, err := getTableSchemaFromValue(c, entity)
+		_, _, err := getTableSchemaFromValue(c, entity)
 		if err != nil {
 			return err
 		}
@@ -140,4 +141,12 @@ func (c *Config) registerSqlPool(dataSourceName string, code ...string) error {
 	c.sqlClients[dbCode] = db
 	db.databaseName = strings.Split(dataSourceName, "/")[1]
 	return nil
+}
+
+func (c *Config) getEntityType(name string) (t reflect.Type, has bool) {
+	t, is := c.entities[name]
+	if !is {
+		return nil, false
+	}
+	return t, true
 }

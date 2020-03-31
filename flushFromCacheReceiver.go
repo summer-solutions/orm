@@ -38,7 +38,14 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	if err != nil {
 		return true, err
 	}
-	schema := getTableSchema(r.engine.config, r.engine.config.GetEntityType(val[0]))
+	t, has := r.engine.config.getEntityType(val[0])
+	if !has {
+		return false, EntityNotRegistered{Name: val[0]}
+	}
+	schema, _, err := getTableSchema(r.engine.config, t)
+	if err != nil {
+		return false, err
+	}
 	cacheEntity := schema.GetRedisCacheContainer(r.engine)
 	if cacheEntity == nil {
 		return true, nil
@@ -74,7 +81,10 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	}
 	ormFieldCache := entityElem.Field(0).Interface().(*ORM)
 	ormFieldCache.elem = entityElem
-	ormFieldDB := r.engine.initIfNeeded(entityDBValue)
+	ormFieldDB, err := r.engine.initIfNeeded(entityDBValue)
+	if err != nil {
+		return false, err
+	}
 	newData := make(map[string]interface{}, len(ormFieldCache.dBData))
 	for k, v := range ormFieldCache.dBData {
 		newData[k] = v

@@ -25,7 +25,19 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 		entities.SetLen(0)
 		return make([]uint64, 0), nil
 	}
-	schema := getTableSchema(engine.config, getEntityTypeForSlice(engine.config, entities.Type()))
+	t, has := getEntityTypeForSlice(engine.config, entities.Type())
+	if !has {
+		return nil, EntityNotRegistered{Name: entities.Type().String()}
+
+	}
+
+	schema, has, err := getTableSchema(engine.config, t)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, EntityNotRegistered{Name: t.String()}
+	}
 
 	localCache := schema.GetLocalCache(engine)
 	redisCache := schema.GetRedisCacheContainer(engine)
@@ -202,7 +214,10 @@ func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Val
 		if !has {
 			return fmt.Errorf("missing reference tag %s", ref)
 		}
-		parentType := engine.config.GetEntityType(parentRef)
+		parentType, has := engine.config.getEntityType(parentRef)
+		if !has {
+			return EntityNotRegistered{Name: tableSchema.Tags[parts[0]]["ref"]}
+		}
 		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
 
 		for i := 0; i < l; i++ {

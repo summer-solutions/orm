@@ -1,10 +1,18 @@
 package orm
 
-import "reflect"
+import (
+	"reflect"
+)
 
 func clearByIds(engine *Engine, entity interface{}, ids ...uint64) error {
 	entityType := reflect.ValueOf(entity).Elem().Type()
-	schema := getTableSchema(engine.config, entityType)
+	schema, has, err := getTableSchema(engine.config, entityType)
+	if err != nil {
+		return err
+	}
+	if !has {
+		return EntityNotRegistered{Name: entityType.String()}
+	}
 	cacheKeys := make([]string, len(ids))
 	for i, id := range ids {
 		cacheKeys[i] = schema.getCacheKey(id)
@@ -14,9 +22,8 @@ func clearByIds(engine *Engine, entity interface{}, ids ...uint64) error {
 		localCache.Remove(cacheKeys...)
 	}
 	redisCache := schema.GetRedisCacheContainer(engine)
-	var err error
 	if redisCache != nil {
-		err = redisCache.Del(cacheKeys...)
+		return redisCache.Del(cacheKeys...)
 	}
-	return err
+	return nil
 }

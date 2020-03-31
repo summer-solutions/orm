@@ -163,16 +163,26 @@ func (e *Engine) RegisterRedisLogger(logger CacheLogger) []*list.Element {
 	return res
 }
 
-func (e *Engine) initIfNeeded(value reflect.Value) *ORM {
+func (e *Engine) initIfNeeded(value reflect.Value) (*ORM, error) {
 	elem := value.Elem()
 	orm := elem.Field(0).Interface().(*ORM)
 	if orm == nil {
-		tableSchema := getTableSchema(e.config, elem.Type())
+		tableSchema, has, err := getTableSchema(e.config, elem.Type())
+		if err != nil {
+			return nil, err
+		}
+		if !has {
+			return nil, EntityNotRegistered{Name: elem.Type().String()}
+		}
 		orm = &ORM{dBData: make(map[string]interface{}), elem: elem, tableSchema: tableSchema}
 		elem.Field(0).Set(reflect.ValueOf(orm))
 		for _, code := range tableSchema.refOne {
 			reference := tableSchema.Tags[code]["ref"]
-			def := ReferenceOne{t: e.config.GetEntityType(reference)}
+			t, has := e.config.getEntityType(reference)
+			if !has {
+				return nil, EntityNotRegistered{Name: elem.Type().String()}
+			}
+			def := ReferenceOne{t: t}
 			elem.FieldByName(code).Set(reflect.ValueOf(&def))
 		}
 		defaultInterface, is := value.Interface().(DefaultValuesInterface)
@@ -180,14 +190,18 @@ func (e *Engine) initIfNeeded(value reflect.Value) *ORM {
 			defaultInterface.SetDefaults()
 		}
 	}
-	return orm
+	return orm, nil
 }
 
-func (e *Engine) initEntities(entity ...interface{}) {
+func (e *Engine) initEntities(entity ...interface{}) error {
 	for _, entity := range entity {
 		value := reflect.ValueOf(entity)
-		e.initIfNeeded(value)
+		_, err := e.initIfNeeded(value)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (e *Engine) getRedisForQueue(code string) *RedisCache {

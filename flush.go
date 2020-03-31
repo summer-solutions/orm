@@ -53,7 +53,10 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		}
 		v := reflect.ValueOf(entity)
 		value := reflect.Indirect(v)
-		orm := engine.initIfNeeded(v)
+		orm, err := engine.initIfNeeded(v)
+		if err != nil {
+			return err
+		}
 		isDirty, bind, err := isDirty(value)
 		if err != nil {
 			return err
@@ -168,7 +171,13 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		}
 	}
 	for typeOf, values := range insertKeys {
-		schema := getTableSchema(engine.config, typeOf)
+		schema, has, err := getTableSchema(engine.config, typeOf)
+		if err != nil {
+			return err
+		}
+		if !has {
+			return EntityNotRegistered{Name: typeOf.String()}
+		}
 		finalValues := make([]string, len(values))
 		for key, val := range values {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
@@ -232,7 +241,13 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		}
 	}
 	for typeOf, deleteBinds := range deleteBinds {
-		schema := getTableSchema(engine.config, typeOf)
+		schema, has, err := getTableSchema(engine.config, typeOf)
+		if err != nil {
+			return err
+		}
+		if !has {
+			return EntityNotRegistered{Name: typeOf.String()}
+		}
 		ids := make([]interface{}, len(deleteBinds))
 		i := 0
 		for id := range deleteBinds {
@@ -244,12 +259,20 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		if lazy && db.transaction == nil {
 			fillLazyQuery(lazyMap, db.code, sql, ids)
 		} else {
-
-			usage := schema.GetUsage(engine.config)
+			usage, err := schema.GetUsage(engine.config)
+			if err != nil {
+				return err
+			}
 			if len(usage) > 0 {
 				for refT, refColumns := range usage {
 					for _, refColumn := range refColumns {
-						refSchema := getTableSchema(engine.config, refT)
+						refSchema, has, err := getTableSchema(engine.config, refT)
+						if err != nil {
+							return err
+						}
+						if !has {
+							return EntityNotRegistered{Name: refT.String()}
+						}
 						_, isCascade := refSchema.Tags[refColumn]["cascade"]
 						if isCascade {
 							subValue := reflect.New(reflect.SliceOf(reflect.PtrTo(refT)))
@@ -287,7 +310,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 					}
 				}
 			}
-			_, err := db.Exec(sql, ids...)
+			_, err = db.Exec(sql, ids...)
 			if err != nil {
 				return convertToError(err)
 			}
@@ -427,7 +450,13 @@ func handleLazyReferences(engine *Engine, entities ...interface{}) error {
 	for _, entity := range entities {
 		dirty := false
 		value := reflect.Indirect(reflect.ValueOf(entity))
-		schema := getTableSchema(engine.config, value.Type())
+		schema, has, err := getTableSchema(engine.config, value.Type())
+		if err != nil {
+			return err
+		}
+		if !has {
+			return EntityNotRegistered{Name: value.Type().String()}
+		}
 		for _, columnName := range schema.refOne {
 			refOne := value.FieldByName(columnName).Interface().(*ReferenceOne)
 			if refOne.Id == 0 && refOne.Reference != nil {

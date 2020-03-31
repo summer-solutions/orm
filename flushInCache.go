@@ -15,7 +15,10 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 
 		value := reflect.ValueOf(entity)
 		elem := value.Elem()
-		orm := engine.initIfNeeded(value)
+		orm, err := engine.initIfNeeded(value)
+		if err != nil {
+			return err
+		}
 		elem.Field(0).Interface().(*ORM).elem = elem
 		t := elem.Type()
 

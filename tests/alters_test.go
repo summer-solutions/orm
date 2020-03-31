@@ -74,6 +74,7 @@ type TestEntitySchemaRef struct {
 func TestGetAlters(t *testing.T) {
 
 	config := &orm.Config{}
+
 	err := config.RegisterMySqlPool("root:root@tcp(localhost:3308)/test_schema", "schema")
 	assert.Nil(t, err)
 	engine := orm.NewEngine(config)
@@ -82,10 +83,14 @@ func TestGetAlters(t *testing.T) {
 	var entityRef TestEntitySchemaRef
 	config.RegisterEntity(entity, entityRef)
 	config.RegisterEnum("tests.Color", Color)
-	tableSchema := config.GetTableSchema(entity)
+	tableSchema, has, err := config.GetTableSchema(entity)
+	assert.True(t, has)
+	assert.Nil(t, err)
 	err = tableSchema.DropTable(engine)
 	assert.Nil(t, err)
-	tableSchemaRef := config.GetTableSchema(entityRef)
+	tableSchemaRef, has, err := config.GetTableSchema(entityRef)
+	assert.True(t, has)
+	assert.Nil(t, err)
 	err = tableSchemaRef.DropTable(engine)
 	assert.Nil(t, err)
 
