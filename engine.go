@@ -13,7 +13,26 @@ type Engine struct {
 }
 
 func NewEngine(config *Config) *Engine {
-	return &Engine{config: config}
+	e := &Engine{config: config}
+	e.dbs = make(map[string]*DB)
+	if e.config.sqlClients != nil {
+		for key, val := range e.config.sqlClients {
+			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName, db: val.db}
+		}
+	}
+	e.localCache = make(map[string]*LocalCache)
+	if e.config.localCacheContainers != nil {
+		for key, val := range e.config.localCacheContainers {
+			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, ttl: val.ttl}
+		}
+	}
+	e.redis = make(map[string]*RedisCache)
+	if e.config.redisServers != nil {
+		for key, val := range e.config.redisServers {
+			e.redis[key] = &RedisCache{engine: e, code: val.code, client: val.client}
+		}
+	}
+	return e
 }
 
 func (e *Engine) GetConfig() *Config {
@@ -25,21 +44,6 @@ func (e *Engine) GetMysql(code ...string) *DB {
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	if e.dbs == nil {
-		e.dbs = make(map[string]*DB)
-	}
-	db, has := e.dbs[dbCode]
-	if has {
-		return db
-	}
-	if e.config.sqlClients == nil {
-		return nil
-	}
-	dbConfig, has := e.config.sqlClients[dbCode]
-	if !has {
-		return nil
-	}
-	e.dbs[dbCode] = &DB{engine: e, code: dbConfig.code, databaseName: dbConfig.databaseName, db: dbConfig.db}
 	return e.dbs[dbCode]
 }
 
@@ -48,21 +52,6 @@ func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	if e.localCache == nil {
-		e.localCache = make(map[string]*LocalCache)
-	}
-	cache, has := e.localCache[dbCode]
-	if has == true {
-		return cache
-	}
-	if e.config.localCacheContainers == nil {
-		return nil
-	}
-	cacheConfig, has := e.config.localCacheContainers[dbCode]
-	if !has {
-		return nil
-	}
-	e.localCache[dbCode] = &LocalCache{engine: e, code: cacheConfig.code, lru: cacheConfig.lru, ttl: cacheConfig.ttl}
 	return e.localCache[dbCode]
 }
 
@@ -71,21 +60,6 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	if e.redis == nil {
-		e.redis = make(map[string]*RedisCache)
-	}
-	client, has := e.redis[dbCode]
-	if has == true {
-		return client
-	}
-	if e.config.redisServers == nil {
-		return nil
-	}
-	clientConfig, has := e.config.redisServers[dbCode]
-	if !has {
-		return nil
-	}
-	e.redis[dbCode] = &RedisCache{engine: e, code: clientConfig.code, client: clientConfig.client}
 	return e.redis[dbCode]
 }
 
