@@ -304,7 +304,7 @@ func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 	}
 	sort.Strings(newIndexes)
 	for _, value := range newIndexes {
-		createTableSql += fmt.Sprintf("  %s,\n", strings.TrimLeft(value, "ADD "))
+		createTableSql += fmt.Sprintf("  %s,\n", value[4:])
 	}
 	for keyName, foreignKey := range foreignKeys {
 		newForeignKeys = append(newForeignKeys, tableSchema.buildCreateForeignKeySql(keyName, foreignKey))
@@ -748,8 +748,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 	case "uint8":
 		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("tinyint(3) unsigned")
 	case "uint16":
-		yearAttribute, _ := attributes["year"]
-		if yearAttribute == "true" {
+		if attributes["year"] == "true" {
 			if isRequired {
 				return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) NOT NULL DEFAULT '0000'", columnName)}}, nil
 			} else {
@@ -759,8 +758,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 			definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("smallint(5) unsigned")
 		}
 	case "uint32":
-		mediumIntAttribute, _ := attributes["mediumint"]
-		if mediumIntAttribute == "true" {
+		if attributes["mediumint"] == "true" {
 			definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("mediumint(8) unsigned")
 		} else {
 			definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("int(10) unsigned")
@@ -772,8 +770,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 	case "int16":
 		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("smallint(6)")
 	case "int32":
-		mediumIntAttribute, _ := attributes["mediumint"]
-		if mediumIntAttribute == "true" {
+		if attributes["mediumint"] == "true" {
 			definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("mediumint(9)")
 		} else {
 			definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("int(11)")
@@ -870,7 +867,7 @@ func (tableSchema *TableSchema) handleString(config *Config, attributes map[stri
 	}
 	var addDefaultNullIfNullable = true
 	length, hasLength := attributes["length"]
-	if hasLength == false {
+	if !hasLength {
 		length = "255"
 	}
 	if forceMax || length == "max" {
@@ -924,14 +921,11 @@ func (tableSchema *TableSchema) handleSetEnum(config *Config, fieldType string, 
 }
 
 func (tableSchema *TableSchema) handleTime(attributes map[string]string) (string, bool, bool, string) {
-	t, _ := attributes["time"]
+	t := attributes["time"]
 	required, hasRequired := attributes["required"]
 	isRequired := hasRequired && required == "true"
 	defaultValue := "nil"
 	if t == "true" {
-		if isRequired {
-			defaultValue = "'0001-01-01 00:00:00'"
-		}
 		return "datetime", isRequired, true, "nil"
 	}
 	if isRequired {
@@ -951,8 +945,7 @@ func (tableSchema *TableSchema) handleReferenceOne(config *Config, attributes ma
 	case "uint16":
 		return "smallint(5) unsigned"
 	case "uint32":
-		mediumIntAttribute, _ := attributes["mediumint"]
-		if mediumIntAttribute == "true" {
+		if attributes["mediumint"] == "true" {
 			return "mediumint(8) unsigned"
 		} else {
 			return "int(10) unsigned"
@@ -1070,7 +1063,7 @@ func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) 
 		return "", nil
 	}
 	droppedForeignKeys := make([]string, 0)
-	for keyName, _ := range foreignKeysDB {
+	for keyName := range foreignKeysDB {
 		droppedForeignKeys = append(droppedForeignKeys, fmt.Sprintf("DROP FOREIGN KEY `%s`", keyName))
 	}
 	alter += strings.Join(droppedForeignKeys, ",\t\n")

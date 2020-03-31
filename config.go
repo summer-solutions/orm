@@ -2,7 +2,6 @@ package orm
 
 import (
 	"database/sql"
-	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
 	"reflect"
@@ -126,15 +125,6 @@ func (c *Config) Validate() error {
 		}
 	}
 	return nil
-}
-
-func (c *Config) getRedisForQueue(code string) (*RedisCacheConfig, error) {
-	queueCode := code + "_queue"
-	client, has := c.redisServers[queueCode]
-	if !has {
-		return nil, fmt.Errorf("unregistered redis queue: %s", code)
-	}
-	return client, nil
 }
 
 func (c *Config) registerSqlPool(dataSourceName string, code ...string) error {

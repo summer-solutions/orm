@@ -30,9 +30,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	if localCache == nil && redisCache == nil {
 		return 0, fmt.Errorf("missing entity cache definition")
 	}
-	var cacheKey string
-
-	cacheKey = schema.getCacheKeySearch(indexName, Where.GetParameters()...)
+	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	if clear {
 		if localCache != nil {
 			localCache.Remove(cacheKey)
@@ -45,14 +43,10 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 		}
 		return 0, nil
 	}
-	end := pager.GetPageSize()
-	if start+end > definition.Max {
-		end = totalRows - start
-	}
 	const idsOnCachePage = 1000
 
 	minCachePage := float64((pager.GetCurrentPage() - 1) * pager.GetPageSize() / idsOnCachePage)
-	minCachePageCeil := math.Ceil(minCachePage)
+	minCachePageCeil := minCachePage
 	maxCachePage := float64((pager.GetCurrentPage()-1)*pager.GetPageSize()+pager.GetPageSize()) / float64(idsOnCachePage)
 	maxCachePageCeil := math.Ceil(maxCachePage)
 	pages := make([]string, 0)
@@ -63,8 +57,6 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	var fromCache map[string]interface{}
 	var nilsKeys []string
 	if localCache != nil {
-		lenPages := len(pages)
-		fromCache = make(map[string]interface{}, lenPages)
 		nils := make(map[int]int)
 		nilsKeys = make([]string, 0)
 		i := 0

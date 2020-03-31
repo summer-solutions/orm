@@ -166,7 +166,10 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 func fillFromDBRow(engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
 	orm := engine.initIfNeeded(value)
 	elem := value.Elem()
-	fillStruct(engine.config, 0, data, entityType, elem, "")
+	_, err := fillStruct(engine.config, 0, data, entityType, elem, "")
+	if err != nil {
+		return err
+	}
 	orm.dBData["Id"] = data[0]
 
 	_, bind, err := isDirty(elem)

@@ -13,9 +13,7 @@ type AutoFlusher struct {
 }
 
 func (f *Flusher) RegisterEntity(entities ...interface{}) {
-	for _, entity := range entities {
-		f.entities = append(f.entities, entity)
-	}
+	f.entities = append(f.entities, entities...)
 }
 
 func (f *AutoFlusher) RegisterEntity(engine *Engine, entities ...interface{}) error {

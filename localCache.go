@@ -14,7 +14,6 @@ type LocalCache struct {
 	lru     *lru.Cache
 	loggers *list.List
 	ttl     int64
-	created int64
 }
 
 type ttlValue struct {
@@ -43,7 +42,7 @@ func (c *LocalCache) Get(key string) (value interface{}, ok bool) {
 	if !ok {
 		misses = 1
 	}
-	c.log(key, "GET", time.Now().Sub(start).Microseconds(), misses)
+	c.log(key, "GET", time.Since(start).Microseconds(), misses)
 	return
 }
 
@@ -59,7 +58,7 @@ func (c *LocalCache) MGet(keys ...string) map[string]interface{} {
 		}
 		results[key] = value
 	}
-	c.log(fmt.Sprintf("%v", keys), "MGET", time.Now().Sub(start).Microseconds(), misses)
+	c.log(fmt.Sprintf("%v", keys), "MGET", time.Since(start).Microseconds(), misses)
 	return results
 }
 
@@ -69,7 +68,7 @@ func (c *LocalCache) Set(key string, value interface{}) {
 	m.Lock()
 	c.lru.Add(key, value)
 	m.Unlock()
-	c.log(key, "ADD", time.Now().Sub(start).Microseconds(), 0)
+	c.log(key, "ADD", time.Since(start).Microseconds(), 0)
 }
 
 func (c *LocalCache) MSet(pairs ...interface{}) {
@@ -89,7 +88,7 @@ func (c *LocalCache) MSet(pairs ...interface{}) {
 			keys[j] = pairs[i].(string)
 			j++
 		}
-		c.log(fmt.Sprintf("%v", keys), "MSET", time.Now().Sub(start).Microseconds(), 0)
+		c.log(fmt.Sprintf("%v", keys), "MSET", time.Since(start).Microseconds(), 0)
 	}
 }
 
@@ -114,7 +113,7 @@ func (c *LocalCache) HMget(key string, fields ...string) map[string]interface{} 
 		}
 	}
 	if c.loggers != nil {
-		c.log(key, fmt.Sprintf("HMGET %v", fields), time.Now().Sub(start).Microseconds(), misses)
+		c.log(key, fmt.Sprintf("HMGET %v", fields), time.Since(start).Microseconds(), misses)
 	}
 	return results
 }
@@ -139,7 +138,7 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 			keys[i] = key
 			i++
 		}
-		c.log(key, fmt.Sprintf("HMSET %v", keys), time.Now().Sub(start).Microseconds(), 0)
+		c.log(key, fmt.Sprintf("HMSET %v", keys), time.Since(start).Microseconds(), 0)
 	}
 }
 
@@ -151,7 +150,7 @@ func (c *LocalCache) Remove(keys ...string) {
 		c.lru.Remove(v)
 	}
 	m.Unlock()
-	c.log("", fmt.Sprintf("REMOVE MANY %v", keys), time.Now().Sub(start).Microseconds(), 0)
+	c.log("", fmt.Sprintf("REMOVE MANY %v", keys), time.Since(start).Microseconds(), 0)
 }
 
 func (c *LocalCache) Clear() {
@@ -160,7 +159,7 @@ func (c *LocalCache) Clear() {
 	m.Lock()
 	c.lru.Clear()
 	m.Unlock()
-	c.log("", "CLEAR", time.Now().Sub(start).Microseconds(), 0)
+	c.log("", "CLEAR", time.Since(start).Microseconds(), 0)
 }
 
 func (c *LocalCache) RegisterLogger(logger CacheLogger) *list.Element {

@@ -48,12 +48,12 @@ func (r *RedisCache) Get(key string) (value string, has bool, err error) {
 	val, err := r.client.Get(key).Result()
 	if err != nil {
 		if err == redis.Nil {
-			r.log(key, "GET", time.Now().Sub(start).Microseconds(), 1)
+			r.log(key, "GET", time.Since(start).Microseconds(), 1)
 			return "", false, nil
 		}
 		return "", false, err
 	}
-	r.log(key, "GET", time.Now().Sub(start).Microseconds(), 0)
+	r.log(key, "GET", time.Since(start).Microseconds(), 0)
 	return val, true, nil
 }
 
@@ -63,7 +63,7 @@ func (r *RedisCache) LRange(key string, start, stop int64) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	r.log(key, fmt.Sprintf("LRANGE %d %d", start, stop), time.Now().Sub(s).Microseconds(), 0)
+	r.log(key, fmt.Sprintf("LRANGE %d %d", start, stop), time.Since(s).Microseconds(), 0)
 	return val, nil
 }
 
@@ -82,7 +82,7 @@ func (r *RedisCache) HMget(key string, fields ...string) (map[string]interface{}
 		results[fields[index]] = v
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("HMGET %v", fields), time.Now().Sub(start).Microseconds(), misses)
+		r.log(key, fmt.Sprintf("HMGET %v", fields), time.Since(start).Microseconds(), misses)
 	}
 	return results, nil
 }
@@ -94,7 +94,7 @@ func (r *RedisCache) HGetAll(key string) (map[string]string, error) {
 		return nil, err
 	}
 	if r.loggers != nil {
-		r.log(key, "HGETALL", time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, "HGETALL", time.Since(start).Microseconds(), 0)
 	}
 	return val, nil
 }
@@ -106,7 +106,7 @@ func (r *RedisCache) LPush(key string, values ...interface{}) (int64, error) {
 		return 0, err
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("LPUSH %d values", len(values)), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("LPUSH %d values", len(values)), time.Since(start).Microseconds(), 0)
 	}
 	return val, nil
 }
@@ -118,7 +118,7 @@ func (r *RedisCache) RPush(key string, values ...interface{}) (int64, error) {
 		return 0, err
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("RPUSH %d values", len(values)), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("RPUSH %d values", len(values)), time.Since(start).Microseconds(), 0)
 	}
 	return val, nil
 }
@@ -128,13 +128,13 @@ func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
 	val, err := r.client.RPop(key).Result()
 	if err != nil {
 		if err == redis.Nil {
-			r.log(key, "RPOP", time.Now().Sub(start).Microseconds(), 1)
+			r.log(key, "RPOP", time.Since(start).Microseconds(), 1)
 			return "", false, nil
 		}
-		r.log(key, "RPOP", time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, "RPOP", time.Since(start).Microseconds(), 0)
 		return "", false, err
 	}
-	r.log(key, "RPOP", time.Now().Sub(start).Microseconds(), 0)
+	r.log(key, "RPOP", time.Since(start).Microseconds(), 0)
 	return val, true, nil
 }
 
@@ -145,7 +145,7 @@ func (r *RedisCache) LSet(key string, index int64, value interface{}) error {
 		return err
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("LSET %d %s", index, value), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("LSET %d %s", index, value), time.Since(start).Microseconds(), 0)
 	}
 	return nil
 }
@@ -157,7 +157,7 @@ func (r *RedisCache) LRem(key string, count int64, value interface{}) error {
 		return err
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("LREM %d %s", count, value), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("LREM %d %s", count, value), time.Since(start).Microseconds(), 0)
 	}
 	return nil
 }
@@ -165,7 +165,7 @@ func (r *RedisCache) LRem(key string, count int64, value interface{}) error {
 func (r *RedisCache) ZCard(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZCard(key).Result()
-	r.log(key, "ZCARD", time.Now().Sub(start).Microseconds(), 0)
+	r.log(key, "ZCARD", time.Since(start).Microseconds(), 0)
 	if err != nil {
 		return 0, err
 	}
@@ -175,7 +175,7 @@ func (r *RedisCache) ZCard(key string) (int64, error) {
 func (r *RedisCache) SCard(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.SCard(key).Result()
-	r.log(key, "SCARD", time.Now().Sub(start).Microseconds(), 0)
+	r.log(key, "SCARD", time.Since(start).Microseconds(), 0)
 	if err != nil {
 		return 0, err
 	}
@@ -185,7 +185,7 @@ func (r *RedisCache) SCard(key string) (int64, error) {
 func (r *RedisCache) ZCount(key string, min, max string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZCount(key, min, max).Result()
-	r.log(key, "ZCOUNT", time.Now().Sub(start).Microseconds(), 0)
+	r.log(key, "ZCOUNT", time.Since(start).Microseconds(), 0)
 	if err != nil {
 		return 0, err
 	}
@@ -196,7 +196,7 @@ func (r *RedisCache) SPop(key string) (string, bool, error) {
 	start := time.Now()
 	val, err := r.client.SPop(key).Result()
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("SPOP"), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("SPOP"), time.Since(start).Microseconds(), 0)
 	}
 	if err != nil {
 		if err == redis.Nil {
@@ -211,7 +211,7 @@ func (r *RedisCache) SPopN(key string, max int64) ([]string, error) {
 	start := time.Now()
 	val, err := r.client.SPopN(key, max).Result()
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("SPOP %d", max), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("SPOP %d", max), time.Since(start).Microseconds(), 0)
 	}
 	if err != nil {
 		return nil, err
@@ -222,7 +222,7 @@ func (r *RedisCache) SPopN(key string, max int64) ([]string, error) {
 func (r *RedisCache) LLen(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.LLen(key).Result()
-	r.log(key, "LLEN", time.Now().Sub(start).Microseconds(), 0)
+	r.log(key, "LLEN", time.Since(start).Microseconds(), 0)
 	if err != nil {
 		return 0, err
 	}
@@ -236,7 +236,7 @@ func (r *RedisCache) ZAdd(key string, members ...*redis.Z) (int64, error) {
 		return 0, err
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("ZADD %d values", len(members)), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("ZADD %d values", len(members)), time.Since(start).Microseconds(), 0)
 	}
 	return val, nil
 }
@@ -248,7 +248,7 @@ func (r *RedisCache) SAdd(key string, members ...interface{}) (int64, error) {
 		return 0, err
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("SADD %d values", len(members)), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("SADD %d values", len(members)), time.Since(start).Microseconds(), 0)
 	}
 	return val, nil
 }
@@ -266,7 +266,7 @@ func (r *RedisCache) HMset(key string, fields map[string]interface{}) error {
 			keys[i] = key
 			i++
 		}
-		r.log(key, fmt.Sprintf("HMSET %v", keys), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("HMSET %v", keys), time.Since(start).Microseconds(), 0)
 	}
 	return nil
 }
@@ -278,7 +278,7 @@ func (r *RedisCache) HSet(key string, field string, value interface{}) error {
 		return err
 	}
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("HSET %s $s", key, value), time.Now().Sub(start).Microseconds(), 0)
+		r.log(key, fmt.Sprintf("HSET %s %s", key, value), time.Since(start).Microseconds(), 0)
 	}
 	return nil
 }
@@ -298,7 +298,7 @@ func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
 		}
 	}
 	if r.loggers != nil {
-		r.log(strings.Join(keys, ","), "MGET", time.Now().Sub(start).Microseconds(), misses)
+		r.log(strings.Join(keys, ","), "MGET", time.Since(start).Microseconds(), misses)
 	}
 	return results, nil
 }
@@ -309,7 +309,7 @@ func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) error {
 	if err != nil {
 		return err
 	}
-	r.log(key, fmt.Sprintf("SET [%ds]", ttlSeconds), time.Now().Sub(start).Microseconds(), 0)
+	r.log(key, fmt.Sprintf("SET [%ds]", ttlSeconds), time.Since(start).Microseconds(), 0)
 	return nil
 }
 
@@ -325,7 +325,7 @@ func (r *RedisCache) MSet(pairs ...interface{}) error {
 		for i := 0; i < max; i += 2 {
 			keys[i] = pairs[i].(string)
 		}
-		r.log("", fmt.Sprintf("MSET %v", keys), time.Now().Sub(start).Microseconds(), 0)
+		r.log("", fmt.Sprintf("MSET %v", keys), time.Since(start).Microseconds(), 0)
 	}
 	return nil
 }
@@ -336,7 +336,7 @@ func (r *RedisCache) Del(keys ...string) error {
 	if err != nil {
 		return err
 	}
-	r.log(strings.Join(keys, ","), "DELETE", time.Now().Sub(start).Microseconds(), 0)
+	r.log(strings.Join(keys, ","), "DELETE", time.Since(start).Microseconds(), 0)
 	return nil
 }
 
@@ -346,7 +346,7 @@ func (r *RedisCache) FlushDB() error {
 	if err != nil {
 		return err
 	}
-	r.log("", "FLUSHDB", time.Now().Sub(start).Microseconds(), 0)
+	r.log("", "FLUSHDB", time.Since(start).Microseconds(), 0)
 	return nil
 }
 

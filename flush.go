@@ -480,7 +480,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 		if prefix == "" && i <= 1 {
 			continue
 		}
-		old, _ := oldData[name]
+		old := oldData[name]
 		field := value.Field(i)
 		attributes := tableSchema.Tags[name]
 		_, has := attributes["ignore"]
@@ -493,8 +493,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 		case "uint", "uint8", "uint16", "uint32", "uint64":
 			val := field.Uint()
 			valString := strconv.FormatUint(val, 10)
-			year, _ := attributes["year"]
-			if year == "true" {
+			if attributes["year"] == "true" {
 				valString = fmt.Sprintf("%04d", val)
 				if hasOld && (old == valString || old == nil && valString == "0000") {
 					continue
@@ -618,10 +617,8 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			value := field.Interface().(time.Time)
 			layout := "2006-01-02"
 			layoutEmpty := "0001-01-01"
-			fieldAttributes := tableSchema.Tags[name]
-			timeAttribute, _ := fieldAttributes["time"]
 			var valueAsString string
-			if timeAttribute == "true" {
+			if tableSchema.Tags[name]["time"] == "true" {
 				layoutEmpty += " 00:00:00"
 				if value.Year() == 1 {
 					valueAsString = "0001-01-01 00:00:00"

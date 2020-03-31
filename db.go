@@ -24,11 +24,11 @@ func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
 	start := time.Now()
 	if db.transaction != nil {
 		rows, err := db.transaction.Exec(query, args...)
-		db.log(query, time.Now().Sub(start).Microseconds(), args...)
+		db.log(query, time.Since(start).Microseconds(), args...)
 		return rows, err
 	}
 	rows, err := db.db.Exec(query, args...)
-	db.log(query, time.Now().Sub(start).Microseconds(), args...)
+	db.log(query, time.Since(start).Microseconds(), args...)
 	return rows, err
 }
 
@@ -36,11 +36,11 @@ func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
 	start := time.Now()
 	if db.transaction != nil {
 		row := db.transaction.QueryRow(query, args...)
-		db.log(query, time.Now().Sub(start).Microseconds(), args...)
+		db.log(query, time.Since(start).Microseconds(), args...)
 		return row
 	}
 	row := db.db.QueryRow(query, args...)
-	db.log(query, time.Now().Sub(start).Microseconds(), args...)
+	db.log(query, time.Since(start).Microseconds(), args...)
 	return row
 }
 
@@ -48,11 +48,11 @@ func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	start := time.Now()
 	if db.transaction != nil {
 		rows, err := db.transaction.Query(query, args...)
-		db.log(query, time.Now().Sub(start).Microseconds(), args...)
+		db.log(query, time.Since(start).Microseconds(), args...)
 		return rows, err
 	}
 	rows, err := db.db.Query(query, args...)
-	db.log(query, time.Now().Sub(start).Microseconds(), args...)
+	db.log(query, time.Since(start).Microseconds(), args...)
 	return rows, err
 }
 
@@ -63,7 +63,7 @@ func (db *DB) BeginTransaction() error {
 	}
 	start := time.Now()
 	transaction, err := db.db.Begin()
-	db.log("BEGIN TRANSACTION", time.Now().Sub(start).Microseconds())
+	db.log("BEGIN TRANSACTION", time.Since(start).Microseconds())
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (db *DB) Commit() error {
 	if db.transactionCounter == 0 {
 		start := time.Now()
 		err := db.transaction.Commit()
-		db.log("COMMIT", time.Now().Sub(start).Microseconds())
+		db.log("COMMIT", time.Since(start).Microseconds())
 		if err == nil {
 			if db.afterCommitLocalCacheSets != nil {
 				for cacheCode, pairs := range db.afterCommitLocalCacheSets {
@@ -119,7 +119,7 @@ func (db *DB) Rollback() error {
 		db.afterCommitLocalCacheDeletes = nil
 		start := time.Now()
 		err := db.transaction.Rollback()
-		db.log("ROLLBACK", time.Now().Sub(start).Microseconds())
+		db.log("ROLLBACK", time.Since(start).Microseconds())
 		if err == nil {
 			db.transaction = nil
 		}
