@@ -123,16 +123,17 @@ func (r *DirtyReceiver) MarkDirty(entityName string, ids ...uint64) error {
 }
 
 func (r *DirtyReceiver) getRedis() (*RedisCache, error) {
-	if r.engine.config.dirtyQueuesCodes == nil {
+	if r.engine.config.dirtyQueues == nil {
 		return nil, fmt.Errorf("unregistered dirty queue %s", r.queueCode)
 	}
-	redisCode, has := r.engine.config.dirtyQueuesCodes[r.queueCode]
+	queue, has := r.engine.config.dirtyQueues[r.queueCode]
 	if !has {
 		return nil, fmt.Errorf("unregistered dirty queue %s", r.queueCode)
 	}
-	redis, has := r.engine.GetRedis(redisCode)
+	queueRedis := queue.(*RedisDirtyQueueSender)
+	redis, has := r.engine.GetRedis(queueRedis.PoolName)
 	if !has {
-		return nil, RedisCachePoolNotRegisteredError{Name: redisCode}
+		return nil, RedisCachePoolNotRegisteredError{Name: queueRedis.PoolName}
 	}
 	return redis, nil
 }

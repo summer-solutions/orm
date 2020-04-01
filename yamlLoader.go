@@ -48,7 +48,7 @@ func InitByYaml(yaml map[interface{}]interface{}) (config *Config, err error) {
 				if err != nil {
 					return nil, err
 				}
-				config.RegisterDirtyQueue(keyAsString, valAsString)
+				config.RegisterDirtyQueue(keyAsString, &RedisDirtyQueueSender{PoolName: valAsString})
 			case "localCache":
 				number, err := validateOrmInt(value, keyAsString)
 				if err != nil {

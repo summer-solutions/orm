@@ -42,16 +42,15 @@ func (e RedisCachePoolNotRegisteredError) Error() string {
 }
 
 type Config struct {
-	tableSchemas          map[reflect.Type]*TableSchema
-	sqlClients            map[string]*DBConfig
-	localCacheContainers  map[string]*LocalCacheConfig
-	redisServers          map[string]*RedisCacheConfig
-	entities              map[string]reflect.Type
-	enums                 map[string]reflect.Value
-	dirtyQueuesCodes      map[string]string
-	dirtyQueuesCodesNames []string
-	lazyQueuesCodes       map[string]string
-	lazyQueuesCodesNames  []string
+	tableSchemas         map[reflect.Type]*TableSchema
+	sqlClients           map[string]*DBConfig
+	localCacheContainers map[string]*LocalCacheConfig
+	redisServers         map[string]*RedisCacheConfig
+	entities             map[string]reflect.Type
+	enums                map[string]reflect.Value
+	dirtyQueues          map[string]DirtyQueueSender
+	lazyQueuesCodes      map[string]string
+	lazyQueuesCodesNames []string
 }
 
 func (c *Config) RegisterEntity(entity ...interface{}) {
@@ -102,15 +101,11 @@ func (c *Config) RegisterRedis(address string, db int, code ...string) {
 	c.redisServers[dbCode] = redisCache
 }
 
-func (c *Config) RegisterDirtyQueue(code string, redisCode string) {
-	if c.dirtyQueuesCodes == nil {
-		c.dirtyQueuesCodes = make(map[string]string)
+func (c *Config) RegisterDirtyQueue(code string, sender DirtyQueueSender) {
+	if c.dirtyQueues == nil {
+		c.dirtyQueues = make(map[string]DirtyQueueSender)
 	}
-	c.dirtyQueuesCodes[code] = redisCode
-	if c.dirtyQueuesCodesNames == nil {
-		c.dirtyQueuesCodesNames = make([]string, 0)
-	}
-	c.dirtyQueuesCodesNames = append(c.dirtyQueuesCodesNames, code)
+	c.dirtyQueues[code] = sender
 }
 
 func (c *Config) GetTableSchema(entityOrTypeOrName interface{}) (schema *TableSchema, err error) {
@@ -142,10 +137,13 @@ func (c *Config) GetTableSchema(entityOrTypeOrName interface{}) (schema *TableSc
 }
 
 func (c *Config) GetDirtyQueueCodes() []string {
-	if c.dirtyQueuesCodes == nil {
-		c.dirtyQueuesCodesNames = make([]string, 0)
+	codes := make([]string, len(c.dirtyQueues))
+	i := 0
+	for code := range c.dirtyQueues {
+		codes[i] = code
+		i++
 	}
-	return c.dirtyQueuesCodesNames
+	return codes
 }
 
 func (c *Config) RegisterLazyQueue(code string, redisCode string) {

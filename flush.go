@@ -40,7 +40,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 	localCacheSets := make(map[string]map[string][]interface{})
 	localCacheDeletes := make(map[string]map[string]map[string]bool)
 	redisKeysToDelete := make(map[string]map[string]map[string]bool)
-	dirtyQueues := make(map[string][]interface{})
+	dirtyQueues := make(map[string][]*DirtyQueueValue)
 	lazyMap := make(map[string]interface{})
 
 	for _, entity := range entities {
@@ -450,18 +450,14 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 	}
 
 	for k, v := range dirtyQueues {
-		if engine.config.dirtyQueuesCodes == nil {
+		if engine.config.dirtyQueues == nil {
 			return fmt.Errorf("unregistered lazy queue %s", k)
 		}
-		redisCode, has := engine.config.dirtyQueuesCodes[k]
+		queue, has := engine.config.dirtyQueues[k]
 		if !has {
 			return fmt.Errorf("unregistered lazy queue %s", k)
 		}
-		redis, has := engine.GetRedis(redisCode)
-		if !has {
-			return RedisCachePoolNotRegisteredError{Name: redisCode}
-		}
-		_, err := redis.SAdd(k, v...)
+		err := queue.Send(engine, k, v)
 		if err != nil {
 			return err
 		}
@@ -781,9 +777,9 @@ func addCacheDeletes(cacheDeletes map[string]map[string]map[string]bool, dbCode 
 	}
 }
 
-func addDirtyQueues(keys map[string][]interface{}, bind map[string]interface{}, schema *TableSchema, id uint64, action string) {
-	results := make(map[string]interface{})
-	key := createDirtyQueueMember(schema.t.String()+":"+action, id)
+func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interface{}, schema *TableSchema, id uint64, action string) {
+	results := make(map[string]*DirtyQueueValue)
+	key := &DirtyQueueValue{EntityName: schema.t.String(), Id: id, Added: action == "i", Updated: action == "u", Deleted: action == "d"}
 	for column, tags := range schema.Tags {
 		queues, has := tags["dirty"]
 		if !has {
