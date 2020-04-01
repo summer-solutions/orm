@@ -9,5 +9,5 @@ type ValidateInterface interface {
 }
 
 type AfterSavedInterface interface {
-	AfterSaved() error
+	AfterSaved(engine *Engine) error
 }

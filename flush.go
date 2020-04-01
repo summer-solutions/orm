@@ -124,7 +124,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 					}
 					afterSaved, is := v.Interface().(AfterSavedInterface)
 					if is {
-						err := afterSaved.AfterSaved()
+						err := afterSaved.AfterSaved(engine)
 						if err != nil {
 							return err
 						}
@@ -230,7 +230,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			id++
 			afterSaveInterface, is := entity.(AfterSavedInterface)
 			if is {
-				err := afterSaveInterface.AfterSaved()
+				err := afterSaveInterface.AfterSaved(engine)
 				if err != nil {
 					return err
 				}

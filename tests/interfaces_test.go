@@ -34,7 +34,8 @@ func (e *TestEntityInterfaces) Validate() error {
 	return nil
 }
 
-func (e *TestEntityInterfaces) AfterSaved() error {
+func (e *TestEntityInterfaces) AfterSaved(engine *orm.Engine) error {
+	_ = engine
 	e.Calculated = int(e.Uint) + int(e.ReferenceOne.Id)
 	return nil
 }

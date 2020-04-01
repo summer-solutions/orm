@@ -760,7 +760,7 @@ func main() {
         Calculated           string `orm:"ignore"`
     }
 
-    func (e *UserEntity) AfterSaved() error {
+    func (e *UserEntity) AfterSaved(engine *orm.Engine) error {
         e.Calculated = e.Value + 1
         return nil
     }
