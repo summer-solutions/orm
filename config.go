@@ -186,8 +186,9 @@ func (c *Config) registerSqlPool(dataSourceName string, code ...string) error {
 	if c.sqlClients == nil {
 		c.sqlClients = make(map[string]*DBConfig)
 	}
+	parts := strings.Split(dataSourceName, "/")
+	db.databaseName = parts[len(parts)-1]
 	c.sqlClients[dbCode] = db
-	db.databaseName = strings.Split(dataSourceName, "/")[1]
 	return nil
 }
 
