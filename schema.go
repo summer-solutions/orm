@@ -729,7 +729,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 		if hasCascade {
 			onDelete = "CASCADE"
 		}
-		pool := tableSchema.GetMysql(engine)
+		pool := schema.GetMysql(engine)
 		foreignKey := &foreignIndex{Column: field.Name, Table: schema.TableName,
 			ParentDatabase: pool.databaseName, OnDelete: onDelete}
 		name := fmt.Sprintf("%s:%s:%s", pool.databaseName, tableSchema.TableName, field.Name)
