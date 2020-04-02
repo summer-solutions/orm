@@ -8,7 +8,9 @@ import (
 	"strings"
 )
 
-func cachedSearch(engine *Engine, entities interface{}, indexName string, clear bool, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
+func cachedSearch(engine *Engine, entities interface{}, indexName string, clear bool, pager *Pager,
+	arguments []interface{}, references []string) (totalRows int, err error) {
+
 	value := reflect.ValueOf(entities)
 	entityType, has := getEntityTypeForSlice(engine.config, value.Type())
 	if !has {
@@ -183,7 +185,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 		sliceEnd = length
 	}
 	idsToReturn := resultsIds[sliceStart:sliceEnd]
-	err = engine.GetByIds(idsToReturn, entities)
+	err = engine.GetByIds(idsToReturn, entities, references...)
 	if err != nil {
 		return 0, err
 	}
