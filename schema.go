@@ -256,6 +256,10 @@ func (tableSchema *TableSchema) GetRedisCacheContainer(engine *Engine) (cache *R
 	return engine.GetRedis(tableSchema.redisCacheName)
 }
 
+func (tableSchema *TableSchema) GetReferences() []string {
+	return tableSchema.refOne
+}
+
 func (tableSchema TableSchema) getCacheKey(id uint64) string {
 	return fmt.Sprintf("%s%s:%d", tableSchema.cachePrefix, tableSchema.columnsStamp, id)
 }
