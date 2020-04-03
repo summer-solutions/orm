@@ -14,7 +14,7 @@ type AddressByIdLocal struct {
 
 type TestEntityByIdLocal struct {
 	Orm                  *orm.ORM `orm:"localCache"`
-	Id                   uint
+	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`
 	Uint8                uint8  `orm:"unique=SecondIndex:2,ThirdIndex"`
@@ -59,6 +59,10 @@ func TestGetByIdLocal(t *testing.T) {
 
 	assert.False(t, engine.IsDirty(&entity))
 
+	err = engine.GetById(1, &entity)
+	assert.Nil(t, err)
+	assert.Equal(t, uint(1), entity.ID)
+
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
 	assert.True(t, has)
@@ -68,7 +72,7 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
-	assert.Equal(t, uint(1), entity.Id)
+	assert.Equal(t, uint(1), entity.ID)
 	assert.Equal(t, "", entity.Name)
 	assert.Equal(t, "", entity.BigName)
 	assert.Equal(t, uint8(0), entity.Uint8)

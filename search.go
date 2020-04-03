@@ -203,7 +203,7 @@ func fillFromDBRow(engine *Engine, data []string, value reflect.Value, entityTyp
 	if err != nil {
 		return err
 	}
-	orm.dBData["Id"] = data[0]
+	orm.dBData[orm.tableSchema.idFieldName] = data[0]
 
 	_, bind, err := isDirty(elem)
 	if err != nil {

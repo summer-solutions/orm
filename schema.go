@@ -43,6 +43,7 @@ type TableSchema struct {
 	localCacheName   string
 	redisCacheName   string
 	cachePrefix      string
+	idFieldName      string
 }
 
 type indexDB struct {
@@ -89,6 +90,7 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 	if has {
 		return tableSchema, true, nil
 	}
+	idFieldName := entityType.Field(1).Name
 	tags, columnNames, columnPathMap := tableSchema.extractTags(entityType, "")
 	oneRefs := make([]string, 0)
 	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", columnNames)))
@@ -137,7 +139,7 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 			variables := re.FindAllString(query, -1)
 			for _, variable := range variables {
 				fieldName := variable[1:]
-				if fieldName != "Id" && fieldName != "ID" {
+				if fieldName != idFieldName {
 					fields = append(fields, fieldName)
 				}
 				query = strings.Replace(query, variable, fmt.Sprintf("`%s`", fieldName), 1)
@@ -177,7 +179,8 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 		localCacheName:   localCache,
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
-		cachePrefix:      cachePrefix}
+		cachePrefix:      cachePrefix,
+		idFieldName:      idFieldName}
 	c.tableSchemas[entityType] = tableSchema
 	return tableSchema, true, nil
 }
@@ -848,7 +851,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 		definition += " NOT NULL"
 		isNotNull = true
 	}
-	if defaultValue != "nil" && columnName != "Id" && columnName != "ID" {
+	if defaultValue != "nil" && columnName != tableSchema.idFieldName {
 		definition += " DEFAULT " + defaultValue
 	} else if !isNotNull && addDefaultNullIfNullable {
 		definition += " DEFAULT NULL"
