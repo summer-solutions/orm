@@ -65,6 +65,29 @@ type TestEntitySchema struct {
 	Blob                 []byte
 }
 
+type TestEntitySchema2Entity struct {
+	Orm            *orm.ORM `orm:"mysql=schema"`
+	ID             uint64
+	UserID         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchema2EntityRef1;unique=myunique:1"`
+	OrganizationID *orm.ReferenceOne `orm:"ref=tests.TestEntitySchema2EntityRef2;unique=myunique:2;index=Organization"`
+	RoleID         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchema2EntityRef3;unique=myunique:3"`
+}
+
+type TestEntitySchema2EntityRef1 struct {
+	Orm *orm.ORM `orm:"mysql=schema"`
+	ID  uint64
+}
+
+type TestEntitySchema2EntityRef2 struct {
+	Orm *orm.ORM `orm:"mysql=schema"`
+	ID  uint64
+}
+
+type TestEntitySchema2EntityRef3 struct {
+	Orm *orm.ORM `orm:"mysql=schema"`
+	ID  uint64
+}
+
 type TestEntitySchemaRef struct {
 	Orm  *orm.ORM `orm:"mysql=schema"`
 	Id   uint
@@ -81,7 +104,13 @@ func TestGetAlters(t *testing.T) {
 
 	var entity TestEntitySchema
 	var entityRef TestEntitySchemaRef
-	config.RegisterEntity(entity, entityRef)
+	var entity2 TestEntitySchema2Entity
+
+	var ref1 TestEntitySchema2EntityRef1
+	var ref2 TestEntitySchema2EntityRef2
+	var ref3 TestEntitySchema2EntityRef3
+
+	config.RegisterEntity(entity, entityRef, entity2, ref1, ref2, ref3)
 	config.RegisterEnum("tests.Color", Color)
 	tableSchema, err := config.GetTableSchema(entity)
 	assert.Nil(t, err)
@@ -91,8 +120,9 @@ func TestGetAlters(t *testing.T) {
 	assert.Nil(t, err)
 	err = tableSchemaRef.DropTable(engine)
 	assert.Nil(t, err)
-
-	alters, err := engine.GetAlters()
+	err = tableSchemaRef.DropTable(engine)
 	assert.Nil(t, err)
-	assert.Len(t, alters, 3)
+
+	_, err = engine.GetAlters()
+	assert.Nil(t, err)
 }

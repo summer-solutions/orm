@@ -302,6 +302,7 @@ func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 	indexes := make(map[string]*index)
 	foreignKeys := make(map[string]*foreignIndex)
 	columns, err := tableSchema.checkStruct(engine, tableSchema.t, indexes, foreignKeys, "")
+
 	if err != nil {
 		return false, nil, err
 	}
@@ -711,57 +712,64 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 		return nil, nil
 	}
 
-	indexAttribute, has := attributes["index"]
-	unique := false
-	if !has {
-		indexAttribute, has = attributes["unique"]
-		unique = true
-	}
-	if typeAsString == "*orm.ReferenceOne" {
-		if !has {
-			has = true
-			indexAttribute = field.Name
-			unique = false
+	keys := []string{"index", "unique"}
+	for _, key := range keys {
+		indexAttribute, has := attributes[key]
+		unique := key == "unique"
+		if key == "index" && typeAsString == "*orm.ReferenceOne" {
+			t, hasRef := engine.config.getEntityType(attributes["ref"])
+			if !hasRef {
+				return nil, EntityNotRegisteredError{Name: attributes["ref"]}
+			}
+			schema, err := engine.config.GetTableSchema(t)
+			if err != nil {
+				return nil, err
+			}
+			onDelete := "RESTRICT"
+			_, hasCascade := attributes["cascade"]
+			if hasCascade {
+				onDelete = "CASCADE"
+			}
+			pool := schema.GetMysql(engine)
+			foreignKey := &foreignIndex{Column: field.Name, Table: schema.TableName,
+				ParentDatabase: pool.databaseName, OnDelete: onDelete}
+			name := fmt.Sprintf("%s:%s:%s", pool.databaseName, tableSchema.TableName, field.Name)
+			foreignKeys[name] = foreignKey
 		}
-		t, has := engine.config.getEntityType(attributes["ref"])
-		if !has {
-			return nil, EntityNotRegisteredError{Name: attributes["ref"]}
+
+		if has {
+			indexColumns := strings.Split(indexAttribute, ",")
+			for _, value := range indexColumns {
+				indexColumn := strings.Split(value, ":")
+				location := 1
+				if len(indexColumn) > 1 {
+					userLocation, err := strconv.Atoi(indexColumn[1])
+					if err != nil {
+						return nil, err
+					}
+					location = userLocation
+				}
+				current, has := indexes[indexColumn[0]]
+				if !has {
+					current = &index{Unique: unique, Columns: map[int]string{location: field.Name}}
+					indexes[indexColumn[0]] = current
+				} else {
+					current.Columns[location] = field.Name
+				}
+			}
 		}
-		schema, err := engine.config.GetTableSchema(t)
-		if err != nil {
-			return nil, err
-		}
-		onDelete := "RESTRICT"
-		_, hasCascade := attributes["cascade"]
-		if hasCascade {
-			onDelete = "CASCADE"
-		}
-		pool := schema.GetMysql(engine)
-		foreignKey := &foreignIndex{Column: field.Name, Table: schema.TableName,
-			ParentDatabase: pool.databaseName, OnDelete: onDelete}
-		name := fmt.Sprintf("%s:%s:%s", pool.databaseName, tableSchema.TableName, field.Name)
-		foreignKeys[name] = foreignKey
 	}
 
-	if has {
-		indexColumns := strings.Split(indexAttribute, ",")
-		for _, value := range indexColumns {
-			indexColumn := strings.Split(value, ":")
-			location := 1
-			if len(indexColumn) > 1 {
-				userLocation, err := strconv.Atoi(indexColumn[1])
-				if err != nil {
-					return nil, err
-				}
-				location = userLocation
+	if typeAsString == "*orm.ReferenceOne" {
+		hasValidIndex := false
+		for _, i := range indexes {
+			if i.Columns[1] == columnName {
+				hasValidIndex = true
+				break
 			}
-			current, has := indexes[indexColumn[0]]
-			if !has {
-				current = &index{Unique: unique, Columns: map[int]string{location: field.Name}}
-				indexes[indexColumn[0]] = current
-			} else {
-				current.Columns[location] = field.Name
-			}
+		}
+		if !hasValidIndex {
+			indexes[columnName] = &index{Unique: false, Columns: map[int]string{1: columnName}}
 		}
 	}
 
