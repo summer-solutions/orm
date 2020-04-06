@@ -71,6 +71,7 @@ type TestEntitySchema2Entity struct {
 	UserID         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchema2EntityRef1;unique=myunique:1"`
 	OrganizationID *orm.ReferenceOne `orm:"ref=tests.TestEntitySchema2EntityRef2;unique=myunique:2;index=Organization"`
 	RoleID         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchema2EntityRef3;unique=myunique:3"`
+	FakeDelete     bool
 }
 
 type TestEntitySchema2EntityRef1 struct {
@@ -122,7 +123,10 @@ func TestGetAlters(t *testing.T) {
 	assert.Nil(t, err)
 	err = tableSchemaRef.DropTable(engine)
 	assert.Nil(t, err)
-
+	tableSchemaRef, err = config.GetTableSchema(entity2)
+	assert.Nil(t, err)
+	err = tableSchemaRef.DropTable(engine)
+	assert.Nil(t, err)
 	_, err = engine.GetAlters()
 	assert.Nil(t, err)
 }
