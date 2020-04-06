@@ -722,6 +722,37 @@ func main() {
 
 ```
 
+## Fake delete
+
+If you want to keep deleted entity in database but ny default this entity should be excluded
+from all engine.Search() and engine.CacheSearch() queries you can use FakeDelete column. Simply create
+field bool with name "FakeDelete".
+
+```go
+func main() {
+
+    type UserEntity struct {
+        Orm                  *orm.ORM
+        Id                   uint64
+        Name                 string
+        FakeDelete           bool
+    }
+
+    //you can delete in two ways:
+    user.Orm.MarkToDelete() -> will set user.FakeDelete = true
+    or:
+    user.FakeDelete = true
+
+    engine.Flush(user) //it will save entity id in Column `FakeDelete`.
+
+    //will return all rows where `FakeDelete` = 0
+    total, err = engine.SearchWithCount(orm.NewWhere("1"), nil, &rows)
+    
+}
+
+
+```
+
 ## Validate
 
 If you need to define validation for entity simply extend orm.ValidateInterface.

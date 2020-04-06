@@ -58,7 +58,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 	if hasLocalCache || hasRedis {
 		if hasLocalCache {
 			resultsLocalCache := localCache.MGet(cacheKeys...)
-			cacheKeys, err = getKeysForNils(engine, schema.t, resultsLocalCache, results, false)
+			cacheKeys, err = getKeysForNils(engine, schema.t, resultsLocalCache, keysMapping, results, false)
 			if err != nil {
 				return nil, err
 			}
@@ -69,7 +69,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 			if err != nil {
 				return nil, err
 			}
-			cacheKeys, err = getKeysForNils(engine, schema.t, resultsRedis, results, true)
+			cacheKeys, err = getKeysForNils(engine, schema.t, resultsRedis, keysMapping, results, true)
 			if err != nil {
 				return nil, err
 			}
@@ -82,7 +82,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 	}
 	l := len(ids)
 	if l > 0 {
-		_, err = search(engine, NewWhere("`Id` IN ?", ids), &Pager{1, l}, false, entities)
+		_, err = search(false, engine, NewWhere("`Id` IN ?", ids), &Pager{1, l}, false, entities)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +145,6 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 			missing = append(missing, id)
 		} else {
 			e := reflect.ValueOf(val)
-			e.Elem().Field(1).SetUint(id)
 			v = reflect.Append(v, e)
 		}
 	}
@@ -159,7 +158,8 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 	return
 }
 
-func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]interface{}, results map[string]interface{}, fromRedis bool) ([]string, error) {
+func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]interface{}, keysMapping map[string]uint64,
+	results map[string]interface{}, fromRedis bool) ([]string, error) {
 	keys := make([]string, 0)
 	for k, v := range rows {
 		if v == nil {
@@ -174,14 +174,14 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 				if err != nil {
 					return nil, err
 				}
-				err = fillFromDBRow(engine, decoded, value, entityType)
+				err = fillFromDBRow(keysMapping[k], engine, decoded, value, entityType)
 				if err != nil {
 					return nil, err
 				}
 				results[k] = value.Interface()
 			} else {
 				value := reflect.New(entityType)
-				err := fillFromDBRow(engine, v.([]string), value, entityType)
+				err := fillFromDBRow(keysMapping[k], engine, v.([]string), value, entityType)
 				if err != nil {
 					return nil, err
 				}

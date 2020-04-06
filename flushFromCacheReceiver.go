@@ -76,12 +76,12 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 		return true, err
 	}
 
-	err = fillFromDBRow(r.engine, decoded, entityValue, schema.t)
+	err = fillFromDBRow(id, r.engine, decoded, entityValue, schema.t)
 	if err != nil {
 		return true, err
 	}
 	entityDBValue := reflect.New(schema.t)
-	found, err := searchRow(r.engine, NewWhere("`Id` = ?", id), entityDBValue)
+	found, err := searchRow(false, r.engine, NewWhere("`Id` = ?", id), entityDBValue)
 	if err != nil {
 		return true, err
 	}

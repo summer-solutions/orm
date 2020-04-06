@@ -339,7 +339,6 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			addDirtyQueues(dirtyQueues, bind, schema, id, "d")
 		}
 	}
-
 	for dbCode, values := range localCacheSets {
 		db, has := engine.GetMysql(dbCode)
 		if !has {
@@ -520,7 +519,7 @@ func injectBind(value reflect.Value, bind map[string]interface{}) {
 	value.Field(0).Set(reflect.ValueOf(oldFields))
 }
 
-func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, oldData map[string]interface{}, prefix string) (bind map[string]interface{}, err error) {
+func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value reflect.Value, oldData map[string]interface{}, prefix string) (bind map[string]interface{}, err error) {
 	bind = make(map[string]interface{})
 	var hasOld = len(oldData) > 0
 	for i := 0; i < t.NumField(); i++ {
@@ -590,6 +589,20 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 				bind[name] = value
 			}
 		case "bool":
+			if name == "FakeDelete" {
+				value := "0"
+				if field.Bool() {
+					if id == 0 {
+						return nil, fmt.Errorf("fake delete not allowed for new row")
+					}
+					value = strconv.FormatUint(id, 10)
+				}
+				if hasOld && old == value {
+					continue
+				}
+				bind[name] = value
+				continue
+			}
 			value := "0"
 			if field.Bool() {
 				value = "1"
@@ -714,7 +727,7 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 			bind[name] = valString
 		default:
 			if field.Kind().String() == "struct" {
-				subBind, err := createBind(tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
+				subBind, err := createBind(0, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
 				if err != nil {
 					return nil, err
 				}
@@ -732,20 +745,24 @@ func createBind(tableSchema *TableSchema, t reflect.Type, value reflect.Value, o
 func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data map[string]interface{}, addedDeleted bool) (keys []string, err error) {
 	keys = make([]string, 0)
 	for indexName, definition := range schema.cachedIndexes {
+		if !addedDeleted && schema.hasFakeDelete {
+			_, addedDeleted = bind["FakeDelete"]
+		}
 		if addedDeleted && len(definition.Fields) == 0 {
 			keys = append(keys, schema.getCacheKeySearch(indexName))
 		}
 		for _, trackedField := range definition.Fields {
 			_, has := bind[trackedField]
 			if has {
-				attributes := make([]interface{}, len(definition.Fields))
-				i := 0
+				attributes := make([]interface{}, 0)
 				for _, trackedFieldSub := range definition.Fields {
-					attributes[i], has = data[trackedFieldSub]
+					val, has := data[trackedFieldSub]
 					if !has {
 						return nil, fmt.Errorf("missing field %s in index", trackedFieldSub)
 					}
-					i++
+					if !schema.hasFakeDelete || trackedFieldSub != "FakeDelete" {
+						attributes = append(attributes, val)
+					}
 				}
 				keys = append(keys, schema.getCacheKeySearch(indexName, attributes...))
 				break

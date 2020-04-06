@@ -27,11 +27,10 @@ func tryById(engine *Engine, id uint64, entity interface{}, references ...string
 			if e == "nil" {
 				return false, nil
 			}
-			err = fillFromDBRow(engine, e.([]string), val, entityType)
+			err = fillFromDBRow(id, engine, e.([]string), val, entityType)
 			if err != nil {
 				return false, err
 			}
-			elem.Field(1).SetUint(id)
 			if len(references) > 0 {
 				err = warmUpReferences(engine, schema, elem, references, false)
 				if err != nil {
@@ -57,7 +56,7 @@ func tryById(engine *Engine, id uint64, entity interface{}, references ...string
 			if err != nil {
 				return true, err
 			}
-			err = fillFromDBRow(engine, decoded, val, entityType)
+			err = fillFromDBRow(id, engine, decoded, val, entityType)
 			if err != nil {
 				return false, err
 			}
@@ -70,7 +69,7 @@ func tryById(engine *Engine, id uint64, entity interface{}, references ...string
 			return true, nil
 		}
 	}
-	found, err = engine.SearchOne(NewWhere("`Id` = ?", id), entity)
+	found, err = searchOne(false, engine, NewWhere("`Id` = ?", id), entity)
 	if err != nil {
 		return false, err
 	}
@@ -112,13 +111,15 @@ func getById(engine *Engine, id uint64, entity interface{}, references ...string
 func buildRedisValue(entity interface{}, schema *TableSchema) string {
 	bind := reflect.Indirect(reflect.ValueOf(entity)).Field(0).Interface().(*ORM).dBData
 	length := len(schema.columnNames)
-	value := make([]string, length)
-	for i := 0; i < length; i++ {
+	value := make([]string, length-1)
+	j := 0
+	for i := 1; i < length; i++ { //skip id
 		v := bind[schema.columnNames[i]]
 		if v == nil {
 			v = ""
 		}
-		value[i] = fmt.Sprintf("%s", v)
+		value[j] = fmt.Sprintf("%s", v)
+		j++
 	}
 	encoded, _ := json.Marshal(value)
 	return string(encoded)
@@ -127,13 +128,15 @@ func buildRedisValue(entity interface{}, schema *TableSchema) string {
 func buildLocalCacheValue(entity interface{}, schema *TableSchema) []string {
 	bind := reflect.Indirect(reflect.ValueOf(entity)).Field(0).Interface().(*ORM).dBData
 	length := len(schema.columnNames)
-	value := make([]string, length)
-	for i := 0; i < length; i++ {
+	value := make([]string, length-1)
+	j := 0
+	for i := 1; i < length; i++ { //skip id
 		v := bind[schema.columnNames[i]]
 		if v == nil {
 			v = ""
 		}
-		value[i] = fmt.Sprintf("%s", v)
+		value[j] = fmt.Sprintf("%s", v)
+		j++
 	}
 	return value
 }

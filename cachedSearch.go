@@ -123,7 +123,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 
 	if hasNil {
 		searchPager := &Pager{minPage, maxPage * idsOnCachePage}
-		results, total, err := searchIdsWithCount(engine, Where, searchPager, entityType)
+		results, total, err := searchIdsWithCount(true, engine, Where, searchPager, entityType)
 		if err != nil {
 			return 0, err
 		}
@@ -237,7 +237,7 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 	}
 	var id uint64
 	if fromCache["1"] == nil {
-		results, _, err := searchIds(engine, Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
+		results, _, err := searchIds(true, engine, Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
 		if err != nil {
 			return false, err
 		}

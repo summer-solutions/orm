@@ -20,6 +20,14 @@ type ORM struct {
 type CachedQuery struct{}
 
 func (orm *ORM) MarkToDelete() {
+	if orm.tableSchema.hasFakeDelete {
+		orm.elem.FieldByName("FakeDelete").SetBool(true)
+		return
+	}
+	orm.dBData["_delete"] = true
+}
+
+func (orm *ORM) ForceMarkToDelete() {
 	orm.dBData["_delete"] = true
 }
 
@@ -44,6 +52,7 @@ type TableSchema struct {
 	redisCacheName   string
 	cachePrefix      string
 	idFieldName      string
+	hasFakeDelete    bool
 }
 
 type indexDB struct {
@@ -126,6 +135,11 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 	cachePrefix += table
 	cachedQueries := make(map[string]cachedQueryDefinition)
 	cachedQueriesOne := make(map[string]cachedQueryDefinition)
+	hasFakeDelete := false
+	fakeDeleteField, has := entityType.FieldByName("FakeDelete")
+	if has && fakeDeleteField.Type.String() == "bool" {
+		hasFakeDelete = true
+	}
 	for key, values := range tags {
 		isOne := false
 		query, has := values["query"]
@@ -143,6 +157,9 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 					fields = append(fields, fieldName)
 				}
 				query = strings.Replace(query, variable, fmt.Sprintf("`%s`", fieldName), 1)
+			}
+			if hasFakeDelete && len(variables) > 0 {
+				fields = append(fields, "FakeDelete")
 			}
 			if query == "" {
 				query = "1 ORDER BY `Id`"
@@ -180,7 +197,8 @@ func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, 
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
 		cachePrefix:      cachePrefix,
-		idFieldName:      idFieldName}
+		idFieldName:      idFieldName,
+		hasFakeDelete:    hasFakeDelete}
 	c.tableSchemas[entityType] = tableSchema
 	return tableSchema, true, nil
 }
@@ -817,6 +835,9 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 	case "int":
 		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("int(11)")
 	case "bool":
+		if columnName == "FakeDelete" {
+			return nil, nil
+		}
 		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("tinyint(1)")
 	case "string", "[]string":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = tableSchema.handleString(engine.config, attributes, false)
@@ -1008,6 +1029,10 @@ func (tableSchema *TableSchema) checkStruct(engine *Engine, t reflect.Type, inde
 		if fieldColumns != nil {
 			columns = append(columns, fieldColumns...)
 		}
+	}
+	if tableSchema.hasFakeDelete {
+		def := fmt.Sprintf("`FakeDelete` %s unsigned NOT NULL DEFAULT '0'", strings.Split(columns[0][1], " ")[1])
+		columns = append(columns, [2]string{"FakeDelete", def})
 	}
 	return columns, nil
 }

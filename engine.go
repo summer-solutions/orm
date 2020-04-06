@@ -84,25 +84,25 @@ func (e *Engine) FlushLazy(entities ...interface{}) error {
 }
 
 func (e *Engine) SearchWithCount(where *Where, pager *Pager, entities interface{}, references ...string) (totalRows int, err error) {
-	return search(e, where, pager, true, reflect.ValueOf(entities).Elem(), references...)
+	return search(true, e, where, pager, true, reflect.ValueOf(entities).Elem(), references...)
 }
 
 func (e *Engine) Search(where *Where, pager *Pager, entities interface{}, references ...string) error {
-	_, err := search(e, where, pager, false, reflect.ValueOf(entities).Elem(), references...)
+	_, err := search(true, e, where, pager, false, reflect.ValueOf(entities).Elem(), references...)
 	return err
 }
 
 func (e *Engine) SearchIdsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int, err error) {
-	return searchIdsWithCount(e, where, pager, reflect.TypeOf(entity))
+	return searchIdsWithCount(true, e, where, pager, reflect.TypeOf(entity))
 }
 
 func (e *Engine) SearchIds(where *Where, pager *Pager, entity interface{}) ([]uint64, error) {
-	results, _, err := searchIds(e, where, pager, false, reflect.TypeOf(entity))
+	results, _, err := searchIds(true, e, where, pager, false, reflect.TypeOf(entity))
 	return results, err
 }
 
 func (e *Engine) SearchOne(where *Where, entity interface{}) (bool, error) {
-	return searchOne(e, where, entity)
+	return searchOne(true, e, where, entity)
 }
 
 func (e *Engine) GetByIds(ids []uint64, entities interface{}, references ...string) error {

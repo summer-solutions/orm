@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-func searchIdsWithCount(engine *Engine, where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int, err error) {
-	return searchIds(engine, where, pager, true, entityType)
+func searchIdsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int, err error) {
+	return searchIds(skipFakeDelete, engine, where, pager, true, entityType)
 }
 
-func searchRow(engine *Engine, where *Where, value reflect.Value) (bool, error) {
+func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.Value) (bool, error) {
 
 	entityType := value.Elem().Type()
 	schema, has, err := getTableSchema(engine.config, entityType)
@@ -27,7 +27,11 @@ func searchRow(engine *Engine, where *Where, value reflect.Value) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
+	whereQuery := where.String()
+	if skipFakeDelete && schema.hasFakeDelete {
+		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
+	}
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, whereQuery)
 
 	pool := schema.GetMysql(engine)
 	results, err := pool.Query(query, where.GetParameters()...)
@@ -53,15 +57,15 @@ func searchRow(engine *Engine, where *Where, value reflect.Value) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-
-	err = fillFromDBRow(engine, values, value, entityType)
+	id, _ := strconv.ParseUint(values[0], 10, 64)
+	err = fillFromDBRow(id, engine, values[1:], value, entityType)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
+func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
 	}
@@ -82,7 +86,11 @@ func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities
 	if err != nil {
 		return 0, err
 	}
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
+	whereQuery := where.String()
+	if skipFakeDelete && schema.hasFakeDelete {
+		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
+	}
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
 	results, err := pool.Query(query, where.GetParameters()...)
@@ -111,7 +119,8 @@ func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities
 			return 0, err
 		}
 		value := reflect.New(entityType)
-		err = fillFromDBRow(engine, values, value, entityType)
+		id, _ := strconv.ParseUint(values[0], 10, 64)
+		err = fillFromDBRow(id, engine, values[1:], value, entityType)
 		if err != nil {
 			return 0, err
 		}
@@ -132,17 +141,17 @@ func search(engine *Engine, where *Where, pager *Pager, withCount bool, entities
 	return totalRows, nil
 }
 
-func searchOne(engine *Engine, where *Where, entity interface{}) (bool, error) {
+func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity interface{}) (bool, error) {
 
 	value := reflect.ValueOf(entity)
-	has, err := searchRow(engine, where, value)
+	has, err := searchRow(skipFakeDelete, engine, where, value)
 	if err != nil {
 		return false, err
 	}
 	return has, nil
 }
 
-func searchIds(engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int, err error) {
+func searchIds(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int, err error) {
 	schema, has, err := getTableSchema(engine.config, entityType)
 	if err != nil {
 		return nil, 0, err
@@ -150,7 +159,11 @@ func searchIds(engine *Engine, where *Where, pager *Pager, withCount bool, entit
 	if !has {
 		return nil, 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
-	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where,
+	whereQuery := where.String()
+	if skipFakeDelete && schema.hasFakeDelete {
+		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
+	}
+	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
 	results, err := pool.Query(query, where.GetParameters()...)
@@ -193,12 +206,13 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 	return totalRows, nil
 }
 
-func fillFromDBRow(engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
+func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
 	orm, err := engine.initIfNeeded(value)
 	if err != nil {
 		return err
 	}
 	elem := value.Elem()
+	elem.Field(1).SetUint(id)
 	_, err = fillStruct(engine.config, 0, data, entityType, elem, "")
 	if err != nil {
 		return err
@@ -219,7 +233,7 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 
 	for i := 0; i < t.NumField(); i++ {
 
-		if index == 0 && i == 0 {
+		if index == 0 && i <= 1 { //skip id and orm
 			continue
 		}
 
@@ -300,6 +314,14 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 				field.SetBytes([]byte(bytes))
 			}
 		case "bool":
+			if schema.hasFakeDelete && name == "FakeDelete" {
+				val := true
+				if data[index] == "0" {
+					val = false
+				}
+				field.SetBool(val)
+				continue
+			}
 			val := false
 			if data[index] == "1" {
 				val = true
