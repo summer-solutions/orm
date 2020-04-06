@@ -747,7 +747,10 @@ func main() {
 
     //will return all rows where `FakeDelete` = 0
     total, err = engine.SearchWithCount(orm.NewWhere("1"), nil, &rows)
-    
+
+    //To force delete (remove row from DB):
+    user.Orm.ForceMarkToDelete()
+    engine.Flush(user)
 }
 
 
