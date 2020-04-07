@@ -6,11 +6,8 @@ import (
 
 func clearByIds(engine *Engine, entity interface{}, ids ...uint64) error {
 	entityType := reflect.ValueOf(entity).Elem().Type()
-	schema, has, err := getTableSchema(engine.config, entityType)
-	if err != nil {
-		return err
-	}
-	if !has {
+	schema := getTableSchema(engine.config, entityType)
+	if schema == nil {
 		return EntityNotRegisteredError{Name: entityType.String()}
 	}
 	cacheKeys := make([]string, len(ids))

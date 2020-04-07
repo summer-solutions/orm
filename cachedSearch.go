@@ -16,11 +16,8 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	if !has {
 		return 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
-	schema, has, err := getTableSchema(engine.config, entityType)
-	if err != nil {
-		return 0, err
-	}
-	if !has {
+	schema := getTableSchema(engine.config, entityType)
+	if schema == nil {
 		return 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	definition, has := schema.cachedIndexes[indexName]
@@ -195,11 +192,8 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear bool, arguments ...interface{}) (has bool, err error) {
 	value := reflect.ValueOf(entity)
 	entityType := value.Elem().Type()
-	schema, has, err := getTableSchema(engine.config, entityType)
-	if err != nil {
-		return false, err
-	}
-	if !has {
+	schema := getTableSchema(engine.config, entityType)
+	if schema == nil {
 		return false, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	definition, has := schema.cachedIndexesOne[indexName]

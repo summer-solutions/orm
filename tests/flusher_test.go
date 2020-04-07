@@ -22,7 +22,7 @@ type TestEntityFlusherManual struct {
 func TestFlusherAuto(t *testing.T) {
 
 	var entity TestEntityFlusherAuto
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
@@ -53,7 +53,7 @@ func TestFlusherAuto(t *testing.T) {
 func TestFlusherManual(t *testing.T) {
 
 	var entity TestEntityFlusherManual
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()

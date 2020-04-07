@@ -7,15 +7,16 @@ import (
 	"testing"
 )
 
-func PrepareTables(t *testing.T, config *orm.Config, entities ...interface{}) *orm.Engine {
-	err := config.RegisterMySqlPool("root:root@tcp(localhost:3308)/test")
-	assert.Nil(t, err)
-	config.RegisterRedis("localhost:6379", 15)
-	config.RegisterRedis("localhost:6379", 14, "default_queue")
-	config.RegisterLazyQueue("default", "default_queue")
-	config.RegisterLocalCache(1000)
+func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}) *orm.Engine {
+	registry.RegisterMySqlPool("root:root@tcp(localhost:3308)/test")
+	registry.RegisterRedis("localhost:6379", 15)
+	registry.RegisterRedis("localhost:6379", 14, "default_queue")
+	registry.RegisterLazyQueue("default", "default_queue")
+	registry.RegisterLocalCache(1000)
 
-	config.RegisterEntity(entities...)
+	registry.RegisterEntity(entities...)
+	config, err := registry.CreateConfig()
+	assert.Nil(t, err)
 
 	engine := orm.NewEngine(config)
 	redisCache, has := engine.GetRedis()
@@ -37,8 +38,7 @@ func PrepareTables(t *testing.T, config *orm.Config, entities ...interface{}) *o
 	}
 
 	for _, entity := range entities {
-		tableSchema, err := config.GetTableSchema(entity)
-		assert.Nil(t, err)
+		tableSchema, _ := config.GetTableSchema(entity)
 		err = tableSchema.TruncateTable(engine)
 		assert.Nil(t, err)
 		err = tableSchema.UpdateSchema(engine)

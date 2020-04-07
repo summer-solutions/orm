@@ -7,12 +7,14 @@ import (
 )
 
 func TestGetSetRedis(t *testing.T) {
-	config := &orm.Config{}
-	config.RegisterRedis("localhost:6379", 15)
+	registry := &orm.Registry{}
+	registry.RegisterRedis("localhost:6379", 15)
+	config, err := registry.CreateConfig()
+	assert.Nil(t, err)
 	engine := orm.NewEngine(config)
 	redis, has := engine.GetRedis()
 	assert.True(t, has)
-	err := redis.FlushDB()
+	err = redis.FlushDB()
 	assert.Nil(t, err)
 
 	testLogger := &TestCacheLogger{}

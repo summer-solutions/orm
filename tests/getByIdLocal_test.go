@@ -44,7 +44,7 @@ type TestEntityByIdLocal struct {
 
 func TestGetByIdLocal(t *testing.T) {
 	var entity TestEntityByIdLocal
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	found, err := engine.TryById(100, &entity)
 	assert.Nil(t, err)
@@ -154,7 +154,7 @@ func TestGetByIdLocal(t *testing.T) {
 
 func BenchmarkGetByIdLocal(b *testing.B) {
 	var entity TestEntityByIdLocal
-	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity)
+	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	entity = TestEntityByIdLocal{}
 	_ = engine.Flush(&entity)

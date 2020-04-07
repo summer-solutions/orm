@@ -15,7 +15,7 @@ type TestEntityFlushLazyReference struct {
 
 func TestFlushLazyReference(t *testing.T) {
 	var entity TestEntityFlushLazyReference
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	entity1 := TestEntityFlushLazyReference{Name: "Name 1"}
 	entity2 := TestEntityFlushLazyReference{Name: "Name 2"}

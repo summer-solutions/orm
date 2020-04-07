@@ -16,14 +16,11 @@ func searchIdsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager
 func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.Value) (bool, error) {
 
 	entityType := value.Elem().Type()
-	schema, has, err := getTableSchema(engine.config, entityType)
-	if err != nil {
-		return false, err
-	}
-	if !has {
+	schema := getTableSchema(engine.config, entityType)
+	if schema == nil {
 		return false, EntityNotRegisteredError{Name: entityType.String()}
 	}
-	fieldsList, err := buildFieldList(engine.config, entityType, "")
+	fieldsList, err := buildFieldList(engine.config, schema, entityType, "")
 	if err != nil {
 		return false, err
 	}
@@ -74,15 +71,12 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	if !has {
 		return 0, EntityNotRegisteredError{Name: entities.String()}
 	}
-	schema, has, err := getTableSchema(engine.config, entityType)
-	if err != nil {
-		return 0, err
-	}
-	if !has {
+	schema := getTableSchema(engine.config, entityType)
+	if schema == nil {
 		return 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
 
-	fieldsList, err := buildFieldList(engine.config, entityType, "")
+	fieldsList, err := buildFieldList(engine.config, schema, entityType, "")
 	if err != nil {
 		return 0, err
 	}
@@ -152,11 +146,8 @@ func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity interfa
 }
 
 func searchIds(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int, err error) {
-	schema, has, err := getTableSchema(engine.config, entityType)
-	if err != nil {
-		return nil, 0, err
-	}
-	if !has {
+	schema := getTableSchema(engine.config, entityType)
+	if schema == nil {
 		return nil, 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	whereQuery := where.String()
@@ -213,7 +204,7 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value
 	}
 	elem := value.Elem()
 	elem.Field(1).SetUint(id)
-	_, err = fillStruct(engine.config, 0, data, entityType, elem, "")
+	_, err = fillStruct(engine.config, orm.tableSchema, 0, data, entityType, elem, "")
 	if err != nil {
 		return err
 	}
@@ -229,7 +220,7 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value
 	return nil
 }
 
-func fillStruct(config *Config, index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) (uint16, error) {
+func fillStruct(config *Config, schema *TableSchema, index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) (uint16, error) {
 
 	for i := 0; i < t.NumField(); i++ {
 
@@ -240,15 +231,8 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 		field := value.Field(i)
 		name := prefix + t.Field(i).Name
 
-		schema, has, err := getTableSchema(config, t)
-		if err != nil {
-			return 0, err
-		}
-		if !has {
-			return 0, EntityNotRegisteredError{Name: t.String()}
-		}
 		tags := schema.Tags[name]
-		_, has = tags["ignore"]
+		_, has := tags["ignore"]
 		if has {
 			continue
 		}
@@ -358,7 +342,7 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 			if field.Kind().String() == "struct" {
 				newVal := reflect.New(field.Type())
 				value := newVal.Elem()
-				newIndex, err := fillStruct(config, index, data, field.Type(), value, name)
+				newIndex, err := fillStruct(config, schema, index, data, field.Type(), value, name)
 				if err != nil {
 					return 0, err
 				}
@@ -373,20 +357,13 @@ func fillStruct(config *Config, index uint16, data []string, t reflect.Type, val
 	return index, nil
 }
 
-func buildFieldList(config *Config, t reflect.Type, prefix string) (string, error) {
+func buildFieldList(config *Config, schema *TableSchema, t reflect.Type, prefix string) (string, error) {
 	fieldsList := ""
 	for i := 0; i < t.NumField(); i++ {
 		var columnNameRaw string
 		field := t.Field(i)
-		schema, has, err := getTableSchema(config, t)
-		if err != nil {
-			return "", err
-		}
-		if !has {
-			return "", EntityNotRegisteredError{Name: t.String()}
-		}
-		tags := schema.Tags[field.Name]
-		_, has = tags["ignore"]
+		tags := schema.Tags[prefix+t.Field(i).Name]
+		_, has := tags["ignore"]
 		if has {
 			continue
 		}
@@ -402,7 +379,7 @@ func buildFieldList(config *Config, t reflect.Type, prefix string) (string, erro
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:
 			if field.Type.Kind().String() == "struct" {
-				f, err := buildFieldList(config, field.Type, field.Name)
+				f, err := buildFieldList(config, schema, field.Type, field.Name)
 				if err != nil {
 					return "", err
 				}

@@ -83,7 +83,7 @@ type foreignKeyDB struct {
 	OnDelete              string
 }
 
-func getTableSchema(c *Config, entityOrType interface{}) (schema *TableSchema, has bool, err error) {
+func getTableSchema(c *Config, entityOrType interface{}) *TableSchema {
 	asType, ok := entityOrType.(reflect.Type)
 	if ok {
 		return getTableSchemaFromValue(c, asType)
@@ -91,116 +91,8 @@ func getTableSchema(c *Config, entityOrType interface{}) (schema *TableSchema, h
 	return getTableSchemaFromValue(c, reflect.TypeOf(entityOrType))
 }
 
-func getTableSchemaFromValue(c *Config, entityType reflect.Type) (*TableSchema, bool, error) {
-	if c.tableSchemas == nil {
-		c.tableSchemas = make(map[reflect.Type]*TableSchema)
-	}
-	tableSchema, has := c.tableSchemas[entityType]
-	if has {
-		return tableSchema, true, nil
-	}
-	idFieldName := entityType.Field(1).Name
-	tags, columnNames, columnPathMap := tableSchema.extractTags(entityType, "")
-	oneRefs := make([]string, 0)
-	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", columnNames)))
-	columnsStamp := fmt.Sprintf("%x", md5Part[:1])
-	mysql, has := tags["Orm"]["mysql"]
-	if !has {
-		mysql = "default"
-	}
-	table, has := tags["Orm"]["table"]
-	if !has {
-		table = entityType.Name()
-	}
-	localCache := ""
-	redisCache := ""
-	userValue, has := tags["Orm"]["localCache"]
-	if has {
-		if userValue == "true" {
-			userValue = "default"
-		}
-		localCache = userValue
-	}
-	userValue, has = tags["Orm"]["redisCache"]
-	if has {
-		if userValue == "true" {
-			userValue = "default"
-		}
-		redisCache = userValue
-	}
-	cachePrefix := ""
-	if mysql != "default" {
-		cachePrefix = mysql
-	}
-	cachePrefix += table
-	cachedQueries := make(map[string]cachedQueryDefinition)
-	cachedQueriesOne := make(map[string]cachedQueryDefinition)
-	hasFakeDelete := false
-	fakeDeleteField, has := entityType.FieldByName("FakeDelete")
-	if has && fakeDeleteField.Type.String() == "bool" {
-		hasFakeDelete = true
-	}
-	for key, values := range tags {
-		isOne := false
-		query, has := values["query"]
-		if !has {
-			query, has = values["queryOne"]
-			isOne = true
-		}
-		fields := make([]string, 0)
-		if has {
-			re := regexp.MustCompile(":([A-Za-z0-9])+")
-			variables := re.FindAllString(query, -1)
-			for _, variable := range variables {
-				fieldName := variable[1:]
-				if fieldName != idFieldName {
-					fields = append(fields, fieldName)
-				}
-				query = strings.Replace(query, variable, fmt.Sprintf("`%s`", fieldName), 1)
-			}
-			if hasFakeDelete && len(variables) > 0 {
-				fields = append(fields, "FakeDelete")
-			}
-			if query == "" {
-				query = "1 ORDER BY `Id`"
-			}
-			if !isOne {
-				max := 50000
-				maxAttribute, has := values["max"]
-				if has {
-					maxFromUser, err := strconv.Atoi(maxAttribute)
-					if err != nil {
-						return nil, false, err
-					}
-					max = maxFromUser
-				}
-				cachedQueries[key] = cachedQueryDefinition{max, query, fields}
-			} else {
-				cachedQueriesOne[key] = cachedQueryDefinition{1, query, fields}
-			}
-		}
-		_, has = values["ref"]
-		if has {
-			oneRefs = append(oneRefs, key)
-		}
-	}
-	tableSchema = &TableSchema{TableName: table,
-		MysqlPoolName:    mysql,
-		t:                entityType,
-		Tags:             tags,
-		columnNames:      columnNames,
-		columnPathMap:    columnPathMap,
-		columnsStamp:     columnsStamp,
-		cachedIndexes:    cachedQueries,
-		cachedIndexesOne: cachedQueriesOne,
-		localCacheName:   localCache,
-		redisCacheName:   redisCache,
-		refOne:           oneRefs,
-		cachePrefix:      cachePrefix,
-		idFieldName:      idFieldName,
-		hasFakeDelete:    hasFakeDelete}
-	c.tableSchemas[entityType] = tableSchema
-	return tableSchema, true, nil
+func getTableSchemaFromValue(c *Config, entityType reflect.Type) *TableSchema {
+	return c.tableSchemas[entityType]
 }
 
 func (tableSchema *TableSchema) GetType() reflect.Type {
@@ -298,10 +190,7 @@ func (tableSchema *TableSchema) GetUsage(config *Config) (map[reflect.Type][]str
 	results := make(map[reflect.Type][]string)
 	if config.entities != nil {
 		for _, t := range config.entities {
-			schema, err := config.GetTableSchema(t)
-			if err != nil {
-				return nil, err
-			}
+			schema, _ := config.GetTableSchema(t)
 			for _, columnName := range schema.refOne {
 				ref, has := schema.Tags[columnName]["ref"]
 				if has && ref == tableSchema.t.String() {
@@ -633,7 +522,111 @@ OUTER:
 	return has, alters, nil
 }
 
-func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix string) (fields map[string]map[string]string,
+func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
+	idFieldName := entityType.Field(1).Name
+	tags, columnNames, columnPathMap := extractTags(entityType, "")
+	oneRefs := make([]string, 0)
+	md5Part := md5.Sum([]byte(fmt.Sprintf("%v", columnNames)))
+	columnsStamp := fmt.Sprintf("%x", md5Part[:1])
+	mysql, has := tags["Orm"]["mysql"]
+	if !has {
+		mysql = "default"
+	}
+	table, has := tags["Orm"]["table"]
+	if !has {
+		table = entityType.Name()
+	}
+	localCache := ""
+	redisCache := ""
+	userValue, has := tags["Orm"]["localCache"]
+	if has {
+		if userValue == "true" {
+			userValue = "default"
+		}
+		localCache = userValue
+	}
+	userValue, has = tags["Orm"]["redisCache"]
+	if has {
+		if userValue == "true" {
+			userValue = "default"
+		}
+		redisCache = userValue
+	}
+	cachePrefix := ""
+	if mysql != "default" {
+		cachePrefix = mysql
+	}
+	cachePrefix += table
+	cachedQueries := make(map[string]cachedQueryDefinition)
+	cachedQueriesOne := make(map[string]cachedQueryDefinition)
+	hasFakeDelete := false
+	fakeDeleteField, has := entityType.FieldByName("FakeDelete")
+	if has && fakeDeleteField.Type.String() == "bool" {
+		hasFakeDelete = true
+	}
+	for key, values := range tags {
+		isOne := false
+		query, has := values["query"]
+		if !has {
+			query, has = values["queryOne"]
+			isOne = true
+		}
+		fields := make([]string, 0)
+		if has {
+			re := regexp.MustCompile(":([A-Za-z0-9])+")
+			variables := re.FindAllString(query, -1)
+			for _, variable := range variables {
+				fieldName := variable[1:]
+				if fieldName != idFieldName {
+					fields = append(fields, fieldName)
+				}
+				query = strings.Replace(query, variable, fmt.Sprintf("`%s`", fieldName), 1)
+			}
+			if hasFakeDelete && len(variables) > 0 {
+				fields = append(fields, "FakeDelete")
+			}
+			if query == "" {
+				query = "1 ORDER BY `Id`"
+			}
+			if !isOne {
+				max := 50000
+				maxAttribute, has := values["max"]
+				if has {
+					maxFromUser, err := strconv.Atoi(maxAttribute)
+					if err != nil {
+						return nil, err
+					}
+					max = maxFromUser
+				}
+				cachedQueries[key] = cachedQueryDefinition{max, query, fields}
+			} else {
+				cachedQueriesOne[key] = cachedQueryDefinition{1, query, fields}
+			}
+		}
+		_, has = values["ref"]
+		if has {
+			oneRefs = append(oneRefs, key)
+		}
+	}
+	tableSchema := &TableSchema{TableName: table,
+		MysqlPoolName:    mysql,
+		t:                entityType,
+		Tags:             tags,
+		columnNames:      columnNames,
+		columnPathMap:    columnPathMap,
+		columnsStamp:     columnsStamp,
+		cachedIndexes:    cachedQueries,
+		cachedIndexesOne: cachedQueriesOne,
+		localCacheName:   localCache,
+		redisCacheName:   redisCache,
+		refOne:           oneRefs,
+		cachePrefix:      cachePrefix,
+		idFieldName:      idFieldName,
+		hasFakeDelete:    hasFakeDelete}
+	return tableSchema, nil
+}
+
+func extractTags(entityType reflect.Type, prefix string) (fields map[string]map[string]string,
 	columnNames []string, columnPathMap map[string]string) {
 	fields = make(map[string]map[string]string)
 	columnNames = make([]string, 0)
@@ -641,7 +634,7 @@ func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix stri
 	for i := 0; i < entityType.NumField(); i++ {
 		field := entityType.Field(i)
 
-		subTags, subFields, subMap := tableSchema.extractTag(field)
+		subTags, subFields, subMap := extractTag(field)
 		for k, v := range subTags {
 			fields[prefix+k] = v
 		}
@@ -691,7 +684,7 @@ func (tableSchema *TableSchema) extractTags(entityType reflect.Type, prefix stri
 	return
 }
 
-func (tableSchema *TableSchema) extractTag(field reflect.StructField) (map[string]map[string]string, []string, map[string]string) {
+func extractTag(field reflect.StructField) (map[string]map[string]string, []string, map[string]string) {
 	tag, ok := field.Tag.Lookup("orm")
 	if ok {
 		args := strings.Split(tag, ";")
@@ -708,7 +701,7 @@ func (tableSchema *TableSchema) extractTag(field reflect.StructField) (map[strin
 		return map[string]map[string]string{field.Name: attributes}, nil, nil
 	} else if field.Type.Kind().String() == "struct" {
 		if field.Type.String() != "time.Time" {
-			return tableSchema.extractTags(field.Type, field.Name)
+			return extractTags(field.Type, field.Name)
 		}
 	}
 	return make(map[string]map[string]string), nil, nil
@@ -739,10 +732,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 			if !hasRef {
 				return nil, EntityNotRegisteredError{Name: attributes["ref"]}
 			}
-			schema, err := engine.config.GetTableSchema(t)
-			if err != nil {
-				return nil, err
-			}
+			schema, _ := engine.config.GetTableSchema(t)
 			onDelete := "RESTRICT"
 			_, hasCascade := attributes["cascade"]
 			if hasCascade {

@@ -15,7 +15,7 @@ func InitByYaml(yaml map[interface{}]interface{}) (config *Config, err error) {
 	if !ok {
 		return nil, fmt.Errorf("invalid orm section in config")
 	}
-	config = &Config{}
+	registry := &Registry{}
 	for key, data := range asMap {
 		dataAsMap, ok := data.(map[interface{}]interface{})
 		if !ok {
@@ -28,12 +28,12 @@ func InitByYaml(yaml map[interface{}]interface{}) (config *Config, err error) {
 		for dataKey, value := range dataAsMap {
 			switch dataKey {
 			case "mysql":
-				err := validateOrmMysqlUri(config, value, keyAsString)
+				err := validateOrmMysqlUri(registry, value, keyAsString)
 				if err != nil {
 					return nil, err
 				}
 			case "redis":
-				err := validateRedisUri(config, value, keyAsString)
+				err := validateRedisUri(registry, value, keyAsString)
 				if err != nil {
 					return nil, err
 				}
@@ -42,40 +42,37 @@ func InitByYaml(yaml map[interface{}]interface{}) (config *Config, err error) {
 				if err != nil {
 					return nil, err
 				}
-				config.RegisterLazyQueue(keyAsString, valAsString)
+				registry.RegisterLazyQueue(keyAsString, valAsString)
 			case "dirtyQueue":
 				valAsString, err := validateOrmString(value, keyAsString)
 				if err != nil {
 					return nil, err
 				}
-				config.RegisterDirtyQueue(keyAsString, &RedisDirtyQueueSender{PoolName: valAsString})
+				registry.RegisterDirtyQueue(keyAsString, &RedisDirtyQueueSender{PoolName: valAsString})
 			case "localCache":
 				number, err := validateOrmInt(value, keyAsString)
 				if err != nil {
 					return nil, err
 				}
-				config.RegisterLocalCache(number, keyAsString)
+				registry.RegisterLocalCache(number, keyAsString)
 			default:
 				return nil, fmt.Errorf("invalid key %s in orm section", dataKey)
 			}
 		}
 	}
-	return config, nil
+	return registry.CreateConfig()
 }
 
-func validateOrmMysqlUri(config *Config, value interface{}, key string) error {
+func validateOrmMysqlUri(registry *Registry, value interface{}, key string) error {
 	asString, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("invalid mysql uri: %v", value)
 	}
-	err := config.RegisterMySqlPool(asString, key)
-	if err != nil {
-		return fmt.Errorf("mysql connetion error (%s): %s", key, err.Error())
-	}
+	registry.RegisterMySqlPool(asString, key)
 	return nil
 }
 
-func validateRedisUri(config *Config, value interface{}, key string) error {
+func validateRedisUri(registry *Registry, value interface{}, key string) error {
 	asString, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("invalid mysql uri: %v", value)
@@ -86,7 +83,7 @@ func validateRedisUri(config *Config, value interface{}, key string) error {
 		return fmt.Errorf("invalid redis uri: %v", value)
 	}
 	uri := fmt.Sprintf("%s:%s", elements[0], elements[1])
-	config.RegisterRedis(uri, int(db), key)
+	registry.RegisterRedis(uri, int(db), key)
 	return nil
 }
 

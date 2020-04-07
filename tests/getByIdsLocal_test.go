@@ -15,7 +15,7 @@ type TestEntityByIdsLocal struct {
 func TestGetByIdsLocal(t *testing.T) {
 
 	var entity TestEntityByIdsLocal
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	err := engine.Flush(&TestEntityByIdsLocal{Name: "Hi"}, &TestEntityByIdsLocal{Name: "Hello"})
 	assert.Nil(t, err)
@@ -56,7 +56,7 @@ func TestGetByIdsLocal(t *testing.T) {
 
 func BenchmarkGetByIdsLocal(b *testing.B) {
 	var entity TestEntityByIdsLocal
-	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity)
+	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	_ = engine.Flush(&TestEntityByIdsLocal{Name: "Hi 1"}, &TestEntityByIdsLocal{Name: "Hi 2"}, &TestEntityByIdsLocal{Name: "Hi 3"})
 

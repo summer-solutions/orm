@@ -39,10 +39,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 	alters = make([]Alter, 0)
 	if engine.config.entities != nil {
 		for _, t := range engine.config.entities {
-			tableSchema, _, err := getTableSchema(engine.config, t)
-			if err != nil {
-				return nil, err
-			}
+			tableSchema := getTableSchema(engine.config, t)
 			tablesInEntities[tableSchema.MysqlPoolName][tableSchema.TableName] = true
 			has, newAlters, err := tableSchema.GetSchemaChanges(engine)
 			if err != nil {

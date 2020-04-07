@@ -15,7 +15,7 @@ type TestEntityFlushLazy struct {
 
 func TestFlushLazy(t *testing.T) {
 	var entity TestEntityFlushLazy
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, _ := engine.GetMysql()

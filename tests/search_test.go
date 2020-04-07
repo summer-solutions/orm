@@ -22,7 +22,7 @@ type TestEntitySearchRef struct {
 
 func TestSearch(t *testing.T) {
 
-	engine := PrepareTables(t, &orm.Config{}, TestEntitySearch{}, TestEntitySearchRef{})
+	engine := PrepareTables(t, &orm.Registry{}, TestEntitySearch{}, TestEntitySearchRef{})
 	var entity TestEntitySearch
 
 	var entities = make([]interface{}, 10)

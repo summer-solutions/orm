@@ -12,29 +12,28 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    config := &orm.Config{}
+    registry := &orm.Registry{}
 
     /*MySQL */
-    config.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
     //optionally you can define pool name as second argument
-    config.RegisterMySqlPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
+    registry.RegisterMySqlPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
 
     /* Redis */
-    config.RegisterRedis("localhost:6379", 0) //seconds argument is a redis database number
+    registry.RegisterRedis("localhost:6379", 0) //seconds argument is a redis database number
     //optionally you can define pool name as second argument
-    config.RegisterRedis("localhost:6379", 1, "second_pool")
+    registry.RegisterRedis("localhost:6379", 1, "second_pool")
 
     /* Redis used to handle queues (explained later) */
-    config.RegisterRedis("localhost:6379", 3, "queues_pool")
-    config.RegisterLazyQueue("default", "queues_pool")//if not defined orm is using default redis pool
+    registry.RegisterRedis("localhost:6379", 3, "queues_pool")
+    registry.RegisterLazyQueue("default", "queues_pool")//if not defined orm is using default redis pool
 
     /* Local cache (in memory) */
-    config.RegisterLocalCache(1000) //you need to define cache size
+    registry.RegisterLocalCache(1000) //you need to define cache size
     //optionally you can define pool name as second argument
-    config.RegisterLocalCache(100, "second_pool")
+    registry.RegisterLocalCache(100, "second_pool")
     
-    //you should execute at least once
-    err := config.Validate()
+    config, err := registry.CreateConfig()
 
 }
 
@@ -164,9 +163,9 @@ func main() {
     	Id                   uint
     }
 
-    config := &orm.Config{}
-    config.RegisterEntity(TestEntitySchema{}, TestEntitySchemaRef{}, TestEntitySecondPool{})
-    config.RegisterEnum("Color", Color)
+    registry := &orm.Registry{}
+    registry.RegisterEntity(TestEntitySchema{}, TestEntitySchemaRef{}, TestEntitySecondPool{})
+    registry.RegisterEnum("Color", Color)
 
 }
 ```
@@ -245,8 +244,9 @@ There are only two golden rules you need to remember defining entity struct:
     
     var firstEntity  FirstEntity
     var secondEntity SecondEntity
-    config := &orm.Config{}
-	config.RegisterEntity(firstEntity, secondEntity)
+    registry := &orm.Registry{}
+	registry.RegisterEntity(firstEntity, secondEntity)
+    config, err := registry.CreateConfig()
     
     engine := orm.NewEngine(config)
     alters, err := engine.GetAlters()
@@ -271,8 +271,8 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    config := &orm.Config{}
-    config.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry := &orm.Registry{}
+    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
 
     type TestEntity struct {
         Orm                  *orm.ORM
@@ -280,9 +280,10 @@ func main() {
         Name                 string
     }
     var entity TestEntity
-    config.RegisterEntity(entity)
+    registry.RegisterEntity(entity)
     //code above you should execute only once, when application starts
     
+    config, err := registry.NewConfig()
     engine := orm.NewEngine(config)
 
     entity = TestEntity{Name: "Name 1"}
@@ -346,8 +347,9 @@ func main() {
         Name                 string
     }
     var entity TestEntity
-    config := &orm.Config{}
+    registry := &orm.Registry{}
    //.. register pools and entities
+    config, err := registry.NewConfig()
     engine := orm.NewEngine(config)
 
     found, err := engine.TryById(1, &entity) //found has false if row does not exists
@@ -378,8 +380,9 @@ func main() {
         Id                   uint
         Name                 string
     }
-    config := &orm.Config{}
+    registry := &orm.Registry{}
    //.. register pools and entities
+    config, err := registry.CreateConfig()
     engine := orm.NewEngine(config)
 
     var entities []*TestEntity
@@ -424,8 +427,9 @@ func main() {
         Id                   uint
         Name                 string
     }
-    config := &orm.Config{}
+    registry := &orm.Registry{}
    //.. register pools and entities
+    config, err := registry.CreateConfig()
     engine := orm.NewEngine(config)
 
     /* In this case flusher will keep maximum 10000 entities. If you add more it will panic */
@@ -505,8 +509,9 @@ func main() {
         Id                   uint64
         User                 *orm.ReferenceOne  `orm:"ref=UserEntity;cascade"`
     }
-    config := &orm.Config{}
+    registry := &orm.Registry{}
    //.. register pools and entities
+    config, err := registry.CreateConfig()
     engine := orm.NewEngine(config)
 
 
@@ -572,8 +577,9 @@ func main() {
         IndexAll             *orm.CachedQuery `query:""`
         IndexName            *orm.CachedQuery `queryOne:":Name = ?"`
     }
-    config := &orm.Config{}
-   //.. register pools and entities
+    registry := &orm.Registry{}
+    //.. register pools and entities
+    config, err := registry.CreateConfig()
     engine := orm.NewEngine(config)
     
     user := UserEntity{Name: "John", Age: 18}
@@ -603,12 +609,10 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    config := &orm.Config{}
-
-    config.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
-    config.RegisterRedis("localhost:6379", 3, "queues_pool")
-    config.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
-    //.. register entities
+    registry := &orm.Registry{}
+    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry.RegisterRedis("localhost:6379", 3, "queues_pool")
+    registry.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
 
  
     type UserEntity struct {
@@ -616,7 +620,7 @@ func main() {
         Id                   uint64
         Name                 string
     }
-   //.. register pools and entities
+    config, err := registry.CreateConfig()
     engine := orm.NewEngine(config)
     
     user := UserEntity{Name: "John"}
@@ -663,11 +667,11 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    config := &orm.Config{}
+    registry := &orm.Registry{}
 
-    config.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
-    config.RegisterRedis("localhost:6379", 3, "queues_pool")
-    config.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
+    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry.RegisterRedis("localhost:6379", 3, "queues_pool")
+    registry.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
     //.. register entities
 
  
@@ -676,8 +680,8 @@ func main() {
         Id                   uint64
         Name                 string
     }
-
-    //.. register pools and entities
+    
+    config, err := registry.CreateConfig()
     engine := orm.NewEngine(config)
     
     var user UserEntity
@@ -838,8 +842,9 @@ import "github.com/summer-solutions/orm"
 
 func main() {
     
-    config := &orm.Config{}
-    config.RegisterLocalCache(1000)
+    registry := &orm.Registry{}
+    registry.RegisterLocalCache(1000)
+    config, err := registry.CreateConfig()
     engine := orm.NewEngine(config)
     
     //storing data in cached for x seconds
@@ -887,8 +892,9 @@ import (
 
 func main() {
 
-    config := &orm.Config{}
-    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry := &orm.Registry{}
+    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    config, err := registry.CreateConfig()
     engine := orm.NewEngine(config)
 
     res, err := engine.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `Id` = ?", "Hello", 2)

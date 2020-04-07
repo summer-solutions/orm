@@ -23,9 +23,9 @@ func TestDirtyQueue(t *testing.T) {
 
 	entityAll := TestEntityDirtyQueueAll{Name: "Name"}
 	entityAge := TestEntityDirtyQueueAge{Name: "Name", Age: 18}
-	config := &orm.Config{}
-	config.RegisterDirtyQueue("test", &orm.RedisDirtyQueueSender{PoolName: "default_queue"})
-	engine := PrepareTables(t, config, entityAll, entityAge)
+	registry := &orm.Registry{}
+	registry.RegisterDirtyQueue("test", &orm.RedisDirtyQueueSender{PoolName: "default_queue"})
+	engine := PrepareTables(t, registry, entityAll, entityAge)
 
 	LoggerRedisQueue := &TestCacheLogger{}
 	cache, _ := engine.GetRedis("default_queue")

@@ -31,14 +31,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 
 	}
 
-	schema, has, err := getTableSchema(engine.config, t)
-	if err != nil {
-		return nil, err
-	}
-	if !has {
-		return nil, EntityNotRegisteredError{Name: t.String()}
-	}
-
+	schema := getTableSchema(engine.config, t)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
 	var localCacheKeys []string
