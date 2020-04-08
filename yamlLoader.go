@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func InitByYaml(yaml map[interface{}]interface{}) (config *Config, err error) {
+func InitByYaml(yaml map[interface{}]interface{}) (registry *Registry, err error) {
 	configData, has := yaml["orm"]
 	if !has {
 		return nil, fmt.Errorf("missing orm section in config")
@@ -15,7 +15,7 @@ func InitByYaml(yaml map[interface{}]interface{}) (config *Config, err error) {
 	if !ok {
 		return nil, fmt.Errorf("invalid orm section in config")
 	}
-	registry := &Registry{}
+	registry = &Registry{}
 	for key, data := range asMap {
 		dataAsMap, ok := data.(map[interface{}]interface{})
 		if !ok {
@@ -60,7 +60,7 @@ func InitByYaml(yaml map[interface{}]interface{}) (config *Config, err error) {
 			}
 		}
 	}
-	return registry.CreateConfig()
+	return registry, nil
 }
 
 func validateOrmMysqlUri(registry *Registry, value interface{}, key string) error {
