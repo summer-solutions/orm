@@ -51,10 +51,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	if !has {
 		return false, EntityNotRegisteredError{Name: val[0]}
 	}
-	schema, _, err := getTableSchema(r.engine.config, t)
-	if err != nil {
-		return false, err
-	}
+	schema := getTableSchema(r.engine.config, t)
 	cacheEntity, hasRedis := schema.GetRedisCacheContainer(r.engine)
 	if !hasRedis {
 		return true, nil

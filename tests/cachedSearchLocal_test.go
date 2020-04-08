@@ -28,7 +28,7 @@ type TestEntityIndexTestLocalRef struct {
 func TestCachedSearchLocal(t *testing.T) {
 	var entity TestEntityIndexTestLocal
 	var entityRef TestEntityIndexTestLocalRef
-	engine := PrepareTables(t, &orm.Config{}, entityRef, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entityRef, entity)
 
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestLocalRef{Name: "Name " + strconv.Itoa(i)}
@@ -182,7 +182,7 @@ func TestCachedSearchLocal(t *testing.T) {
 func BenchmarkCachedSearchLocal(b *testing.B) {
 	var entity TestEntityIndexTestLocal
 	var entityRef TestEntityIndexTestLocalRef
-	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity, entityRef)
+	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity, entityRef)
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {

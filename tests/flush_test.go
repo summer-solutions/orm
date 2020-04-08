@@ -37,10 +37,10 @@ type TestEntityFlushCacheRedis struct {
 }
 
 func TestFlush(t *testing.T) {
-	config := &orm.Config{}
-	config.RegisterEnum("tests.Color", Color)
+	registry := &orm.Registry{}
+	registry.RegisterEnum("tests.Color", Color)
 	var entity TestEntityFlush
-	engine := PrepareTables(t, config, entity)
+	engine := PrepareTables(t, registry, entity)
 
 	var entities = make([]*TestEntityFlush, 10)
 	flusher := orm.Flusher{}
@@ -120,7 +120,7 @@ func TestFlush(t *testing.T) {
 func TestFlushTransactionLocalCache(t *testing.T) {
 
 	entity := TestEntityFlushCacheLocal{Name: "Name"}
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
@@ -169,7 +169,7 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 func TestFlushTransactionRedisCache(t *testing.T) {
 
 	entity := TestEntityFlushCacheRedis{Name: "Name"}
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()

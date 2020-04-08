@@ -41,7 +41,7 @@ func (e *TestEntityInterfaces) AfterSaved(engine *orm.Engine) error {
 }
 
 func TestInterfaces(t *testing.T) {
-	engine := PrepareTables(t, &orm.Config{}, TestEntityInterfaces{}, TestEntityInterfacesRef{})
+	engine := PrepareTables(t, &orm.Registry{}, TestEntityInterfaces{}, TestEntityInterfacesRef{})
 
 	err := engine.Flush(&TestEntityInterfacesRef{})
 	assert.Nil(t, err)

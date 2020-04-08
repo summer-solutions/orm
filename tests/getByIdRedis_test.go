@@ -44,7 +44,7 @@ type TestEntityByIdRedis struct {
 
 func TestGetByIdRedis(t *testing.T) {
 	var entity TestEntityByIdRedis
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	found, err := engine.TryById(100, &entity)
 	assert.Nil(t, err)
@@ -164,7 +164,7 @@ func TestGetByIdRedis(t *testing.T) {
 
 func BenchmarkGetById(b *testing.B) {
 	var entity TestEntityByIdRedis
-	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity)
+	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	entity = TestEntityByIdRedis{}
 	_ = engine.Flush(&entity)

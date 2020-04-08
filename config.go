@@ -1,10 +1,7 @@
 package orm
 
 import (
-	"database/sql"
 	"fmt"
-	"github.com/go-redis/redis/v7"
-	"github.com/golang/groupcache/lru"
 	"reflect"
 	"strings"
 )
@@ -43,97 +40,29 @@ func (e RedisCachePoolNotRegisteredError) Error() string {
 
 type Config struct {
 	tableSchemas         map[reflect.Type]*TableSchema
-	sqlClients           map[string]*DBConfig
-	localCacheContainers map[string]*LocalCacheConfig
-	redisServers         map[string]*RedisCacheConfig
 	entities             map[string]reflect.Type
-	enums                map[string]reflect.Value
+	sqlClients           map[string]*DBConfig
 	dirtyQueues          map[string]DirtyQueueSender
 	lazyQueuesCodes      map[string]string
-	lazyQueuesCodesNames []string
+	localCacheContainers map[string]*LocalCacheConfig
+	redisServers         map[string]*RedisCacheConfig
+	enums                map[string]reflect.Value
 }
 
-func (c *Config) RegisterEntity(entity ...interface{}) {
-	if c.entities == nil {
-		c.entities = make(map[string]reflect.Type)
-	}
-	for _, e := range entity {
-		t := reflect.TypeOf(e)
-		c.entities[t.String()] = t
-	}
-}
-
-func (c *Config) RegisterEnum(name string, enum interface{}) {
-	if c.enums == nil {
-		c.enums = make(map[string]reflect.Value)
-	}
-	c.enums[name] = reflect.Indirect(reflect.ValueOf(enum))
-}
-
-func (c *Config) RegisterMySqlPool(dataSourceName string, code ...string) error {
-	return c.registerSqlPool(dataSourceName, code...)
-}
-
-func (c *Config) RegisterLocalCache(size int, code ...string) {
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	if c.localCacheContainers == nil {
-		c.localCacheContainers = make(map[string]*LocalCacheConfig)
-	}
-	c.localCacheContainers[dbCode] = &LocalCacheConfig{code: dbCode, lru: lru.New(size)}
-}
-
-func (c *Config) RegisterRedis(address string, db int, code ...string) {
-	client := redis.NewClient(&redis.Options{
-		Addr: address,
-		DB:   db,
-	})
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	redisCache := &RedisCacheConfig{code: dbCode, client: client}
-	if c.redisServers == nil {
-		c.redisServers = make(map[string]*RedisCacheConfig)
-	}
-	c.redisServers[dbCode] = redisCache
-}
-
-func (c *Config) RegisterDirtyQueue(code string, sender DirtyQueueSender) {
-	if c.dirtyQueues == nil {
-		c.dirtyQueues = make(map[string]DirtyQueueSender)
-	}
-	c.dirtyQueues[code] = sender
-}
-
-func (c *Config) GetTableSchema(entityOrTypeOrName interface{}) (schema *TableSchema, err error) {
+func (c *Config) GetTableSchema(entityOrTypeOrName interface{}) (tableSchema *TableSchema, has bool) {
 	asString, is := entityOrTypeOrName.(string)
 	var val interface{}
 	if is {
 		t, has := c.getEntityType(asString)
 		if !has {
-			return nil, EntityNotRegisteredError{Name: asString}
+			return nil, false
 		}
 		val = t
 	} else {
 		val = entityOrTypeOrName
 	}
-	schema, has, err := getTableSchema(c, val)
-	if err != nil {
-		return nil, err
-	}
-	if !has {
-		asType, ok := val.(reflect.Type)
-		if ok {
-			asString = asType.String()
-		} else {
-			asString = reflect.TypeOf(val).String()
-		}
-		return nil, EntityNotRegisteredError{Name: asString}
-	}
-	return schema, nil
+	tableSchema = getTableSchema(c, val)
+	return tableSchema, tableSchema != nil
 }
 
 func (c *Config) GetDirtyQueueCodes() []string {
@@ -146,48 +75,14 @@ func (c *Config) GetDirtyQueueCodes() []string {
 	return codes
 }
 
-func (c *Config) RegisterLazyQueue(code string, redisCode string) {
-	if c.lazyQueuesCodes == nil {
-		c.lazyQueuesCodes = make(map[string]string)
-	}
-	c.lazyQueuesCodes[code] = redisCode
-	if c.lazyQueuesCodesNames == nil {
-		c.lazyQueuesCodesNames = make([]string, 0)
-	}
-	c.lazyQueuesCodesNames = append(c.lazyQueuesCodesNames, code)
-}
-
 func (c *Config) GetLazyQueueCodes() []string {
-	if c.lazyQueuesCodesNames == nil {
-		c.lazyQueuesCodesNames = make([]string, 0)
+	codes := make([]string, len(c.lazyQueuesCodes))
+	i := 0
+	for code := range c.lazyQueuesCodes {
+		codes[i] = code
+		i++
 	}
-	return c.lazyQueuesCodesNames
-}
-
-func (c *Config) Validate() error {
-	for _, entity := range c.entities {
-		_, _, err := getTableSchemaFromValue(c, entity)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *Config) registerSqlPool(dataSourceName string, code ...string) error {
-	sqlDB, _ := sql.Open("mysql", dataSourceName)
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	db := &DBConfig{code: dbCode, db: sqlDB}
-	if c.sqlClients == nil {
-		c.sqlClients = make(map[string]*DBConfig)
-	}
-	parts := strings.Split(dataSourceName, "/")
-	db.databaseName = parts[len(parts)-1]
-	c.sqlClients[dbCode] = db
-	return nil
+	return codes
 }
 
 func (c *Config) getEntityType(name string) (t reflect.Type, has bool) {

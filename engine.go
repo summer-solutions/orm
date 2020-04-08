@@ -175,21 +175,15 @@ func (e *Engine) initIfNeeded(value reflect.Value) (*ORM, error) {
 	elem := value.Elem()
 	orm := elem.Field(0).Interface().(*ORM)
 	if orm == nil {
-		tableSchema, has, err := getTableSchema(e.config, elem.Type())
-		if err != nil {
-			return nil, err
-		}
-		if !has {
+		tableSchema := getTableSchema(e.config, elem.Type())
+		if tableSchema == nil {
 			return nil, EntityNotRegisteredError{Name: elem.Type().String()}
 		}
 		orm = &ORM{dBData: make(map[string]interface{}), elem: elem, tableSchema: tableSchema}
 		elem.Field(0).Set(reflect.ValueOf(orm))
 		for _, code := range tableSchema.refOne {
 			reference := tableSchema.Tags[code]["ref"]
-			t, has := e.config.getEntityType(reference)
-			if !has {
-				return nil, EntityNotRegisteredError{Name: elem.Type().String()}
-			}
+			t, _ := e.config.getEntityType(reference)
 			def := ReferenceOne{t: t}
 			elem.FieldByName(code).Set(reflect.ValueOf(&def))
 		}

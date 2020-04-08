@@ -23,7 +23,7 @@ func TestEntityByIdsRedis(t *testing.T) {
 
 	var entity TestEntityByIdsRedisCache
 	var entityRef TestEntityByIdsRedisCacheRef
-	engine := PrepareTables(t, &orm.Config{}, entityRef, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entityRef, entity)
 
 	flusher := orm.Flusher{}
 	for i := 1; i <= 10; i++ {
@@ -96,7 +96,7 @@ func TestEntityByIdsRedis(t *testing.T) {
 
 func BenchmarkGetByIdsRedis(b *testing.B) {
 	var entity TestEntityByIdsRedisCache
-	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity)
+	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	_ = engine.Flush(&TestEntityByIdsRedisCache{Name: "Hi 1"}, &TestEntityByIdsRedisCache{Name: "Hi 2"}, &TestEntityByIdsRedisCache{Name: "Hi 3"})
 	var found []TestEntityByIdsRedisCache

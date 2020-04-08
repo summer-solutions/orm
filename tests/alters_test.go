@@ -97,11 +97,8 @@ type TestEntitySchemaRef struct {
 
 func TestGetAlters(t *testing.T) {
 
-	config := &orm.Config{}
-
-	err := config.RegisterMySqlPool("root:root@tcp(localhost:3308)/test_schema", "schema")
-	assert.Nil(t, err)
-	engine := orm.NewEngine(config)
+	registry := &orm.Registry{}
+	registry.RegisterMySqlPool("root:root@tcp(localhost:3308)/test_schema", "schema")
 
 	var entity TestEntitySchema
 	var entityRef TestEntitySchemaRef
@@ -111,20 +108,22 @@ func TestGetAlters(t *testing.T) {
 	var ref2 TestEntitySchema2EntityRef2
 	var ref3 TestEntitySchema2EntityRef3
 
-	config.RegisterEntity(entity, entityRef, entity2, ref1, ref2, ref3)
-	config.RegisterEnum("tests.Color", Color)
-	tableSchema, err := config.GetTableSchema(entity)
+	registry.RegisterEntity(entity, entityRef, entity2, ref1, ref2, ref3)
+	registry.RegisterEnum("tests.Color", Color)
+
+	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
+	engine := orm.NewEngine(config)
+
+	tableSchema, _ := config.GetTableSchema(entity)
 	err = tableSchema.DropTable(engine)
 	assert.Nil(t, err)
-	tableSchemaRef, err := config.GetTableSchema(entityRef)
-	assert.Nil(t, err)
+	tableSchemaRef, _ := config.GetTableSchema(entityRef)
 	err = tableSchemaRef.DropTable(engine)
 	assert.Nil(t, err)
 	err = tableSchemaRef.DropTable(engine)
 	assert.Nil(t, err)
-	tableSchemaRef, err = config.GetTableSchema(entity2)
-	assert.Nil(t, err)
+	tableSchemaRef, _ = config.GetTableSchema(entity2)
 	err = tableSchemaRef.DropTable(engine)
 	assert.Nil(t, err)
 	_, err = engine.GetAlters()

@@ -168,11 +168,8 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		}
 	}
 	for typeOf, values := range insertKeys {
-		schema, has, err := getTableSchema(engine.config, typeOf)
-		if err != nil {
-			return err
-		}
-		if !has {
+		schema := getTableSchema(engine.config, typeOf)
+		if schema == nil {
 			return EntityNotRegisteredError{Name: typeOf.String()}
 		}
 		finalValues := make([]string, len(values))
@@ -238,11 +235,8 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		}
 	}
 	for typeOf, deleteBinds := range deleteBinds {
-		schema, has, err := getTableSchema(engine.config, typeOf)
-		if err != nil {
-			return err
-		}
-		if !has {
+		schema := getTableSchema(engine.config, typeOf)
+		if schema == nil {
 			return EntityNotRegisteredError{Name: typeOf.String()}
 		}
 		ids := make([]interface{}, len(deleteBinds))
@@ -263,13 +257,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			if len(usage) > 0 {
 				for refT, refColumns := range usage {
 					for _, refColumn := range refColumns {
-						refSchema, has, err := getTableSchema(engine.config, refT)
-						if err != nil {
-							return err
-						}
-						if !has {
-							return EntityNotRegisteredError{Name: refT.String()}
-						}
+						refSchema := getTableSchema(engine.config, refT)
 						_, isCascade := refSchema.Tags[refColumn]["cascade"]
 						if isCascade {
 							subValue := reflect.New(reflect.SliceOf(reflect.PtrTo(refT)))
@@ -469,13 +457,7 @@ func handleLazyReferences(engine *Engine, entities ...interface{}) error {
 	for _, entity := range entities {
 		dirty := false
 		value := reflect.Indirect(reflect.ValueOf(entity))
-		schema, has, err := getTableSchema(engine.config, value.Type())
-		if err != nil {
-			return err
-		}
-		if !has {
-			return EntityNotRegisteredError{Name: value.Type().String()}
-		}
+		schema := getTableSchema(engine.config, value.Type())
 		for _, columnName := range schema.refOne {
 			refOne := value.FieldByName(columnName).Interface().(*ReferenceOne)
 			if refOne.Id == 0 && refOne.Reference != nil {

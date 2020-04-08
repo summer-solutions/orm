@@ -19,7 +19,7 @@ type TestEntityIndexTestRedis struct {
 func TestCachedSearchRedis(t *testing.T) {
 
 	var entity TestEntityIndexTestRedis
-	engine := PrepareTables(t, &orm.Config{}, entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
@@ -169,7 +169,7 @@ func TestCachedSearchRedis(t *testing.T) {
 
 func BenchmarkCachedRedis(b *testing.B) {
 	var entity TestEntityIndexTestRedis
-	engine := PrepareTables(&testing.T{}, &orm.Config{}, entity)
+	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {

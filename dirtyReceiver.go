@@ -38,7 +38,7 @@ func (r *DirtyReceiver) GetEntities() []string {
 	if r.engine.config.entities != nil {
 	Exit:
 		for name, t := range r.engine.config.entities {
-			schema, _, _ := getTableSchema(r.engine.config, t)
+			schema := getTableSchema(r.engine.config, t)
 			for _, tags := range schema.Tags {
 				queues, has := tags["dirty"]
 				if !has {
@@ -79,11 +79,8 @@ func (r *DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err err
 		if !has {
 			return false, EntityNotRegisteredError{Name: val[0]}
 		}
-		tableSchema, has, err := getTableSchema(r.engine.config, t)
-		if err != nil {
-			continue
-		}
-		if !has {
+		tableSchema := getTableSchema(r.engine.config, t)
+		if tableSchema == nil {
 			return false, EntityNotRegisteredError{Name: val[0]}
 		}
 		id, err := strconv.ParseUint(val[2], 10, 64)

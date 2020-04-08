@@ -16,8 +16,8 @@ type TestEntityFakeDelete struct {
 }
 
 func TestFakeDelete(t *testing.T) {
-	config := &orm.Config{}
-	engine := PrepareTables(t, config, TestEntityFakeDelete{})
+	registry := &orm.Registry{}
+	engine := PrepareTables(t, registry, TestEntityFakeDelete{})
 
 	entity := &TestEntityFakeDelete{}
 	entity.Name = "one"

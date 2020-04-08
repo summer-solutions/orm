@@ -25,7 +25,7 @@ type TestEntityDeleteReferenceRefCascade struct {
 }
 
 func TestDeleteReference(t *testing.T) {
-	engine := PrepareTables(t, &orm.Config{}, TestEntityDeleteReference{},
+	engine := PrepareTables(t, &orm.Registry{}, TestEntityDeleteReference{},
 		TestEntityDeleteReferenceRefRestrict{}, TestEntityDeleteReferenceRefCascade{})
 	entity1 := &TestEntityDeleteReference{}
 	entity2 := &TestEntityDeleteReference{}

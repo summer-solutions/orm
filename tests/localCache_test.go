@@ -8,8 +8,10 @@ import (
 
 func TestGetSetLocal(t *testing.T) {
 
-	config := &orm.Config{}
-	config.RegisterLocalCache(10)
+	registry := &orm.Registry{}
+	registry.RegisterLocalCache(10)
+	config, err := registry.CreateConfig()
+	assert.Nil(t, err)
 	engine := orm.NewEngine(config)
 
 	testLogger := &TestCacheLogger{}
