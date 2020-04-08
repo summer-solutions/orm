@@ -183,10 +183,7 @@ func (e *Engine) initIfNeeded(value reflect.Value) (*ORM, error) {
 		elem.Field(0).Set(reflect.ValueOf(orm))
 		for _, code := range tableSchema.refOne {
 			reference := tableSchema.Tags[code]["ref"]
-			t, has := e.config.getEntityType(reference)
-			if !has {
-				return nil, EntityNotRegisteredError{Name: elem.Type().String()}
-			}
+			t, _ := e.config.getEntityType(reference)
 			def := ReferenceOne{t: t}
 			elem.FieldByName(code).Set(reflect.ValueOf(&def))
 		}

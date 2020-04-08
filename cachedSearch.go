@@ -17,9 +17,6 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 		return 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
 	schema := getTableSchema(engine.config, entityType)
-	if schema == nil {
-		return 0, EntityNotRegisteredError{Name: entityType.String()}
-	}
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
 		return 0, fmt.Errorf("uknown index %s", indexName)
@@ -35,9 +32,6 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
-	if !hasLocalCache && !hasRedis {
-		return 0, fmt.Errorf("missing entity cache definition")
-	}
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	if clear {
 		if hasLocalCache {
@@ -203,9 +197,6 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
-	if !hasLocalCache && !hasRedis {
-		return false, fmt.Errorf("missing entity cache definition")
-	}
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	if clear {
 		if hasLocalCache {
