@@ -419,7 +419,6 @@ OUTER:
 			hasAlters = true
 		}
 	}
-
 	if !hasAlters {
 		return
 	}
@@ -471,7 +470,9 @@ OUTER:
 		newAltersAddForeignKey = append(newAltersAddForeignKey, fmt.Sprintf("    %s", value))
 		hasAlterAddForeignKey = true
 	}
+
 	for x := 0; x < len(newAlters)-1; x++ {
+		hasAlterNormal = true
 		alterSql += newAlters[x] + ","
 		if comments[x] != "" {
 			alterSql += fmt.Sprintf("/*%s*/", comments[x])
@@ -480,6 +481,7 @@ OUTER:
 	}
 	lastIndex := len(newAlters) - 1
 	if lastIndex >= 0 {
+		hasAlterNormal = true
 		alterSql += newAlters[lastIndex] + ";"
 		if comments[lastIndex] != "" {
 			alterSql += fmt.Sprintf("/*%s*/", comments[lastIndex])
