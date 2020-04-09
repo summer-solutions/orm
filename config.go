@@ -46,6 +46,7 @@ type Config struct {
 	lazyQueuesCodes      map[string]string
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
+	lockServers          map[string]string
 	enums                map[string]reflect.Value
 }
 

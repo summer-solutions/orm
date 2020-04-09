@@ -2,6 +2,7 @@ package orm
 
 import (
 	"container/list"
+	"github.com/bsm/redislock"
 	"reflect"
 )
 
@@ -10,6 +11,7 @@ type Engine struct {
 	dbs        map[string]*DB
 	localCache map[string]*LocalCache
 	redis      map[string]*RedisCache
+	locks      map[string]*Locker
 }
 
 func NewEngine(config *Config) *Engine {
@@ -30,6 +32,13 @@ func NewEngine(config *Config) *Engine {
 	if e.config.redisServers != nil {
 		for key, val := range e.config.redisServers {
 			e.redis[key] = &RedisCache{engine: e, code: val.code, client: val.client}
+		}
+	}
+	e.locks = make(map[string]*Locker)
+	if e.config.lockServers != nil {
+		for key, val := range e.config.lockServers {
+			locker := redislock.New(e.config.redisServers[val].client)
+			e.locks[key] = &Locker{locker: locker}
 		}
 	}
 	return e
@@ -64,6 +73,15 @@ func (e *Engine) GetRedis(code ...string) (cache *RedisCache, has bool) {
 	}
 	cache, has = e.redis[dbCode]
 	return cache, has
+}
+
+func (e *Engine) GetLocker(code ...string) (locker *Locker, has bool) {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	locker, has = e.locks[dbCode]
+	return locker, has
 }
 
 func (e *Engine) IsDirty(entity interface{}) bool {

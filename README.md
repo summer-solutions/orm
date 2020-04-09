@@ -32,6 +32,10 @@ func main() {
     registry.RegisterLocalCache(1000) //you need to define cache size
     //optionally you can define pool name as second argument
     registry.RegisterLocalCache(100, "second_pool")
+
+    /* Redis used to handle locks (explained later) */
+    registry.RegisterRedis("localhost:6379", 4, "lockers_pool")
+    registry.RegisterLocker("default", "lockers_pool")
     
     config, err := registry.CreateConfig()
 
@@ -49,6 +53,7 @@ orm:
     redis: localhost:6379:0
     redisQueues: localhost:6379:1
     lazyQueue: redisQueues
+    locker: default
     dirtyQueue: redisQueues
     localCache: 1000
   second_pool:
@@ -914,6 +919,40 @@ func main() {
         err = results.Scan(&row)
     }
 
+}
+
+```
+
+## Working with Locker
+
+Shared cached that is using redis
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    registry := &orm.Registry{}
+    registry.RegisterRedis("localhost:6379", 0)
+    registry.RegisterLocker("default", "default")
+    config, err :=  registry.CreateConfig()
+    engine := orm.NewEngine(config)
+    
+    locker, _ := engine.GetLocker()
+    lock, err := locker.Obtain("my_lock", 1 * Time.Second)
+    if err != nil {
+        panic(err)
+    }
+    defer lock.Release()
+    
+    // do smth
+    
+    ttl, err := lock.TTL()
+    if ttl == 0 {
+        panic("lock lost")
+    }
 }
 
 ```

@@ -43,6 +43,12 @@ func InitByYaml(yaml map[interface{}]interface{}) (registry *Registry, err error
 					return nil, err
 				}
 				registry.RegisterLazyQueue(keyAsString, valAsString)
+			case "locker":
+				valAsString, err := validateOrmString(value, keyAsString)
+				if err != nil {
+					return nil, err
+				}
+				registry.RegisterLocker(keyAsString, valAsString)
 			case "dirtyQueue":
 				valAsString, err := validateOrmString(value, keyAsString)
 				if err != nil {
