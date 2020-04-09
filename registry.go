@@ -16,6 +16,7 @@ type Registry struct {
 	enums                map[string]reflect.Value
 	dirtyQueues          map[string]DirtyQueueSender
 	lazyQueuesCodes      map[string]string
+	locks                map[string]string
 }
 
 func (r *Registry) CreateConfig() (*Config, error) {
@@ -41,6 +42,14 @@ func (r *Registry) CreateConfig() (*Config, error) {
 	for k, v := range r.lazyQueuesCodes {
 		config.lazyQueuesCodes[k] = v
 	}
+
+	if config.lockServers == nil {
+		config.lockServers = make(map[string]string)
+	}
+	for k, v := range r.locks {
+		config.lockServers[k] = v
+	}
+
 	if config.localCacheContainers == nil {
 		config.localCacheContainers = make(map[string]*LocalCacheConfig)
 	}
@@ -130,6 +139,13 @@ func (r *Registry) RegisterLazyQueue(code string, redisCode string) {
 		r.lazyQueuesCodes = make(map[string]string)
 	}
 	r.lazyQueuesCodes[code] = redisCode
+}
+
+func (r *Registry) RegisterLocker(code string, redisCode string) {
+	if r.locks == nil {
+		r.locks = make(map[string]string)
+	}
+	r.locks[code] = redisCode
 }
 
 func (r *Registry) registerSqlPool(dataSourceName string, code ...string) {
