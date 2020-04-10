@@ -42,8 +42,9 @@ type TableSchema struct {
 	MysqlPoolName    string
 	t                reflect.Type
 	Tags             map[string]map[string]string
-	cachedIndexes    map[string]cachedQueryDefinition
-	cachedIndexesOne map[string]cachedQueryDefinition
+	cachedIndexes    map[string]*cachedQueryDefinition
+	cachedIndexesOne map[string]*cachedQueryDefinition
+	cachedIndexesAll map[string]*cachedQueryDefinition
 	columnNames      []string
 	columnPathMap    map[string]string
 	refOne           []string
@@ -559,8 +560,9 @@ func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
 		cachePrefix = mysql
 	}
 	cachePrefix += table
-	cachedQueries := make(map[string]cachedQueryDefinition)
-	cachedQueriesOne := make(map[string]cachedQueryDefinition)
+	cachedQueries := make(map[string]*cachedQueryDefinition)
+	cachedQueriesOne := make(map[string]*cachedQueryDefinition)
+	cachedQueriesAll := make(map[string]*cachedQueryDefinition)
 	hasFakeDelete := false
 	fakeDeleteField, has := entityType.FieldByName("FakeDelete")
 	if has && fakeDeleteField.Type.String() == "bool" {
@@ -600,9 +602,13 @@ func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
 					}
 					max = maxFromUser
 				}
-				cachedQueries[key] = cachedQueryDefinition{max, query, fields}
+				def := &cachedQueryDefinition{max, query, fields}
+				cachedQueries[key] = def
+				cachedQueriesAll[key] = def
 			} else {
-				cachedQueriesOne[key] = cachedQueryDefinition{1, query, fields}
+				def := &cachedQueryDefinition{1, query, fields}
+				cachedQueriesOne[key] = def
+				cachedQueriesAll[key] = def
 			}
 		}
 		_, has = values["ref"]
@@ -619,6 +625,7 @@ func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
 		columnsStamp:     columnsStamp,
 		cachedIndexes:    cachedQueries,
 		cachedIndexesOne: cachedQueriesOne,
+		cachedIndexesAll: cachedQueriesAll,
 		localCacheName:   localCache,
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
