@@ -726,7 +726,8 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 
 func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data map[string]interface{}, addedDeleted bool) (keys []string, err error) {
 	keys = make([]string, 0)
-	for indexName, definition := range schema.cachedIndexes {
+
+	for indexName, definition := range schema.cachedIndexesAll {
 		if !addedDeleted && schema.hasFakeDelete {
 			_, addedDeleted = bind["FakeDelete"]
 		}

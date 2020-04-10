@@ -8,12 +8,13 @@ import (
 )
 
 type TestEntityIndexTestRedis struct {
-	Orm      *orm.ORM `orm:"redisCache"`
-	Id       uint
-	Name     string `orm:"length=100;index=FirstIndex"`
-	Age      uint16
-	IndexAge *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
-	IndexAll *orm.CachedQuery `query:""`
+	Orm       *orm.ORM `orm:"redisCache"`
+	Id        uint
+	Name      string `orm:"length=100;index=FirstIndex"`
+	Age       uint16
+	IndexAge  *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
+	IndexName *orm.CachedQuery `queryOne:":Name = ?"`
+	IndexAll  *orm.CachedQuery `query:""`
 }
 
 func TestCachedSearchRedis(t *testing.T) {
@@ -165,6 +166,30 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Equal(t, 11, totalRows)
 	assert.Len(t, rows, 11)
 	assert.Len(t, DBLogger.Queries, 19)
+
+	RedisLogger.Requests = make([]string, 0)
+	var entityOne TestEntityIndexTestRedis
+	has, err := engine.CachedSearchOne(&entityOne, "IndexName", "Name 10")
+	assert.Nil(t, err)
+	assert.True(t, has)
+	assert.Equal(t, uint(10), entityOne.Id)
+	assert.Len(t, DBLogger.Queries, 20)
+	assert.Len(t, RedisLogger.Requests, 3)
+
+	has, err = engine.CachedSearchOne(&entityOne, "IndexName", "Name 10")
+	assert.Nil(t, err)
+	assert.True(t, has)
+	assert.Equal(t, uint(10), entityOne.Id)
+	assert.Len(t, DBLogger.Queries, 20)
+	assert.Len(t, RedisLogger.Requests, 5)
+
+	entityOne.Name = "Name 10a"
+	err = engine.Flush(&entityOne)
+	assert.Nil(t, err)
+	has, err = engine.CachedSearchOne(&entityOne, "IndexName", "Name 10")
+	assert.Nil(t, err)
+	assert.False(t, has)
+
 }
 
 func BenchmarkCachedRedis(b *testing.B) {
