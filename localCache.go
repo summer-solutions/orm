@@ -3,9 +3,10 @@ package orm
 import (
 	"container/list"
 	"fmt"
-	"github.com/golang/groupcache/lru"
 	"sync"
 	"time"
+
+	"github.com/golang/groupcache/lru"
 )
 
 type LocalCache struct {

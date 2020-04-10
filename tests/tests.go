@@ -2,9 +2,10 @@ package tests
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
-	"testing"
 )
 
 func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}) *orm.Engine {

@@ -4,9 +4,10 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
-	"github.com/go-redis/redis/v7"
 	"strings"
 	"time"
+
+	"github.com/go-redis/redis/v7"
 )
 
 type RedisCache struct {

@@ -1,8 +1,9 @@
 package orm
 
 import (
-	"github.com/bsm/redislock"
 	"time"
+
+	"github.com/bsm/redislock"
 )
 
 type Locker struct {

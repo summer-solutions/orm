@@ -1,11 +1,12 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/summer-solutions/orm"
 )
 
 type TestEntityFlush struct {

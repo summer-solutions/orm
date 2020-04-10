@@ -3,12 +3,13 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 type DuplicatedKeyError struct {

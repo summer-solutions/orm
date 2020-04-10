@@ -1,10 +1,11 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/summer-solutions/orm"
 )
 
 type AddressByIdLocal struct {
@@ -38,7 +39,7 @@ type TestEntityByIdLocal struct {
 	Date                 time.Time
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressByIdLocal
-	Json                 interface{}
+	JSON                 interface{}
 	Ignored              []time.Time `orm:"ignore"`
 }
 
@@ -96,7 +97,7 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.IsType(t, time.Time{}, entity.DateTime)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.Equal(t, AddressByIdLocal{Street: "", Building: uint16(0)}, entity.Address)
-	assert.Nil(t, entity.Json)
+	assert.Nil(t, entity.JSON)
 	assert.Nil(t, err)
 
 	assert.False(t, engine.IsDirty(&entity))
@@ -117,7 +118,7 @@ func TestGetByIdLocal(t *testing.T) {
 	entity.DateTime = time.Date(2019, 2, 11, 12, 34, 11, 0, time.UTC)
 	entity.Address.Street = "wall street"
 	entity.Address.Building = 12
-	entity.Json = map[string]string{"name": "John"}
+	entity.JSON = map[string]string{"name": "John"}
 
 	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(&entity))
@@ -148,7 +149,7 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Equal(t, time.Date(2019, 2, 11, 12, 34, 11, 0, time.UTC), entity2.DateTime)
 	assert.Equal(t, "wall street", entity2.Address.Street)
 	assert.Equal(t, uint16(12), entity2.Address.Building)
-	assert.Equal(t, map[string]interface{}{"name": "John"}, entity2.Json)
+	assert.Equal(t, map[string]interface{}{"name": "John"}, entity2.JSON)
 	assert.Len(t, DBLogger.Queries, 1)
 }
 

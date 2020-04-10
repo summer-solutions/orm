@@ -2,9 +2,10 @@ package tests
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
-	"testing"
 )
 
 type TestEntityInterfaces struct {

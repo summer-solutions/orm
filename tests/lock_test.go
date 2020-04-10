@@ -1,10 +1,11 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/summer-solutions/orm"
 )
 
 func TestLock(t *testing.T) {

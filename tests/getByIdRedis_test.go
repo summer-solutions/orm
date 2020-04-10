@@ -1,10 +1,11 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/summer-solutions/orm"
 )
 
 type AddressByIdRedis struct {
@@ -12,7 +13,7 @@ type AddressByIdRedis struct {
 	Building uint16
 }
 
-type TestEntityByIdRedis struct {
+type TestEntityByIDRedis struct {
 	Orm                  *orm.ORM `orm:"redisCache;ttl=10"`
 	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
@@ -38,12 +39,12 @@ type TestEntityByIdRedis struct {
 	Date                 time.Time
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressByIdRedis
-	Json                 interface{}
+	JSON                 interface{}
 	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntityByIdRedis"`
 }
 
 func TestGetByIdRedis(t *testing.T) {
-	var entity TestEntityByIdRedis
+	var entity TestEntityByIDRedis
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	found, err := engine.TryById(100, &entity)
@@ -53,16 +54,16 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	entity = TestEntityByIdRedis{}
+	entity = TestEntityByIDRedis{}
 	err = engine.Flush(&entity)
 	assert.Nil(t, err)
 	assert.False(t, engine.IsDirty(&entity))
 
-	var entity2 TestEntityByIdRedis
+	var entity2 TestEntityByIDRedis
 	err = engine.GetById(1, &entity2)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity2.ID)
-	var entity3 TestEntityByIdRedis
+	var entity3 TestEntityByIDRedis
 	err = engine.GetById(1, &entity3)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity3.ID)
@@ -106,7 +107,7 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.IsType(t, time.Time{}, entity.DateTime)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.Equal(t, AddressByIdRedis{Street: "", Building: uint16(0)}, entity.Address)
-	assert.Nil(t, entity.Json)
+	assert.Nil(t, entity.JSON)
 	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Queries, 1)
 
@@ -125,7 +126,7 @@ func TestGetByIdRedis(t *testing.T) {
 	entity.DateTime = time.Date(2019, 2, 11, 12, 34, 11, 0, time.UTC)
 	entity.Address.Street = "wall street"
 	entity.Address.Building = 12
-	entity.Json = map[string]string{"name": "John"}
+	entity.JSON = map[string]string{"name": "John"}
 
 	assert.True(t, engine.IsDirty(&entity))
 
@@ -154,7 +155,7 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.Equal(t, time.Date(2019, 2, 11, 12, 34, 11, 0, time.UTC), entity.DateTime)
 	assert.Equal(t, "wall street", entity.Address.Street)
 	assert.Equal(t, uint16(12), entity.Address.Building)
-	assert.Equal(t, map[string]interface{}{"name": "John"}, entity.Json)
+	assert.Equal(t, map[string]interface{}{"name": "John"}, entity.JSON)
 	assert.Len(t, DBLogger.Queries, 3)
 
 	_, err = engine.TryById(1, &entity)
@@ -163,10 +164,10 @@ func TestGetByIdRedis(t *testing.T) {
 }
 
 func BenchmarkGetById(b *testing.B) {
-	var entity TestEntityByIdRedis
+	var entity TestEntityByIDRedis
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
-	entity = TestEntityByIdRedis{}
+	entity = TestEntityByIDRedis{}
 	_ = engine.Flush(&entity)
 
 	for n := 0; n < b.N; n++ {

@@ -1,9 +1,10 @@
 package tests
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
-	"testing"
 )
 
 type TestEntityDeleteReference struct {
