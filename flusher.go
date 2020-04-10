@@ -42,6 +42,16 @@ func (f *Flusher) Flush(engine *Engine) error {
 	return nil
 }
 
+func (f *Flusher) FlushAndReturn(engine *Engine) ([]interface{}, error) {
+	err := flush(engine, f.Lazy, f.entities...)
+	if err != nil {
+		return nil, err
+	}
+	entities := f.entities
+	f.entities = make([]interface{}, 0)
+	return entities, nil
+}
+
 func (f *AutoFlusher) Flush(engine *Engine) error {
 	err := flush(engine, f.Lazy, f.entities...)
 	if err != nil {

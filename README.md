@@ -451,6 +451,8 @@ func main() {
     entity1.Orm.MarkToDelete()
     
     err = flusher.Flush(engine) //executes all queries at once
+    //or
+    entities, err := flusher.FlushAndReturn(engine)
 
     /* 
         in this case flusher will keep maximum 10000 entities. 
