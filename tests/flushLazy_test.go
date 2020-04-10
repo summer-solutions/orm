@@ -108,5 +108,4 @@ func TestFlushLazy(t *testing.T) {
 	found, err = engine.TryById(1, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-
 }

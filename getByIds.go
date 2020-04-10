@@ -28,7 +28,6 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 	t, has := getEntityTypeForSlice(engine.config, entities.Type())
 	if !has {
 		return nil, EntityNotRegisteredError{Name: entities.Type().String()}
-
 	}
 
 	schema := getTableSchema(engine.config, t)
@@ -248,11 +247,9 @@ func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Val
 					warmUpRowsIds[parentType] = append(warmUpRowsIds[parentType], id)
 				}
 			}
-
 		}
 	}
 	for t, ids := range warmUpRowsIds {
-
 		sub := reflect.New(reflect.SliceOf(reflect.PtrTo(t))).Elem()
 		_, err := tryByIds(engine, ids, sub, warmUpSubRefs[t])
 		if err != nil {

@@ -190,7 +190,6 @@ func TestCachedSearchRedis(t *testing.T) {
 	has, err = engine.CachedSearchOne(&entityOne, "IndexName", "Name 10")
 	assert.Nil(t, err)
 	assert.False(t, has)
-
 }
 
 func BenchmarkCachedRedis(b *testing.B) {

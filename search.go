@@ -14,7 +14,6 @@ func searchIdsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager
 }
 
 func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.Value) (bool, error) {
-
 	entityType := value.Elem().Type()
 	schema := getTableSchema(engine.config, entityType)
 	if schema == nil {

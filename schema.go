@@ -899,7 +899,6 @@ func (tableSchema *TableSchema) handleFloat(floatDefinition string, attributes m
 		decimalArgs := strings.Split(decimal, ",")
 		definition = fmt.Sprintf("decimal(%s,%s)", decimalArgs[0], decimalArgs[1])
 		defaultValue = fmt.Sprintf("'%s'", fmt.Sprintf("%."+decimalArgs[1]+"f", float32(0)))
-
 	} else {
 		definition = floatDefinition
 	}

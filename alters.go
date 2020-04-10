@@ -14,7 +14,6 @@ type Alter struct {
 }
 
 func getAlters(engine *Engine) (alters []Alter, err error) {
-
 	tablesInDB := make(map[string]map[string]bool)
 	tablesInEntities := make(map[string]map[string]bool)
 
@@ -65,7 +64,6 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 				}
 				pool, has := engine.GetMysql(poolName)
 				if !has {
-
 					return nil, DBPoolNotRegisteredError{Name: poolName}
 				}
 				dropSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.databaseName, tableName)
@@ -96,7 +94,6 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 			return true
 		}
 		return false
-
 	})
 	return
 }

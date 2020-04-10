@@ -71,5 +71,4 @@ func TestFakeDelete(t *testing.T) {
 	has, err := engine.TryById(2, entity2)
 	assert.Nil(t, err)
 	assert.False(t, has)
-
 }

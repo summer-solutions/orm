@@ -197,7 +197,7 @@ func (r *RedisCache) SPop(key string) (string, bool, error) {
 	start := time.Now()
 	val, err := r.client.SPop(key).Result()
 	if r.loggers != nil {
-		r.log(key, fmt.Sprintf("SPOP"), time.Since(start).Microseconds(), 0)
+		r.log(key, "SPOP", time.Since(start).Microseconds(), 0)
 	}
 	if err != nil {
 		if err == redis.Nil {

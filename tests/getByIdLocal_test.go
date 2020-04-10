@@ -13,7 +13,7 @@ type AddressByIdLocal struct {
 	Building uint16
 }
 
-type TestEntityByIdLocal struct {
+type TestEntityByIDLocal struct {
 	Orm                  *orm.ORM `orm:"localCache"`
 	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
@@ -44,7 +44,7 @@ type TestEntityByIdLocal struct {
 }
 
 func TestGetByIdLocal(t *testing.T) {
-	var entity TestEntityByIdLocal
+	var entity TestEntityByIDLocal
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	found, err := engine.TryById(100, &entity)
@@ -54,7 +54,7 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	entity = TestEntityByIdLocal{}
+	entity = TestEntityByIDLocal{}
 	err = engine.Flush(&entity)
 	assert.Nil(t, err)
 
@@ -129,7 +129,7 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Queries, 1)
 
-	var entity2 TestEntityByIdLocal
+	var entity2 TestEntityByIDLocal
 	found, err = engine.TryById(1, &entity2)
 	assert.Nil(t, err)
 	assert.True(t, found)
@@ -154,10 +154,10 @@ func TestGetByIdLocal(t *testing.T) {
 }
 
 func BenchmarkGetByIdLocal(b *testing.B) {
-	var entity TestEntityByIdLocal
+	var entity TestEntityByIDLocal
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
-	entity = TestEntityByIdLocal{}
+	entity = TestEntityByIDLocal{}
 	_ = engine.Flush(&entity)
 
 	for n := 0; n < b.N; n++ {

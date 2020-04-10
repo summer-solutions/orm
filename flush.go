@@ -489,8 +489,8 @@ func serializeForLazyQueue(lazyMap map[string]interface{}) (string, error) {
 		return "", err
 	}
 	return string(encoded), nil
-
 }
+
 func injectBind(value reflect.Value, bind map[string]interface{}) {
 	oldFields := value.Field(0).Interface().(*ORM)
 	if oldFields.dBData == nil {

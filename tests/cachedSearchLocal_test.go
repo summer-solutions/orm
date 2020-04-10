@@ -177,7 +177,6 @@ func TestCachedSearchLocal(t *testing.T) {
 	has, err = engine.CachedSearchOne(&row, "IndexName", "Name 99")
 	assert.Nil(t, err)
 	assert.False(t, has)
-
 }
 
 func BenchmarkCachedSearchLocal(b *testing.B) {

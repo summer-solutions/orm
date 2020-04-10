@@ -8,7 +8,7 @@ import (
 	"github.com/summer-solutions/orm"
 )
 
-type AddressByIdRedis struct {
+type AddressByIDRedis struct {
 	Street   string
 	Building uint16
 }
@@ -38,9 +38,9 @@ type TestEntityByIDRedis struct {
 	Year                 uint16  `orm:"year=true"`
 	Date                 time.Time
 	DateTime             time.Time `orm:"time=true"`
-	Address              AddressByIdRedis
+	Address              AddressByIDRedis
 	JSON                 interface{}
-	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntityByIdRedis"`
+	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntityByIDRedis"`
 }
 
 func TestGetByIdRedis(t *testing.T) {
@@ -106,7 +106,7 @@ func TestGetByIdRedis(t *testing.T) {
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.IsType(t, time.Time{}, entity.DateTime)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
-	assert.Equal(t, AddressByIdRedis{Street: "", Building: uint16(0)}, entity.Address)
+	assert.Equal(t, AddressByIDRedis{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.JSON)
 	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Queries, 1)

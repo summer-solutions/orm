@@ -6,7 +6,6 @@ import (
 )
 
 func flushInCache(engine *Engine, entities ...interface{}) error {
-
 	invalidEntities := make([]interface{}, 0)
 	validEntities := make([]interface{}, 0)
 	redisValues := make(map[string][]interface{})

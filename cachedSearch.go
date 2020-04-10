@@ -10,7 +10,6 @@ import (
 
 func cachedSearch(engine *Engine, entities interface{}, indexName string, clear bool, pager *Pager,
 	arguments []interface{}, references []string) (totalRows int, err error) {
-
 	value := reflect.ValueOf(entities)
 	entityType, has := getEntityTypeForSlice(engine.config, value.Type())
 	if !has {
@@ -252,5 +251,4 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 		return true, engine.GetById(id, entity)
 	}
 	return false, nil
-
 }
