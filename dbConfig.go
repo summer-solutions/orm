@@ -1,11 +1,10 @@
 package orm
 
-import (
-	"database/sql"
-)
+import "database/sql"
 
 type DBConfig struct {
-	db           *sql.DB
-	code         string
-	databaseName string
+	dataSourceName string
+	code           string
+	databaseName   string
+	db             *sql.DB
 }

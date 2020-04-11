@@ -2,9 +2,8 @@ package orm
 
 import (
 	"container/list"
-	"reflect"
-
 	"github.com/bsm/redislock"
+	"reflect"
 )
 
 type Engine struct {
