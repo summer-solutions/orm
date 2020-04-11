@@ -2,12 +2,13 @@ package orm
 
 import (
 	"database/sql"
-	"github.com/go-redis/redis/v7"
-	"github.com/golang/groupcache/lru"
 	"math"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/go-redis/redis/v7"
+	"github.com/golang/groupcache/lru"
 )
 
 type Registry struct {
