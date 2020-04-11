@@ -97,8 +97,8 @@ func (r *Registry) RegisterEnum(name string, enum interface{}) {
 	r.enums[name] = reflect.Indirect(reflect.ValueOf(enum))
 }
 
-func (r *Registry) RegisterMySqlPool(dataSourceName string, code ...string) {
-	r.registerSqlPool(dataSourceName, code...)
+func (r *Registry) RegisterMySQLPool(dataSourceName string, code ...string) {
+	r.registerSQLPool(dataSourceName, code...)
 }
 
 func (r *Registry) RegisterLocalCache(size int, code ...string) {
@@ -149,7 +149,7 @@ func (r *Registry) RegisterLocker(code string, redisCode string) {
 	r.locks[code] = redisCode
 }
 
-func (r *Registry) registerSqlPool(dataSourceName string, code ...string) {
+func (r *Registry) registerSQLPool(dataSourceName string, code ...string) {
 	sqlDB, _ := sql.Open("mysql", dataSourceName)
 	dbCode := "default"
 	if len(code) > 0 {

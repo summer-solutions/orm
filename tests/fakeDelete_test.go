@@ -9,7 +9,7 @@ import (
 
 type TestEntityFakeDelete struct {
 	Orm        *orm.ORM `orm:"localCache"`
-	Id         uint16
+	ID         uint16
 	Name       string
 	FakeDelete bool
 	IndexAll   *orm.CachedQuery `query:""`
@@ -49,11 +49,11 @@ func TestFakeDelete(t *testing.T) {
 	assert.Equal(t, 1, total)
 	assert.Equal(t, "one", rows[0].Name)
 
-	err = engine.GetById(1, entity)
+	err = engine.GetByID(1, entity)
 	assert.Nil(t, err)
 	assert.False(t, entity.FakeDelete)
 
-	err = engine.GetById(2, entity2)
+	err = engine.GetByID(2, entity2)
 	assert.Nil(t, err)
 	assert.True(t, entity2.FakeDelete)
 
@@ -68,7 +68,7 @@ func TestFakeDelete(t *testing.T) {
 	entity2.Orm.ForceMarkToDelete()
 	err = engine.Flush(entity2)
 	assert.Nil(t, err)
-	has, err := engine.TryById(2, entity2)
+	has, err := engine.TryByID(2, entity2)
 	assert.Nil(t, err)
 	assert.False(t, has)
 }

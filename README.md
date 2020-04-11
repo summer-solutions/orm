@@ -15,9 +15,9 @@ func main() {
     registry := &orm.Registry{}
 
     /*MySQL */
-    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
     //optionally you can define pool name as second argument
-    registry.RegisterMySqlPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
 
     /* Redis */
     registry.RegisterRedis("localhost:6379", 0) //seconds argument is a redis database number
@@ -123,7 +123,7 @@ func main() {
     
     type TestEntitySchema struct {
         Orm                  *orm.ORM
-        Id                   uint
+        ID                   uint
         Name                 string `orm:"length=100;index=FirstIndex"`
         NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
         BigName              string `orm:"length=max"`
@@ -160,12 +160,12 @@ func main() {
     
     type TestEntitySchemaRef struct {
         Orm  *orm.ORM
-        Id   uint
+        ID   uint
         Name string
     }
     type TestEntitySecondPool struct {
     	Orm                  *orm.ORM `orm:"mysql=second_pool"`
-    	Id                   uint
+    	ID                   uint
     }
 
     registry := &orm.Registry{}
@@ -178,7 +178,7 @@ func main() {
 There are only two golden rules you need to remember defining entity struct: 
 
  * first field must have name "Orm" and must be type of "*orm.ORM"
- * second argument must have name "Id" or "ID" and must be type of one of uint, uint16, uint32, uint64
+ * second argument must have name "ID" or "ID" and must be type of one of uint, uint16, uint32, uint64
  
  
  As you can see orm is not using null values like sql.NullString. Simply set empty string "" and orm will
@@ -233,17 +233,17 @@ There are only two golden rules you need to remember defining entity struct:
  
  func main() {
  
-     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+     orm.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
     
      type FirstEntity struct {
         Orm                  *orm.ORM
-        Id                   uint
+        ID                   uint
         Name                 string
      }
       
     type SecondEntity struct {
         Orm                  *orm.ORM
-        Id                   uint
+        ID                   uint
         Name                 string
     }
     
@@ -277,11 +277,11 @@ import "github.com/summer-solutions/orm"
 func main() {
 
     registry := &orm.Registry{}
-    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
 
     type TestEntity struct {
         Orm                  *orm.ORM
-        Id                   uint
+        ID                   uint
         Name                 string
     }
     var entity TestEntity
@@ -348,7 +348,7 @@ func main() {
  
     type TestEntity struct {
         Orm                  *orm.ORM
-        Id                   uint
+        ID                   uint
         Name                 string
     }
     var entity TestEntity
@@ -357,14 +357,14 @@ func main() {
     config, err := registry.NewConfig()
     engine := orm.NewEngine(config)
 
-    found, err := engine.TryById(1, &entity) //found has false if row does not exists
-    err = engine.GetById(2, &entity) //if will return err if entity does not exists
+    found, err := engine.TryByID(1, &entity) //found has false if row does not exists
+    err = engine.GetByID(2, &entity) //if will return err if entity does not exists
 
     var entities []*TestEntity
     //missing is []uint64 that contains id of rows that doesn't exists, 
     // in this cause $found slice has nil for such keys
-    missing, err := engine.TryByIds([]uint64{2, 3, 1}, &entities) 
-    err = engine.GetByIds([]uint64{2, 3, 1}, &entities) //will return error if at least one row does not exist
+    missing, err := engine.TryByIDs([]uint64{2, 3, 1}, &entities) 
+    err = engine.GetByIDs([]uint64{2, 3, 1}, &entities) //will return error if at least one row does not exist
 }
 
 ```
@@ -382,7 +382,7 @@ func main() {
  
     type TestEntity struct {
         Orm                  *orm.ORM
-        Id                   uint
+        ID                   uint
         Name                 string
     }
     registry := &orm.Registry{}
@@ -392,7 +392,7 @@ func main() {
 
     var entities []*TestEntity
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
-    where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
+    where := orm.NewWhere("`ID` > ? AND `ID` < ?", 1, 8)
     err := engine.Search(where, pager, &entities)
     
     //or if you need number of total rows
@@ -404,10 +404,10 @@ func main() {
     found, err := engine.SearchOne(where, &entity)
     
     //or if you need only primary keys
-    ids, err := engine.SearchIds(where, pager, entity)
+    ids, err := engine.SearchIDs(where, pager, entity)
     
     //or if you need only primary keys and total rows
-    ids, totalRows, err = engine.SearchIdsWithCount(where, pager, entity)
+    ids, totalRows, err = engine.SearchIDsWithCount(where, pager, entity)
 }
 
 ```
@@ -429,7 +429,7 @@ func main() {
  
     type TestEntity struct {
         Orm                  *orm.ORM
-        Id                   uint
+        ID                   uint
         Name                 string
     }
     registry := &orm.Registry{}
@@ -443,8 +443,8 @@ func main() {
     var entity1 TestEntity
     var entity2 TestEntity
     entity3 := TestEntity{Name: "Hello"}
-    err := engine.GetById(1, &entity1)
-    err = engine.GetById(2, &entity2)
+    err := engine.GetByID(1, &entity1)
+    err = engine.GetByID(2, &entity2)
     flusher.RegisterEntity(&entity1, &entity2, &entity3)
    
     entity1.Name = "New Name"
@@ -500,20 +500,20 @@ func main() {
  
     type UserEntity struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         Name                 string
         School               *orm.ReferenceOne  `orm:"ref=SchoolEntity"`
     }
     
     type SchoolEntity struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         Name                 string
     }
 
     type UserHouse struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         User                 *orm.ReferenceOne  `orm:"ref=UserEntity;cascade"`
     }
     registry := &orm.Registry{}
@@ -534,7 +534,7 @@ func main() {
     }
     
     user := UserEntity{Name: "John"}
-    user.School.Id = school.Id
+    user.School.ID = school.ID
     err = engine.Flush(&user)
     if err != nil {
        ///...
@@ -545,7 +545,7 @@ func main() {
     has, err := user.School.Load(engine, &school) //has is true
     
     /* deleting reference */
-    user.School.Id = 0
+    user.School.ID = 0
     err = engine.Flush(&user)
     if err != nil {
        ///...
@@ -577,10 +577,10 @@ func main() {
  
     type UserEntity struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         Name                 string
         Age                  uint16
-        IndexAge             *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
+        IndexAge             *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
         IndexAll             *orm.CachedQuery `query:""`
         IndexName            *orm.CachedQuery `queryOne:":Name = ?"`
     }
@@ -617,14 +617,14 @@ import "github.com/summer-solutions/orm"
 func main() {
 
     registry := &orm.Registry{}
-    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
     registry.RegisterRedis("localhost:6379", 3, "queues_pool")
     registry.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
 
  
     type UserEntity struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         Name                 string
     }
     config, err := registry.CreateConfig()
@@ -632,7 +632,7 @@ func main() {
     
     user := UserEntity{Name: "John"}
     var user2 UserEntity
-    err := engine.GetById(1, &user2)
+    err := engine.GetByID(1, &user2)
     user2.Orm.MarkToDelete()
     err = engine.FlushLazy(&user, &user2)
     
@@ -676,7 +676,7 @@ func main() {
 
     registry := &orm.Registry{}
 
-    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
     registry.RegisterRedis("localhost:6379", 3, "queues_pool")
     registry.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
     //.. register entities
@@ -684,7 +684,7 @@ func main() {
  
     type UserEntity struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         Name                 string
     }
     
@@ -692,7 +692,7 @@ func main() {
     engine := orm.NewEngine(config)
     
     var user UserEntity
-    err := engine.GetById(1, &user)
+    err := engine.GetByID(1, &user)
     user.Name = "New name"
     err = engine.FlushInCache(&user) //updated only in redis
     user.Name = "New name 2"
@@ -702,7 +702,7 @@ func main() {
     lazyReceiver := orm.NewFlushFromCacheReceiver{engine, "queues_pool"}
     for {
         //in our case it will only one query:
-        // UPDATE `UserEntity` SET `Name` = "New name 2" WHERE `Id` = 1
+        // UPDATE `UserEntity` SET `Name` = "New name 2" WHERE `ID` = 1
         has, err := lazyReceiver.Digest()
         if !has {
             //sleep x seconds
@@ -721,7 +721,7 @@ func main() {
 
     type UserEntity struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         Name                 string
     }
 
@@ -744,7 +744,7 @@ func main() {
 
     type UserEntity struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         Name                 string
         FakeDelete           bool
     }
@@ -776,7 +776,7 @@ func main() {
 
     type UserEntity struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         Name                 string
     }
 
@@ -800,7 +800,7 @@ func main() {
 
     type UserEntity struct {
         Orm                  *orm.ORM
-        Id                   uint64
+        ID                   uint64
         Value                int
         Calculated           string `orm:"ignore"`
     }
@@ -900,14 +900,14 @@ import (
 func main() {
 
     registry := &orm.Registry{}
-    registry.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
     config, err := registry.CreateConfig()
     engine := orm.NewEngine(config)
 
-    res, err := engine.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `Id` = ?", "Hello", 2)
+    res, err := engine.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `ID` = ?", "Hello", 2)
 
     var row string
-    err = engine.GetMysql().QueryRow("SELECT * FROM `table_name` WHERE  `Id` = ?", 1).Scan(&row)
+    err = engine.GetMysql().QueryRow("SELECT * FROM `table_name` WHERE  `ID` = ?", 1).Scan(&row)
     if err != nil {
         if err != sql.ErrNoRows {
             ///...
@@ -915,7 +915,7 @@ func main() {
         //no row found
     }
     
-    results, err := engine.GetMysql().Query("SELECT * FROM `table_name` WHERE  `Id` > ? LIMIT 100", 1)
+    results, err := engine.GetMysql().Query("SELECT * FROM `table_name` WHERE  `ID` > ? LIMIT 100", 1)
     for results.Next() {
     	var row string
         err = results.Scan(&row)

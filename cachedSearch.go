@@ -113,7 +113,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 
 	if hasNil {
 		searchPager := &Pager{minPage, maxPage * idsOnCachePage}
-		results, total, err := searchIdsWithCount(true, engine, Where, searchPager, entityType)
+		results, total, err := searchIDsWithCount(true, engine, Where, searchPager, entityType)
 		if err != nil {
 			return 0, err
 		}
@@ -133,9 +133,9 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 					sliceEnd = total
 				}
 				values := []uint64{uint64(total)}
-				foundIds := results[sliceStart:sliceEnd]
-				filledPages[key] = foundIds
-				values = append(values, foundIds...)
+				foundIDs := results[sliceStart:sliceEnd]
+				filledPages[key] = foundIDs
+				values = append(values, foundIDs...)
 				cacheValue := fmt.Sprintf("%v", values)
 				cacheValue = strings.Trim(cacheValue, "[]")
 				cacheFields[page] = cacheValue
@@ -162,20 +162,20 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 		localCache.HMset(cacheKey, fields)
 	}
 
-	resultsIds := make([]uint64, 0, len(filledPages)*idsOnCachePage)
+	resultsIDs := make([]uint64, 0, len(filledPages)*idsOnCachePage)
 	for i := minCachePageCeil; i < maxCachePageCeil; i++ {
-		resultsIds = append(resultsIds, filledPages[strconv.Itoa(int(i)+1)]...)
+		resultsIDs = append(resultsIDs, filledPages[strconv.Itoa(int(i)+1)]...)
 	}
 	sliceStart := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	diff := int(minCachePageCeil) * idsOnCachePage
 	sliceStart -= diff
 	sliceEnd := sliceStart + pager.GetPageSize()
-	length := len(resultsIds)
+	length := len(resultsIDs)
 	if sliceEnd > length {
 		sliceEnd = length
 	}
-	idsToReturn := resultsIds[sliceStart:sliceEnd]
-	err = engine.GetByIds(idsToReturn, entities, references...)
+	idsToReturn := resultsIDs[sliceStart:sliceEnd]
+	err = engine.GetByIDs(idsToReturn, entities, references...)
 	if err != nil {
 		return 0, err
 	}
@@ -221,7 +221,7 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 	}
 	var id uint64
 	if fromCache["1"] == nil {
-		results, _, err := searchIds(true, engine, Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
+		results, _, err := searchIDs(true, engine, Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
 		if err != nil {
 			return false, err
 		}
@@ -248,7 +248,7 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 		}
 	}
 	if id > 0 {
-		return true, engine.GetById(id, entity)
+		return true, engine.GetByID(id, entity)
 	}
 	return false, nil
 }

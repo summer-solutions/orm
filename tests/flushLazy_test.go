@@ -10,7 +10,7 @@ import (
 
 type TestEntityFlushLazy struct {
 	Orm  *orm.ORM `orm:"redisCache"`
-	Id   uint
+	ID   uint
 	Name string
 }
 
@@ -36,7 +36,7 @@ func TestFlushLazy(t *testing.T) {
 	assert.Len(t, LoggerQueue.Requests, 1)
 	assert.Equal(t, "LPUSH 1 values lazy_queue", LoggerQueue.Requests[0])
 
-	found, err := engine.TryById(1, &entity)
+	found, err := engine.TryByID(1, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
@@ -57,7 +57,7 @@ func TestFlushLazy(t *testing.T) {
 	assert.Len(t, LoggerQueue.Requests, 5)
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[3])
-	found, err = engine.TryById(1, &entity)
+	found, err = engine.TryByID(1, &entity)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.Equal(t, "Name 1", entity.Name)
@@ -81,7 +81,7 @@ func TestFlushLazy(t *testing.T) {
 	assert.Len(t, LoggerQueue.Requests, 3)
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[1])
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
-	found, err = engine.TryById(1, &entity)
+	found, err = engine.TryByID(1, &entity)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.Equal(t, "Name 1.1", entity.Name)
@@ -105,7 +105,7 @@ func TestFlushLazy(t *testing.T) {
 	assert.Len(t, LoggerQueue.Requests, 3)
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[1])
 	assert.Equal(t, "RPOP lazy_queue", LoggerQueue.Requests[2])
-	found, err = engine.TryById(1, &entity)
+	found, err = engine.TryByID(1, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 }

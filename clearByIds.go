@@ -4,7 +4,7 @@ import (
 	"reflect"
 )
 
-func clearByIds(engine *Engine, entity interface{}, ids ...uint64) error {
+func clearByIDs(engine *Engine, entity interface{}, ids ...uint64) error {
 	entityType := reflect.ValueOf(entity).Elem().Type()
 	schema := getTableSchema(engine.config, entityType)
 	if schema == nil {

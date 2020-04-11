@@ -9,19 +9,18 @@ import (
 
 type TestEntityDirtyQueueAll struct {
 	Orm  *orm.ORM `orm:"dirty=test"`
-	Id   uint
+	ID   uint
 	Name string
 }
 
 type TestEntityDirtyQueueAge struct {
 	Orm  *orm.ORM
-	Id   uint
+	ID   uint
 	Name string `orm:"dirty=test"`
 	Age  uint16 `orm:"dirty=test"`
 }
 
 func TestDirtyQueue(t *testing.T) {
-
 	entityAll := TestEntityDirtyQueueAll{Name: "Name"}
 	entityAge := TestEntityDirtyQueueAge{Name: "Name", Age: 18}
 	registry := &orm.Registry{}
@@ -47,8 +46,8 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Equal(t, int64(2), size)
 	has, err := receiver.Digest(2, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 2)
-		assert.Equal(t, uint64(1), data[0].Id)
-		assert.Equal(t, uint64(1), data[1].Id)
+		assert.Equal(t, uint64(1), data[0].ID)
+		assert.Equal(t, uint64(1), data[1].ID)
 		assert.True(t, data[0].Inserted)
 		assert.True(t, data[1].Inserted)
 		assert.False(t, data[0].Updated)
@@ -85,7 +84,7 @@ func TestDirtyQueue(t *testing.T) {
 	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "TestEntityDirtyQueueAll", data[0].TableSchema.TableName)
-		assert.Equal(t, uint64(1), data[0].Id)
+		assert.Equal(t, uint64(1), data[0].ID)
 		assert.False(t, data[0].Inserted)
 		assert.True(t, data[0].Updated)
 		assert.False(t, data[0].Deleted)
@@ -114,7 +113,7 @@ func TestDirtyQueue(t *testing.T) {
 	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "TestEntityDirtyQueueAge", data[0].TableSchema.TableName)
-		assert.Equal(t, uint64(1), data[0].Id)
+		assert.Equal(t, uint64(1), data[0].ID)
 		assert.False(t, data[0].Inserted)
 		assert.True(t, data[0].Updated)
 		assert.False(t, data[0].Deleted)
@@ -136,7 +135,7 @@ func TestDirtyQueue(t *testing.T) {
 	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "TestEntityDirtyQueueAge", data[0].TableSchema.TableName)
-		assert.Equal(t, uint64(1), data[0].Id)
+		assert.Equal(t, uint64(1), data[0].ID)
 		assert.False(t, data[0].Inserted)
 		assert.False(t, data[0].Updated)
 		assert.True(t, data[0].Deleted)

@@ -11,7 +11,6 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 	redisValues := make(map[string][]interface{})
 
 	for _, entity := range entities {
-
 		value := reflect.ValueOf(entity)
 		elem := value.Elem()
 		orm, err := engine.initIfNeeded(value)

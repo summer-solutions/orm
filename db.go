@@ -136,9 +136,8 @@ func (db *DB) Rollback() error {
 			db.transaction = nil
 		}
 		return err
-	} else {
-		return fmt.Errorf("rollback in nested transaction not allowed")
 	}
+	return fmt.Errorf("rollback in nested transaction not allowed")
 }
 
 func (db *DB) RegisterLogger(logger DatabaseLogger) *list.Element {

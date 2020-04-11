@@ -11,7 +11,7 @@ import (
 
 type TestEntityFlush struct {
 	Orm          *orm.ORM
-	Id           uint16
+	ID           uint16
 	Name         string
 	NameNotNull  string `orm:"required"`
 	Blob         []byte
@@ -27,13 +27,13 @@ type TestEntityFlush struct {
 
 type TestEntityFlushCacheLocal struct {
 	Orm  *orm.ORM `orm:"localCache"`
-	Id   uint
+	ID   uint
 	Name string
 }
 
 type TestEntityFlushCacheRedis struct {
 	Orm  *orm.ORM `orm:"redisCache"`
-	Id   uint
+	ID   uint
 	Name string
 }
 
@@ -54,13 +54,13 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, err)
 	for i := 1; i < 10; i++ {
 		testEntity := entities[i-1]
-		assert.Equal(t, uint16(i), testEntity.Id)
+		assert.Equal(t, uint16(i), testEntity.ID)
 		assert.Equal(t, "Name "+strconv.Itoa(i), testEntity.Name)
 		assert.False(t, engine.IsDirty(testEntity))
 	}
 
 	entities[1].Name = "Name 2.1"
-	entities[1].ReferenceOne.Id = 7
+	entities[1].ReferenceOne.ID = 7
 	entities[7].Name = "Name 8.1"
 	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(entities[1]))
@@ -70,21 +70,21 @@ func TestFlush(t *testing.T) {
 
 	var edited1 TestEntityFlush
 	var edited2 TestEntityFlush
-	err = engine.GetById(2, &edited1)
+	err = engine.GetByID(2, &edited1)
 	assert.Nil(t, err)
-	err = engine.GetById(8, &edited2)
+	err = engine.GetByID(8, &edited2)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2.1", edited1.Name)
-	assert.Equal(t, uint64(7), edited1.ReferenceOne.Id)
+	assert.Equal(t, uint64(7), edited1.ReferenceOne.ID)
 	assert.Equal(t, "Name 8.1", edited2.Name)
-	assert.Equal(t, uint64(0), edited2.ReferenceOne.Id)
+	assert.Equal(t, uint64(0), edited2.ReferenceOne.ID)
 	assert.True(t, edited1.ReferenceOne.Has())
 	assert.False(t, edited2.ReferenceOne.Has())
 	var ref TestEntityFlush
 	has, err := edited1.ReferenceOne.Load(engine, &ref)
 	assert.Nil(t, err)
 	assert.True(t, has)
-	assert.Equal(t, uint16(7), ref.Id)
+	assert.Equal(t, uint16(7), ref.ID)
 
 	toDelete := edited2
 	edited1.Name = "Name 2.2"
@@ -107,11 +107,11 @@ func TestFlush(t *testing.T) {
 	var edited3 TestEntityFlush
 	var deleted TestEntityFlush
 	var new11 TestEntityFlush
-	err = engine.GetById(2, &edited3)
+	err = engine.GetByID(2, &edited3)
 	assert.Nil(t, err)
-	hasDeleted, err := engine.TryById(8, &deleted)
+	hasDeleted, err := engine.TryByID(8, &deleted)
 	assert.Nil(t, err)
-	err = engine.GetById(11, &new11)
+	err = engine.GetByID(11, &new11)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2.2", edited3.Name)
 	assert.False(t, hasDeleted)
@@ -119,7 +119,6 @@ func TestFlush(t *testing.T) {
 }
 
 func TestFlushTransactionLocalCache(t *testing.T) {
-
 	entity := TestEntityFlushCacheLocal{Name: "Name"}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
@@ -140,7 +139,7 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	err = pool.Commit()
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 1)
-	assert.Equal(t, "MSET [TestEntityFlushCacheLocal49:1]", CacheLogger.Requests[0])
+	assert.Equal(t, "MSET [TestEntityFlushCacheLocal4027225329:1]", CacheLogger.Requests[0])
 
 	err = pool.BeginTransaction()
 	assert.Nil(t, err)
@@ -153,7 +152,7 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	err = pool.Commit()
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 2)
-	assert.Equal(t, "MSET [TestEntityFlushCacheLocal49:1]", CacheLogger.Requests[0])
+	assert.Equal(t, "MSET [TestEntityFlushCacheLocal4027225329:1]", CacheLogger.Requests[0])
 
 	err = pool.BeginTransaction()
 	assert.Nil(t, err)
@@ -164,11 +163,10 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	err = pool.Commit()
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 3)
-	assert.Equal(t, "MSET [TestEntityFlushCacheLocal49:1]", CacheLogger.Requests[0])
+	assert.Equal(t, "MSET [TestEntityFlushCacheLocal4027225329:1]", CacheLogger.Requests[0])
 }
 
 func TestFlushTransactionRedisCache(t *testing.T) {
-
 	entity := TestEntityFlushCacheRedis{Name: "Name"}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
@@ -189,7 +187,7 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	err = pool.Commit()
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 1)
-	assert.Equal(t, "DELETE TestEntityFlushCacheRedis49:1", CacheLogger.Requests[0])
+	assert.Equal(t, "DELETE TestEntityFlushCacheRedis4027225329:1", CacheLogger.Requests[0])
 
 	err = pool.BeginTransaction()
 	assert.Nil(t, err)
@@ -202,7 +200,7 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	err = pool.Commit()
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 2)
-	assert.Equal(t, "DELETE TestEntityFlushCacheRedis49:1", CacheLogger.Requests[0])
+	assert.Equal(t, "DELETE TestEntityFlushCacheRedis4027225329:1", CacheLogger.Requests[0])
 
 	err = pool.BeginTransaction()
 	assert.Nil(t, err)
@@ -213,5 +211,5 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	err = pool.Commit()
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 3)
-	assert.Equal(t, "DELETE TestEntityFlushCacheRedis49:1", CacheLogger.Requests[0])
+	assert.Equal(t, "DELETE TestEntityFlushCacheRedis4027225329:1", CacheLogger.Requests[0])
 }

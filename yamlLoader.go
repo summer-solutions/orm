@@ -28,12 +28,12 @@ func InitByYaml(yaml map[interface{}]interface{}) (registry *Registry, err error
 		for dataKey, value := range dataAsMap {
 			switch dataKey {
 			case "mysql":
-				err := validateOrmMysqlUri(registry, value, keyAsString)
+				err := validateOrmMysqlURI(registry, value, keyAsString)
 				if err != nil {
 					return nil, err
 				}
 			case "redis":
-				err := validateRedisUri(registry, value, keyAsString)
+				err := validateRedisURI(registry, value, keyAsString)
 				if err != nil {
 					return nil, err
 				}
@@ -69,16 +69,16 @@ func InitByYaml(yaml map[interface{}]interface{}) (registry *Registry, err error
 	return registry, nil
 }
 
-func validateOrmMysqlUri(registry *Registry, value interface{}, key string) error {
+func validateOrmMysqlURI(registry *Registry, value interface{}, key string) error {
 	asString, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("invalid mysql uri: %v", value)
 	}
-	registry.RegisterMySqlPool(asString, key)
+	registry.RegisterMySQLPool(asString, key)
 	return nil
 }
 
-func validateRedisUri(registry *Registry, value interface{}, key string) error {
+func validateRedisURI(registry *Registry, value interface{}, key string) error {
 	asString, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("invalid mysql uri: %v", value)

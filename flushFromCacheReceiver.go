@@ -78,7 +78,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 		return true, err
 	}
 	entityDBValue := reflect.New(schema.t)
-	found, err := searchRow(false, r.engine, NewWhere("`Id` = ?", id), entityDBValue)
+	found, err := searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue)
 	if err != nil {
 		return true, err
 	}
@@ -123,7 +123,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	if !has {
 		return false, RedisCachePoolNotRegisteredError{Name: redisQueueName}
 	}
-	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `Id` = ?", schema.TableName, strings.Join(fields, ","))
+	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.TableName, strings.Join(fields, ","))
 	_, err = db.Exec(sql, attributes...)
 	if err != nil {
 		_, _ = redisQueue.SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
