@@ -1,4 +1,4 @@
-name: Check & test & build
+name: Check & test
 on:
   push:
     branches:
