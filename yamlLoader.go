@@ -61,8 +61,6 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 					return nil, err
 				}
 				registry.RegisterLocalCache(number, keyAsString)
-			default:
-				return nil, fmt.Errorf("invalid key %s in orm section", dataKey)
 			}
 		}
 	}

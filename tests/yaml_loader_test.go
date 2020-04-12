@@ -21,4 +21,13 @@ func TestYamlLoader(t *testing.T) {
 	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
+
+	codes := config.GetLazyQueueCodes()
+	assert.Equal(t, []string{"default"}, codes)
+	codes = config.GetDirtyQueueCodes()
+	assert.Equal(t, []string{"default"}, codes)
+
+	schema, has := config.GetTableSchema("test")
+	assert.Nil(t, schema)
+	assert.False(t, has)
 }
