@@ -53,7 +53,6 @@ type TableSchema struct {
 	localCacheName   string
 	redisCacheName   string
 	cachePrefix      string
-	idFieldName      string
 	hasFakeDelete    bool
 }
 
@@ -532,7 +531,6 @@ OUTER:
 }
 
 func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
-	idFieldName := entityType.Field(1).Name
 	tags, columnNames, columnPathMap := extractTags(entityType, "")
 	oneRefs := make([]string, 0)
 	columnsStamp := fmt.Sprintf("%d", fnv1a.HashString32(fmt.Sprintf("%v", columnNames)))
@@ -586,7 +584,7 @@ func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
 			variables := re.FindAllString(query, -1)
 			for _, variable := range variables {
 				fieldName := variable[1:]
-				if fieldName != idFieldName {
+				if fieldName != "ID" {
 					fields = append(fields, fieldName)
 				}
 				query = strings.Replace(query, variable, fmt.Sprintf("`%s`", fieldName), 1)
@@ -635,7 +633,6 @@ func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
 		cachePrefix:      cachePrefix,
-		idFieldName:      idFieldName,
 		hasFakeDelete:    hasFakeDelete}
 	return tableSchema, nil
 }
@@ -882,7 +879,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 		definition += " NOT NULL"
 		isNotNull = true
 	}
-	if defaultValue != "nil" && columnName != tableSchema.idFieldName {
+	if defaultValue != "nil" && columnName != "ID" {
 		definition += " DEFAULT " + defaultValue
 	} else if !isNotNull && addDefaultNullIfNullable {
 		definition += " DEFAULT NULL"
