@@ -44,16 +44,22 @@ func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
 	return row
 }
 
-func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
+func (db *DB) Query(query string, args ...interface{}) (rows *sql.Rows, deferF func(), err error) {
 	start := time.Now()
 	if db.transaction != nil {
 		rows, err := db.transaction.Query(query, args...)
 		db.log(query, time.Since(start).Microseconds(), args...)
-		return rows, err
+		if err != nil {
+			return nil, nil, err
+		}
+		return rows, func() { rows.Close() }, err
 	}
-	rows, err := db.db.Query(query, args...)
+	rows, err = db.db.Query(query, args...)
+	if err != nil {
+		return nil, nil, err
+	}
 	db.log(query, time.Since(start).Microseconds(), args...)
-	return rows, err
+	return rows, func() { rows.Close() }, err
 }
 
 func (db *DB) BeginTransaction() error {

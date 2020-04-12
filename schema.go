@@ -284,10 +284,11 @@ func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 	}
 
 	var rows []indexDB
-	results, err := pool.Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
+	results, def, err := pool.Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
 	if err != nil {
 		return false, nil, err
 	}
+	defer def()
 	for results.Next() {
 		var row indexDB
 		err = results.Scan(&row.Skip, &row.NonUnique, &row.KeyName, &row.Seq, &row.Column, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip)
@@ -295,6 +296,10 @@ func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 			return false, nil, err
 		}
 		rows = append(rows, row)
+	}
+	err = results.Err()
+	if err != nil {
+		return false, nil, err
 	}
 	var indexesDB = make(map[string]*index)
 	for _, value := range rows {
@@ -1076,10 +1081,11 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 	if !has {
 		return nil, DBPoolNotRegisteredError{Name: poolName}
 	}
-	results, err := pool.Query(fmt.Sprintf(query, pool.databaseName, tableName))
+	results, def, err := pool.Query(fmt.Sprintf(query, pool.databaseName, tableName))
 	if err != nil {
 		return nil, err
 	}
+	defer def()
 	for results.Next() {
 		var row foreignKeyDB
 		err = results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
@@ -1097,6 +1103,10 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 			}
 		}
 		rows2 = append(rows2, row)
+	}
+	err = results.Err()
+	if err != nil {
+		return nil, err
 	}
 	var foreignKeysDB = make(map[string]*foreignIndex)
 	for _, value := range rows2 {

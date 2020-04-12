@@ -30,11 +30,16 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, whereQuery)
 
 	pool := schema.GetMysql(engine)
-	results, err := pool.Query(query, where.GetParameters()...)
+	results, def, err := pool.Query(query, where.GetParameters()...)
 	if err != nil {
 		return false, err
 	}
+	defer def()
 	if !results.Next() {
+		err = results.Err()
+		if err != nil {
+			return false, err
+		}
 		return false, nil
 	}
 
@@ -50,6 +55,10 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.
 		valuePointers[i] = &values[i]
 	}
 	err = results.Scan(valuePointers...)
+	if err != nil {
+		return false, err
+	}
+	err = results.Err()
 	if err != nil {
 		return false, err
 	}
@@ -86,10 +95,11 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
-	results, err := pool.Query(query, where.GetParameters()...)
+	results, def, err := pool.Query(query, where.GetParameters()...)
 	if err != nil {
 		return 0, err
 	}
+	defer def()
 
 	columns, err := results.Columns()
 	if err != nil {
@@ -120,6 +130,11 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		val = reflect.Append(val, value)
 		i++
 	}
+	err = results.Err()
+	if err != nil {
+		return 0, err
+	}
+
 	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, i)
 	if err != nil {
 		return 0, err
@@ -155,10 +170,11 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 	query := fmt.Sprintf("SELECT `ID` FROM `%s` WHERE %s %s", schema.TableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
-	results, err := pool.Query(query, where.GetParameters()...)
+	results, def, err := pool.Query(query, where.GetParameters()...)
 	if err != nil {
 		return nil, 0, err
 	}
+	defer def()
 	result := make([]uint64, 0, pager.GetPageSize())
 	for results.Next() {
 		var row uint64
@@ -167,6 +183,10 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 			return nil, 0, err
 		}
 		result = append(result, row)
+	}
+	err = results.Err()
+	if err != nil {
+		return nil, 0, err
 	}
 	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, len(result))
 	if err != nil {

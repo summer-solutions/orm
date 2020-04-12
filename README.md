@@ -915,11 +915,15 @@ func main() {
         //no row found
     }
     
-    results, err := engine.GetMysql().Query("SELECT * FROM `table_name` WHERE  `ID` > ? LIMIT 100", 1)
+    results, def, err := engine.GetMysql().Query("SELECT * FROM `table_name` WHERE  `ID` > ? LIMIT 100", 1)
+    //handle err
+    defer def()
     for results.Next() {
     	var row string
         err = results.Scan(&row)
     }
+    err = results.Err()
+    //handle err
 
 }
 

@@ -112,6 +112,7 @@ func getAllTables(db *sql.DB) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer results.Close()
 	for results.Next() {
 		var row string
 		err = results.Scan(&row)
@@ -119,6 +120,10 @@ func getAllTables(db *sql.DB) ([]string, error) {
 			return nil, err
 		}
 		tables = append(tables, row)
+	}
+	err = results.Err()
+	if err != nil {
+		return nil, err
 	}
 	return tables, nil
 }
