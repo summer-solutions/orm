@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -64,6 +65,7 @@ type TestEntitySchema struct {
 	ReferenceOneCascade  *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef;cascade"`
 	IgnoreField          []time.Time       `orm:"ignore"`
 	Blob                 []byte
+	IndexAll             *orm.CachedQuery `query:"" max:"1000"`
 }
 
 type TestEntitySchemaRef struct {
@@ -115,6 +117,7 @@ func TestGetAlters(t *testing.T) {
 
 	schema, has := config.GetTableSchema(entity)
 	assert.True(t, has)
+	assert.Equal(t, reflect.TypeOf(entity), schema.GetType())
 	_, err = schema.GetMysql(engine).Exec("ALTER TABLE `TestEntitySchema` DROP COLUMN `BigName`")
 	assert.Nil(t, err)
 
@@ -137,4 +140,32 @@ func TestGetAlters(t *testing.T) {
 	assert.Len(t, alters, 1)
 	assert.True(t, alters[0].Safe)
 	assert.Equal(t, "DROP TABLE IF EXISTS `test_schema`.`ToDrop`;", alters[0].SQL)
+
+	_, err = schema.GetMysql(engine).Exec("INSERT INTO `ToDrop`(ID) VALUES(1)")
+	assert.Nil(t, err)
+	alters, err = engine.GetAlters()
+	assert.Nil(t, err)
+	assert.Len(t, alters, 1)
+	assert.False(t, alters[0].Safe)
+	assert.Equal(t, "DROP TABLE IF EXISTS `test_schema`.`ToDrop`;", alters[0].SQL)
+
+	_, err = schema.GetMysql(engine).Exec(alters[0].SQL)
+	assert.Nil(t, err)
+
+	_, err = schema.GetMysql(engine).Exec("INSERT INTO `TestEntitySchema`(Name) VALUES('test')")
+	assert.Nil(t, err)
+	err = schema.UpdateSchemaAndTruncateTable(engine)
+	assert.Nil(t, err)
+	has, err = engine.TryByID(1, &entity)
+	assert.Nil(t, err)
+	assert.False(t, has)
+
+	references := schema.GetReferences()
+	assert.Len(t, references, 2)
+	assert.Contains(t, references, "ReferenceOne")
+	assert.Contains(t, references, "ReferenceOneCascade")
+
+	columns := schema.GetColumns()
+	assert.Len(t, columns, 33)
+	assert.Equal(t, map[string]string{"Address.Building": "AddressBuilding", "Address.Street": "AddressStreet", "BigName": "BigName", "Blob": "Blob", "Bool": "Bool", "Date": "Date", "DateNotNull": "DateNotNull", "DateTime": "DateTime", "Enum": "Enum", "EnumNotNull": "EnumNotNull", "Float32": "Float32", "Float32Decimal": "Float32Decimal", "Float64": "Float64", "Float64DecimalSigned": "Float64DecimalSigned", "ID": "ID", "Int": "Int", "Int16": "Int16", "Int32": "Int32", "Int64": "Int64", "Int8": "Int8", "JSON": "JSON", "Name": "Name", "NameNotNull": "NameNotNull", "ReferenceOne.ID": "ReferenceOne", "ReferenceOneCascade.ID": "ReferenceOneCascade", "Rune": "Rune", "Set": "Set", "Uint24": "Uint24", "Uint32": "Uint32", "Uint64": "Uint64", "Uint8": "Uint8", "Year": "Year", "YearNotNull": "YearNotNull"}, columns)
 }
