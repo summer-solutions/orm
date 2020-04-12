@@ -1,5 +1,7 @@
 # orm
 
+[![codecov](https://codecov.io/gh/summer-solutions/orm/branch/master/graph/badge.svg)](https://codecov.io/gh/summer-solutions/orm)
+
 ## Defining database and cache pool connections
 
 First you need to define config. You should do it once, 
