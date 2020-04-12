@@ -31,7 +31,7 @@ var Color = &fieldsColors{
 
 type TestEntitySchema struct {
 	Orm                  *orm.ORM `orm:"mysql=schema"`
-	Id                   uint
+	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
 	BigName              string `orm:"length=max"`
@@ -59,7 +59,7 @@ type TestEntitySchema struct {
 	DateNotNull          time.Time `orm:"required"`
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressSchema
-	Json                 interface{}
+	JSON                 interface{}
 	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef"`
 	ReferenceOneCascade  *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef;cascade"`
 	IgnoreField          []time.Time       `orm:"ignore"`
@@ -92,14 +92,13 @@ type TestEntitySchema2EntityRef3 struct {
 
 type TestEntitySchemaRef struct {
 	Orm  *orm.ORM `orm:"mysql=schema"`
-	Id   uint
+	ID   uint
 	Name string
 }
 
 func TestGetAlters(t *testing.T) {
-
 	registry := &orm.Registry{}
-	registry.RegisterMySqlPool("root:root@tcp(localhost:3308)/test_schema", "schema")
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_schema", "schema")
 
 	var entity TestEntitySchema
 	var entityRef TestEntitySchemaRef

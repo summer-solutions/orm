@@ -9,7 +9,7 @@ import (
 
 type TestEntityFlushLazyReference struct {
 	Orm          *orm.ORM
-	Id           uint
+	ID           uint
 	Name         string
 	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityFlushLazyReference"`
 }
@@ -29,9 +29,9 @@ func TestFlushLazyReference(t *testing.T) {
 
 	err = engine.Flush(&entity1, &entity2, &entity3, &entity4)
 	assert.Nil(t, err)
-	assert.Equal(t, uint64(2), entity1.ReferenceOne.Id)
+	assert.Equal(t, uint64(2), entity1.ReferenceOne.ID)
 
-	err = engine.GetById(1, &entity)
+	err = engine.GetByID(1, &entity)
 	assert.Nil(t, err)
-	assert.Equal(t, uint64(2), entity1.ReferenceOne.Id)
+	assert.Equal(t, uint64(2), entity1.ReferenceOne.ID)
 }

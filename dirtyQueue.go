@@ -6,7 +6,7 @@ import (
 
 type DirtyQueueValue struct {
 	EntityName string
-	Id         uint64
+	ID         uint64
 	Added      bool
 	Updated    bool
 	Deleted    bool
@@ -33,7 +33,7 @@ func (s *RedisDirtyQueueSender) Send(engine *Engine, code string, values []*Dirt
 		} else if val.Deleted {
 			action = "d"
 		}
-		key := fmt.Sprintf("%s:%d", val.EntityName+":"+action, val.Id)
+		key := fmt.Sprintf("%s:%d", val.EntityName+":"+action, val.ID)
 		members[i] = key
 	}
 	_, err := r.SAdd(code, members...)

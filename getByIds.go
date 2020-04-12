@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-func getByIds(engine *Engine, ids []uint64, entities interface{}, references ...string) error {
-	missing, err := engine.TryByIds(ids, entities, references...)
+func getByIDs(engine *Engine, ids []uint64, entities interface{}, references ...string) error {
+	missing, err := engine.TryByIDs(ids, entities, references...)
 	if err != nil {
 		return err
 	}
@@ -18,8 +18,8 @@ func getByIds(engine *Engine, ids []uint64, entities interface{}, references ...
 	return nil
 }
 
-func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64, err error) {
-	originalIds := ids
+func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64, err error) {
+	originalIDs := ids
 	lenIDs := len(ids)
 	if lenIDs == 0 {
 		entities.SetLen(0)
@@ -74,7 +74,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 	}
 	l := len(ids)
 	if l > 0 {
-		_, err = search(false, engine, NewWhere("`Id` IN ?", ids), &Pager{1, l}, false, entities)
+		_, err = search(false, engine, NewWhere("`ID` IN ?", ids), &Pager{1, l}, false, entities)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +131,7 @@ func tryByIds(engine *Engine, ids []uint64, entities reflect.Value, references [
 	valOrigin := entities
 	valOrigin.SetLen(0)
 	v := valOrigin
-	for _, id := range originalIds {
+	for _, id := range originalIDs {
 		val := results[keysReversed[id]]
 		if val == nil {
 			missing = append(missing, id)
@@ -187,7 +187,7 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Value, references []string, many bool) error {
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
 	warmUpRefs := make(map[reflect.Type]map[uint64][]*ReferenceOne)
-	warmUpRowsIds := make(map[reflect.Type][]uint64)
+	warmUpRowsIDs := make(map[reflect.Type][]uint64)
 	warmUpSubRefs := make(map[reflect.Type][]string)
 	l := 1
 	if many {
@@ -222,15 +222,15 @@ func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Val
 			ids := make([]uint64, 0)
 			oneRef, ok := ref.(*ReferenceOne)
 			if ok {
-				if oneRef.Id != 0 {
-					ids = append(ids, oneRef.Id)
+				if oneRef.ID != 0 {
+					ids = append(ids, oneRef.ID)
 					if warmUpRefs[parentType] == nil {
 						warmUpRefs[parentType] = make(map[uint64][]*ReferenceOne)
 					}
-					if warmUpRefs[parentType][oneRef.Id] == nil {
-						warmUpRefs[parentType][oneRef.Id] = make([]*ReferenceOne, 0)
+					if warmUpRefs[parentType][oneRef.ID] == nil {
+						warmUpRefs[parentType][oneRef.ID] = make([]*ReferenceOne, 0)
 					}
-					warmUpRefs[parentType][oneRef.Id] = append(warmUpRefs[parentType][oneRef.Id], oneRef)
+					warmUpRefs[parentType][oneRef.ID] = append(warmUpRefs[parentType][oneRef.ID], oneRef)
 				}
 			}
 			if len(ids) == 0 {
@@ -238,20 +238,20 @@ func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Val
 			}
 			if warmUpRows[parentType] == nil {
 				warmUpRows[parentType] = make(map[uint64]bool)
-				warmUpRowsIds[parentType] = make([]uint64, 0)
+				warmUpRowsIDs[parentType] = make([]uint64, 0)
 			}
 			for _, id := range ids {
 				_, has := warmUpRows[parentType][id]
 				if !has {
 					warmUpRows[parentType][id] = true
-					warmUpRowsIds[parentType] = append(warmUpRowsIds[parentType], id)
+					warmUpRowsIDs[parentType] = append(warmUpRowsIDs[parentType], id)
 				}
 			}
 		}
 	}
-	for t, ids := range warmUpRowsIds {
+	for t, ids := range warmUpRowsIDs {
 		sub := reflect.New(reflect.SliceOf(reflect.PtrTo(t))).Elem()
-		_, err := tryByIds(engine, ids, sub, warmUpSubRefs[t])
+		_, err := tryByIDs(engine, ids, sub, warmUpSubRefs[t])
 		if err != nil {
 			return err
 		}

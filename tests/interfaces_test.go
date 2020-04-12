@@ -10,7 +10,7 @@ import (
 
 type TestEntityInterfaces struct {
 	Orm          *orm.ORM
-	Id           uint
+	ID           uint
 	Uint         uint
 	Name         string
 	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityInterfacesRef"`
@@ -19,13 +19,13 @@ type TestEntityInterfaces struct {
 
 type TestEntityInterfacesRef struct {
 	Orm *orm.ORM
-	Id  uint
+	ID  uint
 }
 
 func (e *TestEntityInterfaces) SetDefaults() {
 	e.Uint = 3
 	e.Name = "hello"
-	e.ReferenceOne.Id = 1
+	e.ReferenceOne.ID = 1
 }
 
 func (e *TestEntityInterfaces) Validate() error {
@@ -37,7 +37,7 @@ func (e *TestEntityInterfaces) Validate() error {
 
 func (e *TestEntityInterfaces) AfterSaved(engine *orm.Engine) error {
 	_ = engine
-	e.Calculated = int(e.Uint) + int(e.ReferenceOne.Id)
+	e.Calculated = int(e.Uint) + int(e.ReferenceOne.ID)
 	return nil
 }
 
@@ -52,7 +52,7 @@ func TestInterfaces(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)
-	assert.Equal(t, uint64(1), entity.ReferenceOne.Id)
+	assert.Equal(t, uint64(1), entity.ReferenceOne.ID)
 
 	err = engine.Flush(entity)
 	assert.NotNil(t, err)

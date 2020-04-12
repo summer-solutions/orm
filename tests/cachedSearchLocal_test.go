@@ -10,11 +10,11 @@ import (
 
 type TestEntityIndexTestLocal struct {
 	Orm          *orm.ORM `orm:"localCache"`
-	Id           uint
+	ID           uint
 	Name         string `orm:"length=100;index=FirstIndex"`
 	Age          uint16
 	Ignore       uint16            `orm:"ignore"`
-	IndexAge     *orm.CachedQuery  `query:":Age = ? ORDER BY :Id"`
+	IndexAge     *orm.CachedQuery  `query:":Age = ? ORDER BY :ID"`
 	IndexAll     *orm.CachedQuery  `query:""`
 	IndexName    *orm.CachedQuery  `queryOne:":Name = ?"`
 	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityIndexTestLocalRef"`
@@ -22,7 +22,7 @@ type TestEntityIndexTestLocal struct {
 
 type TestEntityIndexTestLocalRef struct {
 	Orm  *orm.ORM
-	Id   uint
+	ID   uint
 	Name string
 }
 
@@ -42,7 +42,7 @@ func TestCachedSearchLocal(t *testing.T) {
 		e := TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
 		err := engine.Init(&e)
 		assert.Nil(t, err)
-		e.ReferenceOne.Id = uint64(i)
+		e.ReferenceOne.ID = uint64(i)
 		entities[i-1] = &e
 	}
 	for i := 6; i <= 10; i++ {
@@ -59,11 +59,11 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
-	assert.Equal(t, uint64(1), rows[0].ReferenceOne.Id)
-	assert.Equal(t, uint64(2), rows[1].ReferenceOne.Id)
-	assert.Equal(t, uint64(3), rows[2].ReferenceOne.Id)
-	assert.Equal(t, uint64(4), rows[3].ReferenceOne.Id)
-	assert.Equal(t, uint64(5), rows[4].ReferenceOne.Id)
+	assert.Equal(t, uint64(1), rows[0].ReferenceOne.ID)
+	assert.Equal(t, uint64(2), rows[1].ReferenceOne.ID)
+	assert.Equal(t, uint64(3), rows[2].ReferenceOne.ID)
+	assert.Equal(t, uint64(4), rows[3].ReferenceOne.ID)
+	assert.Equal(t, uint64(5), rows[4].ReferenceOne.ID)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, _ := engine.GetMysql()
@@ -74,22 +74,22 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
 
-	assert.Equal(t, uint(6), rows[0].Id)
-	assert.Equal(t, uint(7), rows[1].Id)
-	assert.Equal(t, uint(8), rows[2].Id)
-	assert.Equal(t, uint(9), rows[3].Id)
-	assert.Equal(t, uint(10), rows[4].Id)
+	assert.Equal(t, uint(6), rows[0].ID)
+	assert.Equal(t, uint(7), rows[1].ID)
+	assert.Equal(t, uint(8), rows[2].ID)
+	assert.Equal(t, uint(9), rows[3].ID)
+	assert.Equal(t, uint(10), rows[4].ID)
 	assert.Len(t, DBLogger.Queries, 1)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
-	assert.Equal(t, uint(6), rows[0].Id)
-	assert.Equal(t, uint(7), rows[1].Id)
-	assert.Equal(t, uint(8), rows[2].Id)
-	assert.Equal(t, uint(9), rows[3].Id)
-	assert.Equal(t, uint(10), rows[4].Id)
+	assert.Equal(t, uint(6), rows[0].ID)
+	assert.Equal(t, uint(7), rows[1].ID)
+	assert.Equal(t, uint(8), rows[2].ID)
+	assert.Equal(t, uint(9), rows[3].ID)
+	assert.Equal(t, uint(10), rows[4].ID)
 	assert.Len(t, DBLogger.Queries, 1)
 
 	pager = &orm.Pager{CurrentPage: 2, PageSize: 4}
@@ -97,7 +97,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 1)
-	assert.Equal(t, uint(10), rows[0].Id)
+	assert.Equal(t, uint(10), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 1)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 5}
@@ -105,7 +105,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
-	assert.Equal(t, uint(1), rows[0].Id)
+	assert.Equal(t, uint(1), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 1)
 
 	rows[0].Age = 18
@@ -117,15 +117,15 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 6, totalRows)
 	assert.Len(t, rows, 6)
-	assert.Equal(t, uint(1), rows[0].Id)
-	assert.Equal(t, uint(6), rows[1].Id)
+	assert.Equal(t, uint(1), rows[0].ID)
+	assert.Equal(t, uint(6), rows[1].ID)
 	assert.Len(t, DBLogger.Queries, 3)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, 4, totalRows)
 	assert.Len(t, rows, 4)
-	assert.Equal(t, uint(2), rows[0].Id)
+	assert.Equal(t, uint(2), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 4)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
@@ -142,7 +142,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 3, totalRows)
 	assert.Len(t, rows, 3)
-	assert.Equal(t, uint(3), rows[0].Id)
+	assert.Equal(t, uint(3), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 7)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
@@ -159,7 +159,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 7, totalRows)
 	assert.Len(t, rows, 7)
-	assert.Equal(t, uint(11), rows[6].Id)
+	assert.Equal(t, uint(11), rows[6].ID)
 	assert.Len(t, DBLogger.Queries, 10)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
@@ -172,7 +172,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	has, err := engine.CachedSearchOne(&row, "IndexName", "Name 6")
 	assert.Nil(t, err)
 	assert.True(t, has)
-	assert.Equal(t, uint(6), row.Id)
+	assert.Equal(t, uint(6), row.ID)
 
 	has, err = engine.CachedSearchOne(&row, "IndexName", "Name 99")
 	assert.Nil(t, err)

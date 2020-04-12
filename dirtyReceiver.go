@@ -13,7 +13,7 @@ type DirtyReceiver struct {
 
 type DirtyData struct {
 	TableSchema *TableSchema
-	Id          uint64
+	ID          uint64
 	Inserted    bool
 	Updated     bool
 	Deleted     bool
@@ -89,7 +89,7 @@ func (r *DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err err
 		}
 		data := DirtyData{
 			TableSchema: tableSchema,
-			Id:          id,
+			ID:          id,
 			Inserted:    val[1] == "i",
 			Updated:     val[1] == "u",
 			Deleted:     val[1] == "d",

@@ -111,12 +111,12 @@ func (e *Engine) Search(where *Where, pager *Pager, entities interface{}, refere
 	return err
 }
 
-func (e *Engine) SearchIdsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int, err error) {
-	return searchIdsWithCount(true, e, where, pager, reflect.TypeOf(entity))
+func (e *Engine) SearchIDsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int, err error) {
+	return searchIDsWithCount(true, e, where, pager, reflect.TypeOf(entity))
 }
 
-func (e *Engine) SearchIds(where *Where, pager *Pager, entity interface{}) ([]uint64, error) {
-	results, _, err := searchIds(true, e, where, pager, false, reflect.TypeOf(entity))
+func (e *Engine) SearchIDs(where *Where, pager *Pager, entity interface{}) ([]uint64, error) {
+	results, _, err := searchIDs(true, e, where, pager, false, reflect.TypeOf(entity))
 	return results, err
 }
 
@@ -124,12 +124,12 @@ func (e *Engine) SearchOne(where *Where, entity interface{}) (bool, error) {
 	return searchOne(true, e, where, entity)
 }
 
-func (e *Engine) GetByIds(ids []uint64, entities interface{}, references ...string) error {
-	return getByIds(e, ids, entities, references...)
+func (e *Engine) GetByIDs(ids []uint64, entities interface{}, references ...string) error {
+	return getByIDs(e, ids, entities, references...)
 }
 
-func (e *Engine) TryByIds(ids []uint64, entities interface{}, references ...string) (missing []uint64, err error) {
-	return tryByIds(e, ids, reflect.ValueOf(entities).Elem(), references)
+func (e *Engine) TryByIDs(ids []uint64, entities interface{}, references ...string) (missing []uint64, err error) {
+	return tryByIDs(e, ids, reflect.ValueOf(entities).Elem(), references)
 }
 
 func (e *Engine) ClearCachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) error {
@@ -154,20 +154,20 @@ func (e *Engine) CachedSearchWithReferences(entities interface{}, indexName stri
 	return cachedSearch(e, entities, indexName, false, pager, arguments, references)
 }
 
-func (e *Engine) ClearByIds(entity interface{}, ids ...uint64) error {
-	return clearByIds(e, entity, ids...)
+func (e *Engine) ClearByIDs(entity interface{}, ids ...uint64) error {
+	return clearByIDs(e, entity, ids...)
 }
 
 func (e *Engine) FlushInCache(entities ...interface{}) error {
 	return flushInCache(e, entities...)
 }
 
-func (e *Engine) TryById(id uint64, entity interface{}, references ...string) (found bool, err error) {
-	return tryById(e, id, entity, references...)
+func (e *Engine) TryByID(id uint64, entity interface{}, references ...string) (found bool, err error) {
+	return tryByID(e, id, entity, references...)
 }
 
-func (e *Engine) GetById(id uint64, entity interface{}, references ...string) error {
-	return getById(e, id, entity, references...)
+func (e *Engine) GetByID(id uint64, entity interface{}, references ...string) error {
+	return getByID(e, id, entity, references...)
 }
 
 func (e *Engine) GetAlters() (alters []Alter, err error) {

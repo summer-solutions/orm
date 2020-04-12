@@ -5,20 +5,20 @@ import (
 )
 
 type ReferenceOne struct {
-	Id        uint64
+	ID        uint64
 	Reference interface{}
 	t         reflect.Type
 }
 
 func (r *ReferenceOne) Has() bool {
-	return r.Id != 0
+	return r.ID != 0
 }
 
 func (r *ReferenceOne) Load(engine *Engine, entity interface{}) (bool, error) {
 	if !r.Has() {
 		return false, nil
 	}
-	has, err := engine.TryById(r.Id, entity)
+	has, err := engine.TryByID(r.ID, entity)
 	if err != nil {
 		return has, err
 	}

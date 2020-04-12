@@ -10,16 +10,15 @@ import (
 
 type TestEntityIndexTestRedis struct {
 	Orm       *orm.ORM `orm:"redisCache"`
-	Id        uint
+	ID        uint
 	Name      string `orm:"length=100;index=FirstIndex"`
 	Age       uint16
-	IndexAge  *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
+	IndexAge  *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
 	IndexName *orm.CachedQuery `queryOne:":Name = ?"`
 	IndexAll  *orm.CachedQuery `query:""`
 }
 
 func TestCachedSearchRedis(t *testing.T) {
-
 	var entity TestEntityIndexTestRedis
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
@@ -48,11 +47,11 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
-	assert.Equal(t, uint(6), rows[0].Id)
-	assert.Equal(t, uint(7), rows[1].Id)
-	assert.Equal(t, uint(8), rows[2].Id)
-	assert.Equal(t, uint(9), rows[3].Id)
-	assert.Equal(t, uint(10), rows[4].Id)
+	assert.Equal(t, uint(6), rows[0].ID)
+	assert.Equal(t, uint(7), rows[1].ID)
+	assert.Equal(t, uint(8), rows[2].ID)
+	assert.Equal(t, uint(9), rows[3].ID)
+	assert.Equal(t, uint(10), rows[4].ID)
 	assert.Len(t, DBLogger.Queries, 2)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 100}
@@ -60,11 +59,11 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
-	assert.Equal(t, uint(6), rows[0].Id)
-	assert.Equal(t, uint(7), rows[1].Id)
-	assert.Equal(t, uint(8), rows[2].Id)
-	assert.Equal(t, uint(9), rows[3].Id)
-	assert.Equal(t, uint(10), rows[4].Id)
+	assert.Equal(t, uint(6), rows[0].ID)
+	assert.Equal(t, uint(7), rows[1].ID)
+	assert.Equal(t, uint(8), rows[2].ID)
+	assert.Equal(t, uint(9), rows[3].ID)
+	assert.Equal(t, uint(10), rows[4].ID)
 	assert.Len(t, DBLogger.Queries, 2)
 
 	pager = &orm.Pager{CurrentPage: 2, PageSize: 4}
@@ -72,7 +71,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 1)
-	assert.Equal(t, uint(10), rows[0].Id)
+	assert.Equal(t, uint(10), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 2)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 5}
@@ -80,7 +79,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
-	assert.Equal(t, uint(1), rows[0].Id)
+	assert.Equal(t, uint(1), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 4)
 
 	rows[0].Age = 18
@@ -93,15 +92,15 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 6, totalRows)
 	assert.Len(t, rows, 6)
-	assert.Equal(t, uint(1), rows[0].Id)
-	assert.Equal(t, uint(6), rows[1].Id)
+	assert.Equal(t, uint(1), rows[0].ID)
+	assert.Equal(t, uint(6), rows[1].ID)
 	assert.Len(t, DBLogger.Queries, 7)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, 4, totalRows)
 	assert.Len(t, rows, 4)
-	assert.Equal(t, uint(2), rows[0].Id)
+	assert.Equal(t, uint(2), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 8)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
@@ -118,7 +117,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 3, totalRows)
 	assert.Len(t, rows, 3)
-	assert.Equal(t, uint(3), rows[0].Id)
+	assert.Equal(t, uint(3), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 11)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
@@ -135,7 +134,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 7, totalRows)
 	assert.Len(t, rows, 7)
-	assert.Equal(t, uint(11), rows[6].Id)
+	assert.Equal(t, uint(11), rows[6].ID)
 	assert.Len(t, DBLogger.Queries, 15)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
@@ -173,14 +172,14 @@ func TestCachedSearchRedis(t *testing.T) {
 	has, err := engine.CachedSearchOne(&entityOne, "IndexName", "Name 10")
 	assert.Nil(t, err)
 	assert.True(t, has)
-	assert.Equal(t, uint(10), entityOne.Id)
+	assert.Equal(t, uint(10), entityOne.ID)
 	assert.Len(t, DBLogger.Queries, 20)
 	assert.Len(t, RedisLogger.Requests, 3)
 
 	has, err = engine.CachedSearchOne(&entityOne, "IndexName", "Name 10")
 	assert.Nil(t, err)
 	assert.True(t, has)
-	assert.Equal(t, uint(10), entityOne.Id)
+	assert.Equal(t, uint(10), entityOne.ID)
 	assert.Len(t, DBLogger.Queries, 20)
 	assert.Len(t, RedisLogger.Requests, 5)
 

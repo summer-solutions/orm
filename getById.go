@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-func tryById(engine *Engine, id uint64, entity interface{}, references ...string) (found bool, err error) {
+func tryByID(engine *Engine, id uint64, entity interface{}, references ...string) (found bool, err error) {
 	val := reflect.ValueOf(entity)
 	elem := val.Elem()
 	entityType := elem.Type()
@@ -66,7 +66,7 @@ func tryById(engine *Engine, id uint64, entity interface{}, references ...string
 			return true, nil
 		}
 	}
-	found, err = searchOne(false, engine, NewWhere("`Id` = ?", id), entity)
+	found, err = searchOne(false, engine, NewWhere("`ID` = ?", id), entity)
 	if err != nil {
 		return false, err
 	}
@@ -94,8 +94,8 @@ func tryById(engine *Engine, id uint64, entity interface{}, references ...string
 	return true, nil
 }
 
-func getById(engine *Engine, id uint64, entity interface{}, references ...string) error {
-	found, err := engine.TryById(id, entity, references...)
+func getByID(engine *Engine, id uint64, entity interface{}, references ...string) error {
+	found, err := engine.TryByID(id, entity, references...)
 	if err != nil {
 		return err
 	}

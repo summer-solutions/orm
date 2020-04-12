@@ -9,7 +9,7 @@ import (
 )
 
 func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}) *orm.Engine {
-	registry.RegisterMySqlPool("root:root@tcp(localhost:3308)/test")
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test")
 	registry.RegisterRedis("localhost:6379", 15)
 	registry.RegisterRedis("localhost:6379", 14, "default_queue")
 	registry.RegisterLazyQueue("default", "default_queue")
@@ -34,7 +34,7 @@ func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}
 	for _, alter := range alters {
 		pool, has := engine.GetMysql(alter.Pool)
 		assert.True(t, has)
-		_, err := pool.Exec(alter.Sql)
+		_, err := pool.Exec(alter.SQL)
 		assert.Nil(t, err)
 	}
 

@@ -29,5 +29,4 @@ func TestGetSetRedis(t *testing.T) {
 	assert.Len(t, testLogger.Requests, 2)
 	assert.Equal(t, "GET test", testLogger.Requests[0])
 	assert.Equal(t, "SET [1s] test", testLogger.Requests[1])
-
 }

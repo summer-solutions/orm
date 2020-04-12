@@ -2,8 +2,10 @@ package orm
 
 import (
 	"database/sql"
+	"math"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
@@ -29,6 +31,37 @@ func (r *Registry) CreateConfig() (*Config, error) {
 		config.sqlClients = make(map[string]*DBConfig)
 	}
 	for k, v := range r.sqlClients {
+		db, err := sql.Open("mysql", v.dataSourceName)
+		if err != nil {
+			return nil, err
+		}
+		var maxConnections int
+		var skip string
+		err = db.QueryRow("SHOW VARIABLES LIKE 'max_connections'").Scan(&skip, &maxConnections)
+		if err != nil {
+			return nil, err
+		}
+		var waitTimeout int
+		err = db.QueryRow("SHOW VARIABLES LIKE 'wait_timeout'").Scan(&skip, &waitTimeout)
+		if err != nil {
+			return nil, err
+		}
+		maxConnections = int(math.Floor(float64(maxConnections) * 0.9))
+		if maxConnections == 0 {
+			maxConnections = 1
+		}
+		maxIdleConnections := int(math.Floor(float64(maxConnections) * 0.2))
+		if maxIdleConnections == 0 {
+			maxIdleConnections = 2
+		}
+		waitTimeout = int(math.Floor(float64(waitTimeout) * 0.8))
+		if waitTimeout == 0 {
+			waitTimeout = 1
+		}
+		db.SetMaxOpenConns(maxConnections)
+		db.SetMaxIdleConns(maxIdleConnections)
+		db.SetConnMaxLifetime(time.Duration(waitTimeout) * time.Second)
+		v.db = db
 		config.sqlClients[k] = v
 	}
 	if config.dirtyQueues == nil {
@@ -97,8 +130,8 @@ func (r *Registry) RegisterEnum(name string, enum interface{}) {
 	r.enums[name] = reflect.Indirect(reflect.ValueOf(enum))
 }
 
-func (r *Registry) RegisterMySqlPool(dataSourceName string, code ...string) {
-	r.registerSqlPool(dataSourceName, code...)
+func (r *Registry) RegisterMySQLPool(dataSourceName string, code ...string) {
+	r.registerSQLPool(dataSourceName, code...)
 }
 
 func (r *Registry) RegisterLocalCache(size int, code ...string) {
@@ -149,13 +182,12 @@ func (r *Registry) RegisterLocker(code string, redisCode string) {
 	r.locks[code] = redisCode
 }
 
-func (r *Registry) registerSqlPool(dataSourceName string, code ...string) {
-	sqlDB, _ := sql.Open("mysql", dataSourceName)
+func (r *Registry) registerSQLPool(dataSourceName string, code ...string) {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	db := &DBConfig{code: dbCode, db: sqlDB}
+	db := &DBConfig{code: dbCode, dataSourceName: dataSourceName}
 	if r.sqlClients == nil {
 		r.sqlClients = make(map[string]*DBConfig)
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 type Alter struct {
-	Sql  string
+	SQL  string
 	Safe bool
 	Pool string
 }
@@ -60,36 +60,36 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 					return nil, err
 				}
 				if dropForeignKeyAlter != "" {
-					alters = append(alters, Alter{Sql: dropForeignKeyAlter, Safe: true, Pool: poolName})
+					alters = append(alters, Alter{SQL: dropForeignKeyAlter, Safe: true, Pool: poolName})
 				}
 				pool, has := engine.GetMysql(poolName)
 				if !has {
 					return nil, DBPoolNotRegisteredError{Name: poolName}
 				}
-				dropSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.databaseName, tableName)
+				dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.databaseName, tableName)
 				isEmpty, err := isTableEmptyInPool(engine, poolName, tableName)
 				if err != nil {
 					return nil, err
 				}
 				if isEmpty {
-					alters = append(alters, Alter{Sql: dropSql, Safe: true, Pool: poolName})
+					alters = append(alters, Alter{SQL: dropSQL, Safe: true, Pool: poolName})
 				} else {
-					alters = append(alters, Alter{Sql: dropSql, Safe: false, Pool: poolName})
+					alters = append(alters, Alter{SQL: dropSQL, Safe: false, Pool: poolName})
 				}
 			}
 		}
 	}
 	sort.Slice(alters, func(i, j int) bool {
-		leftSql := alters[i].Sql
-		rightSql := alters[j].Sql
+		leftSQL := alters[i].SQL
+		rightSQL := alters[j].SQL
 
-		leftHasDropForeignKey := strings.Index(leftSql, "DROP FOREIGN KEY") > 0
-		rightHasDropForeignKey := strings.Index(rightSql, "DROP FOREIGN KEY") > 0
+		leftHasDropForeignKey := strings.Index(leftSQL, "DROP FOREIGN KEY") > 0
+		rightHasDropForeignKey := strings.Index(rightSQL, "DROP FOREIGN KEY") > 0
 		if leftHasDropForeignKey && !rightHasDropForeignKey {
 			return true
 		}
-		leftHasAddForeignKey := strings.Index(leftSql, "ADD CONSTRAINT") > 0
-		rightHasAddForeignKey := strings.Index(rightSql, "ADD CONSTRAINT") > 0
+		leftHasAddForeignKey := strings.Index(leftSQL, "ADD CONSTRAINT") > 0
+		rightHasAddForeignKey := strings.Index(rightSQL, "ADD CONSTRAINT") > 0
 		if !leftHasAddForeignKey && rightHasAddForeignKey {
 			return true
 		}
@@ -112,6 +112,7 @@ func getAllTables(db *sql.DB) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer results.Close()
 	for results.Next() {
 		var row string
 		err = results.Scan(&row)
@@ -120,12 +121,16 @@ func getAllTables(db *sql.DB) ([]string, error) {
 		}
 		tables = append(tables, row)
 	}
+	err = results.Err()
+	if err != nil {
+		return nil, err
+	}
 	return tables, nil
 }
 
 func isTableEmpty(db *sql.DB, tableName string) (bool, error) {
-	var lastId uint64
-	err := db.QueryRow(fmt.Sprintf("SELECT `Id` FROM `%s` LIMIT 1", tableName)).Scan(&lastId)
+	var lastID uint64
+	err := db.QueryRow(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableName)).Scan(&lastID)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			return true, nil

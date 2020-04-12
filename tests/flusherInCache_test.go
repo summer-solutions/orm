@@ -9,19 +9,18 @@ import (
 
 type TestEntityFlusherInCacheRedis struct {
 	Orm      *orm.ORM `orm:"redisCache"`
-	Id       uint
+	ID       uint
 	Name     string
 	Age      uint16
-	IndexAge *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
+	IndexAge *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
 }
 
 type TestEntityFlusherInCacheLocal struct {
 	Orm *orm.ORM
-	Id  uint
+	ID  uint
 }
 
 func TestFlushInCache(t *testing.T) {
-
 	entityRedis := TestEntityFlusherInCacheRedis{Name: "Name", Age: 18}
 	entityLocal := TestEntityFlusherInCacheLocal{}
 	engine := PrepareTables(t, &orm.Registry{}, entityRedis, entityLocal)
@@ -61,16 +60,16 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 1)
 	assert.Equal(t, "INSERT INTO TestEntityFlusherInCacheLocal() VALUES () []", DBLogger.Queries[0])
 	assert.Len(t, LoggerRedisCache.Requests, 1)
-	assert.Equal(t, "MSET [TestEntityFlusherInCacheRedis3c:1 ] ", LoggerRedisCache.Requests[0])
+	assert.Equal(t, "MSET [TestEntityFlusherInCacheRedis2048746768:1 ] ", LoggerRedisCache.Requests[0])
 	assert.Len(t, LoggerRedisQueue.Requests, 1)
 	assert.Equal(t, "SADD 1 values dirty_queue", LoggerRedisQueue.Requests[0])
 
 	var loadedEntity TestEntityFlusherInCacheRedis
-	err = engine.GetById(1, &loadedEntity)
+	err = engine.GetByID(1, &loadedEntity)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2", loadedEntity.Name)
 	assert.Len(t, LoggerRedisCache.Requests, 2)
-	assert.Equal(t, "GET TestEntityFlusherInCacheRedis3c:1", LoggerRedisCache.Requests[1])
+	assert.Equal(t, "GET TestEntityFlusherInCacheRedis2048746768:1", LoggerRedisCache.Requests[1])
 
 	receiver := orm.NewFlushFromCacheReceiver(engine, "default")
 	size, err := receiver.Size()
@@ -88,7 +87,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Equal(t, int64(0), size)
 
 	var inDB TestEntityFlusherInCacheRedis
-	_, err = engine.SearchOne(orm.NewWhere("`Id` = ?", 1), &inDB)
+	_, err = engine.SearchOne(orm.NewWhere("`ID` = ?", 1), &inDB)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2", inDB.Name)
 
@@ -100,5 +99,4 @@ func TestFlushInCache(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, totalRows)
 	assert.Len(t, rows, 1)
-
 }
