@@ -30,7 +30,7 @@ jobs:
       redis:
         image: redis
         ports:
-          - 6380:6379
+          - 6379:6379
         options: --entrypoint redis-server
 
       mysql:
@@ -80,6 +80,3 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v2
-
-      - name: Build
-        run: make build
