@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func InitByYaml(yaml map[interface{}]interface{}) (registry *Registry, err error) {
+func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 	configData, has := yaml["orm"]
 	if !has {
 		return nil, fmt.Errorf("missing orm section in config")
