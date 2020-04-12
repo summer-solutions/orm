@@ -137,6 +137,4 @@ func TestGetAlters(t *testing.T) {
 	assert.Len(t, alters, 1)
 	assert.True(t, alters[0].Safe)
 	assert.Equal(t, "DROP TABLE IF EXISTS `test_schema`.`ToDrop`;", alters[0].SQL)
-
-
 }
