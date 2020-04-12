@@ -125,11 +125,11 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
 	assert.True(t, has)
-	pool.RegisterLogger(DBLogger.Logger())
+	pool.RegisterLogger(DBLogger)
 	CacheLogger := &TestCacheLogger{}
 	cache, has := engine.GetLocalCache()
 	assert.True(t, has)
-	cache.RegisterLogger(CacheLogger.Logger())
+	cache.RegisterLogger(CacheLogger)
 
 	err := pool.BeginTransaction()
 	assert.Nil(t, err)
@@ -173,11 +173,11 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
 	assert.True(t, has)
-	pool.RegisterLogger(DBLogger.Logger())
+	pool.RegisterLogger(DBLogger)
 	CacheLogger := &TestCacheLogger{}
 	cache, has := engine.GetRedis()
 	assert.True(t, has)
-	cache.RegisterLogger(CacheLogger.Logger())
+	cache.RegisterLogger(CacheLogger)
 
 	err := pool.BeginTransaction()
 	assert.Nil(t, err)

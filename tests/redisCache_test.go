@@ -19,7 +19,7 @@ func TestGetSetRedis(t *testing.T) {
 	assert.Nil(t, err)
 
 	testLogger := &TestCacheLogger{}
-	redis.RegisterLogger(testLogger.Logger())
+	redis.RegisterLogger(testLogger)
 
 	val, err := redis.GetSet("test", 1, func() interface{} {
 		return "hello"

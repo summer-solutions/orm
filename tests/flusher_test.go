@@ -27,7 +27,7 @@ func TestFlusherAuto(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
 	assert.True(t, has)
-	pool.RegisterLogger(DBLogger.Logger())
+	pool.RegisterLogger(DBLogger)
 
 	flusher := orm.AutoFlusher{Limit: 5}
 
@@ -57,7 +57,7 @@ func TestFlusherManual(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
 	assert.True(t, has)
-	pool.RegisterLogger(DBLogger.Logger())
+	pool.RegisterLogger(DBLogger)
 
 	flusher := orm.Flusher{}
 

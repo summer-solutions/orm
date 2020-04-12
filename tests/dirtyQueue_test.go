@@ -29,7 +29,7 @@ func TestDirtyQueue(t *testing.T) {
 
 	LoggerRedisQueue := &TestCacheLogger{}
 	cache, _ := engine.GetRedis("default_queue")
-	cache.RegisterLogger(LoggerRedisQueue.Logger())
+	cache.RegisterLogger(LoggerRedisQueue)
 
 	err := engine.Flush(&entityAll, &entityAge)
 	assert.Nil(t, err)

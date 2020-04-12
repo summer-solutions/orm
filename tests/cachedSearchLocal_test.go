@@ -67,7 +67,7 @@ func TestCachedSearchLocal(t *testing.T) {
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, _ := engine.GetMysql()
-	pool.RegisterLogger(DBLogger.Logger())
+	pool.RegisterLogger(DBLogger)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)

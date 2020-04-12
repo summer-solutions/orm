@@ -23,7 +23,7 @@ func TestGetByIDsLocal(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
 	assert.True(t, has)
-	pool.RegisterLogger(DBLogger.Logger())
+	pool.RegisterLogger(DBLogger)
 
 	var found []*TestEntityByIDsLocal
 	missing, err := engine.TryByIDs([]uint64{2, 3, 1}, &found)

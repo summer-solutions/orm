@@ -155,7 +155,7 @@ func (db *DB) RegisterLogger(logger DatabaseLogger) {
 func (db *DB) log(query string, microseconds int64, args ...interface{}) {
 	if db.loggers != nil {
 		for _, logger := range db.loggers {
-			logger(db.code, query, microseconds, args...)
+			logger.Log(db.code, query, microseconds, args...)
 		}
 	}
 }

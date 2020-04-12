@@ -172,7 +172,7 @@ func (c *LocalCache) RegisterLogger(logger CacheLogger) {
 func (c *LocalCache) log(key string, operation string, microseconds int64, misses int) {
 	if c.loggers != nil {
 		for _, logger := range c.loggers {
-			logger("LOCAL", c.code, key, operation, microseconds, misses)
+			logger.Log("LOCAL", c.code, key, operation, microseconds, misses)
 		}
 	}
 }

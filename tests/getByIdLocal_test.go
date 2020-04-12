@@ -67,7 +67,7 @@ func TestGetByIDLocal(t *testing.T) {
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
 	assert.True(t, has)
-	pool.RegisterLogger(DBLogger.Logger())
+	pool.RegisterLogger(DBLogger)
 
 	found, err = engine.TryByID(1, &entity)
 	assert.Nil(t, err)

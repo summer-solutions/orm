@@ -56,18 +56,14 @@ type TestDatabaseLogger struct {
 	Queries []string
 }
 
-func (l *TestDatabaseLogger) Logger() orm.DatabaseLogger {
-	return func(mysqlCode string, query string, microseconds int64, args ...interface{}) {
-		l.Queries = append(l.Queries, fmt.Sprintf("%s %v", query, args))
-	}
+func (l *TestDatabaseLogger) Log(_ string, query string, _ int64, args ...interface{}) {
+	l.Queries = append(l.Queries, fmt.Sprintf("%s %v", query, args))
 }
 
 type TestCacheLogger struct {
 	Requests []string
 }
 
-func (c *TestCacheLogger) Logger() orm.CacheLogger {
-	return func(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
-		c.Requests = append(c.Requests, fmt.Sprintf("%s %s", operation, key))
-	}
+func (c *TestCacheLogger) Log(_ string, _ string, key string, operation string, _ int64, _ int) {
+	c.Requests = append(c.Requests, fmt.Sprintf("%s %s", operation, key))
 }

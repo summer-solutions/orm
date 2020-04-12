@@ -360,7 +360,7 @@ func (r *RedisCache) RegisterLogger(logger CacheLogger) {
 func (r *RedisCache) log(key string, operation string, microseconds int64, misses int) {
 	if r.loggers != nil {
 		for _, logger := range r.loggers {
-			logger("REDIS", r.code, key, operation, microseconds, misses)
+			logger.Log("REDIS", r.code, key, operation, microseconds, misses)
 		}
 	}
 }
