@@ -130,6 +130,7 @@ func getAllTables(db *sql.DB) ([]string, error) {
 
 func isTableEmpty(db *sql.DB, tableName string) (bool, error) {
 	var lastID uint64
+	/* #nosec */
 	err := db.QueryRow(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableName)).Scan(&lastID)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {

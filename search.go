@@ -27,6 +27,7 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.
 	if skipFakeDelete && schema.hasFakeDelete {
 		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
 	}
+	/* #nosec */
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, whereQuery)
 
 	pool := schema.GetMysql(engine)
@@ -92,6 +93,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	if skipFakeDelete && schema.hasFakeDelete {
 		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
 	}
+	/* #nosec */
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
@@ -165,8 +167,10 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 	}
 	whereQuery := where.String()
 	if skipFakeDelete && schema.hasFakeDelete {
+		/* #nosec */
 		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
 	}
+	/* #nosec */
 	query := fmt.Sprintf("SELECT `ID` FROM `%s` WHERE %s %s", schema.TableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
@@ -200,6 +204,7 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 	if withCount {
 		totalRows = foundRows
 		if totalRows == pager.GetPageSize() {
+			/* #nosec */
 			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.TableName, where)
 			var foundTotal string
 			pool := schema.GetMysql(engine)

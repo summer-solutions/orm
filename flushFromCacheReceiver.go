@@ -123,6 +123,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	if !has {
 		return false, RedisCachePoolNotRegisteredError{Name: redisQueueName}
 	}
+	/* #nosec */
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.TableName, strings.Join(fields, ","))
 	_, err = db.Exec(sql, attributes...)
 	if err != nil {

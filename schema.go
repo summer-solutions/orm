@@ -283,6 +283,7 @@ func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 	}
 
 	var rows []indexDB
+	/* #nosec */
 	results, def, err := pool.Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
 	if err != nil {
 		return false, nil, err
@@ -349,8 +350,10 @@ func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 			if hasDefinition == -1 {
 				alter := fmt.Sprintf("CHANGE COLUMN `%s` %s", value[0], value[1])
 				if key > 0 {
+					/* #nosec */
 					alter += fmt.Sprintf(" AFTER `%s`", columns[key-1][0])
 				}
+				/* #nosec */
 				changedColumns = append(changedColumns, [2]string{alter, fmt.Sprintf("CHANGED FROM %s", tableDBColumns[hasName][1])})
 				hasAlters = true
 			} else {
@@ -1052,6 +1055,7 @@ func (tableSchema *TableSchema) buildCreateIndexSQL(keyName string, definition *
 }
 
 func (tableSchema *TableSchema) buildCreateForeignKeySQL(keyName string, definition *foreignIndex) string {
+	/* #nosec */
 	return fmt.Sprintf("ADD CONSTRAINT `%s` FOREIGN KEY (`%s`) REFERENCES `%s`.`%s` (`ID`) ON DELETE %s",
 		keyName, definition.Column, definition.ParentDatabase, definition.Table, definition.OnDelete)
 }
@@ -1059,6 +1063,7 @@ func (tableSchema *TableSchema) buildCreateForeignKeySQL(keyName string, definit
 func (tableSchema *TableSchema) isTableEmpty(engine *Engine) (bool, error) {
 	var lastID uint64
 	pool := tableSchema.GetMysql(engine)
+	/* #nosec */
 	err := pool.QueryRow(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableSchema.TableName)).Scan(&lastID)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {

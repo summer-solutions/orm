@@ -113,6 +113,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 					i++
 				}
 				schema := orm.tableSchema
+				/* #nosec */
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.TableName, strings.Join(fields, ","))
 				db := schema.GetMysql(engine)
 				values[i] = currentID
@@ -177,6 +178,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		for key, val := range values {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
 		}
+		/* #nosec */
 		sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES %s", schema.TableName, strings.Join(finalValues, ","), insertValues[typeOf])
 		for i := 1; i < totalInsert[typeOf]; i++ {
 			sql += "," + insertValues[typeOf]
@@ -246,6 +248,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			ids[i] = id
 			i++
 		}
+		/* #nosec */
 		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, NewWhere("`ID` IN ?", ids))
 		db := schema.GetMysql(engine)
 		if lazy && db.transaction == nil {
