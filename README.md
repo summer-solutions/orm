@@ -1,6 +1,6 @@
 # orm
 
-![Check & test & build](https://github.com/summer-solutions/orm/workflows/Check%20&%20test%20&%20build/badge.svg)
+![Check & test](https://github.com/summer-solutions/orm/workflows/Check%20&%20test/badge.svg)
 [![codecov](https://codecov.io/gh/summer-solutions/orm/branch/master/graph/badge.svg)](https://codecov.io/gh/summer-solutions/orm)
 
 ## Defining database and cache pool connections
