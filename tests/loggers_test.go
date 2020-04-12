@@ -2,17 +2,18 @@ package tests
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/summer-solutions/orm"
 )
 
 type TestEntityLoggers struct {
-	Orm                  *orm.ORM `orm:"redisCache"`
-	ID                   uint
+	Orm *orm.ORM `orm:"redisCache"`
+	ID  uint
 }
 
 func TestLoggers(t *testing.T) {
