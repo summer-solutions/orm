@@ -79,23 +79,35 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 			}
 		}
 	}
-	sort.Slice(alters, func(i, j int) bool {
-		leftSQL := alters[i].SQL
-		rightSQL := alters[j].SQL
-
-		leftHasDropForeignKey := strings.Index(leftSQL, "DROP FOREIGN KEY") > 0
-		rightHasDropForeignKey := strings.Index(rightSQL, "DROP FOREIGN KEY") > 0
-		if leftHasDropForeignKey && !rightHasDropForeignKey {
-			return true
+	sortedNormal := make([]Alter, 0)
+	sortedDropForeign := make([]Alter, 0)
+	sortedAddForeign := make([]Alter, 0)
+	for _, alter := range alters {
+		hasDropForeignKey := strings.Index(alter.SQL, "DROP FOREIGN KEY") > 0
+		hasAddForeignKey := strings.Index(alter.SQL, "ADD CONSTRAINT") > 0
+		if !hasDropForeignKey && !hasAddForeignKey {
+			sortedNormal = append(sortedNormal, alter)
 		}
-		leftHasAddForeignKey := strings.Index(leftSQL, "ADD CONSTRAINT") > 0
-		rightHasAddForeignKey := strings.Index(rightSQL, "ADD CONSTRAINT") > 0
-		if !leftHasAddForeignKey && rightHasAddForeignKey {
-			return true
+	}
+	for _, alter := range alters {
+		hasDropForeignKey := strings.Index(alter.SQL, "DROP FOREIGN KEY") > 0
+		if hasDropForeignKey {
+			sortedDropForeign = append(sortedDropForeign, alter)
 		}
-		return false
+	}
+	for _, alter := range alters {
+		hasAddForeignKey := strings.Index(alter.SQL, "ADD CONSTRAINT") > 0
+		if hasAddForeignKey {
+			sortedAddForeign = append(sortedAddForeign, alter)
+		}
+	}
+	sort.Slice(sortedNormal, func(i int, j int) bool {
+		return len(sortedNormal[i].SQL) < len(sortedNormal[j].SQL)
 	})
-	return
+	final := sortedDropForeign
+	final = append(final, sortedNormal...)
+	final = append(final, sortedAddForeign...)
+	return final, nil
 }
 
 func isTableEmptyInPool(engine *Engine, poolName string, tableName string) (bool, error) {

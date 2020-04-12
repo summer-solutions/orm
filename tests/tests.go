@@ -31,6 +31,7 @@ func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}
 
 	alters, err := engine.GetAlters()
 	assert.Nil(t, err)
+	fmt.Printf("ALTERS\n")
 	for _, alter := range alters {
 		pool, has := engine.GetMysql(alter.Pool)
 		assert.True(t, has)
