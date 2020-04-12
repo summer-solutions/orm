@@ -168,6 +168,15 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 11)
 
+	err = engine.ClearByIDs(&entity, 1, 3)
+	assert.Nil(t, err)
+	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
+	assert.Nil(t, err)
+	assert.Equal(t, 10, totalRows)
+	assert.Len(t, rows, 10)
+	assert.Len(t, DBLogger.Queries, 12)
+	assert.Equal(t, "SELECT `ID`,IFNULL(`Name`,''),IFNULL(`Age`,''),IFNULL(`ReferenceOne`,'') FROM `TestEntityIndexTestLocal` WHERE `ID` IN (?,?) LIMIT 0,2 [3 1]", DBLogger.Queries[11])
+
 	var row TestEntityIndexTestLocal
 	has, err := engine.CachedSearchOne(&row, "IndexName", "Name 6")
 	assert.Nil(t, err)

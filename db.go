@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"container/list"
 	"database/sql"
 	"fmt"
 	"time"
@@ -12,7 +11,7 @@ type DB struct {
 	db                           *sql.DB
 	code                         string
 	databaseName                 string
-	loggers                      *list.List
+	loggers                      []DatabaseLogger
 	transaction                  *sql.Tx
 	transactionCounter           int
 	afterCommitLocalCacheSets    map[string][]interface{}
@@ -146,21 +145,17 @@ func (db *DB) Rollback() error {
 	return fmt.Errorf("rollback in nested transaction not allowed")
 }
 
-func (db *DB) RegisterLogger(logger DatabaseLogger) *list.Element {
+func (db *DB) RegisterLogger(logger DatabaseLogger) {
 	if db.loggers == nil {
-		db.loggers = list.New()
+		db.loggers = make([]DatabaseLogger, 0)
 	}
-	return db.loggers.PushFront(logger)
-}
-
-func (db *DB) UnregisterLogger(element *list.Element) {
-	db.loggers.Remove(element)
+	db.loggers = append(db.loggers, logger)
 }
 
 func (db *DB) log(query string, microseconds int64, args ...interface{}) {
 	if db.loggers != nil {
-		for e := db.loggers.Front(); e != nil; e = e.Next() {
-			e.Value.(DatabaseLogger)(db.code, query, microseconds, args...)
+		for _, logger := range db.loggers {
+			logger(db.code, query, microseconds, args...)
 		}
 	}
 }

@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"container/list"
 	"reflect"
 
 	"github.com/bsm/redislock"
@@ -174,20 +173,16 @@ func (e *Engine) GetAlters() (alters []Alter, err error) {
 	return getAlters(e)
 }
 
-func (e *Engine) RegisterDatabaseLogger(logger DatabaseLogger) []*list.Element {
-	res := make([]*list.Element, 0)
+func (e *Engine) RegisterDatabaseLogger(logger DatabaseLogger) {
 	for _, db := range e.dbs {
-		res = append(res, db.RegisterLogger(logger))
+		db.RegisterLogger(logger)
 	}
-	return res
 }
 
-func (e *Engine) RegisterRedisLogger(logger CacheLogger) []*list.Element {
-	res := make([]*list.Element, 0)
+func (e *Engine) RegisterRedisLogger(logger CacheLogger) {
 	for _, red := range e.redis {
-		res = append(res, red.RegisterLogger(logger))
+		red.RegisterLogger(logger)
 	}
-	return res
 }
 
 func (e *Engine) initIfNeeded(value reflect.Value) (*ORM, error) {

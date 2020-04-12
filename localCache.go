@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"container/list"
 	"fmt"
 	"sync"
 	"time"
@@ -13,7 +12,7 @@ type LocalCache struct {
 	engine  *Engine
 	code    string
 	lru     *lru.Cache
-	loggers *list.List
+	loggers []CacheLogger
 	ttl     int64
 }
 
@@ -163,21 +162,17 @@ func (c *LocalCache) Clear() {
 	c.log("", "CLEAR", time.Since(start).Microseconds(), 0)
 }
 
-func (c *LocalCache) RegisterLogger(logger CacheLogger) *list.Element {
+func (c *LocalCache) RegisterLogger(logger CacheLogger) {
 	if c.loggers == nil {
-		c.loggers = list.New()
+		c.loggers = make([]CacheLogger, 0)
 	}
-	return c.loggers.PushFront(logger)
-}
-
-func (c *LocalCache) UnregisterLogger(element *list.Element) {
-	c.loggers.Remove(element)
+	c.loggers = append(c.loggers, logger)
 }
 
 func (c *LocalCache) log(key string, operation string, microseconds int64, misses int) {
 	if c.loggers != nil {
-		for e := c.loggers.Front(); e != nil; e = e.Next() {
-			e.Value.(CacheLogger)("LOCAL", c.code, key, operation, microseconds, misses)
+		for _, logger := range c.loggers {
+			logger("LOCAL", c.code, key, operation, microseconds, misses)
 		}
 	}
 }
