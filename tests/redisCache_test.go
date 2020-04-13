@@ -1,8 +1,9 @@
 package tests
 
 import (
-	"github.com/go-redis/redis/v7"
 	"testing"
+
+	"github.com/go-redis/redis/v7"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
