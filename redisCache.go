@@ -131,7 +131,6 @@ func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
 			r.log(key, "RPOP", time.Since(start).Microseconds(), 1)
 			return "", false, nil
 		}
-		r.log(key, "RPOP", time.Since(start).Microseconds(), 0)
 		return "", false, err
 	}
 	r.log(key, "RPOP", time.Since(start).Microseconds(), 0)
