@@ -24,7 +24,7 @@ func TestLoggers(t *testing.T) {
 	err := engine.Flush(&entity)
 	assert.Nil(t, err)
 
-	os.Stdout,_ = os.Open(os.DevNull)
+	os.Stdout, _ = os.Open(os.DevNull)
 
 	engine.RegisterDatabaseLogger(&orm.StandardDatabaseLogger{})
 	engine.RegisterRedisLogger(&orm.StandardCacheLogger{})
@@ -61,5 +61,4 @@ func TestLoggers(t *testing.T) {
 	assert.Greater(t, strings.Index(bufCache.String(), "[MISSES 3]"), 0)
 
 	dbLogger.SetLogger(log.New(&bufDB, "", log.Lshortfile))
-
 }
