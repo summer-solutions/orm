@@ -78,6 +78,33 @@ func TestList(t *testing.T) {
 	assert.Equal(t, "", element)
 }
 
+func TestHash(t *testing.T) {
+	r := prepareRedis(t)
+	testLogger := &TestCacheLogger{}
+	r.RegisterLogger(testLogger)
+
+	err := r.HSet("key", "field_1", "a")
+	assert.Nil(t, err)
+
+	fields, err := r.HMget("key", "field_1", "field_2")
+	assert.Nil(t, err)
+	assert.Equal(t, fields["field_1"], "a")
+	assert.Nil(t, fields["field_2"])
+
+	err = r.HMset("key", map[string]interface{}{"field_3": "c", "field_4": "d"})
+	assert.Nil(t, err)
+
+	fieldsAll, err := r.HGetAll("key")
+	assert.Nil(t, err)
+	assert.Len(t, fieldsAll, 3)
+	assert.Contains(t, fieldsAll, "field_1")
+	assert.Contains(t, fieldsAll, "field_3")
+	assert.Contains(t, fieldsAll, "field_4")
+	assert.Equal(t, "a", fieldsAll["field_1"], "a")
+	assert.Equal(t, "c", fieldsAll["field_3"])
+	assert.Equal(t, "d", fieldsAll["field_4"])
+}
+
 func prepareRedis(t *testing.T) *orm.RedisCache {
 	registry := &orm.Registry{}
 	registry.RegisterRedis("localhost:6379", 15)
