@@ -3,6 +3,7 @@ package tests
 import (
 	"bytes"
 	"log"
+	"os"
 	"strings"
 	"testing"
 
@@ -17,8 +18,16 @@ type TestEntityLoggers struct {
 }
 
 func TestLoggers(t *testing.T) {
-	var entity TestEntityLoggers
+	entity := TestEntityLoggers{}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
+
+	err := engine.Flush(&entity)
+	assert.Nil(t, err)
+
+	os.Stdout,_ = os.Open(os.DevNull)
+
+	engine.RegisterDatabaseLogger(&orm.StandardDatabaseLogger{})
+	engine.RegisterRedisLogger(&orm.StandardCacheLogger{})
 
 	dbLogger := orm.StandardDatabaseLogger{}
 	var bufDB bytes.Buffer
@@ -32,8 +41,25 @@ func TestLoggers(t *testing.T) {
 
 	has, err := engine.TryByID(1, &entity)
 	assert.Nil(t, err)
-	assert.False(t, has)
+	assert.True(t, has)
 
 	assert.Greater(t, strings.Index(bufDB.String(), "SELECT `ID` FROM `TestEntityLoggers` WHERE `ID` = ? LIMIT 1 [1]\n"), 0)
 	assert.Greater(t, strings.Index(bufCache.String(), "[GET] TestEntityLoggers1642010974:1 [MISS]"), 0)
+
+	bufCache.Reset()
+	has, err = engine.TryByID(1, &entity)
+	assert.Nil(t, err)
+	assert.True(t, has)
+	assert.Equal(t, -1, strings.Index(bufCache.String(), "[GET] TestEntityLoggers1642010974:1 [MISS]"))
+	assert.Greater(t, strings.Index(bufCache.String(), "[GET] TestEntityLoggers1642010974:1"), 0)
+
+	bufCache.Reset()
+	var entities []*TestEntityLoggers
+	missing, err := engine.TryByIDs([]uint64{10, 11, 12}, &entities)
+	assert.Nil(t, err)
+	assert.Len(t, missing, 3)
+	assert.Greater(t, strings.Index(bufCache.String(), "[MISSES 3]"), 0)
+
+	dbLogger.SetLogger(log.New(&bufDB, "", log.Lshortfile))
+
 }

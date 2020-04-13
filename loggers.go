@@ -21,10 +21,6 @@ func (logger *StandardDatabaseLogger) Log(mysqlCode string, query string, micros
 	if logger.logger == nil {
 		logger.logger = log.New(os.Stdout, "", log.LstdFlags)
 	}
-	if len(args) == 0 {
-		logger.logger.Printf("[ORM][DB][%s] %s\n", mysqlCode, query)
-		return
-	}
 	logger.logger.Printf("[ORM][DB][%s][%d µs] %s %v\n", mysqlCode, microseconds, query, args)
 }
 
