@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"github.com/go-redis/redis/v7"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -103,6 +104,28 @@ func TestHash(t *testing.T) {
 	assert.Equal(t, "a", fieldsAll["field_1"], "a")
 	assert.Equal(t, "c", fieldsAll["field_3"])
 	assert.Equal(t, "d", fieldsAll["field_4"])
+}
+
+func TestSet(t *testing.T) {
+	r := prepareRedis(t)
+	testLogger := &TestCacheLogger{}
+	r.RegisterLogger(testLogger)
+
+	total, err := r.ZAdd("key", &redis.Z{Member: "a", Score: 100})
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), total)
+
+	total, err = r.ZAdd("key", &redis.Z{Member: "v", Score: 200})
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), total)
+
+	total, err = r.ZCard("key")
+	assert.Nil(t, err)
+	assert.Equal(t, int64(2), total)
+
+	total, err = r.ZCount("key", "100", "150")
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), total)
 }
 
 func prepareRedis(t *testing.T) *orm.RedisCache {

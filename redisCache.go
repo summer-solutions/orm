@@ -29,11 +29,7 @@ func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 		if err != nil {
 			return nil, err
 		}
-		err = r.Set(key, string(encoded), ttlSeconds)
-		if err != nil {
-			return nil, err
-		}
-		return userVal, nil
+		return userVal, r.Set(key, string(encoded), ttlSeconds)
 	}
 	var data interface{}
 	err = json.Unmarshal([]byte(val), &data)
