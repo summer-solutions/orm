@@ -48,6 +48,18 @@ func TestFlusherAuto(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 3)
 	assert.Equal(t, "INSERT INTO TestEntityFlusherAuto(`Name`) VALUES (?) [Name 11]", DBLogger.Queries[2])
+
+	flusher = orm.AutoFlusher{}
+
+	for i := 1; i <= 10; i++ {
+		e := TestEntityFlusherAuto{Name: "Name " + strconv.Itoa(i)}
+		err := flusher.RegisterEntity(engine, &e)
+		assert.Nil(t, err)
+	}
+	err = flusher.Flush(engine)
+	assert.Nil(t, err)
+	assert.Len(t, DBLogger.Queries, 4)
+	assert.Equal(t, "INSERT INTO TestEntityFlusherAuto(`Name`) VALUES (?),(?),(?),(?),(?),(?),(?),(?),(?),(?) [Name 1 Name 2 Name 3 Name 4 Name 5 Name 6 Name 7 Name 8 Name 9 Name 10]", DBLogger.Queries[3])
 }
 
 func TestFlusherManual(t *testing.T) {
@@ -71,4 +83,13 @@ func TestFlusherManual(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 1)
 	assert.Equal(t, "INSERT INTO TestEntityFlusherManual(`Name`) VALUES (?),(?),(?) [Name 1 Name 2 Name 3]", DBLogger.Queries[0])
+
+	for i := 1; i <= 3; i++ {
+		e := TestEntityFlusherManual{Name: "Name " + strconv.Itoa(i)}
+		flusher.RegisterEntity(&e)
+	}
+
+	entities, err := flusher.FlushAndReturn(engine)
+	assert.Nil(t, err)
+	assert.Len(t, entities, 3)
 }

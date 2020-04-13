@@ -13,6 +13,6 @@ require (
 	github.com/segmentio/fasthash v1.0.1
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/sys v0.0.0-20200409092240-59c9f1ba88fa // indirect
-	golang.org/x/tools v0.0.0-20200410194907-79a7a3126eef
+	golang.org/x/tools v0.0.0-20200413015812-1f08ef6002a8
 	gopkg.in/yaml.v2 v2.2.8
 )

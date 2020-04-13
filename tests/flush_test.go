@@ -212,4 +212,10 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 3)
 	assert.Equal(t, "DELETE TestEntityFlushCacheRedis4027225329:1", CacheLogger.Requests[0])
+	err = pool.BeginTransaction()
+	assert.Nil(t, err)
+	err = pool.Rollback()
+	assert.Nil(t, err)
+	err = pool.Rollback()
+	assert.Nil(t, err)
 }
