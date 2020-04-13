@@ -293,27 +293,6 @@ func fillStruct(config *Config, schema *TableSchema, index uint16, data []string
 			field.SetInt(integer)
 		case "string":
 			field.SetString(data[index])
-		case "[]string":
-			if data[index] != "" {
-				var values = strings.Split(data[index], ",")
-				var length = len(values)
-				slice := reflect.MakeSlice(field.Type(), length, length)
-				for key, value := range values {
-					slice.Index(key).SetString(value)
-				}
-				field.Set(slice)
-			}
-		case "[]uint64":
-			if data[index] != "" {
-				var values = strings.Split(data[index], " ")
-				var length = len(values)
-				slice := reflect.MakeSlice(field.Type(), length, length)
-				for key, value := range values {
-					integer, _ := strconv.ParseUint(value, 10, 64)
-					slice.Index(key).SetUint(integer)
-				}
-				field.Set(slice)
-			}
 		case "[]uint8":
 			bytes := data[index]
 			if bytes != "" {
