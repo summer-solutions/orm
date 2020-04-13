@@ -131,26 +131,17 @@ func (e *Engine) TryByIDs(ids []uint64, entities interface{}, references ...stri
 	return tryByIDs(e, ids, reflect.ValueOf(entities).Elem(), references)
 }
 
-func (e *Engine) ClearCachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) error {
-	_, err := cachedSearchOne(e, entity, indexName, true, arguments...)
-	return err
-}
-
 func (e *Engine) CachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) (has bool, err error) {
-	return cachedSearchOne(e, entity, indexName, false, arguments...)
-}
-
-func (e *Engine) ClearCachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
-	return cachedSearch(e, entities, indexName, true, pager, arguments, nil)
+	return cachedSearchOne(e, entity, indexName, arguments...)
 }
 
 func (e *Engine) CachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
-	return cachedSearch(e, entities, indexName, false, pager, arguments, nil)
+	return cachedSearch(e, entities, indexName, pager, arguments, nil)
 }
 
 func (e *Engine) CachedSearchWithReferences(entities interface{}, indexName string, pager *Pager,
 	arguments []interface{}, references []string) (totalRows int, err error) {
-	return cachedSearch(e, entities, indexName, false, pager, arguments, references)
+	return cachedSearch(e, entities, indexName, pager, arguments, references)
 }
 
 func (e *Engine) ClearByIDs(entity interface{}, ids ...uint64) error {

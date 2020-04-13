@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func cachedSearch(engine *Engine, entities interface{}, indexName string, clear bool, pager *Pager,
+func cachedSearch(engine *Engine, entities interface{}, indexName string, pager *Pager,
 	arguments []interface{}, references []string) (totalRows int, err error) {
 	value := reflect.ValueOf(entities)
 	entityType, has := getEntityTypeForSlice(engine.config, value.Type())
@@ -32,18 +32,6 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
-	if clear {
-		if hasLocalCache {
-			localCache.Remove(cacheKey)
-		}
-		if hasRedis {
-			err := redisCache.Del(cacheKey)
-			if err != nil {
-				return 0, err
-			}
-		}
-		return 0, nil
-	}
 	const idsOnCachePage = 1000
 
 	minCachePage := float64((pager.GetCurrentPage() - 1) * pager.GetPageSize() / idsOnCachePage)
@@ -182,7 +170,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, clear 
 	return
 }
 
-func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear bool, arguments ...interface{}) (has bool, err error) {
+func cachedSearchOne(engine *Engine, entity interface{}, indexName string, arguments ...interface{}) (has bool, err error) {
 	value := reflect.ValueOf(entity)
 	entityType := value.Elem().Type()
 	schema := getTableSchema(engine.config, entityType)
@@ -197,18 +185,6 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
-	if clear {
-		if hasLocalCache {
-			localCache.Remove(cacheKey)
-		}
-		if hasRedis {
-			err := redisCache.Del(cacheKey)
-			if err != nil {
-				return false, err
-			}
-		}
-		return false, nil
-	}
 	var fromCache map[string]interface{}
 	if hasLocalCache {
 		fromCache = localCache.HMget(cacheKey, "1")
@@ -232,7 +208,7 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, clear
 			value += fmt.Sprintf(" %d", results[0])
 		}
 		fields := map[string]interface{}{"1": value}
-		if hasLocalCache && !clear {
+		if hasLocalCache {
 			localCache.HMset(cacheKey, fields)
 		}
 		if hasRedis {

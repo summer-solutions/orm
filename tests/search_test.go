@@ -42,7 +42,8 @@ func TestSearch(t *testing.T) {
 	assert.Nil(t, err)
 
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
-	where := orm.NewWhere("`ID` > ? AND `ID` < ?", 1, 8)
+	where := orm.NewWhere("`ID` > ?", 1)
+	where.Append("AND `ID` < ?", 8)
 	var rows []*TestEntitySearch
 	err = engine.Search(where, pager, &rows, "ReferenceOne")
 	assert.Nil(t, err)
@@ -91,4 +92,12 @@ func TestSearch(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, ids, 3)
 	assert.Equal(t, uint64(5), ids[0])
+
+	pager = &orm.Pager{CurrentPage: 1, PageSize: 100}
+	rows = make([]*TestEntitySearch, 0)
+	where = orm.NewWhere("(`ID` IN ? OR `ID` IN ?)", []uint{5, 6}, []uint{7, 8})
+	totalRows, err = engine.SearchWithCount(where, pager, &rows)
+	assert.Nil(t, err)
+	assert.Len(t, rows, 4)
+	assert.Equal(t, 4, totalRows)
 }
