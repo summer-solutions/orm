@@ -624,31 +624,6 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 				continue
 			}
 			bind[name] = valString
-		case "[]string":
-			value := field.Interface().([]string)
-			var valueAsString string
-			if value != nil {
-				valueAsString = strings.Join(value, ",")
-			}
-			if hasOld && old == valueAsString {
-				continue
-			}
-			bind[name] = valueAsString
-		case "[]uint64":
-			value := field.Interface()
-			var valueAsString string
-			if value != nil {
-				valueAsString = fmt.Sprintf("%v", value)
-				valueAsString = strings.Trim(valueAsString, "[]")
-			}
-			if hasOld && old == valueAsString {
-				continue
-			}
-			if valueAsString == "" {
-				bind[name] = nil
-			} else {
-				bind[name] = valueAsString
-			}
 		case "*orm.ReferenceOne":
 			valueAsString := strconv.FormatUint(field.Interface().(*ReferenceOne).ID, 10)
 			if hasOld && (old == valueAsString || (old == nil && valueAsString == "0")) {
