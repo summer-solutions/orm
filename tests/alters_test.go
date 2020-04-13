@@ -65,7 +65,7 @@ type TestEntitySchema struct {
 	ReferenceOneCascade  *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef;cascade"`
 	IgnoreField          []time.Time       `orm:"ignore"`
 	Blob                 []byte
-	IndexAll             *orm.CachedQuery `query:"" max:"1000"`
+	IndexAll             *orm.CachedQuery `query:"" orm:"max=100"`
 }
 
 type TestEntitySchemaRef struct {
@@ -171,10 +171,19 @@ func TestGetAlters(t *testing.T) {
 
 	_, err = schema.GetMysql(engine).Exec("ALTER TABLE `TestEntitySchema` ADD COLUMN `ToDrop` int(8)")
 	assert.Nil(t, err)
-
 	alters, err = engine.GetAlters()
 	assert.Nil(t, err)
 	assert.Len(t, alters, 1)
 	assert.True(t, alters[0].Safe)
 	assert.Equal(t, "ALTER TABLE `test_schema`.`TestEntitySchema`\n    DROP COLUMN `ToDrop`;", alters[0].SQL)
+	err = schema.UpdateSchema(engine)
+	assert.Nil(t, err)
+
+	_, err = schema.GetMysql(engine).Exec("ALTER TABLE `TestEntitySchema` CHANGE COLUMN `Enum` `Enum` enum('Red','Black','Blue','Yellow','Purple') DEFAULT NULL")
+	assert.Nil(t, err)
+	alters, err = engine.GetAlters()
+	assert.Nil(t, err)
+	assert.Len(t, alters, 1)
+	assert.True(t, alters[0].Safe)
+	assert.Equal(t, "ALTER TABLE `test_schema`.`TestEntitySchema`\n    CHANGE COLUMN `Enum` `Enum` enum('Red','Green','Blue','Yellow','Purple') DEFAULT NULL AFTER `Float64DecimalSigned`;/*CHANGED FROM `Enum` enum('Red','Black','Blue','Yellow','Purple') DEFAULT NULL*/", alters[0].SQL)
 }

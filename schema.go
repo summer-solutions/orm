@@ -689,11 +689,6 @@ func extractTags(entityType reflect.Type, prefix string) (fields map[string]map[
 			}
 			fields[field.Name]["queryOne"] = queryOne
 		}
-		if hasRef {
-			if fields[field.Name] == nil {
-				fields[field.Name] = make(map[string]string)
-			}
-		}
 	}
 	return
 }
