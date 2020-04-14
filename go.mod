@@ -9,7 +9,7 @@ require (
 	github.com/go-redis/redis/v7 v7.2.0
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
-	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f // indirect
+	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/segmentio/fasthash v1.0.1
 	github.com/stretchr/testify v1.5.1
