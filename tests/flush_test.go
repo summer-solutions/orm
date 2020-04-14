@@ -161,16 +161,23 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	assert.Len(t, CacheLogger.Requests, 2)
 	assert.Equal(t, "MSET [TestEntityFlushCacheLocal4027225329:1]", CacheLogger.Requests[0])
 
+	has, err = engine.TryByID(1, &entity)
+	assert.Nil(t, err)
+	assert.True(t, has)
 	err = pool.BeginTransaction()
 	assert.Nil(t, err)
 	entity.Orm.MarkToDelete()
 	err = engine.Flush(&entity)
 	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 2)
+	assert.Len(t, CacheLogger.Requests, 3)
 	err = pool.Commit()
 	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 3)
+	assert.Len(t, CacheLogger.Requests, 4)
 	assert.Equal(t, "MSET [TestEntityFlushCacheLocal4027225329:1]", CacheLogger.Requests[0])
+
+	has, err = engine.TryByID(1, &entity)
+	assert.Nil(t, err)
+	assert.False(t, has)
 }
 
 func TestFlushTransactionRedisCache(t *testing.T) {

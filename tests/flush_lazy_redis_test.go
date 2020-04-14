@@ -8,14 +8,14 @@ import (
 	"github.com/summer-solutions/orm"
 )
 
-type TestEntityFlushLazy struct {
+type TestEntityFlushLazyRedis struct {
 	Orm  *orm.ORM `orm:"redisCache"`
 	ID   uint
 	Name string
 }
 
-func TestFlushLazy(t *testing.T) {
-	var entity TestEntityFlushLazy
+func TestFlushLazyRedis(t *testing.T) {
+	var entity TestEntityFlushLazyRedis
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	DBLogger := &TestDatabaseLogger{}
@@ -27,7 +27,7 @@ func TestFlushLazy(t *testing.T) {
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
-		e := TestEntityFlushLazy{Name: "Name " + strconv.Itoa(i)}
+		e := TestEntityFlushLazyRedis{Name: "Name " + strconv.Itoa(i)}
 		entities[i-1] = &e
 	}
 	err := engine.FlushLazy(entities...)

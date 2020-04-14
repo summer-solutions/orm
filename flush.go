@@ -206,6 +206,8 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			if hasLocalCache {
 				if !lazy {
 					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), buildLocalCacheValue(entity, schema))
+				} else {
+					addCacheDeletes(localCacheDeletes, db.code, localCache.code, schema.getCacheKey(id))
 				}
 				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
 				if err != nil {
@@ -363,11 +365,6 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				} else {
 					cache.Remove(keys...)
 				}
-			} else {
-				if db.afterCommitLocalCacheDeletes == nil {
-					db.afterCommitLocalCacheDeletes = make(map[string][]string)
-				}
-				db.afterCommitLocalCacheDeletes[cacheCode] = append(db.afterCommitLocalCacheDeletes[cacheCode], keys...)
 			}
 		}
 	}
