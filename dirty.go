@@ -11,7 +11,7 @@ func isDirty(value reflect.Value) (is bool, bind map[string]interface{}, err err
 	if ormField.dBData["_delete"] == true {
 		return true, nil, nil
 	}
-	bind, err = createBind(id, ormField.tableSchema, t, value, ormField.dBData, "")
+	bind, err = createBind(true, id, ormField.tableSchema, t, value, ormField.dBData, "")
 	if err != nil {
 		return false, nil, err
 	}

@@ -156,8 +156,6 @@ func TestDirtyQueue(t *testing.T) {
 
 	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		assert.Len(t, data, 2)
-		assert.Equal(t, uint64(2), data[0].ID)
-		assert.Equal(t, uint64(1), data[1].ID)
 		assert.True(t, data[0].Updated)
 		assert.True(t, data[1].Updated)
 		assert.False(t, data[0].Inserted)

@@ -475,7 +475,8 @@ func injectBind(value reflect.Value, bind map[string]interface{}) {
 	value.Field(0).Set(reflect.ValueOf(oldFields))
 }
 
-func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value reflect.Value, oldData map[string]interface{}, prefix string) (bind map[string]interface{}, err error) {
+func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Type, value reflect.Value,
+	oldData map[string]interface{}, prefix string) (bind map[string]interface{}, err error) {
 	bind = make(map[string]interface{})
 	var hasOld = len(oldData) > 0
 	for i := 0; i < t.NumField(); i++ {
@@ -499,7 +500,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 			valString := strconv.FormatUint(val, 10)
 			if attributes["year"] == "true" {
 				valString = fmt.Sprintf("%04d", val)
-				if hasOld && (old == valString || old == nil && valString == "0000") {
+				if compare && hasOld && (old == valString || old == nil && valString == "0000") {
 					continue
 				}
 				if !isRequired && val == 0 {
@@ -509,19 +510,19 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 				}
 				continue
 			}
-			if hasOld && old == valString {
+			if compare && hasOld && old == valString {
 				continue
 			}
 			bind[name] = valString
 		case "int", "int8", "int16", "int32", "int64":
 			val := strconv.FormatInt(field.Int(), 10)
-			if hasOld && old == val {
+			if compare && hasOld && old == val {
 				continue
 			}
 			bind[name] = val
 		case "string":
 			value := field.String()
-			if hasOld && (old == value || (old == nil && value == "")) {
+			if compare && hasOld && (old == value || (old == nil && value == "")) {
 				continue
 			}
 			if value == "" {
@@ -536,7 +537,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 		case "[]uint8":
 			value := field.Bytes()
 			valueAsString := string(value)
-			if hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
+			if compare && hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
 				continue
 			}
 			if valueAsString == "" {
@@ -553,7 +554,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 					}
 					value = strconv.FormatUint(id, 10)
 				}
-				if hasOld && old == value {
+				if compare && hasOld && old == value {
 					continue
 				}
 				bind[name] = value
@@ -563,7 +564,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 			if field.Bool() {
 				value = "1"
 			}
-			if hasOld && old == value {
+			if compare && hasOld && old == value {
 				continue
 			}
 			bind[name] = value
@@ -590,13 +591,13 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 				decimalArgs := strings.Split(decimal, ",")
 				valString = fmt.Sprintf("%."+decimalArgs[1]+"f", val)
 			}
-			if hasOld && old == valString {
+			if compare && hasOld && old == valString {
 				continue
 			}
 			bind[name] = valString
 		case "*orm.ReferenceOne":
 			valueAsString := strconv.FormatUint(field.Interface().(*ReferenceOne).ID, 10)
-			if hasOld && (old == valueAsString || (old == nil && valueAsString == "0")) {
+			if compare && hasOld && (old == valueAsString || (old == nil && valueAsString == "0")) {
 				continue
 			}
 			if valueAsString == "0" {
@@ -625,13 +626,13 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 				valueAsString = value.Format(layout)
 			}
 			if isRequired {
-				if hasOld && old == valueAsString {
+				if compare && hasOld && old == valueAsString {
 					continue
 				}
 				bind[name] = valueAsString
 				continue
 			}
-			if hasOld && (old == valueAsString || old == nil && valueAsString == layoutEmpty) {
+			if compare && hasOld && (old == valueAsString || old == nil && valueAsString == layoutEmpty) {
 				continue
 			}
 			if valueAsString == layoutEmpty {
@@ -652,13 +653,13 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 					valString = asString
 				}
 			}
-			if hasOld && old == valString {
+			if compare && hasOld && old == valString {
 				continue
 			}
 			bind[name] = valString
 		default:
 			if field.Kind().String() == "struct" {
-				subBind, err := createBind(0, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
+				subBind, err := createBind(compare, 0, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
 				if err != nil {
 					return nil, err
 				}

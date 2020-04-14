@@ -232,8 +232,7 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value
 		return err
 	}
 	orm.dBData["ID"] = id
-
-	_, bind, err := isDirty(elem)
+	bind, err := createBind(false, id, orm.tableSchema, elem.Type(), elem, orm.dBData, "")
 	if err != nil {
 		return err
 	}
