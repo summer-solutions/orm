@@ -58,7 +58,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		if err != nil {
 			return err
 		}
-		isDirty, bind, err := isDirty(value)
+		isDirty, bind, err := getDirtyBind(value)
 		if err != nil {
 			return err
 		}
@@ -475,7 +475,7 @@ func injectBind(value reflect.Value, bind map[string]interface{}) {
 	value.Field(0).Set(reflect.ValueOf(oldFields))
 }
 
-func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Type, value reflect.Value,
+func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value reflect.Value,
 	oldData map[string]interface{}, prefix string) (bind map[string]interface{}, err error) {
 	bind = make(map[string]interface{})
 	var hasOld = len(oldData) > 0
@@ -500,7 +500,7 @@ func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Typ
 			valString := strconv.FormatUint(val, 10)
 			if attributes["year"] == "true" {
 				valString = fmt.Sprintf("%04d", val)
-				if compare && hasOld && (old == valString || old == nil && valString == "0000") {
+				if hasOld && (old == valString || (valString == "0000" && (old == nil || old == ""))) {
 					continue
 				}
 				if !isRequired && val == 0 {
@@ -510,19 +510,19 @@ func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Typ
 				}
 				continue
 			}
-			if compare && hasOld && old == valString {
+			if hasOld && old == valString {
 				continue
 			}
 			bind[name] = valString
 		case "int", "int8", "int16", "int32", "int64":
 			val := strconv.FormatInt(field.Int(), 10)
-			if compare && hasOld && old == val {
+			if hasOld && old == val {
 				continue
 			}
 			bind[name] = val
 		case "string":
 			value := field.String()
-			if compare && hasOld && (old == value || (old == nil && value == "")) {
+			if hasOld && (old == value || (old == nil && value == "")) {
 				continue
 			}
 			if value == "" {
@@ -537,7 +537,7 @@ func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Typ
 		case "[]uint8":
 			value := field.Bytes()
 			valueAsString := string(value)
-			if compare && hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
+			if hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
 				continue
 			}
 			if valueAsString == "" {
@@ -554,7 +554,7 @@ func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Typ
 					}
 					value = strconv.FormatUint(id, 10)
 				}
-				if compare && hasOld && old == value {
+				if hasOld && old == value {
 					continue
 				}
 				bind[name] = value
@@ -564,7 +564,7 @@ func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Typ
 			if field.Bool() {
 				value = "1"
 			}
-			if compare && hasOld && old == value {
+			if hasOld && old == value {
 				continue
 			}
 			bind[name] = value
@@ -591,13 +591,13 @@ func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Typ
 				decimalArgs := strings.Split(decimal, ",")
 				valString = fmt.Sprintf("%."+decimalArgs[1]+"f", val)
 			}
-			if compare && hasOld && old == valString {
+			if hasOld && old == valString {
 				continue
 			}
 			bind[name] = valString
 		case "*orm.ReferenceOne":
 			valueAsString := strconv.FormatUint(field.Interface().(*ReferenceOne).ID, 10)
-			if compare && hasOld && (old == valueAsString || (old == nil && valueAsString == "0")) {
+			if hasOld && (old == valueAsString || (old == nil && valueAsString == "0")) {
 				continue
 			}
 			if valueAsString == "0" {
@@ -626,13 +626,13 @@ func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Typ
 				valueAsString = value.Format(layout)
 			}
 			if isRequired {
-				if compare && hasOld && old == valueAsString {
+				if hasOld && old == valueAsString {
 					continue
 				}
 				bind[name] = valueAsString
 				continue
 			}
-			if compare && hasOld && (old == valueAsString || old == nil && valueAsString == layoutEmpty) {
+			if hasOld && (old == valueAsString || (valueAsString == layoutEmpty && (old == nil || old == ""))) {
 				continue
 			}
 			if valueAsString == layoutEmpty {
@@ -653,13 +653,13 @@ func createBind(compare bool, id uint64, tableSchema *TableSchema, t reflect.Typ
 					valString = asString
 				}
 			}
-			if compare && hasOld && old == valString {
+			if hasOld && old == valString {
 				continue
 			}
 			bind[name] = valString
 		default:
 			if field.Kind().String() == "struct" {
-				subBind, err := createBind(compare, 0, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
+				subBind, err := createBind(0, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
 				if err != nil {
 					return nil, err
 				}

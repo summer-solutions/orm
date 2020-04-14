@@ -85,7 +85,7 @@ func (e *Engine) GetLocker(code ...string) (locker *Locker, has bool) {
 }
 
 func (e *Engine) IsDirty(entity interface{}) bool {
-	is, _, _ := isDirty(reflect.ValueOf(entity).Elem())
+	is, _, _ := getDirtyBind(reflect.ValueOf(entity).Elem())
 	return is
 }
 

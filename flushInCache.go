@@ -27,7 +27,7 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 		if !hasRedis || id == 0 {
 			invalidEntities = append(invalidEntities, entity)
 		} else {
-			isDirty, bind, err := isDirty(elem)
+			isDirty, bind, err := getDirtyBind(elem)
 			if err != nil {
 				return err
 			}

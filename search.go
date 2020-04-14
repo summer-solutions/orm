@@ -232,12 +232,8 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value
 		return err
 	}
 	orm.dBData["ID"] = id
-	bind, err := createBind(false, id, orm.tableSchema, elem.Type(), elem, orm.dBData, "")
-	if err != nil {
-		return err
-	}
-	for key, value := range bind {
-		orm.dBData[key] = value
+	for key, column := range orm.tableSchema.columnNames[1:] {
+		orm.dBData[column] = data[key]
 	}
 	return nil
 }

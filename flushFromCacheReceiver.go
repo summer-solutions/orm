@@ -89,7 +89,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	for k, v := range ormFieldDB.dBData {
 		ormFieldCache.dBData[k] = v
 	}
-	is, bind, err := isDirty(entityElem)
+	is, bind, err := getDirtyBind(entityElem)
 	if err != nil {
 		return true, err
 	}
