@@ -25,6 +25,13 @@ type TestEntityFlush struct {
 	Ignored      []time.Time       `orm:"ignore"`
 }
 
+type TestEntityErrors struct {
+	Orm          *orm.ORM
+	ID           uint16
+	Name         string            `orm:"unique=NameIndex"`
+	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityErrors"`
+}
+
 type TestEntityFlushCacheLocal struct {
 	Orm  *orm.ORM `orm:"localCache"`
 	ID   uint
@@ -218,4 +225,31 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 	assert.Nil(t, err)
 	err = pool.Rollback()
 	assert.Nil(t, err)
+}
+
+func TestFlushErrors(t *testing.T) {
+	entity := TestEntityErrors{Name: "Name"}
+	engine := PrepareTables(t, &orm.Registry{}, entity)
+	err := engine.Init(&entity)
+	assert.Nil(t, err)
+
+	entity.ReferenceOne.ID = 2
+	err = engine.Flush(&entity)
+	assert.NotNil(t, err)
+	keyError, is := err.(*orm.ForeignKeyError)
+	assert.True(t, is)
+	assert.Equal(t, "test:TestEntityErrors:ReferenceOne", keyError.Constraint)
+	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`TestEntityErrors`, CONSTRAINT `test:TestEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `TestEntityErrors` (`ID`))", keyError.Error())
+
+	entity.ReferenceOne.ID = 0
+	err = engine.Flush(&entity)
+	assert.Nil(t, err)
+
+	entity = TestEntityErrors{Name: "Name"}
+	err = engine.Flush(&entity)
+	assert.NotNil(t, err)
+	duplicatedError, is := err.(*orm.DuplicatedKeyError)
+	assert.True(t, is)
+	assert.Equal(t, "NameIndex", duplicatedError.Index)
+	assert.Equal(t, "Duplicate entry 'Name' for key 'NameIndex'", duplicatedError.Error())
 }

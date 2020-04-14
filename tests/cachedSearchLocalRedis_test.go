@@ -186,4 +186,12 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	has, err = engine.CachedSearchOne(&row, "IndexName", "Name 99")
 	assert.Nil(t, err)
 	assert.False(t, has)
+
+	totalRows, err = engine.CachedSearchWithReferences(&rows, "IndexAll", pager, []interface{}{}, []string{"*"})
+	assert.Nil(t, err)
+	assert.Equal(t, 10, totalRows)
+	assert.Len(t, rows, 10)
+	assert.Len(t, DBLogger.Queries, 15)
+	assert.NotNil(t, rows[0].ReferenceOne.Reference)
+	assert.NotNil(t, rows[2].ReferenceOne.Reference)
 }

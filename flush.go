@@ -171,9 +171,6 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 	}
 	for typeOf, values := range insertKeys {
 		schema := getTableSchema(engine.config, typeOf)
-		if schema == nil {
-			return EntityNotRegisteredError{Name: typeOf.String()}
-		}
 		finalValues := make([]string, len(values))
 		for key, val := range values {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
@@ -475,9 +472,6 @@ func serializeForLazyQueue(lazyMap map[string]interface{}) (string, error) {
 
 func injectBind(value reflect.Value, bind map[string]interface{}) {
 	oldFields := value.Field(0).Interface().(*ORM)
-	if oldFields.dBData == nil {
-		oldFields.dBData = make(map[string]interface{})
-	}
 	for key, value := range bind {
 		oldFields.dBData[key] = value
 	}
@@ -786,7 +780,7 @@ func convertToError(err error) error {
 			if len(labels) > 0 {
 				return &DuplicatedKeyError{Message: sqlErr.Message, Index: labels[1]}
 			}
-		} else if sqlErr.Number == 1451 {
+		} else if sqlErr.Number == 1451 || sqlErr.Number == 1452 {
 			var abortLabelReg, _ = regexp.Compile(" CONSTRAINT `(.*?)`")
 			labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
 			if len(labels) > 0 {

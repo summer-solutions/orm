@@ -24,4 +24,7 @@ func TestLock(t *testing.T) {
 	assert.Nil(t, err)
 	err = lock.Release()
 	assert.Nil(t, err)
+	locker, has = engine.GetLocker("test")
+	assert.False(t, has)
+	assert.Nil(t, locker)
 }

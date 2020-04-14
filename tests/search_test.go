@@ -100,4 +100,9 @@ func TestSearch(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, rows, 4)
 	assert.Equal(t, 4, totalRows)
+
+	res, total, err := engine.SearchIDsWithCount(where, pager, entity)
+	assert.Nil(t, err)
+	assert.Equal(t, 4, total)
+	assert.Equal(t, []uint64{5, 6, 7, 8}, res)
 }
