@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
-
 	"github.com/go-sql-driver/mysql"
 )
 
@@ -158,7 +156,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentID))
 					keys, err := getCacheQueriesKeys(schema, bind, orm.dBData, false)
 					if err != nil {
-						return err
+						return fmt.Errorf("%w", err)
 					}
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 					keys, err = getCacheQueriesKeys(schema, bind, old, false)
@@ -692,7 +690,7 @@ func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data 
 				for _, trackedFieldSub := range definition.Fields {
 					val, has := data[trackedFieldSub]
 					if !has {
-						return nil, errors.Errorf("missing field %s in index %v", trackedFieldSub, data)
+						return nil, fmt.Errorf("missing field %s in index", trackedFieldSub)
 					}
 					if !schema.hasFakeDelete || trackedFieldSub != "FakeDelete" {
 						attributes = append(attributes, val)
