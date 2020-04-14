@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,7 @@ import (
 type TestEntityDirtyQueueAll struct {
 	Orm  *orm.ORM `orm:"dirty=test"`
 	ID   uint
-	Name string
+	Name string `orm:"length=100"`
 }
 
 type TestEntityDirtyQueueAge struct {
@@ -139,6 +140,39 @@ func TestDirtyQueue(t *testing.T) {
 		assert.False(t, data[0].Inserted)
 		assert.False(t, data[0].Updated)
 		assert.True(t, data[0].Deleted)
+		return nil, nil
+	})
+	assert.Nil(t, err)
+	assert.True(t, has)
+	size, err = receiver.Size()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), size)
+
+	err = receiver.MarkDirty("tests.TestEntityDirtyQueueAge", 1, 2)
+	assert.Nil(t, err)
+	size, err = receiver.Size()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(2), size)
+
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
+		assert.Len(t, data, 2)
+		assert.Equal(t, uint64(2), data[0].ID)
+		assert.Equal(t, uint64(1), data[1].ID)
+		assert.True(t, data[0].Updated)
+		assert.True(t, data[1].Updated)
+		assert.False(t, data[0].Inserted)
+		assert.False(t, data[1].Inserted)
+		assert.False(t, data[0].Deleted)
+		assert.False(t, data[1].Deleted)
+		return []interface{}{"a", "tests.TestEntityDirtyQueueAge:u:f", "c:d:f"}, fmt.Errorf("has invalid")
+	})
+	assert.True(t, has)
+	assert.NotNil(t, err)
+	size, err = receiver.Size()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(3), size)
+
+	has, err = receiver.Digest(100, func(data []orm.DirtyData) (invalid []interface{}, err error) {
 		return nil, nil
 	})
 	assert.Nil(t, err)
