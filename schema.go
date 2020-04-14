@@ -816,7 +816,6 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 		"int16",
 		"int32",
 		"int64",
-		"rune",
 		"int":
 		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt(typeAsString, attributes)
 	case "uint16":
