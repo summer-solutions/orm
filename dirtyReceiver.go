@@ -128,9 +128,6 @@ func (r *DirtyReceiver) getRedis() (*RedisCache, error) {
 		return nil, fmt.Errorf("unregistered dirty queue %s", r.queueCode)
 	}
 	queueRedis := queue.(*RedisDirtyQueueSender)
-	redis, has := r.engine.GetRedis(queueRedis.PoolName)
-	if !has {
-		return nil, RedisCachePoolNotRegisteredError{Name: queueRedis.PoolName}
-	}
+	redis, _ := r.engine.GetRedis(queueRedis.PoolName)
 	return redis, nil
 }

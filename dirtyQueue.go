@@ -23,7 +23,7 @@ type RedisDirtyQueueSender struct {
 func (s *RedisDirtyQueueSender) Send(engine *Engine, code string, values []*DirtyQueueValue) error {
 	r, has := engine.GetRedis(s.PoolName)
 	if !has {
-		return RedisCachePoolNotRegisteredError{Name: s.PoolName}
+		return nil
 	}
 	members := make([]interface{}, len(values))
 	for i, val := range values {

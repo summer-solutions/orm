@@ -19,19 +19,13 @@ func NewFlushFromCacheReceiver(engine *Engine, queueName string) *FlushFromCache
 
 func (r *FlushFromCacheReceiver) Size() (int64, error) {
 	name := r.queueName + "_queue"
-	redis, has := r.engine.GetRedis(name)
-	if !has {
-		return 0, RedisCachePoolNotRegisteredError{Name: name}
-	}
+	redis, _ := r.engine.GetRedis(name)
 	return redis.SCard("dirty_queue")
 }
 
 func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	name := r.queueName + "_queue"
-	cache, has := r.engine.GetRedis(name)
-	if !has {
-		return false, RedisCachePoolNotRegisteredError{Name: name}
-	}
+	cache, _ := r.engine.GetRedis(name)
 	value, has, err := cache.SPop("dirty_queue")
 	if err != nil {
 		return false, err
@@ -52,10 +46,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 		return false, EntityNotRegisteredError{Name: val[0]}
 	}
 	schema := getTableSchema(r.engine.config, t)
-	cacheEntity, hasRedis := schema.GetRedisCacheContainer(r.engine)
-	if !hasRedis {
-		return true, nil
-	}
+	cacheEntity, _ := schema.GetRedisCacheContainer(r.engine)
 	cacheKey := schema.getCacheKey(id)
 	inCache, has, err := cacheEntity.Get(cacheKey)
 	if err != nil {
@@ -119,10 +110,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	db := schema.GetMysql(r.engine)
 
 	redisQueueName := "default"
-	redisQueue, has := r.engine.getRedisForQueue(redisQueueName)
-	if !has {
-		return false, RedisCachePoolNotRegisteredError{Name: redisQueueName}
-	}
+	redisQueue, _ := r.engine.getRedisForQueue(redisQueueName)
 	/* #nosec */
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.TableName, strings.Join(fields, ","))
 	_, err = db.Exec(sql, attributes...)

@@ -87,7 +87,7 @@ func TestGetAlters(t *testing.T) {
 	assert.Nil(t, err)
 	engine := orm.NewEngine(config)
 
-	tableSchema, _ := config.GetTableSchema(entity)
+	tableSchema, _ := config.GetTableSchema("tests.TestEntitySchema")
 	err = tableSchema.DropTable(engine)
 	assert.Nil(t, err)
 	tableSchemaRef, _ := config.GetTableSchema(entityRef)

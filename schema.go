@@ -216,11 +216,7 @@ func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 	}
 	var newIndexes []string
 	var newForeignKeys []string
-	pool, hasPool := engine.GetMysql(tableSchema.MysqlPoolName)
-	if !hasPool {
-		return false, nil, DBPoolNotRegisteredError{Name: tableSchema.MysqlPoolName}
-	}
-
+	pool, _ := engine.GetMysql(tableSchema.MysqlPoolName)
 	createTableSQL := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", pool.databaseName, tableSchema.TableName)
 	createTableForiegnKeysSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.databaseName, tableSchema.TableName)
 	columns[0][1] += " AUTO_INCREMENT"
@@ -533,13 +529,17 @@ OUTER:
 	return has, alters, nil
 }
 
-func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
+func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema, error) {
 	tags, columnNames, columnPathMap := extractTags(entityType, "")
 	oneRefs := make([]string, 0)
 	columnsStamp := fmt.Sprintf("%d", fnv1a.HashString32(fmt.Sprintf("%v", columnNames)))
 	mysql, has := tags["Orm"]["mysql"]
 	if !has {
 		mysql = "default"
+	}
+	_, has = registry.sqlClients[mysql]
+	if !has {
+		return nil, fmt.Errorf("unknown mysql pool '%s'", mysql)
 	}
 	table, has := tags["Orm"]["table"]
 	if !has {
@@ -554,6 +554,12 @@ func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
 		}
 		localCache = userValue
 	}
+	if localCache != "" {
+		_, has = registry.localCacheContainers[localCache]
+		if !has {
+			return nil, fmt.Errorf("unknown local cache pool '%s'", localCache)
+		}
+	}
 	userValue, has = tags["Orm"]["redisCache"]
 	if has {
 		if userValue == "true" {
@@ -561,6 +567,13 @@ func initTableSchema(entityType reflect.Type) (*TableSchema, error) {
 		}
 		redisCache = userValue
 	}
+	if redisCache != "" {
+		_, has = registry.redisServers[redisCache]
+		if !has {
+			return nil, fmt.Errorf("unknown redis pool '%s'", redisCache)
+		}
+	}
+
 	cachePrefix := ""
 	if mysql != "default" {
 		cachePrefix = mysql
@@ -1074,10 +1087,7 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 	query := "SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_TABLE_SCHEMA " +
 		"FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL " +
 		"AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
-	pool, has := engine.GetMysql(poolName)
-	if !has {
-		return nil, DBPoolNotRegisteredError{Name: poolName}
-	}
+	pool, _ := engine.GetMysql(poolName)
 	results, def, err := pool.Query(fmt.Sprintf(query, pool.databaseName, tableName))
 	if err != nil {
 		return nil, err
@@ -1117,10 +1127,7 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) (string, error) {
 	var skip string
 	var createTableDB string
-	pool, has := engine.GetMysql(poolName)
-	if !has {
-		return "", DBPoolNotRegisteredError{Name: poolName}
-	}
+	pool, _ := engine.GetMysql(poolName)
 	err := pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableName)).Scan(&skip, &createTableDB)
 	if err != nil {
 		return "", err

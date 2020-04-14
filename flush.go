@@ -332,15 +332,9 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		}
 	}
 	for dbCode, values := range localCacheSets {
-		db, has := engine.GetMysql(dbCode)
-		if !has {
-			return DBPoolNotRegisteredError{Name: dbCode}
-		}
+		db, _ := engine.GetMysql(dbCode)
 		for cacheCode, keys := range values {
-			cache, has := db.engine.GetLocalCache(cacheCode)
-			if !has {
-				return LocalCachePoolNotRegisteredError{Name: dbCode}
-			}
+			cache, _ := db.engine.GetLocalCache(cacheCode)
 			if db.transaction == nil {
 				cache.MSet(keys...)
 			} else {
@@ -352,15 +346,9 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		}
 	}
 	for dbCode, values := range localCacheDeletes {
-		db, has := engine.GetMysql(dbCode)
-		if !has {
-			return DBPoolNotRegisteredError{Name: dbCode}
-		}
+		db, _ := engine.GetMysql(dbCode)
 		for cacheCode, allKeys := range values {
-			cache, has := db.engine.GetLocalCache(cacheCode)
-			if !has {
-				return LocalCachePoolNotRegisteredError{Name: dbCode}
-			}
+			cache, _ := db.engine.GetLocalCache(cacheCode)
 			keys := make([]string, len(allKeys))
 			i := 0
 			for key := range allKeys {
@@ -387,15 +375,9 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		}
 	}
 	for dbCode, values := range redisKeysToDelete {
-		db, has := engine.GetMysql(dbCode)
-		if !has {
-			return DBPoolNotRegisteredError{Name: dbCode}
-		}
+		db, _ := engine.GetMysql(dbCode)
 		for cacheCode, allKeys := range values {
-			cache, has := engine.GetRedis(cacheCode)
-			if !has {
-				return RedisCachePoolNotRegisteredError{Name: cacheCode}
-			}
+			cache, _ := engine.GetRedis(cacheCode)
 			keys := make([]string, len(allKeys))
 			i := 0
 			for key := range allKeys {
@@ -430,10 +412,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			return err
 		}
 		code := "default"
-		redis, has := engine.getRedisForQueue(code)
-		if !has {
-			return RedisCachePoolNotRegisteredError{Name: code}
-		}
+		redis, _ := engine.getRedisForQueue(code)
 		_, err = redis.LPush("lazy_queue", v)
 		if err != nil {
 			return err

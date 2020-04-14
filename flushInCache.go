@@ -57,19 +57,13 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 	}
 	if len(validEntities) > 0 {
 		code := "default"
-		redis, has := engine.getRedisForQueue(code)
-		if !has {
-			return RedisCachePoolNotRegisteredError{Name: code}
-		}
+		redis, _ := engine.getRedisForQueue(code)
 		_, err := redis.SAdd("dirty_queue", validEntities...)
 		if err != nil {
 			return err
 		}
 		for cacheCode, keys := range redisValues {
-			redis, has := engine.GetRedis(cacheCode)
-			if !has {
-				return RedisCachePoolNotRegisteredError{Name: cacheCode}
-			}
+			redis, _ := engine.GetRedis(cacheCode)
 			err = redis.MSet(keys...)
 			if err != nil {
 				return err

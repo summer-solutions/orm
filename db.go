@@ -88,30 +88,21 @@ func (db *DB) Commit() error {
 		if err == nil {
 			if db.afterCommitLocalCacheSets != nil {
 				for cacheCode, pairs := range db.afterCommitLocalCacheSets {
-					cache, has := db.engine.GetLocalCache(cacheCode)
-					if !has {
-						return LocalCachePoolNotRegisteredError{Name: cacheCode}
-					}
+					cache, _ := db.engine.GetLocalCache(cacheCode)
 					cache.MSet(pairs...)
 				}
 			}
 			db.afterCommitLocalCacheSets = nil
 			if db.afterCommitLocalCacheDeletes != nil {
 				for cacheCode, keys := range db.afterCommitLocalCacheDeletes {
-					cache, has := db.engine.GetLocalCache(cacheCode)
-					if !has {
-						return LocalCachePoolNotRegisteredError{Name: cacheCode}
-					}
+					cache, _ := db.engine.GetLocalCache(cacheCode)
 					cache.Remove(keys...)
 				}
 			}
 			db.afterCommitLocalCacheDeletes = nil
 			if db.afterCommitRedisCacheDeletes != nil {
 				for cacheCode, keys := range db.afterCommitRedisCacheDeletes {
-					cache, has := db.engine.GetRedis(cacheCode)
-					if !has {
-						return RedisCachePoolNotRegisteredError{Name: cacheCode}
-					}
+					cache, _ := db.engine.GetRedis(cacheCode)
 					err := cache.Del(keys...)
 					if err != nil {
 						return err

@@ -103,7 +103,7 @@ func (r *Registry) CreateConfig() (*Config, error) {
 		config.enums[k] = v
 	}
 	for name, entityType := range r.entities {
-		tableSchema, err := initTableSchema(entityType)
+		tableSchema, err := initTableSchema(r, entityType)
 		if err != nil {
 			return nil, err
 		}
