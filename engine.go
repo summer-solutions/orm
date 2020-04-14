@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"github.com/juju/errors"
 	"reflect"
 
 	"github.com/bsm/redislock"
@@ -94,7 +95,11 @@ func (e *Engine) Init(entity ...interface{}) error {
 }
 
 func (e *Engine) Flush(entities ...interface{}) error {
-	return flush(e, false, entities...)
+	err := flush(e, false, entities...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (e *Engine) FlushLazy(entities ...interface{}) error {
