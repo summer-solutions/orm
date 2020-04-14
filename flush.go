@@ -3,12 +3,13 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/juju/errors"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/juju/errors"
 
 	"github.com/go-sql-driver/mysql"
 )
@@ -157,12 +158,12 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentID))
 					keys, err := getCacheQueriesKeys(schema, bind, orm.dBData, false)
 					if err != nil {
-						return errors.Trace(err)
+						return err
 					}
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 					keys, err = getCacheQueriesKeys(schema, bind, old, false)
 					if err != nil {
-						return errors.Trace(err)
+						return err
 					}
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 				}
