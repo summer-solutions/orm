@@ -157,12 +157,12 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentID))
 					keys, err := getCacheQueriesKeys(schema, bind, orm.dBData, false)
 					if err != nil {
-						return err
+						return errors.Trace(err)
 					}
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 					keys, err = getCacheQueriesKeys(schema, bind, old, false)
 					if err != nil {
-						return err
+						return errors.Trace(err)
 					}
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 				}
@@ -691,7 +691,7 @@ func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data 
 				for _, trackedFieldSub := range definition.Fields {
 					val, has := data[trackedFieldSub]
 					if !has {
-						return nil, errors.Errorf("missing field %s in index", trackedFieldSub)
+						return nil, errors.Errorf("missing field %s in index %v", trackedFieldSub, data)
 					}
 					if !schema.hasFakeDelete || trackedFieldSub != "FakeDelete" {
 						attributes = append(attributes, val)
