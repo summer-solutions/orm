@@ -3,6 +3,7 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/juju/errors"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -690,7 +691,7 @@ func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data 
 				for _, trackedFieldSub := range definition.Fields {
 					val, has := data[trackedFieldSub]
 					if !has {
-						return nil, fmt.Errorf("missing field %s in index", trackedFieldSub)
+						return nil, errors.Errorf("missing field %s in index", trackedFieldSub)
 					}
 					if !schema.hasFakeDelete || trackedFieldSub != "FakeDelete" {
 						attributes = append(attributes, val)
