@@ -40,6 +40,7 @@ type TestEntityByIDLocal struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressByIDLocal
 	JSON                 interface{}
+	Uint8Slice           []uint8
 	Ignored              []time.Time `orm:"ignore"`
 }
 
@@ -98,6 +99,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.Equal(t, AddressByIDLocal{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.JSON)
+	assert.Equal(t, "", string(entity.Uint8Slice))
 	assert.Nil(t, err)
 
 	assert.False(t, engine.IsDirty(&entity))
@@ -119,8 +121,8 @@ func TestGetByIDLocal(t *testing.T) {
 	entity.Address.Street = "wall street"
 	entity.Address.Building = 12
 	entity.JSON = map[string]string{"name": "John"}
+	entity.Uint8Slice = []byte("test me")
 
-	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(&entity))
 
 	err = engine.Flush(&entity)

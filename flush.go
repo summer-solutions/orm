@@ -542,7 +542,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 			if valueAsString == "" {
 				bind[name] = nil
 			} else {
-				bind[name] = value
+				bind[name] = valueAsString
 			}
 		case "bool":
 			if name == "FakeDelete" {

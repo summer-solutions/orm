@@ -808,10 +808,17 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 
 	var err error
 	switch typeAsString {
-	case "uint":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("int(10) unsigned")
-	case "uint8":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("tinyint(3) unsigned")
+	case "uint",
+		"uint8",
+		"uint32",
+		"uint64",
+		"int8",
+		"int16",
+		"int32",
+		"int64",
+		"rune",
+		"int":
+		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt(typeAsString, attributes)
 	case "uint16":
 		if attributes["year"] == "true" {
 			if isRequired {
@@ -819,36 +826,12 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 			}
 			return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) DEFAULT NULL", columnName)}}, nil
 		}
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("smallint(5) unsigned")
-	case "uint32":
-		if attributes["mediumint"] == "true" {
-			definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("mediumint(8) unsigned")
-		} else {
-			definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("int(10) unsigned")
-		}
-	case "uint64":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("bigint(20) unsigned")
-	case "int8":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("tinyint(4)")
-	case "int16":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("smallint(6)")
-	case "int32":
-		if attributes["mediumint"] == "true" {
-			definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("mediumint(9)")
-		} else {
-			definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("int(11)")
-		}
-	case "int64":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("bigint(20)")
-	case "rune":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("int(11)")
-	case "int":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("int(11)")
+		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt(typeAsString, attributes)
 	case "bool":
 		if columnName == "FakeDelete" {
 			return nil, nil
 		}
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt("tinyint(1)")
+		definition, addNotNullIfNotSet, defaultValue = "tinyint(1)", true, "'0'"
 	case "string", "[]string":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = tableSchema.handleString(engine.config, attributes, false)
 		if err != nil {
@@ -898,8 +881,8 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 	return [][2]string{{columnName, fmt.Sprintf("`%s` %s", columnName, definition)}}, nil
 }
 
-func (tableSchema *TableSchema) handleInt(definition string) (string, bool, string) {
-	return definition, true, "'0'"
+func (tableSchema *TableSchema) handleInt(typeAsString string, attributes map[string]string) (string, bool, string) {
+	return tableSchema.convertIntToSchema(typeAsString, attributes), true, "'0'"
 }
 
 func (tableSchema *TableSchema) handleFloat(floatDefinition string, attributes map[string]string) (string, bool, string) {
@@ -1002,7 +985,10 @@ func (tableSchema *TableSchema) handleTime(attributes map[string]string) (string
 func (tableSchema *TableSchema) handleReferenceOne(config *Config, attributes map[string]string) string {
 	reference := attributes["ref"]
 	t, _ := config.getEntityType(reference)
-	typeAsString := t.Field(1).Type.String()
+	return tableSchema.convertIntToSchema(t.Field(1).Type.String(), attributes)
+}
+
+func (tableSchema *TableSchema) convertIntToSchema(typeAsString string, attributes map[string]string) string {
 	switch typeAsString {
 	case "uint":
 		return "int(10) unsigned"
@@ -1017,8 +1003,20 @@ func (tableSchema *TableSchema) handleReferenceOne(config *Config, attributes ma
 		return "int(10) unsigned"
 	case "uint64":
 		return "bigint(20) unsigned"
+	case "int8":
+		return "tinyint(4)"
+	case "int16":
+		return "smallint(6)"
+	case "int32":
+		if attributes["mediumint"] == "true" {
+			return "mediumint(9)"
+		}
+		return "int(11)"
+	case "int64":
+		return "bigint(20)"
+	default:
+		return "int(11)"
 	}
-	return "int(10) unsigned"
 }
 
 func (tableSchema *TableSchema) checkStruct(engine *Engine, t reflect.Type, indexes map[string]*index,
