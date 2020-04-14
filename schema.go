@@ -854,7 +854,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 		if err != nil {
 			return nil, err
 		}
-	case "interface {}", "[]uint64":
+	case "interface {}":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = tableSchema.handleString(engine.config, attributes, true)
 		if err != nil {
 			return nil, err
