@@ -3,6 +3,7 @@ package tests
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
@@ -167,6 +168,12 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 11)
+
+	err = engine.ClearByIDs(&time.Time{}, 1, 3)
+	assert.NotNil(t, err)
+	exception, is := err.(orm.EntityNotRegisteredError)
+	assert.True(t, is)
+	assert.Equal(t, "time.Time", exception.Name)
 
 	err = engine.ClearByIDs(&entity, 1, 3)
 	assert.Nil(t, err)
