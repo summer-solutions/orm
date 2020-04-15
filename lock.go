@@ -18,8 +18,8 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 	if waitTimeout == 0 {
 		waitTimeout = ttl
 	}
-	minInterval := 16*time.Millisecond
-	maxInterval := 256*time.Millisecond
+	minInterval := 16 * time.Millisecond
+	maxInterval := 256 * time.Millisecond
 	max := int(waitTimeout / maxInterval)
 	options := &redislock.Options{RetryStrategy: redislock.LimitRetry(redislock.ExponentialBackoff(minInterval, maxInterval), max)}
 	redisLock, err := l.locker.Obtain(key, ttl, options)

@@ -25,7 +25,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
-		return 0, fmt.Errorf("max cache index page size exceeded %s", indexName)
+		return 0, fmt.Errorf("max cache index page size (%d) exceeded %s", definition.Max, indexName)
 	}
 
 	Where := NewWhere(definition.Query, arguments...)
@@ -163,7 +163,13 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 		sliceEnd = length
 	}
 	idsToReturn := resultsIDs[sliceStart:sliceEnd]
-	err = engine.GetByIDs(idsToReturn, entities, references...)
+	nonZero := make([]uint64, 0, len(idsToReturn))
+	for _, id := range idsToReturn {
+		if id != 0 {
+			nonZero = append(nonZero, id)
+		}
+	}
+	err = engine.GetByIDs(nonZero, entities, references...)
 	if err != nil {
 		return 0, err
 	}

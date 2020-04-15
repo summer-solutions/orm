@@ -203,7 +203,7 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 	totalRows := 0
 	if withCount {
 		totalRows = foundRows
-		if totalRows == pager.GetPageSize() {
+		if totalRows == pager.GetPageSize() || (foundRows == 0 && pager.CurrentPage > 1) {
 			/* #nosec */
 			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.TableName, where)
 			var foundTotal string

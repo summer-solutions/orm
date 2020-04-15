@@ -192,6 +192,16 @@ func TestCachedSearchLocal(t *testing.T) {
 	has, err = engine.CachedSearchOne(&row, "IndexName", "Name 99")
 	assert.Nil(t, err)
 	assert.False(t, has)
+
+	pager = &orm.Pager{CurrentPage: 49, PageSize: 1000}
+	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
+	assert.Nil(t, err)
+	assert.Equal(t, 10, totalRows)
+
+	pager = &orm.Pager{CurrentPage: 51, PageSize: 1000}
+	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
+	assert.EqualError(t, err, "max cache index page size (50000) exceeded IndexAll")
+	assert.Equal(t, 0, totalRows)
 }
 
 func BenchmarkCachedSearchLocal(b *testing.B) {
