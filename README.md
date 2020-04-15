@@ -950,7 +950,7 @@ func main() {
     engine := orm.NewEngine(config)
     
     locker, _ := engine.GetLocker()
-    lock, err := locker.Obtain("my_lock", 1 * Time.Second)
+    lock, err := locker.Obtain("my_lock", 1 * Time.Second, 1 * Time.Second)
     if err != nil {
         panic(err)
     }
