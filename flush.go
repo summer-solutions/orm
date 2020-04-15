@@ -640,6 +640,16 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 			} else {
 				bind[name] = valueAsString
 			}
+		case "[]string":
+			value := field.Interface().([]string)
+			var valueAsString string
+			if value != nil {
+				valueAsString = strings.Join(value, ",")
+			}
+			if hasOld && old == valueAsString {
+				continue
+			}
+			bind[name] = valueAsString
 		case "interface {}":
 			value := field.Interface()
 			var valString string

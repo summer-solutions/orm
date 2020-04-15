@@ -17,10 +17,20 @@ func TestLock(t *testing.T) {
 	engine := orm.NewEngine(config)
 	locker, has := engine.GetLocker()
 	assert.True(t, has)
+
 	lock, has, err := locker.Obtain("test", 10*time.Second)
 	assert.Nil(t, err)
 	assert.True(t, has)
+	assert.NotNil(t, lock)
+
+	lock2, has, err := locker.Obtain("test", 10*time.Second)
+	assert.Nil(t, err)
+	assert.False(t, has)
+	assert.Nil(t, lock2)
+
 	_, err = lock.TTL()
+	assert.Nil(t, err)
+	err = lock.Release()
 	assert.Nil(t, err)
 	err = lock.Release()
 	assert.Nil(t, err)
