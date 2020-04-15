@@ -926,7 +926,7 @@ func (tableSchema *TableSchema) handleString(config *Config, attributes map[stri
 			return "", false, false, "", err
 		}
 		if i > 65535 {
-			return "", false, false, "", fmt.Errorf("lenght to heigh: %s", length)
+			return "", false, false, "", fmt.Errorf("length to heigh: %s", length)
 		}
 		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	}
