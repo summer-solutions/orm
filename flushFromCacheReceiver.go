@@ -109,30 +109,18 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	attributes[i] = id
 	db := schema.GetMysql(r.engine)
 
-	redisQueueName := "default"
-	redisQueue, _ := r.engine.getRedisForQueue(redisQueueName)
 	/* #nosec */
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.TableName, strings.Join(fields, ","))
 	_, err = db.Exec(sql, attributes...)
 	if err != nil {
-		_, _ = redisQueue.SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
 		return true, err
 	}
-	cacheKeys, err := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
-	if err != nil {
-		return false, err
-	}
-	keys, err := getCacheQueriesKeys(schema, bind, newData, false)
-	if err != nil {
-		return false, err
-	}
+	cacheKeys := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
+
+	keys := getCacheQueriesKeys(schema, bind, newData, false)
 	cacheKeys = append(cacheKeys, keys...)
 	if len(cacheKeys) > 0 {
 		err = cacheEntity.Del(cacheKeys...)
-		if err != nil {
-			_, _ = redisQueue.SAdd("dirty_queue", createDirtyQueueMember(val[0], id))
-			return true, err
-		}
 	}
-	return true, nil
+	return true, err
 }

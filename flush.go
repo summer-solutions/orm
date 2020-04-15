@@ -141,28 +141,16 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
 				if hasLocalCache {
 					addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(value.Interface(), schema))
-					keys, err := getCacheQueriesKeys(schema, bind, orm.dBData, false)
-					if err != nil {
-						return err
-					}
+					keys := getCacheQueriesKeys(schema, bind, orm.dBData, false)
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, keys...)
-					keys, err = getCacheQueriesKeys(schema, bind, old, false)
-					if err != nil {
-						return err
-					}
+					keys = getCacheQueriesKeys(schema, bind, old, false)
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, keys...)
 				}
 				if hasRedis {
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(currentID))
-					keys, err := getCacheQueriesKeys(schema, bind, orm.dBData, false)
-					if err != nil {
-						return fmt.Errorf("%w", err)
-					}
+					keys := getCacheQueriesKeys(schema, bind, orm.dBData, false)
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
-					keys, err = getCacheQueriesKeys(schema, bind, old, false)
-					if err != nil {
-						return err
-					}
+					keys = getCacheQueriesKeys(schema, bind, old, false)
 					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 				}
 				addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
@@ -209,18 +197,12 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				} else {
 					addCacheDeletes(localCacheDeletes, db.code, localCache.code, schema.getCacheKey(id))
 				}
-				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
-				if err != nil {
-					return err
-				}
+				keys := getCacheQueriesKeys(schema, bind, bind, true)
 				addCacheDeletes(localCacheDeletes, db.code, localCache.code, keys...)
 			}
 			if hasRedis {
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(id))
-				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
-				if err != nil {
-					return err
-				}
+				keys := getCacheQueriesKeys(schema, bind, bind, true)
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 			}
 			addDirtyQueues(dirtyQueues, bind, schema, id, "i")
@@ -304,20 +286,14 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		if hasLocalCache {
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.code, localCache.code, schema.getCacheKey(id), "nil")
-				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
-				if err != nil {
-					return err
-				}
+				keys := getCacheQueriesKeys(schema, bind, bind, true)
 				addCacheDeletes(localCacheDeletes, db.code, localCache.code, keys...)
 			}
 		}
 		if hasRedis {
 			for id, bind := range deleteBinds {
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(id))
-				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
-				if err != nil {
-					return err
-				}
+				keys := getCacheQueriesKeys(schema, bind, bind, true)
 				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, keys...)
 			}
 		}
@@ -679,7 +655,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 	return
 }
 
-func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data map[string]interface{}, addedDeleted bool) (keys []string, err error) {
+func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data map[string]interface{}, addedDeleted bool) (keys []string) {
 	keys = make([]string, 0)
 
 	for indexName, definition := range schema.cachedIndexesAll {
@@ -694,10 +670,7 @@ func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data 
 			if has {
 				attributes := make([]interface{}, 0)
 				for _, trackedFieldSub := range definition.Fields {
-					val, has := data[trackedFieldSub]
-					if !has {
-						return nil, fmt.Errorf("missing field %s in index", trackedFieldSub)
-					}
+					val := data[trackedFieldSub]
 					if !schema.hasFakeDelete || trackedFieldSub != "FakeDelete" {
 						attributes = append(attributes, val)
 					}
