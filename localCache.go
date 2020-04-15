@@ -26,7 +26,7 @@ func (c *LocalCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 	if has {
 		ttlVal := val.(ttlValue)
 		if time.Now().Unix()-ttlVal.time <= int64(ttlSeconds) {
-			return ttlVal
+			return ttlVal.value
 		}
 	}
 	userVal := provider()
