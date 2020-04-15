@@ -36,8 +36,9 @@ func TestEntityByIDsRedis(t *testing.T) {
 		assert.Nil(t, err)
 		flusher.RegisterEntity(&e2)
 	}
-	err := flusher.Flush(engine)
+	response, err := flusher.Flush(engine)
 	assert.Nil(t, err)
+	assert.Len(t, response, 20)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()

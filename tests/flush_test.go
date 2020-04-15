@@ -58,7 +58,7 @@ func TestFlush(t *testing.T) {
 		flusher.RegisterEntity(&e)
 		entities[i-1] = &e
 	}
-	err := flusher.Flush(engine)
+	_, err := flusher.Flush(engine)
 	assert.Nil(t, err)
 	for i := 1; i < 10; i++ {
 		testEntity := entities[i-1]

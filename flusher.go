@@ -22,7 +22,7 @@ func (f *AutoFlusher) RegisterEntity(engine *Engine, entities ...interface{}) er
 	}
 	for _, entity := range entities {
 		if f.currentIndex == f.Limit {
-			err := f.Flush(engine)
+			_, err := f.Flush(engine)
 			if err != nil {
 				return err
 			}
@@ -33,31 +33,23 @@ func (f *AutoFlusher) RegisterEntity(engine *Engine, entities ...interface{}) er
 	return nil
 }
 
-func (f *Flusher) Flush(engine *Engine) error {
+func (f *Flusher) Flush(engine *Engine) ([]interface{}, error) {
 	err := flush(engine, f.Lazy, f.entities...)
 	if err != nil {
-		return err
+		return f.entities, err
 	}
+	toReturn := f.entities
 	f.entities = make([]interface{}, 0)
-	return nil
+	return toReturn, nil
 }
 
-func (f *Flusher) FlushAndReturn(engine *Engine) ([]interface{}, error) {
+func (f *AutoFlusher) Flush(engine *Engine) ([]interface{}, error) {
 	err := flush(engine, f.Lazy, f.entities...)
 	if err != nil {
-		return nil, err
-	}
-	entities := f.entities
-	f.entities = make([]interface{}, 0)
-	return entities, nil
-}
-
-func (f *AutoFlusher) Flush(engine *Engine) error {
-	err := flush(engine, f.Lazy, f.entities...)
-	if err != nil {
-		return err
+		return f.entities, err
 	}
 	f.currentIndex = 0
+	toReturn := f.entities
 	f.entities = make([]interface{}, 0)
-	return nil
+	return toReturn, nil
 }
