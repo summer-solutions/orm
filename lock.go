@@ -11,7 +11,7 @@ type Locker struct {
 }
 
 func (l *Locker) Obtain(key string, ttl time.Duration) (lock *Lock, obtained bool, err error) {
-	options := &redislock.Options{RetryStrategy: redislock.LimitRetry(redislock.ExponentialBackoff(16 * time.Millisecond, 256 * time.Millisecond), 5)}
+	options := &redislock.Options{RetryStrategy: redislock.LimitRetry(redislock.ExponentialBackoff(16*time.Millisecond, 256*time.Millisecond), 5)}
 	redisLock, err := l.locker.Obtain(key, ttl, options)
 	if err != nil {
 		if err == redislock.ErrNotObtained {
