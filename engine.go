@@ -89,8 +89,8 @@ func (e *Engine) IsDirty(entity interface{}) bool {
 	return is
 }
 
-func (e *Engine) Init(entity ...interface{}) error {
-	return e.initEntities(entity...)
+func (e *Engine) Init(entity ...interface{}) {
+	e.initEntities(entity...)
 }
 
 func (e *Engine) Flush(entities ...interface{}) error {
@@ -176,14 +176,11 @@ func (e *Engine) RegisterRedisLogger(logger CacheLogger) {
 	}
 }
 
-func (e *Engine) initIfNeeded(value reflect.Value) (*ORM, error) {
+func (e *Engine) initIfNeeded(value reflect.Value) *ORM {
 	elem := value.Elem()
 	orm := elem.Field(0).Interface().(*ORM)
 	if orm == nil {
 		tableSchema := getTableSchema(e.config, elem.Type())
-		if tableSchema == nil {
-			return nil, EntityNotRegisteredError{Name: elem.Type().String()}
-		}
 		orm = &ORM{dBData: make(map[string]interface{}), elem: elem, tableSchema: tableSchema}
 		elem.Field(0).Set(reflect.ValueOf(orm))
 		for _, code := range tableSchema.refOne {
@@ -197,18 +194,14 @@ func (e *Engine) initIfNeeded(value reflect.Value) (*ORM, error) {
 			defaultInterface.SetDefaults()
 		}
 	}
-	return orm, nil
+	return orm
 }
 
-func (e *Engine) initEntities(entity ...interface{}) error {
+func (e *Engine) initEntities(entity ...interface{}) {
 	for _, entity := range entity {
 		value := reflect.ValueOf(entity)
-		_, err := e.initIfNeeded(value)
-		if err != nil {
-			return err
-		}
+		e.initIfNeeded(value)
 	}
-	return nil
 }
 
 func (e *Engine) getRedisForQueue(code string) (*RedisCache, bool) {

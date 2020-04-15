@@ -60,10 +60,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	}
 	ormFieldCache := entityElem.Field(0).Interface().(*ORM)
 	ormFieldCache.elem = entityElem
-	ormFieldDB, err := r.engine.initIfNeeded(entityDBValue)
-	if err != nil {
-		return true, nil
-	}
+	ormFieldDB := r.engine.initIfNeeded(entityDBValue)
 	newData := make(map[string]interface{}, len(ormFieldCache.dBData))
 	for k, v := range ormFieldCache.dBData {
 		newData[k] = v

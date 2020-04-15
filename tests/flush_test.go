@@ -100,8 +100,7 @@ func TestFlush(t *testing.T) {
 	edited1.Name = "Name 2.2"
 	toDelete.Orm.MarkToDelete()
 	newEntity := TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
-	err = engine.Init(&newEntity)
-	assert.Nil(t, err)
+	engine.Init(&newEntity)
 	assert.True(t, engine.IsDirty(&edited1))
 	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(&edited2))
@@ -237,11 +236,10 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 func TestFlushErrors(t *testing.T) {
 	entity := TestEntityErrors{Name: "Name"}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
-	err := engine.Init(&entity)
-	assert.Nil(t, err)
+	engine.Init(&entity)
 
 	entity.ReferenceOne.ID = 2
-	err = engine.Flush(&entity)
+	err := engine.Flush(&entity)
 	assert.NotNil(t, err)
 	keyError, is := err.(*orm.ForeignKeyError)
 	assert.True(t, is)

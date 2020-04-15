@@ -40,8 +40,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
 		e := TestEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
-		err := engine.Init(&e)
-		assert.Nil(t, err)
+		engine.Init(&e)
 		e.ReferenceOne.ID = uint64(i)
 		entities[i-1] = &e
 	}
