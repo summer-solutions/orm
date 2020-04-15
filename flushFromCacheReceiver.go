@@ -27,42 +27,27 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	name := r.queueName + "_queue"
 	cache, _ := r.engine.GetRedis(name)
 	value, has, err := cache.SPop("dirty_queue")
-	if err != nil {
+	if err != nil || !has {
 		return false, err
 	}
-	if !has {
-		return false, nil
-	}
 	val := strings.Split(value, ":")
-	if len(val) != 2 {
-		return true, nil
-	}
-	id, err := strconv.ParseUint(val[1], 10, 64)
-	if err != nil {
-		return true, err
-	}
+	id, _ := strconv.ParseUint(val[1], 10, 64)
 	t, has := r.engine.config.getEntityType(val[0])
 	if !has {
-		return false, EntityNotRegisteredError{Name: val[0]}
+		return true, nil
 	}
 	schema := getTableSchema(r.engine.config, t)
 	cacheEntity, _ := schema.GetRedisCacheContainer(r.engine)
 	cacheKey := schema.getCacheKey(id)
-	inCache, has, err := cacheEntity.Get(cacheKey)
-	if err != nil {
-		return true, err
-	}
+	inCache, has, _ := cacheEntity.Get(cacheKey)
 	if !has {
-		return true, err
+		return true, nil
 	}
 	entityValue := reflect.New(schema.t)
 	entityElem := entityValue.Elem()
 
 	var decoded []string
-	err = json.Unmarshal([]byte(inCache), &decoded)
-	if err != nil {
-		return true, err
-	}
+	_ = json.Unmarshal([]byte(inCache), &decoded)
 
 	err = fillFromDBRow(id, r.engine, decoded, entityValue, schema.t)
 	if err != nil {
@@ -70,17 +55,14 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	}
 	entityDBValue := reflect.New(schema.t)
 	found, err := searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue)
-	if err != nil {
-		return true, err
-	}
-	if !found {
+	if err != nil || !found {
 		return true, err
 	}
 	ormFieldCache := entityElem.Field(0).Interface().(*ORM)
 	ormFieldCache.elem = entityElem
 	ormFieldDB, err := r.engine.initIfNeeded(entityDBValue)
 	if err != nil {
-		return false, err
+		return true, nil
 	}
 	newData := make(map[string]interface{}, len(ormFieldCache.dBData))
 	for k, v := range ormFieldCache.dBData {
@@ -90,11 +72,8 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 		ormFieldCache.dBData[k] = v
 	}
 	is, bind, err := getDirtyBind(entityElem)
-	if err != nil {
+	if err != nil || !is {
 		return true, err
-	}
-	if !is {
-		return true, nil
 	}
 
 	bindLength := len(bind)
