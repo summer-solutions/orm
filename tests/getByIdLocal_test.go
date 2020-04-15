@@ -41,12 +41,16 @@ type TestEntityByIDLocal struct {
 	Address              AddressByIDLocal
 	JSON                 interface{}
 	Uint8Slice           []uint8
-	Ignored              []time.Time `orm:"ignore"`
+	Ignored              []time.Time       `orm:"ignore"`
+	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntityByIDLocal"`
 }
 
 func TestGetByIDLocal(t *testing.T) {
 	var entity TestEntityByIDLocal
 	engine := PrepareTables(t, &orm.Registry{}, entity)
+
+	err := engine.GetByID(200, &entity)
+	assert.EqualError(t, err, "entity *tests.TestEntityByIDLocal with id 200 not found")
 
 	found, err := engine.TryByID(100, &entity)
 	assert.Nil(t, err)
@@ -65,12 +69,17 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity.ID)
 
+	entity.ReferenceOne.ID = 1
+	err = engine.Flush(&entity)
+	assert.Nil(t, err)
+	assert.False(t, engine.IsDirty(&entity))
+
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
 	assert.True(t, has)
 	pool.RegisterLogger(DBLogger)
 
-	found, err = engine.TryByID(1, &entity)
+	found, err = engine.TryByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -94,6 +103,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Equal(t, float64(0), entity.Float64DecimalSigned)
 	assert.Equal(t, uint16(0), entity.Year)
 	assert.IsType(t, time.Time{}, entity.Date)
+	assert.NotNil(t, entity.ReferenceOne.Reference)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.IsType(t, time.Time{}, entity.DateTime)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))

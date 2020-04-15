@@ -63,6 +63,8 @@ func TestGetByIDRedis(t *testing.T) {
 	err = engine.GetByID(1, &entity2)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity2.ID)
+	assert.Nil(t, entity2.ReferenceOne.Reference)
+
 	var entity3 TestEntityByIDRedis
 	err = engine.GetByID(1, &entity3)
 	assert.Nil(t, err)
@@ -110,6 +112,11 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Nil(t, entity.JSON)
 	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Queries, 1)
+
+	found, err = engine.TryByID(1, &entity, "ReferenceOne")
+	assert.Nil(t, err)
+	assert.True(t, found)
+	assert.NotNil(t, entity.ReferenceOne.Reference)
 
 	entity.Name = "Test name"
 	entity.BigName = "Test big name"

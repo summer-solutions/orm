@@ -30,11 +30,8 @@ func tryByID(engine *Engine, id uint64, entity interface{}, references ...string
 			}
 			if len(references) > 0 {
 				err = warmUpReferences(engine, schema, elem, references, false)
-				if err != nil {
-					return true, err
-				}
 			}
-			return true, nil
+			return true, err
 		}
 	}
 	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
@@ -59,11 +56,8 @@ func tryByID(engine *Engine, id uint64, entity interface{}, references ...string
 			}
 			if len(references) > 0 {
 				err = warmUpReferences(engine, schema, elem, references, false)
-				if err != nil {
-					return true, err
-				}
 			}
-			return true, nil
+			return true, err
 		}
 	}
 	found, err = searchOne(false, engine, NewWhere("`ID` = ?", id), entity)
@@ -73,6 +67,12 @@ func tryByID(engine *Engine, id uint64, entity interface{}, references ...string
 	if !found {
 		if localCache != nil {
 			localCache.Set(cacheKey, "nil")
+		}
+		if redisCache != nil {
+			err = redisCache.Set(cacheKey, "nil", 60)
+			if err != nil {
+				return false, err
+			}
 		}
 		return false, nil
 	}
@@ -106,19 +106,7 @@ func getByID(engine *Engine, id uint64, entity interface{}, references ...string
 }
 
 func buildRedisValue(entity interface{}, schema *TableSchema) string {
-	bind := reflect.Indirect(reflect.ValueOf(entity)).Field(0).Interface().(*ORM).dBData
-	length := len(schema.columnNames)
-	value := make([]string, length-1)
-	j := 0
-	for i := 1; i < length; i++ { //skip id
-		v := bind[schema.columnNames[i]]
-		if v == nil {
-			v = ""
-		}
-		value[j] = fmt.Sprintf("%s", v)
-		j++
-	}
-	encoded, _ := json.Marshal(value)
+	encoded, _ := json.Marshal(buildLocalCacheValue(entity, schema))
 	return string(encoded)
 }
 

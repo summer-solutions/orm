@@ -216,9 +216,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				addCacheDeletes(localCacheDeletes, db.code, localCache.code, keys...)
 			}
 			if hasRedis {
-				if !lazy {
-					addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(id))
-				}
+				addCacheDeletes(redisKeysToDelete, db.code, redisCache.code, schema.getCacheKey(id))
 				keys, err := getCacheQueriesKeys(schema, bind, bind, true)
 				if err != nil {
 					return err
@@ -238,9 +236,6 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 	}
 	for typeOf, deleteBinds := range deleteBinds {
 		schema := getTableSchema(engine.config, typeOf)
-		if schema == nil {
-			return EntityNotRegisteredError{Name: typeOf.String()}
-		}
 		ids := make([]interface{}, len(deleteBinds))
 		i := 0
 		for id := range deleteBinds {
