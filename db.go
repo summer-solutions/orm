@@ -2,7 +2,6 @@ package orm
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 )
 
@@ -117,9 +116,9 @@ func (db *DB) Commit() error {
 	return nil
 }
 
-func (db *DB) Rollback() error {
+func (db *DB) Rollback() {
 	if db.transaction == nil {
-		return nil
+		return
 	}
 	db.transactionCounter--
 	if db.transactionCounter == 0 {
@@ -131,9 +130,7 @@ func (db *DB) Rollback() error {
 		if err == nil {
 			db.transaction = nil
 		}
-		return err
 	}
-	return fmt.Errorf("rollback in nested transaction not allowed")
 }
 
 func (db *DB) RegisterLogger(logger DatabaseLogger) {
