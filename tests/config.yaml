@@ -1,10 +1,9 @@
-orm:
-  default:
-    mysql: root:root@tcp(localhost:3308)/test
-    redis: localhost:6379:0
-    localCache: 1000
-    lazyQueue: default_queue
-    dirtyQueue: default_queue
-    locker: default
-  default_queue:
-    redis: localhost:6379:1
+default:
+  mysql: root:root@tcp(localhost:3308)/test
+  redis: localhost:6379:0
+  localCache: 1000
+  lazyQueue: default_queue
+  dirtyQueue: default_queue
+  locker: default
+default_queue:
+  redis: localhost:6379:1
