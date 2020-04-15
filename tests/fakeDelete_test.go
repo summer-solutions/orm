@@ -12,6 +12,7 @@ type TestEntityFakeDelete struct {
 	ID         uint16
 	Name       string
 	FakeDelete bool
+	Uint       uint
 	IndexAll   *orm.CachedQuery `query:""`
 	IndexName  *orm.CachedQuery `query:":Name = ?"`
 }
@@ -71,4 +72,12 @@ func TestFakeDelete(t *testing.T) {
 	has, err := engine.TryByID(2, entity2)
 	assert.Nil(t, err)
 	assert.False(t, has)
+
+	entity.Orm.MarkToDelete()
+	err = engine.Flush(entity)
+	assert.Nil(t, err)
+
+	has, err = engine.SearchOne(orm.NewWhere("1"), entity)
+	assert.False(t, has)
+	assert.Nil(t, err)
 }

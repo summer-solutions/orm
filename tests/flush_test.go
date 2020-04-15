@@ -15,10 +15,11 @@ type TestEntityFlush struct {
 	Name         string
 	NameNotNull  string `orm:"required"`
 	Blob         []byte
-	Enum         string `orm:"enum=tests.Color"`
-	EnumNotNull  string `orm:"enum=tests.Color;required"`
-	Year         uint16 `orm:"year=true"`
-	YearNotNull  uint16 `orm:"year=true;required"`
+	Enum         string   `orm:"enum=tests.Color"`
+	EnumNotNull  string   `orm:"enum=tests.Color;required"`
+	Year         uint16   `orm:"year=true"`
+	YearNotNull  uint16   `orm:"year=true;required"`
+	Set          []string `orm:"set=tests.Color;required"`
 	Date         time.Time
 	DateNotNull  time.Time         `orm:"required"`
 	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityFlush"`
@@ -53,7 +54,7 @@ func TestFlush(t *testing.T) {
 	var entities = make([]*TestEntityFlush, 10)
 	flusher := orm.Flusher{}
 	for i := 1; i <= 10; i++ {
-		e := TestEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: Color.Red}
+		e := TestEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: Color.Red, Set: []string{Color.Red, Color.Blue}}
 		flusher.RegisterEntity(&e)
 		entities[i-1] = &e
 	}

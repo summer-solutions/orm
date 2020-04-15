@@ -81,10 +81,6 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		return 0, EntityNotRegisteredError{Name: entities.String()}
 	}
 	schema := getTableSchema(engine.config, entityType)
-	if schema == nil {
-		return 0, EntityNotRegisteredError{Name: entityType.String()}
-	}
-
 	fieldsList, err := buildFieldList(engine.config, schema, entityType, "")
 	if err != nil {
 		return 0, err
