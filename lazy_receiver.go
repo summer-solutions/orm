@@ -26,7 +26,7 @@ func (r *LazyReceiver) Digest() (has bool, err error) {
 	key := "lazy_queue"
 	val, found, err := redis.RPop(key)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("%w", err)
 	}
 	if !found {
 		return false, nil
@@ -36,10 +36,7 @@ func (r *LazyReceiver) Digest() (has bool, err error) {
 	if err != nil {
 		return true, err
 	}
-	validMap, ok := data.(map[string]interface{})
-	if !ok {
-		return true, fmt.Errorf("invalid map: %v", data)
-	}
+	validMap := data.(map[string]interface{})
 	err = r.handleQueries(r.engine, validMap)
 	if err != nil {
 		return true, err
@@ -58,15 +55,9 @@ func (r *LazyReceiver) Digest() (has bool, err error) {
 func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interface{}) error {
 	queries, has := validMap["q"]
 	if has {
-		validQueries, ok := queries.([]interface{})
-		if !ok {
-			return fmt.Errorf("invalid queries: %v", queries)
-		}
+		validQueries := queries.([]interface{})
 		for _, query := range validQueries {
-			validInsert, ok := query.([]interface{})
-			if !ok {
-				return fmt.Errorf("invalid query: %v", validInsert)
-			}
+			validInsert := query.([]interface{})
 			code := validInsert[0].(string)
 			db, _ := engine.GetMysql(code)
 			sql := validInsert[1].(string)
@@ -83,36 +74,18 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key string) error {
 	keys, has := validMap[key]
 	if has {
-		validKeys, ok := keys.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("invalid cache keys: %v", keys)
-		}
+		validKeys := keys.(map[string]interface{})
 		for cacheCode, allKeys := range validKeys {
-			validAllKeys, ok := allKeys.([]interface{})
-			if !ok {
-				return fmt.Errorf("invalid cache keys: %v", allKeys)
-			}
+			validAllKeys := allKeys.([]interface{})
 			stringKeys := make([]string, len(validAllKeys))
 			for i, v := range validAllKeys {
 				stringKeys[i] = v.(string)
 			}
 			if key == "cl" {
-				if r.engine.localCache == nil {
-					return fmt.Errorf("unknown local cache %s", cacheCode)
-				}
-				cache, has := r.engine.localCache[cacheCode]
-				if !has {
-					return fmt.Errorf("unknown local cache %s", cacheCode)
-				}
+				cache := r.engine.localCache[cacheCode]
 				cache.Remove(stringKeys...)
 			} else {
-				if r.engine.redis == nil {
-					return fmt.Errorf("unknown redis cache %s", cacheCode)
-				}
-				cache, has := r.engine.redis[cacheCode]
-				if !has {
-					return fmt.Errorf("unknown redis cache %s", cacheCode)
-				}
+				cache := r.engine.redis[cacheCode]
 				err := cache.Del(stringKeys...)
 				if err != nil {
 					return err

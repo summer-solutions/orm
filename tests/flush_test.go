@@ -89,9 +89,11 @@ func TestFlush(t *testing.T) {
 	assert.True(t, edited1.ReferenceOne.Has())
 	assert.False(t, edited2.ReferenceOne.Has())
 	var ref TestEntityFlush
-	has, err := edited1.ReferenceOne.Load(engine, &ref)
+	err = edited1.ReferenceOne.Load(engine, &ref)
 	assert.Nil(t, err)
-	assert.True(t, has)
+	assert.Equal(t, uint16(7), ref.ID)
+	err = edited2.ReferenceOne.Load(engine, &ref)
+	assert.Nil(t, err)
 	assert.Equal(t, uint16(7), ref.ID)
 
 	toDelete := edited2
