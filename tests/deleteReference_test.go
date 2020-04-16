@@ -15,13 +15,13 @@ type TestEntityDeleteReference struct {
 type TestEntityDeleteReferenceRefRestrict struct {
 	Orm          *orm.ORM `orm:"localCache"`
 	ID           uint
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityDeleteReference"`
+	ReferenceOne *TestEntityDeleteReference
 }
 
 type TestEntityDeleteReferenceRefCascade struct {
 	Orm               *orm.ORM `orm:"localCache"`
 	ID                uint
-	ReferenceOne      *orm.ReferenceOne `orm:"ref=tests.TestEntityDeleteReference;cascade"`
+	ReferenceOne      *TestEntityDeleteReference `orm:"cascade"`
 	IndexReferenceOne *orm.CachedQuery  `query:":ReferenceOne = ?"`
 }
 
