@@ -621,7 +621,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 				}
 				continue
 			}
-			return nil, fmt.Errorf("unsoported field type: %s", field.Type().String())
+			return nil, fmt.Errorf("unsupported field type: %s", field.Type().String())
 		}
 	}
 	return

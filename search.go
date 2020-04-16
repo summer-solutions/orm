@@ -359,7 +359,7 @@ func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string
 				index++
 				continue
 			}
-			return 0, fmt.Errorf("unsoported field type: %s", field.Type().String())
+			return 0, fmt.Errorf("unsupported field type: %s", field.Type().String())
 		}
 		index++
 	}

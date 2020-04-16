@@ -765,7 +765,7 @@ func extractTag(registry *Registry, field reflect.StructField) (map[string]map[s
 	return make(map[string]map[string]string), nil, nil
 }
 
-func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.StructField, indexes map[string]*index,
+func (tableSchema *TableSchema) checkColumn(engine *Engine, t reflect.Type, field *reflect.StructField, indexes map[string]*index,
 	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	var definition string
 	var addNotNullIfNotSet bool
@@ -906,7 +906,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 			}
 		}
 		if !valid {
-			return nil, fmt.Errorf("unsoported field type: %s %s", field.Name, field.Type.String())
+			return nil, fmt.Errorf("unsupported field type: %s %s in %s", field.Name, field.Type.String(), t.String())
 		}
 	}
 	isNotNull := false
@@ -1067,7 +1067,7 @@ func (tableSchema *TableSchema) checkStruct(engine *Engine, t reflect.Type, inde
 			continue
 		}
 		field := t.Field(i)
-		fieldColumns, err := tableSchema.checkColumn(engine, &field, indexes, foreignKeys, prefix)
+		fieldColumns, err := tableSchema.checkColumn(engine, t, &field, indexes, foreignKeys, prefix)
 		if err != nil {
 			return nil, err
 		}
