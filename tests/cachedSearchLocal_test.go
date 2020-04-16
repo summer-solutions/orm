@@ -18,7 +18,7 @@ type TestEntityIndexTestLocal struct {
 	IndexAge     *orm.CachedQuery  `query:":Age = ? ORDER BY :ID"`
 	IndexAll     *orm.CachedQuery  `query:""`
 	IndexName    *orm.CachedQuery  `queryOne:":Name = ?"`
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityIndexTestLocalRef"`
+	ReferenceOne *TestEntityIndexTestLocalRef
 }
 
 type TestEntityIndexTestLocalRef struct {
@@ -42,7 +42,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		e := TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
 		engine.Init(&e)
-		e.ReferenceOne.ID = uint64(i)
+		e.ReferenceOne.ID = 1
 		entities[i-1] = &e
 	}
 	for i := 6; i <= 10; i++ {

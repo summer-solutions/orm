@@ -394,36 +394,6 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			return err
 		}
 	}
-	return handleLazyReferences(engine, entities...)
-}
-
-func handleLazyReferences(engine *Engine, entities ...interface{}) error {
-	toFlush := make([]interface{}, 0)
-	for _, entity := range entities {
-		dirty := false
-		value := reflect.Indirect(reflect.ValueOf(entity))
-		schema := getTableSchema(engine.config, value.Type())
-		for _, columnName := range schema.refOne {
-			refOne := value.FieldByName(columnName).Interface().(*ReferenceOne)
-			if refOne.ID == 0 && refOne.Reference != nil {
-				refID := reflect.Indirect(reflect.ValueOf(refOne.Reference)).Field(1).Uint()
-				if refID > 0 {
-					refOne.ID = refID
-					dirty = true
-				}
-			}
-		}
-		if dirty {
-			toFlush = append(toFlush, entity)
-		}
-	}
-	if len(toFlush) > 0 {
-		err := flush(engine, false, toFlush...)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -563,16 +533,6 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 				continue
 			}
 			bind[name] = valString
-		case "*orm.ReferenceOne":
-			valueAsString := strconv.FormatUint(field.Interface().(*ReferenceOne).ID, 10)
-			if hasOld && (old == valueAsString || (old == nil && valueAsString == "0")) {
-				continue
-			}
-			if valueAsString == "0" {
-				bind[name] = nil
-			} else {
-				bind[name] = valueAsString
-			}
 		case "*orm.CachedQuery":
 			continue
 		case "time.Time":
@@ -636,13 +596,28 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 			}
 			bind[name] = valString
 		default:
-			if field.Kind().String() == "struct" {
+			k := field.Kind().String()
+			if k == "struct" {
 				subBind, err := createBind(0, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
 				if err != nil {
 					return nil, err
 				}
 				for key, value := range subBind {
 					bind[key] = value
+				}
+				continue
+			} else if k == "ptr" {
+				valueAsString := "0"
+				if !field.IsNil() {
+					valueAsString = strconv.FormatUint(field.Elem().Field(1).Uint(), 10)
+				}
+				if hasOld && (old == valueAsString || (old == nil && valueAsString == "0")) {
+					continue
+				}
+				if valueAsString == "0" {
+					bind[name] = nil
+				} else {
+					bind[name] = valueAsString
 				}
 				continue
 			}
