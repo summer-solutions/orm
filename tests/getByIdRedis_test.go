@@ -40,7 +40,7 @@ type TestEntityByIDRedis struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressByIDRedis
 	JSON                 interface{}
-	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntityByIDRedis"`
+	ReferenceOne         *TestEntityByIDRedis
 }
 
 func TestGetByIDRedis(t *testing.T) {
@@ -63,7 +63,7 @@ func TestGetByIDRedis(t *testing.T) {
 	err = engine.GetByID(1, &entity2)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity2.ID)
-	assert.Nil(t, entity2.ReferenceOne.Reference)
+	assert.False(t, entity2.ReferenceOne.Orm.Loaded())
 
 	var entity3 TestEntityByIDRedis
 	err = engine.GetByID(1, &entity3)
@@ -84,7 +84,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
-	assert.NotNil(t, entity.ReferenceOne.Reference)
+	assert.True(t, entity.ReferenceOne.Orm.Loaded())
 	assert.Equal(t, uint(1), entity.ID)
 	assert.Equal(t, "", entity.Name)
 	assert.Equal(t, "", entity.BigName)
@@ -116,7 +116,7 @@ func TestGetByIDRedis(t *testing.T) {
 	found, err = engine.TryByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
-	assert.NotNil(t, entity.ReferenceOne.Reference)
+	assert.True(t, entity.ReferenceOne.Orm.Loaded())
 
 	entity.Name = "Test name"
 	entity.BigName = "Test big name"

@@ -13,8 +13,8 @@ type TestEntityInterfaces struct {
 	ID           uint
 	Uint         uint
 	Name         string
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityInterfacesRef"`
-	Calculated   int               `orm:"ignore"`
+	ReferenceOne *TestEntityInterfacesRef
+	Calculated   int `orm:"ignore"`
 }
 
 type TestEntityInterfacesRef struct {
@@ -51,7 +51,7 @@ func TestInterfaces(t *testing.T) {
 	engine.Init(entity)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)
-	assert.Equal(t, uint64(1), entity.ReferenceOne.ID)
+	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
 
 	err = engine.Flush(entity)
 	assert.NotNil(t, err)
