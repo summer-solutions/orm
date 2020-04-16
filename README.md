@@ -5,10 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/summer-solutions/orm)](https://goreportcard.com/report/github.com/summer-solutions/orm)
 [![MIT license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
-## Defining database and cache pool connections
-
-First you need to define config. You should do it once, 
-when your application starts.
+## Configuration
 
 ```go
 package main
@@ -25,7 +22,7 @@ func main() {
     registry.RegisterMySQLPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
 
     /* Redis */
-    registry.RegisterRedis("localhost:6379", 0) //seconds argument is a redis database number
+    registry.RegisterRedis("localhost:6379", 0)
     //optionally you can define pool name as second argument
     registry.RegisterRedis("localhost:6379", 1, "second_pool")
 
@@ -42,29 +39,27 @@ func main() {
     registry.RegisterRedis("localhost:6379", 4, "lockers_pool")
     registry.RegisterLocker("default", "lockers_pool")
     
+    /* here ORM is validating that everywhere is setup correctly */
     config, err := registry.CreateConfig()
 
 }
 
 ```
 
-##### You can also create config using yaml configuration file:
+##### You can also create registry using yaml configuration file:
 
 ```.yaml
-
-orm:
-  default:
-    mysql: root:root@tcp(localhost:3310)/db
-    redis: localhost:6379:0
-    redisQueues: localhost:6379:1
-    lazyQueue: redisQueues
-    locker: default
-    dirtyQueue: redisQueues
-    localCache: 1000
-  second_pool:
-    mysql: root:root@tcp(localhost:3311)/db2
-    redis: localhost:6380:1 
-
+default:
+   mysql: root:root@tcp(localhost:3310)/db
+   redis: localhost:6379:0
+   redisQueues: localhost:6379:1
+   lazyQueue: redisQueues
+   locker: default
+   dirtyQueue: redisQueues
+   localCache: 1000
+second_pool:
+   mysql: root:root@tcp(localhost:3311)/db2
+   redis: localhost:6380:1 
 ```
 
 ```go
@@ -83,9 +78,9 @@ func main() {
         //...
     }
     
-    var parsedYaml map[interface{}]interface{}
+    var parsedYaml map[string]interface{}
     err = yaml.Unmarshal(yamlFileData, &parsedYaml)
-    config, err := orm.InitByYaml(parsedYaml)
+    registry, err := orm.InitByYaml(parsedYaml)
 }
 
 ```
@@ -157,8 +152,8 @@ func main() {
         DateTime             time.Time `orm:"time=true"`
         Address              AddressSchema
         Json                 interface{}
-        ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef"`
-        ReferenceOneCascade  *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef;cascade"`
+        ReferenceOne         *TestEntitySchemaRef
+        ReferenceOneCascade  *TestEntitySchemaRef `orm:"cascade"`
         IgnoreField          []time.Time       `orm:"ignore"`
         Blob                 []byte
     }
@@ -266,7 +261,7 @@ There are only two golden rules you need to remember defining entity struct:
     config.GetTableSchema(firstEntity).DropTable() //it will drop table if exist
     config.GetTableSchema(firstEntity).TruncateTable()
     //if you need to see queries:
-    has, alters, err := orm.GetTableSchema(firstEntity).GetSchemaChanges()
+    has, alters, err := config.GetTableSchema(firstEntity).GetSchemaChanges()
  }
  
  ```
@@ -507,7 +502,7 @@ func main() {
         Orm                  *orm.ORM
         ID                   uint64
         Name                 string
-        School               *orm.ReferenceOne  `orm:"ref=SchoolEntity"`
+        School               *SchoolEntity
     }
     
     type SchoolEntity struct {
@@ -519,7 +514,7 @@ func main() {
     type UserHouse struct {
         Orm                  *orm.ORM
         ID                   uint64
-        User                 *orm.ReferenceOne  `orm:"ref=UserEntity;cascade"`
+        User                 *UserEntity  `orm:"cascade"`
     }
     registry := &orm.Registry{}
    //.. register pools and entities
@@ -546,8 +541,10 @@ func main() {
     }
 
     /* accessing reference */
-    user.School.Has() //returns true
-    has, err := user.School.Load(engine, &school) //has is true
+    user.School.Orm.Loaded() //returns false
+    err = user.SchoolOrm.Load(engine) //fill from DB if not loaded
+    err = user.SchoolOrm.Refersh(engine) //load newest data from DB
+    
     
     /* deleting reference */
     user.School.ID = 0
@@ -558,7 +555,7 @@ func main() {
 
     /* if you don't have ID yet you can still assign references */
     school = SchoolEntity{Name: "New School"}
-    user.School.Reference = &school
+    user.School = &school
     err = engine.Flush(&user, &school)
     if err != nil {
        ///...
