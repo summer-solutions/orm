@@ -304,6 +304,7 @@ func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string
 					val = false
 				}
 				field.SetBool(val)
+				index++
 				continue
 			}
 			val := false
@@ -355,6 +356,7 @@ func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string
 					field.Set(n)
 				}
 				field.Elem().Field(1).SetUint(integer)
+				index++
 				continue
 			}
 			return 0, fmt.Errorf("unsoported field type: %s", field.Type().String())
