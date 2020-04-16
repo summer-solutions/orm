@@ -123,7 +123,7 @@ func (tableSchema *TableSchema) GetType() reflect.Type {
 
 func (tableSchema *TableSchema) DropTable(engine *Engine) error {
 	pool := tableSchema.GetMysql(engine)
-	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.databaseName, tableSchema.TableName))
+	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.TableName))
 	return err
 }
 
@@ -134,7 +134,7 @@ func (tableSchema *TableSchema) TruncateTable(engine *Engine) error {
 		return err
 	}
 	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;",
-		pool.databaseName, tableSchema.TableName))
+		pool.GetDatabaseName(), tableSchema.TableName))
 	if err != nil {
 		return err
 	}
@@ -168,11 +168,11 @@ func (tableSchema *TableSchema) UpdateSchemaAndTruncateTable(engine *Engine) err
 		return err
 	}
 	pool := tableSchema.GetMysql(engine)
-	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.databaseName, tableSchema.TableName))
+	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.TableName))
 	return err
 }
 
-func (tableSchema *TableSchema) GetMysql(engine *Engine) *DB {
+func (tableSchema *TableSchema) GetMysql(engine *Engine) DB {
 	db, _ := engine.GetMysql(tableSchema.MysqlPoolName)
 	return db
 }
@@ -238,8 +238,8 @@ func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 	var newIndexes []string
 	var newForeignKeys []string
 	pool, _ := engine.GetMysql(tableSchema.MysqlPoolName)
-	createTableSQL := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", pool.databaseName, tableSchema.TableName)
-	createTableForiegnKeysSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.databaseName, tableSchema.TableName)
+	createTableSQL := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", pool.GetDatabaseName(), tableSchema.TableName)
+	createTableForiegnKeysSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.TableName)
 	columns[0][1] += " AUTO_INCREMENT"
 	for _, value := range columns {
 		createTableSQL += fmt.Sprintf("  %s,\n", value[1])
@@ -448,16 +448,16 @@ OUTER:
 	if !hasAlters {
 		return
 	}
-	alterSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.databaseName, tableSchema.TableName)
+	alterSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.TableName)
 	newAlters := make([]string, 0)
 	comments := make([]string, 0)
 	hasAlterNormal := false
 	hasAlterAddForeignKey := false
 	hasAlterRemoveForeignKey := false
 
-	alterSQLAddForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.databaseName, tableSchema.TableName)
+	alterSQLAddForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.TableName)
 	newAltersAddForeignKey := make([]string, 0)
-	alterSQLRemoveForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.databaseName, tableSchema.TableName)
+	alterSQLRemoveForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.TableName)
 	newAltersRemoveForeignKey := make([]string, 0)
 
 	for _, value := range droppedColumns {
@@ -796,8 +796,8 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, t reflect.Type, fiel
 				}
 				pool := refOneSchema.GetMysql(engine)
 				foreignKey := &foreignIndex{Column: field.Name, Table: refOneSchema.TableName,
-					ParentDatabase: pool.databaseName, OnDelete: onDelete}
-				name := fmt.Sprintf("%s:%s:%s", pool.databaseName, tableSchema.TableName, field.Name)
+					ParentDatabase: pool.GetDatabaseName(), OnDelete: onDelete}
+				name := fmt.Sprintf("%s:%s:%s", pool.GetDatabaseName(), tableSchema.TableName, field.Name)
 				foreignKeys[name] = foreignKey
 			}
 		}
@@ -1125,7 +1125,7 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 		"FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL " +
 		"AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
 	pool, _ := engine.GetMysql(poolName)
-	results, def, err := pool.Query(fmt.Sprintf(query, pool.databaseName, tableName))
+	results, def, err := pool.Query(fmt.Sprintf(query, pool.GetDatabaseName(), tableName))
 	if err != nil {
 		return nil, err
 	}
@@ -1169,7 +1169,7 @@ func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) 
 	if err != nil {
 		return "", err
 	}
-	alter := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.databaseName, tableName)
+	alter := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableName)
 	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableName, poolName)
 	if err != nil {
 		return "", err

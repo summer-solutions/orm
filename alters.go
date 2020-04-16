@@ -22,7 +22,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 			poolName := pool.code
 			tablesInDB[poolName] = make(map[string]bool)
 			pool, _ := engine.GetMysql(poolName)
-			tables, err := getAllTables(pool.db)
+			tables, err := getAllTables(pool.getDB())
 			if err != nil {
 				return nil, err
 			}
@@ -60,7 +60,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 					alters = append(alters, Alter{SQL: dropForeignKeyAlter, Safe: true, Pool: poolName})
 				}
 				pool, _ := engine.GetMysql(poolName)
-				dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.databaseName, tableName)
+				dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableName)
 				isEmpty, err := isTableEmptyInPool(engine, poolName, tableName)
 				if err != nil {
 					return nil, err
@@ -106,7 +106,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 
 func isTableEmptyInPool(engine *Engine, poolName string, tableName string) (bool, error) {
 	pool, _ := engine.GetMysql(poolName)
-	return isTableEmpty(pool.db, tableName)
+	return isTableEmpty(pool.getDB(), tableName)
 }
 
 func getAllTables(db *sql.DB) ([]string, error) {

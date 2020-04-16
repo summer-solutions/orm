@@ -8,7 +8,7 @@ import (
 
 type Engine struct {
 	config     *Config
-	dbs        map[string]*DB
+	dbs        map[string]DB
 	localCache map[string]*LocalCache
 	redis      map[string]*RedisCache
 	locks      map[string]*Locker
@@ -16,10 +16,13 @@ type Engine struct {
 
 func NewEngine(config *Config) *Engine {
 	e := &Engine{config: config}
-	e.dbs = make(map[string]*DB)
+	e.dbs = make(map[string]DB)
 	if e.config.sqlClients != nil {
 		for key, val := range e.config.sqlClients {
-			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName, db: val.db}
+			e.dbs[key] = &db{engine: e, code: val.code, databaseName: val.databaseName, db: val.db,
+				afterCommitLocalCacheDeletes: make(map[string][]string),
+				afterCommitRedisCacheDeletes: make(map[string][]string),
+				afterCommitLocalCacheSets:    make(map[string][]interface{})}
 		}
 	}
 	e.localCache = make(map[string]*LocalCache)
@@ -48,7 +51,7 @@ func (e *Engine) GetConfig() *Config {
 	return e.config
 }
 
-func (e *Engine) GetMysql(code ...string) (db *DB, has bool) {
+func (e *Engine) GetMysql(code ...string) (db DB, has bool) {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
