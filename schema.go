@@ -28,6 +28,11 @@ func (orm *ORM) MarkToDelete() {
 	orm.dBData["_delete"] = true
 }
 
+func (orm *ORM) Loaded() bool {
+	_, has := orm.dBData["_loaded"]
+	return has
+}
+
 func (orm *ORM) ForceMarkToDelete() {
 	orm.dBData["_delete"] = true
 }

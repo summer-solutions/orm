@@ -17,7 +17,7 @@ type TestEntityIndexTestLocalRedis struct {
 	IndexAge     *orm.CachedQuery  `query:":Age = ? ORDER BY :ID"`
 	IndexAll     *orm.CachedQuery  `query:""`
 	IndexName    *orm.CachedQuery  `queryOne:":Name = ?"`
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityIndexTestLocalRedisRef"`
+	ReferenceOne *TestEntityIndexTestLocalRedisRef
 }
 
 type TestEntityIndexTestLocalRedisRef struct {
@@ -41,7 +41,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		e := TestEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
 		engine.Init(&e)
-		e.ReferenceOne.ID = uint64(i)
+		e.ReferenceOne.ID = uint(i)
 		entities[i-1] = &e
 	}
 	for i := 6; i <= 10; i++ {
@@ -57,13 +57,16 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	totalRows, err := engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
+	assert.True(t, rows[0].Orm.Loaded())
 
 	assert.Len(t, rows, 5)
-	assert.Equal(t, uint64(1), rows[0].ReferenceOne.ID)
-	assert.Equal(t, uint64(2), rows[1].ReferenceOne.ID)
-	assert.Equal(t, uint64(3), rows[2].ReferenceOne.ID)
-	assert.Equal(t, uint64(4), rows[3].ReferenceOne.ID)
-	assert.Equal(t, uint64(5), rows[4].ReferenceOne.ID)
+	assert.Equal(t, uint(1), rows[0].ReferenceOne.ID)
+	assert.Equal(t, uint(2), rows[1].ReferenceOne.ID)
+	assert.Equal(t, uint(3), rows[2].ReferenceOne.ID)
+	assert.Equal(t, uint(4), rows[3].ReferenceOne.ID)
+	assert.Equal(t, uint(5), rows[4].ReferenceOne.ID)
+	assert.Equal(t, "", rows[0].ReferenceOne.Name)
+	assert.False(t, rows[0].ReferenceOne.Orm.Loaded())
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, _ := engine.GetMysql()
@@ -191,6 +194,8 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 15)
-	assert.NotNil(t, rows[0].ReferenceOne.Reference)
-	assert.NotNil(t, rows[2].ReferenceOne.Reference)
+	assert.Equal(t, "Name 1", rows[0].ReferenceOne.Name)
+	assert.Equal(t, "Name 3", rows[1].ReferenceOne.Name)
+	assert.True(t, rows[0].ReferenceOne.Orm.Loaded())
+	assert.True(t, rows[1].ReferenceOne.Orm.Loaded())
 }

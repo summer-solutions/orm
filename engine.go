@@ -186,7 +186,9 @@ func (e *Engine) initIfNeeded(value reflect.Value) *ORM {
 		for _, code := range tableSchema.refOne {
 			reference := tableSchema.Tags[code]["ref"]
 			t, _ := e.config.getEntityType(reference)
-			elem.FieldByName(code).Set(reflect.New(t))
+			n := reflect.New(t)
+			e.initIfNeeded(n)
+			elem.FieldByName(code).Set(n)
 		}
 		defaultInterface, is := value.Interface().(DefaultValuesInterface)
 		if is {
