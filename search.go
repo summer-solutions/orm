@@ -323,9 +323,6 @@ func fillStruct(config *Config, schema *TableSchema, index uint16, data []string
 			}
 			value, _ := time.Parse(layout, data[index])
 			field.Set(reflect.ValueOf(value))
-		case "*orm.ReferenceOne":
-			integer, _ := strconv.ParseUint(data[index], 10, 64)
-			field.Interface().(*ReferenceOne).ID = integer
 		case "*orm.CachedQuery":
 			continue
 		case "interface {}":
@@ -338,7 +335,8 @@ func fillStruct(config *Config, schema *TableSchema, index uint16, data []string
 				field.Set(reflect.ValueOf(f))
 			}
 		default:
-			if field.Kind().String() == "struct" {
+			k := field.Kind().String()
+			if k == "struct" {
 				newVal := reflect.New(field.Type())
 				value := newVal.Elem()
 				newIndex, err := fillStruct(config, schema, index, data, field.Type(), value, name)
@@ -347,6 +345,10 @@ func fillStruct(config *Config, schema *TableSchema, index uint16, data []string
 				}
 				index = newIndex
 				field.Set(value)
+				continue
+			} else if k == "ptr" {
+				integer, _ := strconv.ParseUint(data[index], 10, 64)
+				field.Elem().Field(1).SetUint(integer)
 				continue
 			}
 			return 0, fmt.Errorf("unsoported field type: %s", field.Type().String())
