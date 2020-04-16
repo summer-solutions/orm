@@ -62,9 +62,9 @@ type TestEntitySchema struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressSchema
 	JSON                 interface{}
-	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef"`
-	ReferenceOneCascade  *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef;cascade"`
-	IgnoreField          []time.Time       `orm:"ignore"`
+	ReferenceOne         *TestEntitySchemaRef
+	ReferenceOneCascade  *TestEntitySchemaRef `orm:"cascade"`
+	IgnoreField          []time.Time          `orm:"ignore"`
 	Blob                 []byte
 	IndexAll             *orm.CachedQuery `query:"" orm:"max=100"`
 }

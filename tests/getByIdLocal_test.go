@@ -41,8 +41,8 @@ type TestEntityByIDLocal struct {
 	Address              AddressByIDLocal
 	JSON                 interface{}
 	Uint8Slice           []uint8
-	Ignored              []time.Time       `orm:"ignore"`
-	ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntityByIDLocal"`
+	Ignored              []time.Time `orm:"ignore"`
+	ReferenceOne         *TestEntityByIDLocal
 }
 
 func TestGetByIDLocal(t *testing.T) {
@@ -103,7 +103,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Equal(t, float64(0), entity.Float64DecimalSigned)
 	assert.Equal(t, uint16(0), entity.Year)
 	assert.IsType(t, time.Time{}, entity.Date)
-	assert.NotNil(t, entity.ReferenceOne.Reference)
+	assert.NotNil(t, entity.ReferenceOne)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.IsType(t, time.Time{}, entity.DateTime)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))

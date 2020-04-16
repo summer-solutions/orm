@@ -12,7 +12,7 @@ type TestEntitySearch struct {
 	Orm          *orm.ORM
 	ID           uint
 	Name         string
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntitySearchRef"`
+	ReferenceOne *TestEntitySearchRef
 }
 
 type TestEntitySearchRef struct {
@@ -32,7 +32,7 @@ func TestSearch(t *testing.T) {
 		refs[i-1] = &r
 		e := TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
 		engine.Init(&e)
-		e.ReferenceOne.Reference = &r
+		e.ReferenceOne = &r
 		entities[i-1] = &e
 	}
 	err := engine.Flush(refs...)
@@ -46,7 +46,7 @@ func TestSearch(t *testing.T) {
 	var rows []*TestEntitySearch
 	err = engine.Search(where, pager, &rows, "ReferenceOne")
 	assert.Nil(t, err)
-	assert.NotNil(t, rows[0].ReferenceOne.Reference)
+	assert.True(t, rows[0].ReferenceOne.Orm.Loaded())
 	assert.Len(t, rows, 6)
 	assert.Equal(t, uint(2), rows[0].ID)
 	assert.Equal(t, uint(7), rows[5].ID)

@@ -186,7 +186,7 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 
 func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Value, references []string, many bool) error {
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
-	warmUpRefs := make(map[reflect.Type]map[uint64][]*ReferenceOne)
+	warmUpRefs := make(map[reflect.Type]map[uint64][]reflect.Value)
 	warmUpRowsIDs := make(map[reflect.Type][]uint64)
 	warmUpSubRefs := make(map[reflect.Type][]string)
 	l := 1
@@ -213,25 +213,23 @@ func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Val
 		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
 
 		for i := 0; i < l; i++ {
-			var ref interface{}
+			var ref reflect.Value
 			if many {
-				ref = rows.Index(i).Elem().FieldByName(parts[0]).Interface()
+				ref = rows.Index(i).Elem().FieldByName(parts[0]).Elem()
 			} else {
-				ref = rows.FieldByName(parts[0]).Interface()
+				ref = rows.FieldByName(parts[0]).Elem()
 			}
+			refID := ref.Field(1).Uint()
 			ids := make([]uint64, 0)
-			oneRef, ok := ref.(*ReferenceOne)
-			if ok {
-				if oneRef.ID != 0 {
-					ids = append(ids, oneRef.ID)
-					if warmUpRefs[parentType] == nil {
-						warmUpRefs[parentType] = make(map[uint64][]*ReferenceOne)
-					}
-					if warmUpRefs[parentType][oneRef.ID] == nil {
-						warmUpRefs[parentType][oneRef.ID] = make([]*ReferenceOne, 0)
-					}
-					warmUpRefs[parentType][oneRef.ID] = append(warmUpRefs[parentType][oneRef.ID], oneRef)
+			if refID != 0 {
+				ids = append(ids, refID)
+				if warmUpRefs[parentType] == nil {
+					warmUpRefs[parentType] = make(map[uint64][]reflect.Value)
 				}
+				if warmUpRefs[parentType][refID] == nil {
+					warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
+				}
+				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
 			}
 			if len(ids) == 0 {
 				continue
@@ -259,11 +257,10 @@ func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Val
 		for i := 0; i < subLen; i++ {
 			v := sub.Index(i)
 			id := v.Elem().Field(1).Uint()
-			entity := v.Interface()
 			refs, has := warmUpRefs[t][id]
 			if has {
 				for _, ref := range refs {
-					ref.Reference = entity
+					ref.Set(v.Elem())
 				}
 			}
 		}

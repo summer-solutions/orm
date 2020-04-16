@@ -21,16 +21,16 @@ type TestEntityFlush struct {
 	YearNotNull  uint16   `orm:"year=true;required"`
 	Set          []string `orm:"set=tests.Color;required"`
 	Date         time.Time
-	DateNotNull  time.Time         `orm:"required"`
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityFlush"`
-	Ignored      []time.Time       `orm:"ignore"`
+	DateNotNull  time.Time `orm:"required"`
+	ReferenceOne *TestEntityFlush
+	Ignored      []time.Time `orm:"ignore"`
 }
 
 type TestEntityErrors struct {
 	Orm          *orm.ORM
 	ID           uint16
-	Name         string            `orm:"unique=NameIndex"`
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityErrors"`
+	Name         string `orm:"unique=NameIndex"`
+	ReferenceOne *TestEntityErrors
 }
 
 type TestEntityFlushCacheLocal struct {
@@ -83,18 +83,20 @@ func TestFlush(t *testing.T) {
 	err = engine.GetByID(8, &edited2)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2.1", edited1.Name)
-	assert.Equal(t, uint64(7), edited1.ReferenceOne.ID)
+	assert.Equal(t, uint16(7), edited1.ReferenceOne.ID)
 	assert.Equal(t, "Name 8.1", edited2.Name)
-	assert.Equal(t, uint64(0), edited2.ReferenceOne.ID)
-	assert.True(t, edited1.ReferenceOne.Has())
-	assert.False(t, edited2.ReferenceOne.Has())
-	var ref TestEntityFlush
-	err = edited1.ReferenceOne.Load(engine, &ref)
+	assert.Equal(t, uint16(0), edited2.ReferenceOne.ID)
+	assert.False(t, edited1.ReferenceOne.Orm.Loaded())
+	assert.False(t, edited2.ReferenceOne.Orm.Loaded())
+	err = edited1.ReferenceOne.Orm.Load(engine)
 	assert.Nil(t, err)
-	assert.Equal(t, uint16(7), ref.ID)
-	err = edited2.ReferenceOne.Load(engine, &ref)
+	assert.True(t, edited1.ReferenceOne.Orm.Loaded())
+	assert.Equal(t, "Name 7", edited1.ReferenceOne.Name)
+
+	err = edited2.ReferenceOne.Orm.Refresh(engine)
 	assert.Nil(t, err)
-	assert.Equal(t, uint16(7), ref.ID)
+	assert.False(t, edited2.ReferenceOne.Orm.Loaded())
+	assert.Equal(t, "", edited2.ReferenceOne.Name)
 
 	toDelete := edited2
 	edited1.Name = "Name 2.2"

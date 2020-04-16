@@ -14,11 +14,11 @@ type TestEntityIndexTestLocal struct {
 	ID           uint
 	Name         string `orm:"length=100;index=FirstIndex"`
 	Age          uint16
-	Ignore       uint16            `orm:"ignore"`
-	IndexAge     *orm.CachedQuery  `query:":Age = ? ORDER BY :ID"`
-	IndexAll     *orm.CachedQuery  `query:""`
-	IndexName    *orm.CachedQuery  `queryOne:":Name = ?"`
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityIndexTestLocalRef"`
+	Ignore       uint16           `orm:"ignore"`
+	IndexAge     *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
+	IndexAll     *orm.CachedQuery `query:""`
+	IndexName    *orm.CachedQuery `queryOne:":Name = ?"`
+	ReferenceOne *TestEntityIndexTestLocalRef
 }
 
 type TestEntityIndexTestLocalRef struct {
@@ -42,7 +42,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		e := TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
 		engine.Init(&e)
-		e.ReferenceOne.ID = uint64(i)
+		e.ReferenceOne.ID = uint(i)
 		entities[i-1] = &e
 	}
 	for i := 6; i <= 10; i++ {
@@ -59,11 +59,11 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
-	assert.Equal(t, uint64(1), rows[0].ReferenceOne.ID)
-	assert.Equal(t, uint64(2), rows[1].ReferenceOne.ID)
-	assert.Equal(t, uint64(3), rows[2].ReferenceOne.ID)
-	assert.Equal(t, uint64(4), rows[3].ReferenceOne.ID)
-	assert.Equal(t, uint64(5), rows[4].ReferenceOne.ID)
+	assert.Equal(t, uint(1), rows[0].ReferenceOne.ID)
+	assert.Equal(t, uint(2), rows[1].ReferenceOne.ID)
+	assert.Equal(t, uint(3), rows[2].ReferenceOne.ID)
+	assert.Equal(t, uint(4), rows[3].ReferenceOne.ID)
+	assert.Equal(t, uint(5), rows[4].ReferenceOne.ID)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, _ := engine.GetMysql()

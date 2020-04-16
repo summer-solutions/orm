@@ -217,21 +217,22 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 }
 
 func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
-	orm := engine.initIfNeeded(value)
+	orm := engine.initIfNeeded(value, true)
 	elem := value.Elem()
 	elem.Field(1).SetUint(id)
-	_, err := fillStruct(engine.config, orm.tableSchema, 0, data, entityType, elem, "")
+	_, err := fillStruct(engine, orm.tableSchema, 0, data, entityType, elem, "")
 	if err != nil {
 		return err
 	}
 	orm.dBData["ID"] = id
+	orm.dBData["_loaded"] = true
 	for key, column := range orm.tableSchema.columnNames[1:] {
 		orm.dBData[column] = data[key]
 	}
 	return nil
 }
 
-func fillStruct(config *Config, schema *TableSchema, index uint16, data []string,
+func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string,
 	t reflect.Type, value reflect.Value, prefix string) (uint16, error) {
 	for i := 0; i < t.NumField(); i++ {
 		if index == 0 && i <= 1 { //skip id and orm
@@ -323,9 +324,6 @@ func fillStruct(config *Config, schema *TableSchema, index uint16, data []string
 			}
 			value, _ := time.Parse(layout, data[index])
 			field.Set(reflect.ValueOf(value))
-		case "*orm.ReferenceOne":
-			integer, _ := strconv.ParseUint(data[index], 10, 64)
-			field.Interface().(*ReferenceOne).ID = integer
 		case "*orm.CachedQuery":
 			continue
 		case "interface {}":
@@ -338,15 +336,25 @@ func fillStruct(config *Config, schema *TableSchema, index uint16, data []string
 				field.Set(reflect.ValueOf(f))
 			}
 		default:
-			if field.Kind().String() == "struct" {
+			k := field.Kind().String()
+			if k == "struct" {
 				newVal := reflect.New(field.Type())
 				value := newVal.Elem()
-				newIndex, err := fillStruct(config, schema, index, data, field.Type(), value, name)
+				newIndex, err := fillStruct(engine, schema, index, data, field.Type(), value, name)
 				if err != nil {
 					return 0, err
 				}
 				index = newIndex
 				field.Set(value)
+				continue
+			} else if k == "ptr" {
+				integer, _ := strconv.ParseUint(data[index], 10, 64)
+				if field.IsNil() {
+					n := reflect.New(field.Type().Elem())
+					engine.initIfNeeded(n, true)
+					field.Set(n)
+				}
+				field.Elem().Field(1).SetUint(integer)
 				continue
 			}
 			return 0, fmt.Errorf("unsoported field type: %s", field.Type().String())
@@ -373,16 +381,20 @@ func buildFieldList(config *Config, schema *TableSchema, t reflect.Type, prefix 
 			continue
 		}
 		switch field.Type.String() {
-		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*orm.ReferenceOne", "time.Time":
+		case "string", "[]string", "[]uint8", "interface {}", "uint16", "time.Time":
 			columnNameRaw = prefix + t.Field(i).Name
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:
-			if field.Type.Kind().String() == "struct" {
+			k := field.Type.Kind().String()
+			if k == "struct" {
 				f, err := buildFieldList(config, schema, field.Type, field.Name)
 				if err != nil {
 					return "", err
 				}
 				fieldsList += f
+			} else if k == "ptr" {
+				columnNameRaw = prefix + t.Field(i).Name
+				fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 			} else {
 				columnNameRaw = prefix + t.Field(i).Name
 				fieldsList += fmt.Sprintf(",`%s`", columnNameRaw)

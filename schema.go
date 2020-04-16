@@ -14,6 +14,7 @@ import (
 
 type ORM struct {
 	dBData      map[string]interface{}
+	value       reflect.Value
 	elem        reflect.Value
 	tableSchema *TableSchema
 }
@@ -26,6 +27,26 @@ func (orm *ORM) MarkToDelete() {
 		return
 	}
 	orm.dBData["_delete"] = true
+}
+
+func (orm *ORM) Loaded() bool {
+	_, has := orm.dBData["_loaded"]
+	return has
+}
+
+func (orm *ORM) Load(engine *Engine) error {
+	if orm.Loaded() {
+		return nil
+	}
+	return orm.Refresh(engine)
+}
+
+func (orm *ORM) Refresh(engine *Engine) error {
+	id := orm.elem.Field(1).Uint()
+	if id == 0 {
+		return nil
+	}
+	return engine.GetByID(id, orm.value.Interface())
 }
 
 func (orm *ORM) ForceMarkToDelete() {
@@ -530,7 +551,7 @@ OUTER:
 }
 
 func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema, error) {
-	tags, columnNames, columnPathMap := extractTags(entityType, "")
+	tags, columnNames, columnPathMap := extractTags(registry, entityType, "")
 	oneRefs := make([]string, 0)
 	columnsStamp := fmt.Sprintf("%d", fnv1a.HashString32(fmt.Sprintf("%v", columnNames)))
 	mysql, has := tags["Orm"]["mysql"]
@@ -653,7 +674,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema,
 	return tableSchema, nil
 }
 
-func extractTags(entityType reflect.Type, prefix string) (fields map[string]map[string]string,
+func extractTags(registry *Registry, entityType reflect.Type, prefix string) (fields map[string]map[string]string,
 	columnNames []string, columnPathMap map[string]string) {
 	fields = make(map[string]map[string]string)
 	columnNames = make([]string, 0)
@@ -661,7 +682,7 @@ func extractTags(entityType reflect.Type, prefix string) (fields map[string]map[
 	for i := 0; i < entityType.NumField(); i++ {
 		field := entityType.Field(i)
 
-		subTags, subFields, subMap := extractTag(field)
+		subTags, subFields, subMap := extractTag(registry, field)
 		for k, v := range subTags {
 			fields[prefix+k] = v
 		}
@@ -669,7 +690,16 @@ func extractTags(entityType reflect.Type, prefix string) (fields map[string]map[
 		if hasIgnore {
 			continue
 		}
-		_, hasRef := fields[field.Name]["ref"]
+		refOne := ""
+		hasRef := false
+		if field.Type.Kind().String() == "ptr" {
+			refName := field.Type.Elem().String()
+			_, hasRef = registry.entities[refName]
+			if hasRef {
+				refOne = refName
+			}
+		}
+
 		query, hasQuery := field.Tag.Lookup("query")
 		queryOne, hasQueryOne := field.Tag.Lookup("queryOne")
 		if subFields != nil {
@@ -702,11 +732,17 @@ func extractTags(entityType reflect.Type, prefix string) (fields map[string]map[
 			}
 			fields[field.Name]["queryOne"] = queryOne
 		}
+		if hasRef {
+			if fields[field.Name] == nil {
+				fields[field.Name] = make(map[string]string)
+			}
+			fields[field.Name]["ref"] = refOne
+		}
 	}
 	return
 }
 
-func extractTag(field reflect.StructField) (map[string]map[string]string, []string, map[string]string) {
+func extractTag(registry *Registry, field reflect.StructField) (map[string]map[string]string, []string, map[string]string) {
 	tag, ok := field.Tag.Lookup("orm")
 	if ok {
 		args := strings.Split(tag, ";")
@@ -723,7 +759,7 @@ func extractTag(field reflect.StructField) (map[string]map[string]string, []stri
 		return map[string]map[string]string{field.Name: attributes}, nil, nil
 	} else if field.Type.Kind().String() == "struct" {
 		if field.Type.String() != "time.Time" {
-			return extractTags(field.Type, field.Name)
+			return extractTags(registry, field.Type, field.Name)
 		}
 	}
 	return make(map[string]map[string]string), nil, nil
@@ -746,25 +782,24 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 	}
 
 	keys := []string{"index", "unique"}
+	var refOneSchema *TableSchema
 	for _, key := range keys {
 		indexAttribute, has := attributes[key]
 		unique := key == "unique"
-		if key == "index" && typeAsString == "*orm.ReferenceOne" {
-			t, hasRef := engine.config.getEntityType(attributes["ref"])
-			if !hasRef {
-				return nil, EntityNotRegisteredError{Name: attributes["ref"]}
+		if key == "index" && field.Type.Kind().String() == "ptr" {
+			refOneSchema, _ = engine.config.GetTableSchema(field.Type.Elem())
+			if refOneSchema != nil {
+				onDelete := "RESTRICT"
+				_, hasCascade := attributes["cascade"]
+				if hasCascade {
+					onDelete = "CASCADE"
+				}
+				pool := refOneSchema.GetMysql(engine)
+				foreignKey := &foreignIndex{Column: field.Name, Table: refOneSchema.TableName,
+					ParentDatabase: pool.databaseName, OnDelete: onDelete}
+				name := fmt.Sprintf("%s:%s:%s", pool.databaseName, tableSchema.TableName, field.Name)
+				foreignKeys[name] = foreignKey
 			}
-			schema, _ := engine.config.GetTableSchema(t)
-			onDelete := "RESTRICT"
-			_, hasCascade := attributes["cascade"]
-			if hasCascade {
-				onDelete = "CASCADE"
-			}
-			pool := schema.GetMysql(engine)
-			foreignKey := &foreignIndex{Column: field.Name, Table: schema.TableName,
-				ParentDatabase: pool.databaseName, OnDelete: onDelete}
-			name := fmt.Sprintf("%s:%s:%s", pool.databaseName, tableSchema.TableName, field.Name)
-			foreignKeys[name] = foreignKey
 		}
 
 		if has {
@@ -790,7 +825,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 		}
 	}
 
-	if typeAsString == "*orm.ReferenceOne" {
+	if refOneSchema != nil {
 		hasValidIndex := false
 		for _, i := range indexes {
 			if i.Columns[1] == columnName {
@@ -850,22 +885,29 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, field *reflect.Struc
 	case "[]uint8":
 		definition = "blob"
 		addDefaultNullIfNullable = false
-	case "*orm.ReferenceOne":
-		definition = tableSchema.handleReferenceOne(engine.config, attributes)
-		addNotNullIfNotSet = false
-		addDefaultNullIfNullable = true
 	case "*orm.CachedQuery":
 		return nil, nil
 	default:
 		kind := field.Type.Kind().String()
+		valid := false
 		if kind == "struct" {
 			structFields, err := tableSchema.checkStruct(engine, field.Type, indexes, foreignKeys, field.Name)
 			if err != nil {
 				return nil, err
 			}
 			return structFields, nil
+		} else if kind == "ptr" {
+			subSchema, has := engine.config.GetTableSchema(field.Type.Elem())
+			if has {
+				definition = tableSchema.handleReferenceOne(subSchema, attributes)
+				addNotNullIfNotSet = false
+				addDefaultNullIfNullable = true
+				valid = true
+			}
 		}
-		return nil, fmt.Errorf("unsoported field type: %s %s", field.Name, field.Type.String())
+		if !valid {
+			return nil, fmt.Errorf("unsoported field type: %s %s", field.Name, field.Type.String())
+		}
 	}
 	isNotNull := false
 	if addNotNullIfNotSet || isRequired {
@@ -981,10 +1023,8 @@ func (tableSchema *TableSchema) handleTime(attributes map[string]string) (string
 	return "date", isRequired, true, defaultValue
 }
 
-func (tableSchema *TableSchema) handleReferenceOne(config *Config, attributes map[string]string) string {
-	reference := attributes["ref"]
-	t, _ := config.getEntityType(reference)
-	return tableSchema.convertIntToSchema(t.Field(1).Type.String(), attributes)
+func (tableSchema *TableSchema) handleReferenceOne(schema *TableSchema, attributes map[string]string) string {
+	return tableSchema.convertIntToSchema(schema.t.Field(1).Type.String(), attributes)
 }
 
 func (tableSchema *TableSchema) convertIntToSchema(typeAsString string, attributes map[string]string) string {

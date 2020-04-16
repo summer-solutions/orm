@@ -176,18 +176,21 @@ func (e *Engine) RegisterRedisLogger(logger CacheLogger) {
 	}
 }
 
-func (e *Engine) initIfNeeded(value reflect.Value) *ORM {
+func (e *Engine) initIfNeeded(value reflect.Value, withReferences bool) *ORM {
 	elem := value.Elem()
 	orm := elem.Field(0).Interface().(*ORM)
 	if orm == nil {
 		tableSchema := getTableSchema(e.config, elem.Type())
-		orm = &ORM{dBData: make(map[string]interface{}), elem: elem, tableSchema: tableSchema}
+		orm = &ORM{dBData: make(map[string]interface{}), elem: elem, value: value, tableSchema: tableSchema}
 		elem.Field(0).Set(reflect.ValueOf(orm))
-		for _, code := range tableSchema.refOne {
-			reference := tableSchema.Tags[code]["ref"]
-			t, _ := e.config.getEntityType(reference)
-			def := ReferenceOne{t: t}
-			elem.FieldByName(code).Set(reflect.ValueOf(&def))
+		if withReferences {
+			for _, code := range tableSchema.refOne {
+				reference := tableSchema.Tags[code]["ref"]
+				t, _ := e.config.getEntityType(reference)
+				n := reflect.New(t)
+				e.initIfNeeded(n, false)
+				elem.FieldByName(code).Set(n)
+			}
 		}
 		defaultInterface, is := value.Interface().(DefaultValuesInterface)
 		if is {
@@ -200,7 +203,7 @@ func (e *Engine) initIfNeeded(value reflect.Value) *ORM {
 func (e *Engine) initEntities(entity ...interface{}) {
 	for _, entity := range entity {
 		value := reflect.ValueOf(entity)
-		e.initIfNeeded(value)
+		e.initIfNeeded(value, true)
 	}
 }
 
