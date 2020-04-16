@@ -352,7 +352,7 @@ func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string
 				integer, _ := strconv.ParseUint(data[index], 10, 64)
 				if field.IsNil() {
 					n := reflect.New(field.Type().Elem())
-					engine.initIfNeeded(n, true)
+					engine.initIfNeeded(n, false)
 					field.Set(n)
 				}
 				field.Elem().Field(1).SetUint(integer)
