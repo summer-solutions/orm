@@ -13,10 +13,10 @@ type TestEntityIndexTestLocalRedis struct {
 	ID           uint
 	Name         string `orm:"length=100;index=FirstIndex"`
 	Age          uint16
-	Ignore       uint16            `orm:"ignore"`
-	IndexAge     *orm.CachedQuery  `query:":Age = ? ORDER BY :ID"`
-	IndexAll     *orm.CachedQuery  `query:""`
-	IndexName    *orm.CachedQuery  `queryOne:":Name = ?"`
+	Ignore       uint16           `orm:"ignore"`
+	IndexAge     *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
+	IndexAll     *orm.CachedQuery `query:""`
+	IndexName    *orm.CachedQuery `queryOne:":Name = ?"`
 	ReferenceOne *TestEntityIndexTestLocalRedisRef
 }
 

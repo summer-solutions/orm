@@ -22,7 +22,7 @@ type TestEntityDeleteReferenceRefCascade struct {
 	Orm               *orm.ORM `orm:"localCache"`
 	ID                uint
 	ReferenceOne      *TestEntityDeleteReference `orm:"cascade"`
-	IndexReferenceOne *orm.CachedQuery  `query:":ReferenceOne = ?"`
+	IndexReferenceOne *orm.CachedQuery           `query:":ReferenceOne = ?"`
 }
 
 func TestDeleteReference(t *testing.T) {
