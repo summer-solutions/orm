@@ -172,7 +172,7 @@ func (tableSchema *TableSchema) UpdateSchemaAndTruncateTable(engine *Engine) err
 	return err
 }
 
-func (tableSchema *TableSchema) GetMysql(engine *Engine) DB {
+func (tableSchema *TableSchema) GetMysql(engine *Engine) *DB {
 	db, _ := engine.GetMysql(tableSchema.MysqlPoolName)
 	return db
 }

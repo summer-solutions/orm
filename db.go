@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type db struct {
+type DB struct {
 	engine                       *Engine
 	db                           *sql.DB
 	code                         string
@@ -18,47 +18,31 @@ type db struct {
 	afterCommitRedisCacheDeletes map[string][]string
 }
 
-type DB interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
-	Query(query string, args ...interface{}) (rows *sql.Rows, deferF func(), err error)
-	BeginTransaction() error
-	Commit() error
-	Rollback()
-	RegisterLogger(logger DatabaseLogger)
-	GetPoolCode() string
-	GetDatabaseName() string
-	getDB() *sql.DB
-	getTransaction() *sql.Tx
-	getAfterCommitLocalCacheSets() map[string][]interface{}
-	getAfterCommitRedisCacheDeletes() map[string][]string
-}
-
-func (db *db) getAfterCommitLocalCacheSets() map[string][]interface{} {
+func (db *DB) getAfterCommitLocalCacheSets() map[string][]interface{} {
 	return db.afterCommitLocalCacheSets
 }
 
-func (db *db) getAfterCommitRedisCacheDeletes() map[string][]string {
+func (db *DB) getAfterCommitRedisCacheDeletes() map[string][]string {
 	return db.afterCommitRedisCacheDeletes
 }
 
-func (db *db) getDB() *sql.DB {
+func (db *DB) getDB() *sql.DB {
 	return db.db
 }
 
-func (db *db) getTransaction() *sql.Tx {
+func (db *DB) getTransaction() *sql.Tx {
 	return db.transaction
 }
 
-func (db *db) GetDatabaseName() string {
+func (db *DB) GetDatabaseName() string {
 	return db.databaseName
 }
 
-func (db *db) GetPoolCode() string {
+func (db *DB) GetPoolCode() string {
 	return db.code
 }
 
-func (db *db) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
 	start := time.Now()
 	if db.transaction != nil {
 		rows, err := db.transaction.Exec(query, args...)
@@ -70,7 +54,7 @@ func (db *db) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return rows, err
 }
 
-func (db *db) QueryRow(query string, args ...interface{}) *sql.Row {
+func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
 	start := time.Now()
 	if db.transaction != nil {
 		row := db.transaction.QueryRow(query, args...)
@@ -82,7 +66,7 @@ func (db *db) QueryRow(query string, args ...interface{}) *sql.Row {
 	return row
 }
 
-func (db *db) Query(query string, args ...interface{}) (rows *sql.Rows, deferF func(), err error) {
+func (db *DB) Query(query string, args ...interface{}) (rows *sql.Rows, deferF func(), err error) {
 	start := time.Now()
 	if db.transaction != nil {
 		rows, err := db.transaction.Query(query, args...)
@@ -100,7 +84,7 @@ func (db *db) Query(query string, args ...interface{}) (rows *sql.Rows, deferF f
 	return rows, func() { rows.Close() }, err
 }
 
-func (db *db) BeginTransaction() error {
+func (db *DB) BeginTransaction() error {
 	db.transactionCounter++
 	if db.transaction != nil {
 		return nil
@@ -115,7 +99,7 @@ func (db *db) BeginTransaction() error {
 	return nil
 }
 
-func (db *db) Commit() error {
+func (db *DB) Commit() error {
 	if db.transaction == nil {
 		return nil
 	}
@@ -157,7 +141,7 @@ func (db *db) Commit() error {
 	return nil
 }
 
-func (db *db) Rollback() {
+func (db *DB) Rollback() {
 	if db.transaction == nil {
 		return
 	}
@@ -174,14 +158,14 @@ func (db *db) Rollback() {
 	}
 }
 
-func (db *db) RegisterLogger(logger DatabaseLogger) {
+func (db *DB) RegisterLogger(logger DatabaseLogger) {
 	if db.loggers == nil {
 		db.loggers = make([]DatabaseLogger, 0)
 	}
 	db.loggers = append(db.loggers, logger)
 }
 
-func (db *db) log(query string, microseconds int64, args ...interface{}) {
+func (db *DB) log(query string, microseconds int64, args ...interface{}) {
 	if db.loggers != nil {
 		for _, logger := range db.loggers {
 			logger.Log(db.code, query, microseconds, args...)

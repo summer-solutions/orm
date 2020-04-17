@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
+	"github.com/juju/errors"
 )
 
 type Registry struct {
@@ -39,7 +40,7 @@ func (r *Registry) CreateConfig() (*Config, error) {
 		var skip string
 		err = db.QueryRow("SHOW VARIABLES LIKE 'max_connections'").Scan(&skip, &maxConnections)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "can't connect to mysql '%s'", v.code)
 		}
 		var waitTimeout int
 		err = db.QueryRow("SHOW VARIABLES LIKE 'wait_timeout'").Scan(&skip, &waitTimeout)
