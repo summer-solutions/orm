@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -109,7 +108,7 @@ func isTableEmptyInPool(engine *Engine, poolName string, tableName string) (bool
 	return isTableEmpty(pool.getDB(), tableName)
 }
 
-func getAllTables(db *sql.DB) ([]string, error) {
+func getAllTables(db sqlDB) ([]string, error) {
 	tables := make([]string, 0)
 	results, err := db.Query("SHOW TABLES")
 	if err != nil {
@@ -131,7 +130,7 @@ func getAllTables(db *sql.DB) ([]string, error) {
 	return tables, nil
 }
 
-func isTableEmpty(db *sql.DB, tableName string) (bool, error) {
+func isTableEmpty(db sqlDB, tableName string) (bool, error) {
 	var lastID uint64
 	/* #nosec */
 	err := db.QueryRow(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableName)).Scan(&lastID)

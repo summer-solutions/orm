@@ -5,9 +5,16 @@ import (
 	"time"
 )
 
+type sqlDB interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	Begin() (*sql.Tx, error)
+}
+
 type DB struct {
 	engine                       *Engine
-	db                           *sql.DB
+	db                           sqlDB
 	code                         string
 	databaseName                 string
 	loggers                      []DatabaseLogger
@@ -26,7 +33,7 @@ func (db *DB) getAfterCommitRedisCacheDeletes() map[string][]string {
 	return db.afterCommitRedisCacheDeletes
 }
 
-func (db *DB) getDB() *sql.DB {
+func (db *DB) getDB() sqlDB {
 	return db.db
 }
 
@@ -70,10 +77,10 @@ func (db *DB) Query(query string, args ...interface{}) (rows *sql.Rows, deferF f
 	start := time.Now()
 	if db.transaction != nil {
 		rows, err := db.transaction.Query(query, args...)
-		db.log(query, time.Since(start).Microseconds(), args...)
 		if err != nil {
 			return nil, nil, err
 		}
+		db.log(query, time.Since(start).Microseconds(), args...)
 		return rows, func() { rows.Close() }, err
 	}
 	rows, err = db.db.Query(query, args...)
