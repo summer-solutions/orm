@@ -21,7 +21,7 @@ type ORM struct {
 
 type CachedQuery struct{}
 
-func (orm *ORM) MarkToDelete() {
+func (orm ORM) MarkToDelete() {
 	if orm.tableSchema.hasFakeDelete {
 		orm.elem.FieldByName("FakeDelete").SetBool(true)
 		return
@@ -29,19 +29,19 @@ func (orm *ORM) MarkToDelete() {
 	orm.dBData["_delete"] = true
 }
 
-func (orm *ORM) Loaded() bool {
+func (orm ORM) Loaded() bool {
 	_, has := orm.dBData["_loaded"]
 	return has
 }
 
-func (orm *ORM) Load(engine *Engine) error {
+func (orm ORM) Load(engine *Engine) error {
 	if orm.Loaded() {
 		return nil
 	}
 	return orm.Refresh(engine)
 }
 
-func (orm *ORM) Refresh(engine *Engine) error {
+func (orm ORM) Refresh(engine *Engine) error {
 	id := orm.elem.Field(1).Uint()
 	if id == 0 {
 		return nil
@@ -49,7 +49,7 @@ func (orm *ORM) Refresh(engine *Engine) error {
 	return engine.GetByID(id, orm.value.Interface())
 }
 
-func (orm *ORM) ForceMarkToDelete() {
+func (orm ORM) ForceMarkToDelete() {
 	orm.dBData["_delete"] = true
 }
 
@@ -554,7 +554,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema,
 	tags, columnNames, columnPathMap := extractTags(registry, entityType, "")
 	oneRefs := make([]string, 0)
 	columnsStamp := fmt.Sprintf("%d", fnv1a.HashString32(fmt.Sprintf("%v", columnNames)))
-	mysql, has := tags["Orm"]["mysql"]
+	mysql, has := tags["ORM"]["mysql"]
 	if !has {
 		mysql = "default"
 	}
@@ -562,13 +562,13 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema,
 	if !has {
 		return nil, fmt.Errorf("unknown mysql pool '%s'", mysql)
 	}
-	table, has := tags["Orm"]["table"]
+	table, has := tags["ORM"]["table"]
 	if !has {
 		table = entityType.Name()
 	}
 	localCache := ""
 	redisCache := ""
-	userValue, has := tags["Orm"]["localCache"]
+	userValue, has := tags["ORM"]["localCache"]
 	if has {
 		if userValue == "true" {
 			userValue = "default"
@@ -581,7 +581,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema,
 			return nil, fmt.Errorf("unknown local cache pool '%s'", localCache)
 		}
 	}
-	userValue, has = tags["Orm"]["redisCache"]
+	userValue, has = tags["ORM"]["redisCache"]
 	if has {
 		if userValue == "true" {
 			userValue = "default"
@@ -758,7 +758,8 @@ func extractTag(registry *Registry, field reflect.StructField) (map[string]map[s
 		}
 		return map[string]map[string]string{field.Name: attributes}, nil, nil
 	} else if field.Type.Kind().String() == "struct" {
-		if field.Type.String() != "time.Time" {
+		t := field.Type.String()
+		if t != "orm.ORM" && t != "time.Time" {
 			return extractTags(registry, field.Type, field.Name)
 		}
 	}

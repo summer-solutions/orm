@@ -8,7 +8,7 @@ import (
 )
 
 type TestEntityFlushLazyReference struct {
-	Orm          *orm.ORM
+	orm.ORM
 	ID           uint
 	Name         string
 	ReferenceOne *TestEntityFlushLazyReference

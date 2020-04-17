@@ -9,13 +9,13 @@ import (
 )
 
 type TestEntityFlusherAuto struct {
-	Orm  *orm.ORM
+	orm.ORM
 	ID   uint
 	Name string
 }
 
 type TestEntityFlusherManual struct {
-	Orm  *orm.ORM
+	orm.ORM
 	ID   uint
 	Name string
 }

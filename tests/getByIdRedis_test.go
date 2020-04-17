@@ -14,7 +14,7 @@ type AddressByIDRedis struct {
 }
 
 type TestEntityByIDRedis struct {
-	Orm                  *orm.ORM `orm:"redisCache;ttl=10"`
+	orm.ORM              `orm:"redisCache;ttl=10"`
 	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`
@@ -63,7 +63,7 @@ func TestGetByIDRedis(t *testing.T) {
 	err = engine.GetByID(1, &entity2)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity2.ID)
-	assert.False(t, entity2.ReferenceOne.Orm.Loaded())
+	assert.False(t, entity2.ReferenceOne.Loaded())
 
 	var entity3 TestEntityByIDRedis
 	err = engine.GetByID(1, &entity3)
@@ -84,7 +84,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
-	assert.True(t, entity.ReferenceOne.Orm.Loaded())
+	assert.True(t, entity.ReferenceOne.Loaded())
 	assert.Equal(t, uint(1), entity.ID)
 	assert.Equal(t, "", entity.Name)
 	assert.Equal(t, "", entity.BigName)
@@ -116,7 +116,7 @@ func TestGetByIDRedis(t *testing.T) {
 	found, err = engine.TryByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
-	assert.True(t, entity.ReferenceOne.Orm.Loaded())
+	assert.True(t, entity.ReferenceOne.Loaded())
 
 	entity.Name = "Test name"
 	entity.BigName = "Test big name"

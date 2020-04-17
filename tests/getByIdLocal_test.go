@@ -14,7 +14,7 @@ type AddressByIDLocal struct {
 }
 
 type TestEntityByIDLocal struct {
-	Orm                  *orm.ORM `orm:"localCache"`
+	orm.ORM              `orm:"localCache"`
 	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`

@@ -111,7 +111,7 @@ func buildRedisValue(entity interface{}, schema *TableSchema) string {
 }
 
 func buildLocalCacheValue(entity interface{}, schema *TableSchema) []string {
-	bind := reflect.Indirect(reflect.ValueOf(entity)).Field(0).Interface().(*ORM).dBData
+	bind := reflect.ValueOf(entity).Elem().Field(0).Addr().Interface().(*ORM).dBData
 	length := len(schema.columnNames)
 	value := make([]string, length-1)
 	j := 0

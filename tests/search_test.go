@@ -9,16 +9,16 @@ import (
 )
 
 type TestEntitySearch struct {
-	Orm          *orm.ORM
+	orm.ORM
 	ID           uint
 	Name         string
 	ReferenceOne *TestEntitySearchRef
 }
 
 type TestEntitySearchRef struct {
-	Orm  *orm.ORM `orm:"redisCache"`
-	ID   uint
-	Name string
+	orm.ORM `orm:"redisCache"`
+	ID      uint
+	Name    string
 }
 
 func TestSearch(t *testing.T) {
@@ -46,7 +46,7 @@ func TestSearch(t *testing.T) {
 	var rows []*TestEntitySearch
 	err = engine.Search(where, pager, &rows, "ReferenceOne")
 	assert.Nil(t, err)
-	assert.True(t, rows[0].ReferenceOne.Orm.Loaded())
+	assert.True(t, rows[0].ReferenceOne.Loaded())
 	assert.Len(t, rows, 6)
 	assert.Equal(t, uint(2), rows[0].ID)
 	assert.Equal(t, uint(7), rows[5].ID)

@@ -181,11 +181,14 @@ func (e *Engine) RegisterRedisLogger(logger CacheLogger) {
 
 func (e *Engine) initIfNeeded(value reflect.Value, withReferences bool) *ORM {
 	elem := value.Elem()
-	orm := elem.Field(0).Interface().(*ORM)
-	if orm == nil {
+	address := elem.Field(0).Addr()
+	orm := address.Interface().(*ORM)
+	if orm.dBData == nil {
 		tableSchema := getTableSchema(e.config, elem.Type())
-		orm = &ORM{dBData: make(map[string]interface{}), elem: elem, value: value, tableSchema: tableSchema}
-		elem.Field(0).Set(reflect.ValueOf(orm))
+		orm.dBData = make(map[string]interface{})
+		orm.elem = elem
+		orm.value = value
+		orm.tableSchema = tableSchema
 		if withReferences {
 			for _, code := range tableSchema.refOne {
 				reference := tableSchema.Tags[code]["ref"]

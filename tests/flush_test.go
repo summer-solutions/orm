@@ -10,7 +10,7 @@ import (
 )
 
 type TestEntityFlush struct {
-	Orm          *orm.ORM
+	orm.ORM
 	ID           uint16
 	Name         string
 	NameNotNull  string `orm:"required"`
@@ -27,22 +27,22 @@ type TestEntityFlush struct {
 }
 
 type TestEntityErrors struct {
-	Orm          *orm.ORM
+	orm.ORM
 	ID           uint16
 	Name         string `orm:"unique=NameIndex"`
 	ReferenceOne *TestEntityErrors
 }
 
 type TestEntityFlushCacheLocal struct {
-	Orm  *orm.ORM `orm:"localCache"`
-	ID   uint
-	Name string
+	orm.ORM `orm:"localCache"`
+	ID      uint
+	Name    string
 }
 
 type TestEntityFlushCacheRedis struct {
-	Orm  *orm.ORM `orm:"redisCache"`
-	ID   uint
-	Name string
+	orm.ORM `orm:"redisCache"`
+	ID      uint
+	Name    string
 }
 
 func TestFlush(t *testing.T) {
@@ -93,21 +93,21 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint16(0), edited2.ReferenceOne.ID)
 	assert.NotNil(t, edited2.Date)
 	assert.Equal(t, now.Format("2006-01-02"), edited2.Date.Format("2006-01-02"))
-	assert.False(t, edited1.ReferenceOne.Orm.Loaded())
-	assert.False(t, edited2.ReferenceOne.Orm.Loaded())
-	err = edited1.ReferenceOne.Orm.Load(engine)
+	assert.False(t, edited1.ReferenceOne.Loaded())
+	assert.False(t, edited2.ReferenceOne.Loaded())
+	err = edited1.ReferenceOne.Load(engine)
 	assert.Nil(t, err)
-	assert.True(t, edited1.ReferenceOne.Orm.Loaded())
+	assert.True(t, edited1.ReferenceOne.Loaded())
 	assert.Equal(t, "Name 7", edited1.ReferenceOne.Name)
 
-	err = edited2.ReferenceOne.Orm.Refresh(engine)
+	err = edited2.ReferenceOne.Refresh(engine)
 	assert.Nil(t, err)
-	assert.False(t, edited2.ReferenceOne.Orm.Loaded())
+	assert.False(t, edited2.ReferenceOne.Loaded())
 	assert.Equal(t, "", edited2.ReferenceOne.Name)
 
 	toDelete := edited2
 	edited1.Name = "Name 2.2"
-	toDelete.Orm.MarkToDelete()
+	toDelete.MarkToDelete()
 	newEntity := TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
 	engine.Init(&newEntity)
 	assert.True(t, engine.IsDirty(&edited1))
@@ -177,7 +177,7 @@ func TestFlushTransactionLocalCache(t *testing.T) {
 	assert.True(t, has)
 	err = pool.BeginTransaction()
 	assert.Nil(t, err)
-	entity.Orm.MarkToDelete()
+	entity.MarkToDelete()
 	err = engine.Flush(&entity)
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 3)
@@ -229,7 +229,7 @@ func TestFlushTransactionRedisCache(t *testing.T) {
 
 	err = pool.BeginTransaction()
 	assert.Nil(t, err)
-	entity.Orm.MarkToDelete()
+	entity.MarkToDelete()
 	err = engine.Flush(&entity)
 	assert.Nil(t, err)
 	assert.Len(t, CacheLogger.Requests, 2)

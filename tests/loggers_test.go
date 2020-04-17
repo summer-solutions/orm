@@ -13,8 +13,8 @@ import (
 )
 
 type TestEntityLoggers struct {
-	Orm *orm.ORM `orm:"redisCache"`
-	ID  uint
+	orm.ORM `orm:"redisCache"`
+	ID      uint
 }
 
 func TestLoggers(t *testing.T) {

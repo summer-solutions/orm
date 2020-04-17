@@ -31,7 +31,7 @@ var Color = &fieldsColors{
 }
 
 type TestEntitySchema struct {
-	Orm                  *orm.ORM `orm:"mysql=schema"`
+	orm.ORM              `orm:"mysql=schema"`
 	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
@@ -70,9 +70,9 @@ type TestEntitySchema struct {
 }
 
 type TestEntitySchemaRef struct {
-	Orm  *orm.ORM `orm:"mysql=schema"`
-	ID   uint
-	Name string
+	orm.ORM `orm:"mysql=schema"`
+	ID      uint
+	Name    string
 }
 
 func TestGetAlters(t *testing.T) {

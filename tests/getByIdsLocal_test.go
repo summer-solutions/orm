@@ -8,9 +8,9 @@ import (
 )
 
 type TestEntityByIDsLocal struct {
-	Orm  *orm.ORM `orm:"localCache"`
-	ID   uint
-	Name string
+	orm.ORM `orm:"localCache"`
+	ID      uint
+	Name    string
 }
 
 func TestGetByIDsLocal(t *testing.T) {

@@ -9,15 +9,15 @@ import (
 )
 
 type TestEntityByIDsRedisCache struct {
-	Orm  *orm.ORM `orm:"redisCache"`
-	ID   uint
-	Name string
+	orm.ORM `orm:"redisCache"`
+	ID      uint
+	Name    string
 }
 
 type TestEntityByIDsRedisCacheRef struct {
-	Orm  *orm.ORM `orm:"redisCache"`
-	ID   uint
-	Name string
+	orm.ORM `orm:"redisCache"`
+	ID      uint
+	Name    string
 }
 
 func TestEntityByIDsRedis(t *testing.T) {

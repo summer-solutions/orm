@@ -8,7 +8,7 @@ import (
 )
 
 type TestEntityFakeDelete struct {
-	Orm        *orm.ORM `orm:"localCache"`
+	orm.ORM    `orm:"localCache"`
 	ID         uint16
 	Name       string
 	FakeDelete bool
@@ -38,7 +38,7 @@ func TestFakeDelete(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, total)
 
-	entity2.Orm.MarkToDelete()
+	entity2.MarkToDelete()
 	assert.True(t, entity2.FakeDelete)
 	assert.True(t, engine.IsDirty(entity2))
 	err = engine.Flush(entity2)
@@ -66,14 +66,14 @@ func TestFakeDelete(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 0, total)
 
-	entity2.Orm.ForceMarkToDelete()
+	entity2.ForceMarkToDelete()
 	err = engine.Flush(entity2)
 	assert.Nil(t, err)
 	has, err := engine.TryByID(2, entity2)
 	assert.Nil(t, err)
 	assert.False(t, has)
 
-	entity.Orm.MarkToDelete()
+	entity.MarkToDelete()
 	err = engine.Flush(entity)
 	assert.Nil(t, err)
 

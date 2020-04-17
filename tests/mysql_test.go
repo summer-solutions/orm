@@ -9,7 +9,7 @@ import (
 )
 
 type TestEntityMySQL struct {
-	Orm  *orm.ORM
+	orm.ORM
 	ID   uint
 	Name string
 }

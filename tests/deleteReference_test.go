@@ -8,18 +8,18 @@ import (
 )
 
 type TestEntityDeleteReference struct {
-	Orm *orm.ORM `orm:"localCache"`
-	ID  uint
+	orm.ORM `orm:"localCache"`
+	ID      uint
 }
 
 type TestEntityDeleteReferenceRefRestrict struct {
-	Orm          *orm.ORM `orm:"localCache"`
+	orm.ORM      `orm:"localCache"`
 	ID           uint
 	ReferenceOne *TestEntityDeleteReference
 }
 
 type TestEntityDeleteReferenceRefCascade struct {
-	Orm               *orm.ORM `orm:"localCache"`
+	orm.ORM           `orm:"localCache"`
 	ID                uint
 	ReferenceOne      *TestEntityDeleteReference `orm:"cascade"`
 	IndexReferenceOne *orm.CachedQuery           `query:":ReferenceOne = ?"`
@@ -39,7 +39,7 @@ func TestDeleteReference(t *testing.T) {
 	err = engine.Flush(entityRestrict)
 	assert.Nil(t, err)
 
-	entity1.Orm.MarkToDelete()
+	entity1.MarkToDelete()
 	err = engine.Flush(entity1)
 	assert.NotNil(t, err)
 	assert.IsType(t, &orm.ForeignKeyError{}, err)
@@ -58,7 +58,7 @@ func TestDeleteReference(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, total)
 
-	entity2.Orm.MarkToDelete()
+	entity2.MarkToDelete()
 	err = engine.Flush(entity2)
 	assert.Nil(t, err)
 

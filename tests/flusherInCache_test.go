@@ -8,7 +8,7 @@ import (
 )
 
 type TestEntityFlusherInCacheRedis struct {
-	Orm      *orm.ORM `orm:"redisCache"`
+	orm.ORM  `orm:"redisCache"`
 	ID       uint
 	Name     string
 	Age      uint16
@@ -16,8 +16,8 @@ type TestEntityFlusherInCacheRedis struct {
 }
 
 type TestEntityFlusherInCacheLocal struct {
-	Orm *orm.ORM
-	ID  uint
+	orm.ORM
+	ID uint
 }
 
 func TestFlushInCache(t *testing.T) {

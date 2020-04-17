@@ -9,13 +9,13 @@ import (
 )
 
 type TestEntityDirtyQueueAll struct {
-	Orm  *orm.ORM `orm:"dirty=test"`
-	ID   uint
-	Name string `orm:"length=100"`
+	orm.ORM `orm:"dirty=test"`
+	ID      uint
+	Name    string `orm:"length=100"`
 }
 
 type TestEntityDirtyQueueAge struct {
-	Orm  *orm.ORM
+	orm.ORM
 	ID   uint
 	Name string `orm:"dirty=test"`
 	Age  uint16 `orm:"dirty=test"`
@@ -126,7 +126,7 @@ func TestDirtyQueue(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)
 
-	entityAge.Orm.MarkToDelete()
+	entityAge.MarkToDelete()
 	err = engine.Flush(&entityAge)
 	assert.Nil(t, err)
 

@@ -9,7 +9,7 @@ import (
 )
 
 type TestEntityIndexTestRedis struct {
-	Orm       *orm.ORM `orm:"redisCache"`
+	orm.ORM   `orm:"redisCache"`
 	ID        uint
 	Name      string `orm:"length=100;index=FirstIndex"`
 	Age       uint16
@@ -109,7 +109,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 9)
 
-	rows[1].Orm.MarkToDelete()
+	rows[1].MarkToDelete()
 	err = engine.Flush(rows[1])
 	assert.Nil(t, err)
 

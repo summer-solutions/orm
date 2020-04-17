@@ -137,7 +137,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				localCache, hasLocalCache := schema.GetLocalCache(engine)
 				redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
 				if hasLocalCache {
-					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(value.Interface(), schema))
+					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(v.Interface(), schema))
 					keys := getCacheQueriesKeys(schema, bind, orm.dBData, false)
 					addCacheDeletes(localCacheDeletes, db.GetPoolCode(), localCache.code, keys...)
 					keys = getCacheQueriesKeys(schema, bind, old, false)
@@ -255,7 +255,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 								toDeleteAll := make([]interface{}, total)
 								for i := 0; i < total; i++ {
 									toDeleteValue := subElem.Index(i)
-									toDeleteValue.Elem().Field(0).Interface().(*ORM).MarkToDelete()
+									toDeleteValue.Elem().Field(0).Addr().Interface().(*ORM).MarkToDelete()
 									toDelete := toDeleteValue.Interface()
 									toDeleteAll[i] = toDelete
 								}
@@ -402,7 +402,7 @@ func serializeForLazyQueue(lazyMap map[string]interface{}) (string, error) {
 }
 
 func injectBind(value reflect.Value, bind map[string]interface{}) {
-	oldFields := value.Field(0).Interface().(*ORM)
+	oldFields := value.Field(0).Interface().(ORM)
 	for key, value := range bind {
 		oldFields.dBData[key] = value
 	}
@@ -689,7 +689,7 @@ func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interfac
 		if !has {
 			continue
 		}
-		isDirty := column == "Orm"
+		isDirty := column == "ORM"
 		if !isDirty {
 			_, isDirty = bind[column]
 		}

@@ -9,7 +9,7 @@ import (
 )
 
 type TestEntityIndexTestLocalRedis struct {
-	Orm          *orm.ORM `orm:"localCache;redisCache"`
+	orm.ORM      `orm:"localCache;redisCache"`
 	ID           uint
 	Name         string `orm:"length=100;index=FirstIndex"`
 	Age          uint16
@@ -21,7 +21,7 @@ type TestEntityIndexTestLocalRedis struct {
 }
 
 type TestEntityIndexTestLocalRedisRef struct {
-	Orm  *orm.ORM
+	orm.ORM
 	ID   uint
 	Name string
 }
@@ -57,7 +57,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	totalRows, err := engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
-	assert.True(t, rows[0].Orm.Loaded())
+	assert.True(t, rows[0].Loaded())
 
 	assert.Len(t, rows, 5)
 	assert.Equal(t, uint(1), rows[0].ReferenceOne.ID)
@@ -66,7 +66,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, uint(4), rows[3].ReferenceOne.ID)
 	assert.Equal(t, uint(5), rows[4].ReferenceOne.ID)
 	assert.Equal(t, "", rows[0].ReferenceOne.Name)
-	assert.False(t, rows[0].ReferenceOne.Orm.Loaded())
+	assert.False(t, rows[0].ReferenceOne.Loaded())
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, _ := engine.GetMysql()
@@ -137,7 +137,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 5)
 
-	rows[1].Orm.MarkToDelete()
+	rows[1].MarkToDelete()
 	err = engine.Flush(rows[1])
 	assert.Nil(t, err)
 
@@ -196,6 +196,6 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 15)
 	assert.Equal(t, "Name 1", rows[0].ReferenceOne.Name)
 	assert.Equal(t, "Name 3", rows[1].ReferenceOne.Name)
-	assert.True(t, rows[0].ReferenceOne.Orm.Loaded())
-	assert.True(t, rows[1].ReferenceOne.Orm.Loaded())
+	assert.True(t, rows[0].ReferenceOne.Loaded())
+	assert.True(t, rows[1].ReferenceOne.Loaded())
 }

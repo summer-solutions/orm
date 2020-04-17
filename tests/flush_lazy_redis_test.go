@@ -9,9 +9,9 @@ import (
 )
 
 type TestEntityFlushLazyRedis struct {
-	Orm  *orm.ORM `orm:"redisCache"`
-	ID   uint
-	Name string
+	orm.ORM `orm:"redisCache"`
+	ID      uint
+	Name    string
 }
 
 func TestFlushLazyRedis(t *testing.T) {
@@ -88,7 +88,7 @@ func TestFlushLazyRedis(t *testing.T) {
 
 	DBLogger.Queries = make([]string, 0)
 	LoggerQueue.Requests = make([]string, 0)
-	entity.Orm.MarkToDelete()
+	entity.MarkToDelete()
 	err = engine.FlushLazy(&entity)
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 0)

@@ -387,7 +387,7 @@ func buildFieldList(config *Config, schema *TableSchema, t reflect.Type, prefix 
 		if has {
 			continue
 		}
-		if prefix == "" && (strings.ToLower(field.Name) == "id" || field.Name == "Orm") {
+		if prefix == "" && (strings.ToLower(field.Name) == "id" || field.Name == "ORM") {
 			continue
 		}
 		if field.Type.String() == "*orm.CachedQuery" {

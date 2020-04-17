@@ -9,7 +9,7 @@ import (
 )
 
 type TestEntityInterfaces struct {
-	Orm          *orm.ORM
+	orm.ORM
 	ID           uint
 	Uint         uint
 	Name         string
@@ -18,8 +18,8 @@ type TestEntityInterfaces struct {
 }
 
 type TestEntityInterfacesRef struct {
-	Orm *orm.ORM
-	ID  uint
+	orm.ORM
+	ID uint
 }
 
 func (e *TestEntityInterfaces) SetDefaults() {

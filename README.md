@@ -122,7 +122,7 @@ func main() {
     }
     
     type TestEntitySchema struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint
         Name                 string `orm:"length=100;index=FirstIndex"`
         NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
@@ -160,12 +160,12 @@ func main() {
     }
     
     type TestEntitySchemaRef struct {
-        Orm  *orm.ORM
+        orm.ORM
         ID   uint
         Name string
     }
     type TestEntitySecondPool struct {
-    	Orm                  *orm.ORM `orm:"mysql=second_pool"`
+    	orm.ORM `orm:"mysql=second_pool"`
     	ID                   uint
     }
 
@@ -178,7 +178,7 @@ func main() {
 
 There are only two golden rules you need to remember defining entity struct: 
 
- * first field must have name "Orm" and must be type of "*orm.ORM"
+ * first field must be type of "orm.ORM"
  * second argument must have name "ID" and must be type of one of uint, uint16, uint32, uint64
  
  
@@ -186,7 +186,7 @@ There are only two golden rules you need to remember defining entity struct:
  convert it to null in database if needed. 
  
  By default entity is not cached in local cache or redis, to change that simply use key "redisCache" or "localCache"
- in "orm" tag for "Orm" field:
+ in "orm" tag for "ORM" field:
  
  ```go
  package main
@@ -199,27 +199,27 @@ There are only two golden rules you need to remember defining entity struct:
  func main() {
  
      type TestEntityLocalCache struct {
-     	Orm                  *orm.ORM `orm:"localCache"` //default pool
+     	orm.ORM `orm:"localCache"` //default pool
         //...
      }
     
     type TestEntityLocalCacheSecondPool struct {
-     	Orm                  *orm.ORM `orm:"localCache=second_pool"`
+     	orm.ORM `orm:"localCache=second_pool"`
         //...
      }
     
     type TestEntityRedisCache struct {
-     	Orm                  *orm.ORM `orm:"redisCache"` //default pool
+     	orm.ORM `orm:"redisCache"` //default pool
         //...
      }
     
     type TestEntityRedisCacheSecondPool struct {
-     	Orm                  *orm.ORM `orm:"redisCache=second_pool"`
+     	orm.ORM `orm:"redisCache=second_pool"`
         //...
      }
 
     type TestEntityLocalAndRedisCache struct {
-     	Orm                  *orm.ORM `orm:"localCache;redisCache"`
+     	orm.ORM `orm:"localCache;redisCache"`
         //...
      }
  }
@@ -237,13 +237,13 @@ There are only two golden rules you need to remember defining entity struct:
      orm.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
     
      type FirstEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint
         Name                 string
      }
       
     type SecondEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint
         Name                 string
     }
@@ -281,7 +281,7 @@ func main() {
     registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
 
     type TestEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint
         Name                 string
     }
@@ -320,7 +320,7 @@ func main() {
     engine.IsDirty(entity) //returns false
     
     /* deleting */
-    entity2.Orm.MarkToDelete()
+    entity2.MarkToDelete()
     engine.IsDirty(entity2) //returns true
     err = engine.Flush(&entity2)
     if err != nil {
@@ -348,7 +348,7 @@ func main() {
 
  
     type TestEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint
         Name                 string
     }
@@ -382,7 +382,7 @@ func main() {
    //.. register pools and entities
  
     type TestEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint
         Name                 string
     }
@@ -429,7 +429,7 @@ func main() {
    //.. register pools and entities
  
     type TestEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint
         Name                 string
     }
@@ -449,7 +449,7 @@ func main() {
     flusher.RegisterEntity(&entity1, &entity2, &entity3)
    
     entity1.Name = "New Name"
-    entity1.Orm.MarkToDelete()
+    entity1.MarkToDelete()
     
     err = flusher.Flush(engine) //executes all queries at once
     //or
@@ -500,20 +500,20 @@ func main() {
    //.. register pools and entities
  
     type UserEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         Name                 string
         School               *SchoolEntity
     }
     
     type SchoolEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         Name                 string
     }
 
     type UserHouse struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         User                 *UserEntity  `orm:"cascade"`
     }
@@ -524,7 +524,7 @@ func main() {
 
 
     /* 
-        Orm will add index and foreign key automatically. By default 'ON DELETE RESTRICT' but
+        ORM will add index and foreign key automatically. By default 'ON DELETE RESTRICT' but
         you can add tag "cascade" to force 'ON DELETE CASCADE'
     */
     
@@ -542,9 +542,9 @@ func main() {
     }
 
     /* accessing reference */
-    user.School.Orm.Loaded() //returns false
-    err = user.SchoolOrm.Load(engine) //fill from DB if not loaded
-    err = user.SchoolOrm.Refersh(engine) //load newest data from DB
+    user.School.Loaded() //returns false
+    err = user.School.Load(engine) //fill from DB if not loaded
+    err = user.School.Refersh(engine) //load newest data from DB
     
     
     /* deleting reference */
@@ -579,7 +579,7 @@ func main() {
    //.. register pools and entities
  
     type UserEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         Name                 string
         Age                  uint16
@@ -626,7 +626,7 @@ func main() {
 
  
     type UserEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         Name                 string
     }
@@ -636,7 +636,7 @@ func main() {
     user := UserEntity{Name: "John"}
     var user2 UserEntity
     err := engine.GetByID(1, &user2)
-    user2.Orm.MarkToDelete()
+    user2.MarkToDelete()
     err = engine.FlushLazy(&user, &user2)
     
     /* you can use Flusher also */
@@ -686,7 +686,7 @@ func main() {
 
  
     type UserEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         Name                 string
     }
@@ -723,7 +723,7 @@ If you need to define default values for entity simply extend orm.DefaultValuesI
 func main() {
 
     type UserEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         Name                 string
     }
@@ -746,14 +746,14 @@ field bool with name "FakeDelete".
 func main() {
 
     type UserEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         Name                 string
         FakeDelete           bool
     }
 
     //you can delete in two ways:
-    user.Orm.MarkToDelete() -> will set user.FakeDelete = true
+    user.MarkToDelete() -> will set user.FakeDelete = true
     or:
     user.FakeDelete = true
 
@@ -763,7 +763,7 @@ func main() {
     total, err = engine.SearchWithCount(orm.NewWhere("1"), nil, &rows)
 
     //To force delete (remove row from DB):
-    user.Orm.ForceMarkToDelete()
+    user.ForceMarkToDelete()
     engine.Flush(user)
 }
 
@@ -778,7 +778,7 @@ If you need to define validation for entity simply extend orm.ValidateInterface.
 func main() {
 
     type UserEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         Name                 string
     }
@@ -802,7 +802,7 @@ If you need to execute code after entity is added or updated simply extend orm.A
 func main() {
 
     type UserEntity struct {
-        Orm                  *orm.ORM
+        orm.ORM
         ID                   uint64
         Value                int
         Calculated           string `orm:"ignore"`

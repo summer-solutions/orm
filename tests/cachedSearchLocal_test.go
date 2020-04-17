@@ -10,7 +10,7 @@ import (
 )
 
 type TestEntityIndexTestLocal struct {
-	Orm          *orm.ORM `orm:"localCache"`
+	orm.ORM      `orm:"localCache"`
 	ID           uint
 	Name         string `orm:"length=100;index=FirstIndex"`
 	Age          uint16
@@ -22,7 +22,7 @@ type TestEntityIndexTestLocal struct {
 }
 
 type TestEntityIndexTestLocalRef struct {
-	Orm  *orm.ORM
+	orm.ORM
 	ID   uint
 	Name string
 }
@@ -134,7 +134,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 5)
 
-	rows[1].Orm.MarkToDelete()
+	rows[1].MarkToDelete()
 	err = engine.Flush(rows[1])
 	assert.Nil(t, err)
 
