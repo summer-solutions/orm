@@ -318,6 +318,17 @@ func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string
 		case "float64":
 			float, _ := strconv.ParseFloat(data[index], 64)
 			field.SetFloat(float)
+		case "*time.Time":
+			if data[index] == "" {
+				field.Set(reflect.Zero(field.Type()))
+			} else {
+				layout := "2006-01-02"
+				if len(data[index]) == 19 {
+					layout += " 15:04:05"
+				}
+				value, _ := time.Parse(layout, data[index])
+				field.Set(reflect.ValueOf(&value))
+			}
 		case "time.Time":
 			layout := "2006-01-02"
 			if len(data[index]) == 19 {
@@ -383,7 +394,10 @@ func buildFieldList(config *Config, schema *TableSchema, t reflect.Type, prefix 
 			continue
 		}
 		switch field.Type.String() {
-		case "string", "[]string", "[]uint8", "interface {}", "uint16", "time.Time":
+		case "time.Time":
+			columnNameRaw = prefix + t.Field(i).Name
+			fieldsList += fmt.Sprintf(",`%s`", columnNameRaw)
+		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*time.Time":
 			columnNameRaw = prefix + t.Field(i).Name
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:

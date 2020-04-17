@@ -147,9 +147,10 @@ func main() {
         Set                  []string `orm:"set=tests.Color"`
         Year                 uint16   `orm:"year=true"`
         YearNotNull          uint16   `orm:"year=true;required"`
-        Date                 time.Time
-        DateNotNull          time.Time `orm:"required"`
-        DateTime             time.Time `orm:"time=true"`
+        Date                 *time.Time
+        DateNotNull          time.Time
+        DateTime             *time.Time `orm:"time=true"`
+        DateTimeNotNull      time.Time  `orm:"time=true"`
         Address              AddressSchema
         Json                 interface{}
         ReferenceOne         *TestEntitySchemaRef

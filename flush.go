@@ -534,10 +534,8 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 		case "time.Time":
 			value := field.Interface().(time.Time)
 			layout := "2006-01-02"
-			layoutEmpty := "0001-01-01"
 			var valueAsString string
 			if tableSchema.Tags[name]["time"] == "true" {
-				layoutEmpty += " 00:00:00"
 				if value.Year() == 1 {
 					valueAsString = "0001-01-01 00:00:00"
 				} else {
@@ -549,17 +547,27 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 			if valueAsString == "" {
 				valueAsString = value.Format(layout)
 			}
-			if isRequired {
-				if hasOld && old == valueAsString {
-					continue
+			if hasOld && old == valueAsString {
+				continue
+			}
+			bind[name] = valueAsString
+			continue
+		case "*time.Time":
+			value := field.Interface().(*time.Time)
+			layout := "2006-01-02"
+			var valueAsString string
+			if tableSchema.Tags[name]["time"] == "true" {
+				if value != nil {
+					layout += " 15:04:05"
 				}
-				bind[name] = valueAsString
+			}
+			if value != nil {
+				valueAsString = value.Format(layout)
+			}
+			if hasOld && (old == valueAsString || (valueAsString == "" && (old == nil || old == ""))) {
 				continue
 			}
-			if hasOld && (old == valueAsString || (valueAsString == layoutEmpty && (old == nil || old == ""))) {
-				continue
-			}
-			if valueAsString == layoutEmpty {
+			if valueAsString == "" {
 				bind[name] = nil
 			} else {
 				bind[name] = valueAsString

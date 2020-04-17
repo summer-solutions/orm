@@ -881,7 +881,9 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, t reflect.Type, fiel
 	case "float64":
 		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleFloat("double", attributes)
 	case "time.Time":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = tableSchema.handleTime(attributes)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = tableSchema.handleTime(attributes, false)
+	case "*time.Time":
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = tableSchema.handleTime(attributes, true)
 	case "[]uint8":
 		definition = "blob"
 		addDefaultNullIfNullable = false
@@ -1009,18 +1011,16 @@ func (tableSchema *TableSchema) handleSetEnum(config *Config, fieldType string, 
 	return definition, hasRequired && required == "true", true, defaultValue, nil
 }
 
-func (tableSchema *TableSchema) handleTime(attributes map[string]string) (string, bool, bool, string) {
+func (tableSchema *TableSchema) handleTime(attributes map[string]string, nullable bool) (string, bool, bool, string) {
 	t := attributes["time"]
-	required, hasRequired := attributes["required"]
-	isRequired := hasRequired && required == "true"
 	defaultValue := "nil"
 	if t == "true" {
-		return "datetime", isRequired, true, "nil"
+		return "datetime", !nullable, true, "nil"
 	}
-	if isRequired {
+	if !nullable {
 		defaultValue = "'0001-01-01'"
 	}
-	return "date", isRequired, true, defaultValue
+	return "date", !nullable, true, defaultValue
 }
 
 func (tableSchema *TableSchema) handleReferenceOne(schema *TableSchema, attributes map[string]string) string {
