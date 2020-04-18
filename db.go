@@ -44,11 +44,12 @@ func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
 func (db *DB) Query(query string, args ...interface{}) (rows *sql.Rows, deferF func(), err error) {
 	start := time.Now()
 	rows, err = db.db.Query(query, args...)
-	if err != nil {
-		return nil, func() {}, err
-	}
 	db.log(query, time.Since(start).Microseconds(), args...)
-	return rows, func() { rows.Close() }, err
+	return rows, func() {
+		if rows != nil {
+			_ = rows.Close()
+		}
+	}, err
 }
 
 func (db *DB) RegisterLogger(logger DatabaseLogger) {
