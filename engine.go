@@ -19,10 +19,7 @@ func NewEngine(config *Config) *Engine {
 	e.dbs = make(map[string]*DB)
 	if e.config.sqlClients != nil {
 		for key, val := range e.config.sqlClients {
-			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName, db: val.db,
-				afterCommitLocalCacheDeletes: make(map[string][]string),
-				afterCommitRedisCacheDeletes: make(map[string][]string),
-				afterCommitLocalCacheSets:    make(map[string][]interface{})}
+			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName, db: val.db}
 		}
 	}
 	e.localCache = make(map[string]*LocalCache)

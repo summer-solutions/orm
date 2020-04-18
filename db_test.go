@@ -3,13 +3,14 @@ package orm
 import (
 	"database/sql"
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type testSQLDB struct {
-	db sqlDB
-	counter int
+	db        sqlDB
+	counter   int
 	QueryMock func(db sqlDB, counter int, query string, args ...interface{}) (*sql.Rows, error)
 }
 
@@ -27,10 +28,6 @@ func (db *testSQLDB) Query(query string, args ...interface{}) (*sql.Rows, error)
 		return db.QueryMock(db.db, db.counter, query, args...)
 	}
 	return db.db.Query(query, args...)
-}
-
-func (db *testSQLDB) Begin() (*sql.Tx, error) {
-	return db.db.Begin()
 }
 
 func TestDBQuery(t *testing.T) {

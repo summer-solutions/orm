@@ -4,77 +4,17 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/segmentio/fasthash/fnv1a"
+	"github.com/juju/errors"
 )
 
-type ORM struct {
-	dBData      map[string]interface{}
-	value       reflect.Value
-	elem        reflect.Value
-	tableSchema *TableSchema
-}
-
-type CachedQuery struct{}
-
-func (orm ORM) MarkToDelete() {
-	if orm.tableSchema.hasFakeDelete {
-		orm.elem.FieldByName("FakeDelete").SetBool(true)
-		return
-	}
-	orm.dBData["_delete"] = true
-}
-
-func (orm ORM) Loaded() bool {
-	_, has := orm.dBData["_loaded"]
-	return has
-}
-
-func (orm ORM) Load(engine *Engine) error {
-	if orm.Loaded() {
-		return nil
-	}
-	return orm.Refresh(engine)
-}
-
-func (orm ORM) Refresh(engine *Engine) error {
-	id := orm.elem.Field(1).Uint()
-	if id == 0 {
-		return nil
-	}
-	return engine.GetByID(id, orm.value.Interface())
-}
-
-func (orm ORM) ForceMarkToDelete() {
-	orm.dBData["_delete"] = true
-}
-
-type cachedQueryDefinition struct {
-	Max    int
-	Query  string
-	Fields []string
-}
-
-type TableSchema struct {
-	TableName        string
-	MysqlPoolName    string
-	t                reflect.Type
-	Tags             map[string]map[string]string
-	cachedIndexes    map[string]*cachedQueryDefinition
-	cachedIndexesOne map[string]*cachedQueryDefinition
-	cachedIndexesAll map[string]*cachedQueryDefinition
-	columnNames      []string
-	columnPathMap    map[string]string
-	refOne           []string
-	columnsStamp     string
-	localCacheName   string
-	redisCacheName   string
-	cachePrefix      string
-	hasFakeDelete    bool
+type Alter struct {
+	SQL  string
+	Safe bool
+	Pool string
 }
 
 type indexDB struct {
@@ -105,132 +45,128 @@ type foreignKeyDB struct {
 	OnDelete              string
 }
 
-func getTableSchema(c *Config, entityOrType interface{}) *TableSchema {
-	asType, ok := entityOrType.(reflect.Type)
-	if ok {
-		return getTableSchemaFromValue(c, asType)
-	}
-	return getTableSchemaFromValue(c, reflect.TypeOf(entityOrType))
-}
+func getAlters(engine *Engine) (alters []Alter, err error) {
+	tablesInDB := make(map[string]map[string]bool)
+	tablesInEntities := make(map[string]map[string]bool)
 
-func getTableSchemaFromValue(c *Config, entityType reflect.Type) *TableSchema {
-	return c.tableSchemas[entityType]
-}
-
-func (tableSchema *TableSchema) GetType() reflect.Type {
-	return tableSchema.t
-}
-
-func (tableSchema *TableSchema) DropTable(engine *Engine) error {
-	pool := tableSchema.GetMysql(engine)
-	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.TableName))
-	return err
-}
-
-func (tableSchema *TableSchema) TruncateTable(engine *Engine) error {
-	pool := tableSchema.GetMysql(engine)
-	_, err := pool.Exec("SET FOREIGN_KEY_CHECKS = 0")
-	if err != nil {
-		return err
-	}
-	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;",
-		pool.GetDatabaseName(), tableSchema.TableName))
-	if err != nil {
-		return err
-	}
-	_, err = pool.Exec("SET FOREIGN_KEY_CHECKS = 1")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (tableSchema *TableSchema) UpdateSchema(engine *Engine) error {
-	pool := tableSchema.GetMysql(engine)
-	has, alters, err := tableSchema.GetSchemaChanges(engine)
-	if err != nil {
-		return err
-	}
-	if has {
-		for _, alter := range alters {
-			_, err := pool.Exec(alter.SQL)
+	if engine.config.sqlClients != nil {
+		for _, pool := range engine.config.sqlClients {
+			poolName := pool.code
+			tablesInDB[poolName] = make(map[string]bool)
+			pool, _ := engine.GetMysql(poolName)
+			tables, err := getAllTables(pool.db)
 			if err != nil {
-				return err
+				return nil, err
 			}
+			for _, table := range tables {
+				tablesInDB[poolName][table] = true
+			}
+			tablesInEntities[poolName] = make(map[string]bool)
 		}
 	}
-	return nil
-}
-
-func (tableSchema *TableSchema) UpdateSchemaAndTruncateTable(engine *Engine) error {
-	err := tableSchema.UpdateSchema(engine)
-	if err != nil {
-		return err
+	alters = make([]Alter, 0)
+	if engine.config.entities != nil {
+		for _, t := range engine.config.entities {
+			tableSchema := getTableSchema(engine.config, t)
+			tablesInEntities[tableSchema.MysqlPoolName][tableSchema.TableName] = true
+			has, newAlters, err := tableSchema.GetSchemaChanges(engine)
+			if err != nil {
+				return nil, err
+			}
+			if !has {
+				continue
+			}
+			alters = append(alters, newAlters...)
+		}
 	}
-	pool := tableSchema.GetMysql(engine)
-	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.TableName))
-	return err
-}
 
-func (tableSchema *TableSchema) GetMysql(engine *Engine) *DB {
-	db, _ := engine.GetMysql(tableSchema.MysqlPoolName)
-	return db
-}
-
-func (tableSchema *TableSchema) GetLocalCache(engine *Engine) (cache *LocalCache, has bool) {
-	if tableSchema.localCacheName == "" {
-		return nil, false
-	}
-	return engine.GetLocalCache(tableSchema.localCacheName)
-}
-
-func (tableSchema *TableSchema) GetRedisCacheContainer(engine *Engine) (cache *RedisCache, has bool) {
-	if tableSchema.redisCacheName == "" {
-		return nil, false
-	}
-	return engine.GetRedis(tableSchema.redisCacheName)
-}
-
-func (tableSchema *TableSchema) GetReferences() []string {
-	return tableSchema.refOne
-}
-
-func (tableSchema TableSchema) getCacheKey(id uint64) string {
-	return fmt.Sprintf("%s%s:%d", tableSchema.cachePrefix, tableSchema.columnsStamp, id)
-}
-
-func (tableSchema TableSchema) getCacheKeySearch(indexName string, parameters ...interface{}) string {
-	hash := fnv1a.HashString32(fmt.Sprintf("%v", parameters))
-	return fmt.Sprintf("%s_%s_%d", tableSchema.cachePrefix, indexName, hash)
-}
-
-func (tableSchema *TableSchema) GetColumns() map[string]string {
-	return tableSchema.columnPathMap
-}
-
-func (tableSchema *TableSchema) GetUsage(config *Config) (map[reflect.Type][]string, error) {
-	results := make(map[reflect.Type][]string)
-	if config.entities != nil {
-		for _, t := range config.entities {
-			schema, _ := config.GetTableSchema(t)
-			for _, columnName := range schema.refOne {
-				ref, has := schema.Tags[columnName]["ref"]
-				if has && ref == tableSchema.t.String() {
-					if results[t] == nil {
-						results[t] = make([]string, 0)
-					}
-					results[t] = append(results[t], columnName)
+	for poolName, tables := range tablesInDB {
+		for tableName := range tables {
+			_, has := tablesInEntities[poolName][tableName]
+			if !has {
+				dropForeignKeyAlter, err := getDropForeignKeysAlter(engine, tableName, poolName)
+				if err != nil {
+					return nil, err
+				}
+				if dropForeignKeyAlter != "" {
+					alters = append(alters, Alter{SQL: dropForeignKeyAlter, Safe: true, Pool: poolName})
+				}
+				pool, _ := engine.GetMysql(poolName)
+				dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableName)
+				isEmpty, err := isTableEmptyInPool(engine, poolName, tableName)
+				if err != nil {
+					return nil, err
+				}
+				if isEmpty {
+					alters = append(alters, Alter{SQL: dropSQL, Safe: true, Pool: poolName})
+				} else {
+					alters = append(alters, Alter{SQL: dropSQL, Safe: false, Pool: poolName})
 				}
 			}
 		}
 	}
-	return results, nil
+	sortedNormal := make([]Alter, 0)
+	sortedDropForeign := make([]Alter, 0)
+	sortedAddForeign := make([]Alter, 0)
+	for _, alter := range alters {
+		hasDropForeignKey := strings.Index(alter.SQL, "DROP FOREIGN KEY") > 0
+		hasAddForeignKey := strings.Index(alter.SQL, "ADD CONSTRAINT") > 0
+		if !hasDropForeignKey && !hasAddForeignKey {
+			sortedNormal = append(sortedNormal, alter)
+		}
+	}
+	for _, alter := range alters {
+		hasDropForeignKey := strings.Index(alter.SQL, "DROP FOREIGN KEY") > 0
+		if hasDropForeignKey {
+			sortedDropForeign = append(sortedDropForeign, alter)
+		}
+	}
+	for _, alter := range alters {
+		hasAddForeignKey := strings.Index(alter.SQL, "ADD CONSTRAINT") > 0
+		if hasAddForeignKey {
+			sortedAddForeign = append(sortedAddForeign, alter)
+		}
+	}
+	sort.Slice(sortedNormal, func(i int, j int) bool {
+		return len(sortedNormal[i].SQL) < len(sortedNormal[j].SQL)
+	})
+	final := sortedDropForeign
+	final = append(final, sortedNormal...)
+	final = append(final, sortedAddForeign...)
+	return final, nil
 }
 
-func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alters []Alter, err error) {
+func isTableEmptyInPool(engine *Engine, poolName string, tableName string) (bool, error) {
+	pool, _ := engine.GetMysql(poolName)
+	return isTableEmpty(pool.db, tableName)
+}
+
+func getAllTables(db sqlDB) ([]string, error) {
+	tables := make([]string, 0)
+	results, err := db.Query("SHOW TABLES")
+	if err != nil {
+		return nil, err
+	}
+	defer results.Close()
+	for results.Next() {
+		var row string
+		err = results.Scan(&row)
+		if err != nil {
+			return nil, err
+		}
+		tables = append(tables, row)
+	}
+	err = results.Err()
+	if err != nil {
+		return nil, err
+	}
+	return tables, nil
+}
+
+func getSchemaChanges(engine *Engine, tableSchema *TableSchema) (has bool, alters []Alter, err error) {
 	indexes := make(map[string]*index)
 	foreignKeys := make(map[string]*foreignIndex)
-	columns, err := tableSchema.checkStruct(engine, tableSchema.t, indexes, foreignKeys, "")
+	columns, err := checkStruct(tableSchema, engine, tableSchema.t, indexes, foreignKeys, "")
 
 	if err != nil {
 		return false, nil, err
@@ -245,14 +181,14 @@ func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 		createTableSQL += fmt.Sprintf("  %s,\n", value[1])
 	}
 	for keyName, indexEntity := range indexes {
-		newIndexes = append(newIndexes, tableSchema.buildCreateIndexSQL(keyName, indexEntity))
+		newIndexes = append(newIndexes, buildCreateIndexSQL(keyName, indexEntity))
 	}
 	sort.Strings(newIndexes)
 	for _, value := range newIndexes {
 		createTableSQL += fmt.Sprintf("  %s,\n", value[4:])
 	}
 	for keyName, foreignKey := range foreignKeys {
-		newForeignKeys = append(newForeignKeys, tableSchema.buildCreateForeignKeySQL(keyName, foreignKey))
+		newForeignKeys = append(newForeignKeys, buildCreateForeignKeySQL(keyName, foreignKey))
 	}
 	sort.Strings(newForeignKeys)
 	for _, value := range newForeignKeys {
@@ -399,11 +335,11 @@ OUTER:
 	for keyName, indexEntity := range indexes {
 		indexDB, has := indexesDB[keyName]
 		if !has {
-			newIndexes = append(newIndexes, tableSchema.buildCreateIndexSQL(keyName, indexEntity))
+			newIndexes = append(newIndexes, buildCreateIndexSQL(keyName, indexEntity))
 			hasAlters = true
 		} else {
-			addIndexSQLEntity := tableSchema.buildCreateIndexSQL(keyName, indexEntity)
-			addIndexSQLDB := tableSchema.buildCreateIndexSQL(keyName, indexDB)
+			addIndexSQLEntity := buildCreateIndexSQL(keyName, indexEntity)
+			addIndexSQLDB := buildCreateIndexSQL(keyName, indexDB)
 			if addIndexSQLEntity != addIndexSQLDB {
 				droppedIndexes = append(droppedIndexes, fmt.Sprintf("DROP INDEX `%s`", keyName))
 				newIndexes = append(newIndexes, addIndexSQLEntity)
@@ -416,11 +352,11 @@ OUTER:
 	for keyName, indexEntity := range foreignKeys {
 		indexDB, has := foreignKeysDB[keyName]
 		if !has {
-			newForeignKeys = append(newForeignKeys, tableSchema.buildCreateForeignKeySQL(keyName, indexEntity))
+			newForeignKeys = append(newForeignKeys, buildCreateForeignKeySQL(keyName, indexEntity))
 			hasAlters = true
 		} else {
-			addIndexSQLEntity := tableSchema.buildCreateForeignKeySQL(keyName, indexEntity)
-			addIndexSQLDB := tableSchema.buildCreateForeignKeySQL(keyName, indexDB)
+			addIndexSQLEntity := buildCreateForeignKeySQL(keyName, indexEntity)
+			addIndexSQLDB := buildCreateForeignKeySQL(keyName, indexDB)
 			if addIndexSQLEntity != addIndexSQLDB {
 				droppedForeignKeys = append(droppedForeignKeys, fmt.Sprintf("DROP FOREIGN KEY `%s`", keyName))
 				newForeignKeys = append(newForeignKeys, addIndexSQLEntity)
@@ -529,9 +465,10 @@ OUTER:
 		if len(droppedColumns) == 0 && len(changedColumns) == 0 {
 			safe = true
 		} else {
-			isEmpty, err := tableSchema.isTableEmpty(engine)
+			db := tableSchema.GetMysql(engine)
+			isEmpty, err := isTableEmpty(db.db, tableSchema.TableName)
 			if err != nil {
-				return false, nil, err
+				return false, nil, errors.Trace(err)
 			}
 			safe = isEmpty
 		}
@@ -550,223 +487,93 @@ OUTER:
 	return has, alters, nil
 }
 
-func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema, error) {
-	tags, columnNames, columnPathMap := extractTags(registry, entityType, "")
-	oneRefs := make([]string, 0)
-	columnsStamp := fmt.Sprintf("%d", fnv1a.HashString32(fmt.Sprintf("%v", columnNames)))
-	mysql, has := tags["ORM"]["mysql"]
-	if !has {
-		mysql = "default"
+func getForeignKeys(engine *Engine, createTableDB string, tableName string, poolName string) (map[string]*foreignIndex, error) {
+	var rows2 []foreignKeyDB
+	query := "SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_TABLE_SCHEMA " +
+		"FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL " +
+		"AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
+	pool, _ := engine.GetMysql(poolName)
+	results, def, err := pool.Query(fmt.Sprintf(query, pool.GetDatabaseName(), tableName))
+	if err != nil {
+		return nil, err
 	}
-	_, has = registry.sqlClients[mysql]
-	if !has {
-		return nil, fmt.Errorf("unknown mysql pool '%s'", mysql)
-	}
-	table, has := tags["ORM"]["table"]
-	if !has {
-		table = entityType.Name()
-	}
-	localCache := ""
-	redisCache := ""
-	userValue, has := tags["ORM"]["localCache"]
-	if has {
-		if userValue == "true" {
-			userValue = "default"
+	defer def()
+	for results.Next() {
+		var row foreignKeyDB
+		err = results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
+		if err != nil {
+			return nil, err
 		}
-		localCache = userValue
-	}
-	if localCache != "" {
-		_, has = registry.localCacheContainers[localCache]
-		if !has {
-			return nil, fmt.Errorf("unknown local cache pool '%s'", localCache)
-		}
-	}
-	userValue, has = tags["ORM"]["redisCache"]
-	if has {
-		if userValue == "true" {
-			userValue = "default"
-		}
-		redisCache = userValue
-	}
-	if redisCache != "" {
-		_, has = registry.redisServers[redisCache]
-		if !has {
-			return nil, fmt.Errorf("unknown redis pool '%s'", redisCache)
-		}
-	}
-
-	cachePrefix := ""
-	if mysql != "default" {
-		cachePrefix = mysql
-	}
-	cachePrefix += table
-	cachedQueries := make(map[string]*cachedQueryDefinition)
-	cachedQueriesOne := make(map[string]*cachedQueryDefinition)
-	cachedQueriesAll := make(map[string]*cachedQueryDefinition)
-	hasFakeDelete := false
-	fakeDeleteField, has := entityType.FieldByName("FakeDelete")
-	if has && fakeDeleteField.Type.String() == "bool" {
-		hasFakeDelete = true
-	}
-	for key, values := range tags {
-		isOne := false
-		query, has := values["query"]
-		if !has {
-			query, has = values["queryOne"]
-			isOne = true
-		}
-		fields := make([]string, 0)
-		if has {
-			re := regexp.MustCompile(":([A-Za-z0-9])+")
-			variables := re.FindAllString(query, -1)
-			for _, variable := range variables {
-				fieldName := variable[1:]
-				if fieldName != "ID" {
-					fields = append(fields, fieldName)
+		row.OnDelete = "RESTRICT"
+		for _, line := range strings.Split(createTableDB, "\n") {
+			line = strings.TrimSpace(strings.TrimRight(line, ","))
+			if strings.Index(line, fmt.Sprintf("CONSTRAINT `%s`", row.ConstraintName)) == 0 {
+				words := strings.Split(line, " ")
+				if strings.ToUpper(words[len(words)-2]) == "DELETE" {
+					row.OnDelete = strings.ToUpper(words[len(words)-1])
 				}
-				query = strings.Replace(query, variable, fmt.Sprintf("`%s`", fieldName), 1)
-			}
-			if hasFakeDelete && len(variables) > 0 {
-				fields = append(fields, "FakeDelete")
-			}
-			if query == "" {
-				query = "1 ORDER BY `ID`"
-			}
-			if !isOne {
-				max := 50000
-				maxAttribute, has := values["max"]
-				if has {
-					maxFromUser, err := strconv.Atoi(maxAttribute)
-					if err != nil {
-						return nil, err
-					}
-					max = maxFromUser
-				}
-				def := &cachedQueryDefinition{max, query, fields}
-				cachedQueries[key] = def
-				cachedQueriesAll[key] = def
-			} else {
-				def := &cachedQueryDefinition{1, query, fields}
-				cachedQueriesOne[key] = def
-				cachedQueriesAll[key] = def
 			}
 		}
-		_, has = values["ref"]
-		if has {
-			oneRefs = append(oneRefs, key)
-		}
+		rows2 = append(rows2, row)
 	}
-	tableSchema := &TableSchema{TableName: table,
-		MysqlPoolName:    mysql,
-		t:                entityType,
-		Tags:             tags,
-		columnNames:      columnNames,
-		columnPathMap:    columnPathMap,
-		columnsStamp:     columnsStamp,
-		cachedIndexes:    cachedQueries,
-		cachedIndexesOne: cachedQueriesOne,
-		cachedIndexesAll: cachedQueriesAll,
-		localCacheName:   localCache,
-		redisCacheName:   redisCache,
-		refOne:           oneRefs,
-		cachePrefix:      cachePrefix,
-		hasFakeDelete:    hasFakeDelete}
-	return tableSchema, nil
+	err = results.Err()
+	if err != nil {
+		return nil, err
+	}
+	var foreignKeysDB = make(map[string]*foreignIndex)
+	for _, value := range rows2 {
+		foreignKey := &foreignIndex{ParentDatabase: value.ReferencedTableSchema, Table: value.ReferencedTableName,
+			Column: value.ColumnName, OnDelete: value.OnDelete}
+		foreignKeysDB[value.ConstraintName] = foreignKey
+	}
+	return foreignKeysDB, nil
 }
 
-func extractTags(registry *Registry, entityType reflect.Type, prefix string) (fields map[string]map[string]string,
-	columnNames []string, columnPathMap map[string]string) {
-	fields = make(map[string]map[string]string)
-	columnNames = make([]string, 0)
-	columnPathMap = make(map[string]string)
-	for i := 0; i < entityType.NumField(); i++ {
-		field := entityType.Field(i)
-
-		subTags, subFields, subMap := extractTag(registry, field)
-		for k, v := range subTags {
-			fields[prefix+k] = v
-		}
-		_, hasIgnore := fields[field.Name]["ignore"]
-		if hasIgnore {
-			continue
-		}
-		refOne := ""
-		hasRef := false
-		if field.Type.Kind().String() == "ptr" {
-			refName := field.Type.Elem().String()
-			_, hasRef = registry.entities[refName]
-			if hasRef {
-				refOne = refName
-			}
-		}
-
-		query, hasQuery := field.Tag.Lookup("query")
-		queryOne, hasQueryOne := field.Tag.Lookup("queryOne")
-		if subFields != nil {
-			if !hasQuery && !hasQueryOne {
-				columnNames = append(columnNames, subFields...)
-			}
-			for k, v := range subMap {
-				columnPathMap[k] = v
-			}
-		} else if i != 0 || prefix != "" {
-			if !hasQuery && !hasQueryOne {
-				columnNames = append(columnNames, prefix+field.Name)
-				path := strings.TrimLeft(prefix+"."+field.Name, ".")
-				if hasRef {
-					path += ".ID"
-				}
-				columnPathMap[path] = prefix + field.Name
-			}
-		}
-
-		if hasQuery {
-			if fields[field.Name] == nil {
-				fields[field.Name] = make(map[string]string)
-			}
-			fields[field.Name]["query"] = query
-		}
-		if hasQueryOne {
-			if fields[field.Name] == nil {
-				fields[field.Name] = make(map[string]string)
-			}
-			fields[field.Name]["queryOne"] = queryOne
-		}
-		if hasRef {
-			if fields[field.Name] == nil {
-				fields[field.Name] = make(map[string]string)
-			}
-			fields[field.Name]["ref"] = refOne
-		}
+func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) (string, error) {
+	var skip string
+	var createTableDB string
+	pool, _ := engine.GetMysql(poolName)
+	err := pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableName)).Scan(&skip, &createTableDB)
+	if err != nil {
+		return "", err
 	}
-	return
+	alter := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableName)
+	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableName, poolName)
+	if err != nil {
+		return "", err
+	}
+	if len(foreignKeysDB) == 0 {
+		return "", nil
+	}
+	droppedForeignKeys := make([]string, 0)
+	for keyName := range foreignKeysDB {
+		droppedForeignKeys = append(droppedForeignKeys, fmt.Sprintf("DROP FOREIGN KEY `%s`", keyName))
+	}
+	alter += strings.Join(droppedForeignKeys, ",\t\n")
+	alter = strings.TrimRight(alter, ",") + ";"
+	return alter, nil
 }
 
-func extractTag(registry *Registry, field reflect.StructField) (map[string]map[string]string, []string, map[string]string) {
-	tag, ok := field.Tag.Lookup("orm")
-	if ok {
-		args := strings.Split(tag, ";")
-		length := len(args)
-		var attributes = make(map[string]string, length)
-		for j := 0; j < length; j++ {
-			arg := strings.Split(args[j], "=")
-			if len(arg) == 1 {
-				attributes[arg[0]] = "true"
-			} else {
-				attributes[arg[0]] = arg[1]
-			}
+func isTableEmpty(db sqlDB, tableName string) (bool, error) {
+	var lastID uint64
+	/* #nosec */
+	err := db.QueryRow(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableName)).Scan(&lastID)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return true, nil
 		}
-		return map[string]map[string]string{field.Name: attributes}, nil, nil
-	} else if field.Type.Kind().String() == "struct" {
-		t := field.Type.String()
-		if t != "orm.ORM" && t != "time.Time" {
-			return extractTags(registry, field.Type, field.Name)
-		}
+		return false, errors.Trace(err)
 	}
-	return make(map[string]map[string]string), nil, nil
+	return false, nil
 }
 
-func (tableSchema *TableSchema) checkColumn(engine *Engine, t reflect.Type, field *reflect.StructField, indexes map[string]*index,
+func buildCreateForeignKeySQL(keyName string, definition *foreignIndex) string {
+	/* #nosec */
+	return fmt.Sprintf("ADD CONSTRAINT `%s` FOREIGN KEY (`%s`) REFERENCES `%s`.`%s` (`ID`) ON DELETE %s",
+		keyName, definition.Column, definition.ParentDatabase, definition.Table, definition.OnDelete)
+}
+
+func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field *reflect.StructField, indexes map[string]*index,
 	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	var definition string
 	var addNotNullIfNotSet bool
@@ -853,7 +660,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, t reflect.Type, fiel
 		"int32",
 		"int64",
 		"int":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt(typeAsString, attributes)
+		definition, addNotNullIfNotSet, defaultValue = handleInt(typeAsString, attributes)
 	case "uint16":
 		if attributes["year"] == "true" {
 			if isRequired {
@@ -861,30 +668,30 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, t reflect.Type, fiel
 			}
 			return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) DEFAULT NULL", columnName)}}, nil
 		}
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleInt(typeAsString, attributes)
+		definition, addNotNullIfNotSet, defaultValue = handleInt(typeAsString, attributes)
 	case "bool":
 		if columnName == "FakeDelete" {
 			return nil, nil
 		}
 		definition, addNotNullIfNotSet, defaultValue = "tinyint(1)", true, "'0'"
 	case "string", "[]string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = tableSchema.handleString(engine.config, attributes, false)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.config, attributes, false)
 		if err != nil {
 			return nil, err
 		}
 	case "interface {}":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = tableSchema.handleString(engine.config, attributes, true)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.config, attributes, true)
 		if err != nil {
 			return nil, err
 		}
 	case "float32":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleFloat("float", attributes)
+		definition, addNotNullIfNotSet, defaultValue = handleFloat("float", attributes)
 	case "float64":
-		definition, addNotNullIfNotSet, defaultValue = tableSchema.handleFloat("double", attributes)
+		definition, addNotNullIfNotSet, defaultValue = handleFloat("double", attributes)
 	case "time.Time":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = tableSchema.handleTime(attributes, false)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = handleTime(attributes, false)
 	case "*time.Time":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = tableSchema.handleTime(attributes, true)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = handleTime(attributes, true)
 	case "[]uint8":
 		definition = "blob"
 		addDefaultNullIfNullable = false
@@ -894,7 +701,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, t reflect.Type, fiel
 		kind := field.Type.Kind().String()
 		valid := false
 		if kind == "struct" {
-			structFields, err := tableSchema.checkStruct(engine, field.Type, indexes, foreignKeys, field.Name)
+			structFields, err := checkStruct(tableSchema, engine, field.Type, indexes, foreignKeys, field.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -902,7 +709,7 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, t reflect.Type, fiel
 		} else if kind == "ptr" {
 			subSchema, has := engine.config.GetTableSchema(field.Type.Elem())
 			if has {
-				definition = tableSchema.handleReferenceOne(subSchema, attributes)
+				definition = handleReferenceOne(subSchema, attributes)
 				addNotNullIfNotSet = false
 				addDefaultNullIfNullable = true
 				valid = true
@@ -925,11 +732,11 @@ func (tableSchema *TableSchema) checkColumn(engine *Engine, t reflect.Type, fiel
 	return [][2]string{{columnName, fmt.Sprintf("`%s` %s", columnName, definition)}}, nil
 }
 
-func (tableSchema *TableSchema) handleInt(typeAsString string, attributes map[string]string) (string, bool, string) {
-	return tableSchema.convertIntToSchema(typeAsString, attributes), true, "'0'"
+func handleInt(typeAsString string, attributes map[string]string) (string, bool, string) {
+	return convertIntToSchema(typeAsString, attributes), true, "'0'"
 }
 
-func (tableSchema *TableSchema) handleFloat(floatDefinition string, attributes map[string]string) (string, bool, string) {
+func handleFloat(floatDefinition string, attributes map[string]string) (string, bool, string) {
 	decimal, hasDecimal := attributes["decimal"]
 	var definition string
 	defaultValue := "'0'"
@@ -947,15 +754,15 @@ func (tableSchema *TableSchema) handleFloat(floatDefinition string, attributes m
 	return definition, true, defaultValue
 }
 
-func (tableSchema *TableSchema) handleString(config *Config, attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
+func handleString(config *Config, attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
 	var definition string
 	enum, hasEnum := attributes["enum"]
 	if hasEnum {
-		return tableSchema.handleSetEnum(config, "enum", enum, attributes)
+		return handleSetEnum(config, "enum", enum, attributes)
 	}
 	set, haSet := attributes["set"]
 	if haSet {
-		return tableSchema.handleSetEnum(config, "set", set, attributes)
+		return handleSetEnum(config, "set", set, attributes)
 	}
 	var addDefaultNullIfNullable = true
 	length, hasLength := attributes["length"]
@@ -983,7 +790,7 @@ func (tableSchema *TableSchema) handleString(config *Config, attributes map[stri
 	return definition, false, addDefaultNullIfNullable, defaultValue, nil
 }
 
-func (tableSchema *TableSchema) handleSetEnum(config *Config, fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
+func handleSetEnum(config *Config, fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
 	if config.enums == nil {
 		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
 	}
@@ -1012,7 +819,7 @@ func (tableSchema *TableSchema) handleSetEnum(config *Config, fieldType string, 
 	return definition, hasRequired && required == "true", true, defaultValue, nil
 }
 
-func (tableSchema *TableSchema) handleTime(attributes map[string]string, nullable bool) (string, bool, bool, string) {
+func handleTime(attributes map[string]string, nullable bool) (string, bool, bool, string) {
 	t := attributes["time"]
 	defaultValue := "nil"
 	if t == "true" {
@@ -1024,11 +831,11 @@ func (tableSchema *TableSchema) handleTime(attributes map[string]string, nullabl
 	return "date", !nullable, true, defaultValue
 }
 
-func (tableSchema *TableSchema) handleReferenceOne(schema *TableSchema, attributes map[string]string) string {
-	return tableSchema.convertIntToSchema(schema.t.Field(1).Type.String(), attributes)
+func handleReferenceOne(schema *TableSchema, attributes map[string]string) string {
+	return convertIntToSchema(schema.t.Field(1).Type.String(), attributes)
 }
 
-func (tableSchema *TableSchema) convertIntToSchema(typeAsString string, attributes map[string]string) string {
+func convertIntToSchema(typeAsString string, attributes map[string]string) string {
 	switch typeAsString {
 	case "uint":
 		return "int(10) unsigned"
@@ -1059,7 +866,7 @@ func (tableSchema *TableSchema) convertIntToSchema(typeAsString string, attribut
 	}
 }
 
-func (tableSchema *TableSchema) checkStruct(engine *Engine, t reflect.Type, indexes map[string]*index,
+func checkStruct(tableSchema *TableSchema, engine *Engine, t reflect.Type, indexes map[string]*index,
 	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	columns := make([][2]string, 0, t.NumField())
 	max := t.NumField() - 1
@@ -1068,7 +875,7 @@ func (tableSchema *TableSchema) checkStruct(engine *Engine, t reflect.Type, inde
 			continue
 		}
 		field := t.Field(i)
-		fieldColumns, err := tableSchema.checkColumn(engine, t, &field, indexes, foreignKeys, prefix)
+		fieldColumns, err := checkColumn(engine, tableSchema, t, &field, indexes, foreignKeys, prefix)
 		if err != nil {
 			return nil, err
 		}
@@ -1083,7 +890,7 @@ func (tableSchema *TableSchema) checkStruct(engine *Engine, t reflect.Type, inde
 	return columns, nil
 }
 
-func (tableSchema *TableSchema) buildCreateIndexSQL(keyName string, definition *index) string {
+func buildCreateIndexSQL(keyName string, definition *index) string {
 	var indexColumns []string
 	for i := 1; i <= 100; i++ {
 		value, has := definition.Columns[i]
@@ -1098,91 +905,4 @@ func (tableSchema *TableSchema) buildCreateIndexSQL(keyName string, definition *
 		indexType = "UNIQUE " + indexType
 	}
 	return fmt.Sprintf("ADD %s `%s` (%s)", indexType, keyName, strings.Join(indexColumns, ","))
-}
-
-func (tableSchema *TableSchema) buildCreateForeignKeySQL(keyName string, definition *foreignIndex) string {
-	/* #nosec */
-	return fmt.Sprintf("ADD CONSTRAINT `%s` FOREIGN KEY (`%s`) REFERENCES `%s`.`%s` (`ID`) ON DELETE %s",
-		keyName, definition.Column, definition.ParentDatabase, definition.Table, definition.OnDelete)
-}
-
-func (tableSchema *TableSchema) isTableEmpty(engine *Engine) (bool, error) {
-	var lastID uint64
-	pool := tableSchema.GetMysql(engine)
-	/* #nosec */
-	err := pool.QueryRow(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableSchema.TableName)).Scan(&lastID)
-	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			return true, nil
-		}
-		return false, err
-	}
-	return false, nil
-}
-
-func getForeignKeys(engine *Engine, createTableDB string, tableName string, poolName string) (map[string]*foreignIndex, error) {
-	var rows2 []foreignKeyDB
-	query := "SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_TABLE_SCHEMA " +
-		"FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL " +
-		"AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
-	pool, _ := engine.GetMysql(poolName)
-	results, def, err := pool.Query(fmt.Sprintf(query, pool.GetDatabaseName(), tableName))
-	if err != nil {
-		return nil, err
-	}
-	defer def()
-	for results.Next() {
-		var row foreignKeyDB
-		err = results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
-		if err != nil {
-			return nil, err
-		}
-		row.OnDelete = "RESTRICT"
-		for _, line := range strings.Split(createTableDB, "\n") {
-			line = strings.TrimSpace(strings.TrimRight(line, ","))
-			if strings.Index(line, fmt.Sprintf("CONSTRAINT `%s`", row.ConstraintName)) == 0 {
-				words := strings.Split(line, " ")
-				if strings.ToUpper(words[len(words)-2]) == "DELETE" {
-					row.OnDelete = strings.ToUpper(words[len(words)-1])
-				}
-			}
-		}
-		rows2 = append(rows2, row)
-	}
-	err = results.Err()
-	if err != nil {
-		return nil, err
-	}
-	var foreignKeysDB = make(map[string]*foreignIndex)
-	for _, value := range rows2 {
-		foreignKey := &foreignIndex{ParentDatabase: value.ReferencedTableSchema, Table: value.ReferencedTableName,
-			Column: value.ColumnName, OnDelete: value.OnDelete}
-		foreignKeysDB[value.ConstraintName] = foreignKey
-	}
-	return foreignKeysDB, nil
-}
-
-func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) (string, error) {
-	var skip string
-	var createTableDB string
-	pool, _ := engine.GetMysql(poolName)
-	err := pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableName)).Scan(&skip, &createTableDB)
-	if err != nil {
-		return "", err
-	}
-	alter := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableName)
-	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableName, poolName)
-	if err != nil {
-		return "", err
-	}
-	if len(foreignKeysDB) == 0 {
-		return "", nil
-	}
-	droppedForeignKeys := make([]string, 0)
-	for keyName := range foreignKeysDB {
-		droppedForeignKeys = append(droppedForeignKeys, fmt.Sprintf("DROP FOREIGN KEY `%s`", keyName))
-	}
-	alter += strings.Join(droppedForeignKeys, ",\t\n")
-	alter = strings.TrimRight(alter, ",") + ";"
-	return alter, nil
 }

@@ -33,18 +33,6 @@ type TestEntityErrors struct {
 	ReferenceOne *TestEntityErrors
 }
 
-type TestEntityFlushCacheLocal struct {
-	orm.ORM `orm:"localCache"`
-	ID      uint
-	Name    string
-}
-
-type TestEntityFlushCacheRedis struct {
-	orm.ORM `orm:"redisCache"`
-	ID      uint
-	Name    string
-}
-
 func TestFlush(t *testing.T) {
 	registry := &orm.Registry{}
 	registry.RegisterEnum("tests.Color", Color)
@@ -134,112 +122,6 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, "Name 2.2", edited3.Name)
 	assert.False(t, hasDeleted)
 	assert.Equal(t, "Name 11", new11.Name)
-}
-
-func TestFlushTransactionLocalCache(t *testing.T) {
-	entity := TestEntityFlushCacheLocal{Name: "Name"}
-	engine := PrepareTables(t, &orm.Registry{}, entity)
-
-	DBLogger := &TestDatabaseLogger{}
-	pool, has := engine.GetMysql()
-	assert.True(t, has)
-	pool.RegisterLogger(DBLogger)
-	CacheLogger := &TestCacheLogger{}
-	cache, has := engine.GetLocalCache()
-	assert.True(t, has)
-	cache.RegisterLogger(CacheLogger)
-
-	err := pool.BeginTransaction()
-	assert.Nil(t, err)
-	err = engine.Flush(&entity)
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 0)
-	err = pool.Commit()
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 1)
-	assert.Equal(t, "MSET [TestEntityFlushCacheLocal4027225329:1]", CacheLogger.Requests[0])
-
-	err = pool.BeginTransaction()
-	assert.Nil(t, err)
-	err = engine.Flush(&entity)
-	assert.Nil(t, err)
-	entity.Name = "New Name"
-	err = engine.Flush(&entity)
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 1)
-	err = pool.Commit()
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 2)
-	assert.Equal(t, "MSET [TestEntityFlushCacheLocal4027225329:1]", CacheLogger.Requests[0])
-
-	has, err = engine.TryByID(1, &entity)
-	assert.Nil(t, err)
-	assert.True(t, has)
-	err = pool.BeginTransaction()
-	assert.Nil(t, err)
-	entity.MarkToDelete()
-	err = engine.Flush(&entity)
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 3)
-	err = pool.Commit()
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 4)
-	assert.Equal(t, "MSET [TestEntityFlushCacheLocal4027225329:1]", CacheLogger.Requests[0])
-
-	has, err = engine.TryByID(1, &entity)
-	assert.Nil(t, err)
-	assert.False(t, has)
-}
-
-func TestFlushTransactionRedisCache(t *testing.T) {
-	entity := TestEntityFlushCacheRedis{Name: "Name"}
-	engine := PrepareTables(t, &orm.Registry{}, entity)
-
-	DBLogger := &TestDatabaseLogger{}
-	pool, has := engine.GetMysql()
-	assert.True(t, has)
-	pool.RegisterLogger(DBLogger)
-	CacheLogger := &TestCacheLogger{}
-	cache, has := engine.GetRedis()
-	assert.True(t, has)
-	cache.RegisterLogger(CacheLogger)
-
-	err := pool.BeginTransaction()
-	assert.Nil(t, err)
-	err = engine.Flush(&entity)
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 0)
-	err = pool.Commit()
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 1)
-	assert.Equal(t, "DELETE TestEntityFlushCacheRedis4027225329:1", CacheLogger.Requests[0])
-
-	err = pool.BeginTransaction()
-	assert.Nil(t, err)
-	err = engine.Flush(&entity)
-	assert.Nil(t, err)
-	entity.Name = "New Name"
-	err = engine.Flush(&entity)
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 1)
-	err = pool.Commit()
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 2)
-	assert.Equal(t, "DELETE TestEntityFlushCacheRedis4027225329:1", CacheLogger.Requests[0])
-
-	err = pool.BeginTransaction()
-	assert.Nil(t, err)
-	entity.MarkToDelete()
-	err = engine.Flush(&entity)
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 2)
-	err = pool.Commit()
-	assert.Nil(t, err)
-	assert.Len(t, CacheLogger.Requests, 3)
-	assert.Equal(t, "DELETE TestEntityFlushCacheRedis4027225329:1", CacheLogger.Requests[0])
-	err = pool.BeginTransaction()
-	assert.Nil(t, err)
-	pool.Rollback()
 }
 
 func TestFlushErrors(t *testing.T) {

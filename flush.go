@@ -39,8 +39,8 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 	deleteBinds := make(map[reflect.Type]map[uint64]map[string]interface{})
 	totalInsert := make(map[reflect.Type]int)
 	localCacheSets := make(map[string]map[string][]interface{})
-	localCacheDeletes := make(map[string]map[string]map[string]bool)
-	redisKeysToDelete := make(map[string]map[string]map[string]bool)
+	localCacheDeletes := make(map[string]map[string]bool)
+	redisKeysToDelete := make(map[string]map[string]bool)
 	dirtyQueues := make(map[string][]*DirtyQueueValue)
 	lazyMap := make(map[string]interface{})
 
@@ -114,7 +114,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.TableName, strings.Join(fields, ","))
 				db := schema.GetMysql(engine)
 				values[i] = currentID
-				if lazy && db.transaction == nil {
+				if lazy {
 					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 				} else {
 					_, err := db.Exec(sql, values...)
@@ -139,16 +139,16 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				if hasLocalCache {
 					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(v.Interface(), schema))
 					keys := getCacheQueriesKeys(schema, bind, orm.dBData, false)
-					addCacheDeletes(localCacheDeletes, db.GetPoolCode(), localCache.code, keys...)
+					addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 					keys = getCacheQueriesKeys(schema, bind, old, false)
-					addCacheDeletes(localCacheDeletes, db.GetPoolCode(), localCache.code, keys...)
+					addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 				}
 				if hasRedis {
 					addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, schema.getCacheKey(currentID))
 					keys := getCacheQueriesKeys(schema, bind, orm.dBData, false)
-					addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, keys...)
+					addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 					keys = getCacheQueriesKeys(schema, bind, old, false)
-					addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, keys...)
+					addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 				}
 				addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
 			}
@@ -195,12 +195,12 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 					addCacheDeletes(localCacheDeletes, db.GetPoolCode(), localCache.code, schema.getCacheKey(id))
 				}
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
-				addCacheDeletes(localCacheDeletes, db.GetPoolCode(), localCache.code, keys...)
+				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 			}
 			if hasRedis {
 				addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, schema.getCacheKey(id))
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
-				addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, keys...)
+				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 			}
 			addDirtyQueues(dirtyQueues, bind, schema, id, "i")
 			id++
@@ -224,7 +224,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		/* #nosec */
 		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, NewWhere("`ID` IN ?", ids))
 		db := schema.GetMysql(engine)
-		if lazy && db.transaction == nil {
+		if lazy {
 			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, ids)
 		} else {
 			usage, err := schema.GetUsage(engine.config)
@@ -284,81 +284,64 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
-				addCacheDeletes(localCacheDeletes, db.GetPoolCode(), localCache.code, keys...)
+				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 			}
 		}
 		if hasRedis {
 			for id, bind := range deleteBinds {
 				addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, schema.getCacheKey(id))
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
-				addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, keys...)
+				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 			}
 		}
 		for id, bind := range deleteBinds {
 			addDirtyQueues(dirtyQueues, bind, schema, id, "d")
 		}
 	}
-	for dbCode, values := range localCacheSets {
-		db, _ := engine.GetMysql(dbCode)
+	for _, values := range localCacheSets {
 		for cacheCode, keys := range values {
 			cache, _ := engine.GetLocalCache(cacheCode)
-			if db.transaction == nil {
-				cache.MSet(keys...)
-			} else {
-				db.afterCommitLocalCacheSets[cacheCode] = append(db.afterCommitLocalCacheSets[cacheCode], keys...)
-			}
+			cache.MSet(keys...)
 		}
 	}
-	for dbCode, values := range localCacheDeletes {
-		db, _ := engine.GetMysql(dbCode)
-		for cacheCode, allKeys := range values {
-			cache, _ := engine.GetLocalCache(cacheCode)
-			keys := make([]string, len(allKeys))
-			i := 0
-			for key := range allKeys {
-				keys[i] = key
-				i++
+	for cacheCode, allKeys := range localCacheDeletes {
+		cache, _ := engine.GetLocalCache(cacheCode)
+		keys := make([]string, len(allKeys))
+		i := 0
+		for key := range allKeys {
+			keys[i] = key
+			i++
+		}
+		if lazy {
+			deletesLocalCache := lazyMap["cl"]
+			if deletesLocalCache == nil {
+				deletesLocalCache = make(map[string][]string)
+				lazyMap["cl"] = deletesLocalCache
 			}
-			if db.transaction == nil {
-				if lazy {
-					deletesLocalCache := lazyMap["cl"]
-					if deletesLocalCache == nil {
-						deletesLocalCache = make(map[string][]string)
-						lazyMap["cl"] = deletesLocalCache
-					}
-					deletesLocalCache.(map[string][]string)[cacheCode] = keys
-				} else {
-					cache.Remove(keys...)
-				}
-			}
+			deletesLocalCache.(map[string][]string)[cacheCode] = keys
+		} else {
+			cache.Remove(keys...)
 		}
 	}
-	for dbCode, values := range redisKeysToDelete {
-		db, _ := engine.GetMysql(dbCode)
-		for cacheCode, allKeys := range values {
-			cache, _ := engine.GetRedis(cacheCode)
-			keys := make([]string, len(allKeys))
-			i := 0
-			for key := range allKeys {
-				keys[i] = key
-				i++
+	for cacheCode, allKeys := range redisKeysToDelete {
+		cache, _ := engine.GetRedis(cacheCode)
+		keys := make([]string, len(allKeys))
+		i := 0
+		for key := range allKeys {
+			keys[i] = key
+			i++
+		}
+		if lazy {
+			deletesRedisCache := lazyMap["cr"]
+			if deletesRedisCache == nil {
+				deletesRedisCache = make(map[string][]string)
+				lazyMap["cr"] = deletesRedisCache
 			}
-			if db.transaction == nil {
-				if lazy {
-					deletesRedisCache := lazyMap["cr"]
-					if deletesRedisCache == nil {
-						deletesRedisCache = make(map[string][]string)
-						lazyMap["cr"] = deletesRedisCache
-					}
-					deletesRedisCache.(map[string][]string)[cacheCode] = keys
-				} else {
-					err := cache.Del(keys...)
-					if err != nil {
-						return err
-					}
-				}
-			} else {
-				db.afterCommitRedisCacheDeletes[cacheCode] = append(db.afterCommitRedisCacheDeletes[cacheCode], keys...)
+			deletesRedisCache.(map[string][]string)[cacheCode] = keys
+		} else {
+			err := cache.Del(keys...)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -664,18 +647,15 @@ func addLocalCacheSet(localCacheSets map[string]map[string][]interface{}, dbCode
 	localCacheSets[dbCode][cacheCode] = append(localCacheSets[dbCode][cacheCode], keys...)
 }
 
-func addCacheDeletes(cacheDeletes map[string]map[string]map[string]bool, dbCode string, cacheCode string, keys ...string) {
+func addCacheDeletes(cacheDeletes map[string]map[string]bool, cacheCode string, keys ...string) {
 	if len(keys) == 0 {
 		return
 	}
-	if cacheDeletes[dbCode] == nil {
-		cacheDeletes[dbCode] = make(map[string]map[string]bool)
-	}
-	if cacheDeletes[dbCode][cacheCode] == nil {
-		cacheDeletes[dbCode][cacheCode] = make(map[string]bool)
+	if cacheDeletes[cacheCode] == nil {
+		cacheDeletes[cacheCode] = make(map[string]bool)
 	}
 	for _, key := range keys {
-		cacheDeletes[dbCode][cacheCode][key] = true
+		cacheDeletes[cacheCode][key] = true
 	}
 }
 
