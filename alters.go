@@ -21,7 +21,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 			poolName := pool.code
 			tablesInDB[poolName] = make(map[string]bool)
 			pool, _ := engine.GetMysql(poolName)
-			tables, err := getAllTables(pool.getDB())
+			tables, err := getAllTables(pool.db)
 			if err != nil {
 				return nil, err
 			}
@@ -105,7 +105,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 
 func isTableEmptyInPool(engine *Engine, poolName string, tableName string) (bool, error) {
 	pool, _ := engine.GetMysql(poolName)
-	return isTableEmpty(pool.getDB(), tableName)
+	return isTableEmpty(pool.db, tableName)
 }
 
 func getAllTables(db sqlDB) ([]string, error) {

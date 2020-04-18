@@ -25,22 +25,6 @@ type DB struct {
 	afterCommitRedisCacheDeletes map[string][]string
 }
 
-func (db *DB) getAfterCommitLocalCacheSets() map[string][]interface{} {
-	return db.afterCommitLocalCacheSets
-}
-
-func (db *DB) getAfterCommitRedisCacheDeletes() map[string][]string {
-	return db.afterCommitRedisCacheDeletes
-}
-
-func (db *DB) getDB() sqlDB {
-	return db.db
-}
-
-func (db *DB) getTransaction() *sql.Tx {
-	return db.transaction
-}
-
 func (db *DB) GetDatabaseName() string {
 	return db.databaseName
 }
@@ -78,14 +62,14 @@ func (db *DB) Query(query string, args ...interface{}) (rows *sql.Rows, deferF f
 	if db.transaction != nil {
 		rows, err := db.transaction.Query(query, args...)
 		if err != nil {
-			return nil, nil, err
+			return nil, func() {}, err
 		}
 		db.log(query, time.Since(start).Microseconds(), args...)
 		return rows, func() { rows.Close() }, err
 	}
 	rows, err = db.db.Query(query, args...)
 	if err != nil {
-		return nil, nil, err
+		return nil, func() {}, err
 	}
 	db.log(query, time.Since(start).Microseconds(), args...)
 	return rows, func() { rows.Close() }, err

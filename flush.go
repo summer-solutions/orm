@@ -114,7 +114,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.TableName, strings.Join(fields, ","))
 				db := schema.GetMysql(engine)
 				values[i] = currentID
-				if lazy && db.getTransaction() == nil {
+				if lazy && db.transaction == nil {
 					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 				} else {
 					_, err := db.Exec(sql, values...)
@@ -224,7 +224,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		/* #nosec */
 		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, NewWhere("`ID` IN ?", ids))
 		db := schema.GetMysql(engine)
-		if lazy && db.getTransaction() == nil {
+		if lazy && db.transaction == nil {
 			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, ids)
 		} else {
 			usage, err := schema.GetUsage(engine.config)
@@ -302,11 +302,10 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		db, _ := engine.GetMysql(dbCode)
 		for cacheCode, keys := range values {
 			cache, _ := engine.GetLocalCache(cacheCode)
-			if db.getTransaction() == nil {
+			if db.transaction == nil {
 				cache.MSet(keys...)
 			} else {
-				sets := db.getAfterCommitLocalCacheSets()
-				sets[cacheCode] = append(sets[cacheCode], keys...)
+				db.afterCommitLocalCacheSets[cacheCode] = append(db.afterCommitLocalCacheSets[cacheCode], keys...)
 			}
 		}
 	}
@@ -320,7 +319,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				keys[i] = key
 				i++
 			}
-			if db.getTransaction() == nil {
+			if db.transaction == nil {
 				if lazy {
 					deletesLocalCache := lazyMap["cl"]
 					if deletesLocalCache == nil {
@@ -344,7 +343,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 				keys[i] = key
 				i++
 			}
-			if db.getTransaction() == nil {
+			if db.transaction == nil {
 				if lazy {
 					deletesRedisCache := lazyMap["cr"]
 					if deletesRedisCache == nil {
@@ -359,8 +358,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 					}
 				}
 			} else {
-				container := db.getAfterCommitRedisCacheDeletes()
-				container[cacheCode] = append(container[cacheCode], keys...)
+				db.afterCommitRedisCacheDeletes[cacheCode] = append(db.afterCommitRedisCacheDeletes[cacheCode], keys...)
 			}
 		}
 	}
