@@ -71,7 +71,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 			tablesInEntities[tableSchema.MysqlPoolName][tableSchema.TableName] = true
 			has, newAlters, err := tableSchema.GetSchemaChanges(engine)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			if !has {
 				continue
@@ -166,11 +166,7 @@ func getAllTables(db sqlDB) ([]string, error) {
 func getSchemaChanges(engine *Engine, tableSchema *TableSchema) (has bool, alters []Alter, err error) {
 	indexes := make(map[string]*index)
 	foreignKeys := make(map[string]*foreignIndex)
-	columns, err := checkStruct(tableSchema, engine, tableSchema.t, indexes, foreignKeys, "")
-
-	if err != nil {
-		return false, nil, err
-	}
+	columns, _ := checkStruct(tableSchema, engine, tableSchema.t, indexes, foreignKeys, "")
 	var newIndexes []string
 	var newForeignKeys []string
 	pool, _ := engine.GetMysql(tableSchema.MysqlPoolName)
@@ -239,7 +235,7 @@ func getSchemaChanges(engine *Engine, tableSchema *TableSchema) (has bool, alter
 	/* #nosec */
 	results, def, err := pool.Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
 	if err != nil {
-		return false, nil, err
+		return false, nil, errors.Trace(err)
 	}
 	defer def()
 	for results.Next() {
@@ -535,7 +531,7 @@ func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) 
 	pool, _ := engine.GetMysql(poolName)
 	err := pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableName)).Scan(&skip, &createTableDB)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	alter := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableName)
 	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableName, poolName)
@@ -616,7 +612,10 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 				indexColumn := strings.Split(value, ":")
 				location := 1
 				if len(indexColumn) > 1 {
-					userLocation, _ := strconv.Atoi(indexColumn[1])
+					userLocation, err := strconv.Atoi(indexColumn[1])
+					if err != nil {
+						return nil, errors.Errorf("invalid index position '%s' in index '%s'", indexColumn[1], indexColumn[0])
+					}
 					location = userLocation
 				}
 				current, has := indexes[indexColumn[0]]
@@ -874,7 +873,7 @@ func checkStruct(tableSchema *TableSchema, engine *Engine, t reflect.Type, index
 		field := t.Field(i)
 		fieldColumns, err := checkColumn(engine, tableSchema, t, &field, indexes, foreignKeys, prefix)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		if fieldColumns != nil {
 			columns = append(columns, fieldColumns...)

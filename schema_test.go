@@ -81,6 +81,12 @@ type testEntitySchemaInvalidIndex struct {
 	Name string `orm:"unique=MyIndex:wrong"`
 }
 
+type testEntitySchemaUnsupportedField struct {
+	ORM   `orm:"mysql=schema"`
+	ID    uint
+	Wrong []time.Duration
+}
+
 func TestSchema(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_schema", "schema")
@@ -259,23 +265,47 @@ func TestSchema(t *testing.T) {
 	err = schema.UpdateSchema(engine)
 	assert.Nil(t, err)
 
-	//errors
-	mockDBQuery(engine, "schema", func(db sqlDB, counter int, query string, args ...interface{}) (SQLRows, error) {
+	testDB := mockDB(engine, "schema")
+	testDB.QueryMock = func(db sqlDB, counter int, query string, args ...interface{}) (SQLRows, error) {
 		if query == "SHOW TABLES" {
 			return nil, errors.New("db error")
 		}
 		return db.Query(query, args...)
-	})
-
+	}
 	alters, err = engine.GetAlters()
 	assert.Nil(t, alters)
 	assert.EqualError(t, err, "db error")
 
-	registry = &Registry{}
+	testDB.QueryMock = func(db sqlDB, counter int, query string, args ...interface{}) (SQLRows, error) {
+		if query == "SHOW INDEXES FROM `testEntitySchema`" {
+			return nil, errors.New("db error")
+		}
+		return db.Query(query, args...)
+	}
+	alters, err = engine.GetAlters()
+	assert.Nil(t, alters)
+	assert.EqualError(t, err, "db error")
+
+	testDB.QueryMock = nil
+	testDB.QueryRowMock = func(db sqlDB, counter int, query string, args ...interface{}) SQLRow {
+		return db.QueryRow(query, args...)
+	}
+}
+
+func TestSchemaWrongIndexPosition(t *testing.T) {
+	registry := &Registry{}
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_schema", "schema")
 	var entityInvalid testEntitySchemaInvalidIndex
-	registry.RegisterEntity(entity, entityInvalid)
+	registry.RegisterEntity(entityInvalid)
+	_, err := registry.CreateConfig()
+	assert.EqualError(t, err, "invalid entity struct 'orm.testEntitySchemaInvalidIndex': invalid index position 'wrong' in index 'MyIndex'")
+}
 
-	_, err = registry.CreateConfig()
-	assert.EqualError(t, err, "invalid index position 'wrong' in index 'MyIndex' in orm.testEntitySchemaInvalidIndex")
+func TestSchemaUnsupportedField(t *testing.T) {
+	registry := &Registry{}
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_schema", "schema")
+	var entityInvalid testEntitySchemaUnsupportedField
+	registry.RegisterEntity(entityInvalid)
+	_, err := registry.CreateConfig()
+	assert.EqualError(t, err, "invalid entity struct 'orm.testEntitySchemaUnsupportedField': unsupported field type: Wrong []time.Duration in orm.testEntitySchemaUnsupportedField")
 }

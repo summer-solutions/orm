@@ -7,7 +7,7 @@ import (
 
 type sqlDB interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
+	QueryRow(query string, args ...interface{}) SQLRow
 	Query(query string, args ...interface{}) (SQLRows, error)
 }
 
@@ -19,7 +19,7 @@ func (db *sqlDBStandard) Exec(query string, args ...interface{}) (sql.Result, er
 	return db.db.Exec(query, args...)
 }
 
-func (db *sqlDBStandard) QueryRow(query string, args ...interface{}) *sql.Row {
+func (db *sqlDBStandard) QueryRow(query string, args ...interface{}) SQLRow {
 	return db.db.QueryRow(query, args...)
 }
 
@@ -33,6 +33,10 @@ type SQLRows interface {
 	Close() error
 	Scan(dest ...interface{}) error
 	Columns() ([]string, error)
+}
+
+type SQLRow interface {
+	Scan(dest ...interface{}) error
 }
 
 type DB struct {
@@ -58,7 +62,7 @@ func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return rows, err
 }
 
-func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
+func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
 	start := time.Now()
 	row := db.db.QueryRow(query, args...)
 	db.log(query, time.Since(start).Microseconds(), args...)

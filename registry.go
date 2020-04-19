@@ -111,6 +111,13 @@ func (r *Registry) CreateConfig() (*Config, error) {
 		config.tableSchemas[entityType] = tableSchema
 		config.entities[name] = entityType
 	}
+	engine := NewEngine(config)
+	for _, schema := range config.tableSchemas {
+		_, err := checkStruct(schema, engine, schema.t, make(map[string]*index), make(map[string]*foreignIndex), "")
+		if err != nil {
+			return nil, errors.Annotatef(err, "invalid entity struct '%s'", schema.t.String())
+		}
+	}
 	return config, nil
 }
 
