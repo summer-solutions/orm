@@ -30,10 +30,10 @@ func TestSearch(t *testing.T) {
 	for i := 1; i <= 10; i++ {
 		r := TestEntitySearchRef{Name: "Name " + strconv.Itoa(i)}
 		refs[i-1] = &r
-		e := TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
-		engine.Init(&e)
+		e := &TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
+		e.Init(e, engine)
 		e.ReferenceOne = &r
-		entities[i-1] = &e
+		entities[i-1] = e
 	}
 	err := engine.Flush(refs...)
 	assert.Nil(t, err)

@@ -17,6 +17,10 @@ func (db *testSQLDB) Exec(query string, args ...interface{}) (sql.Result, error)
 }
 
 func (db *testSQLDB) QueryRow(query string, args ...interface{}) SQLRow {
+	db.counter++
+	if db.QueryRowMock != nil {
+		return db.QueryRowMock(db.db, db.counter, query, args...)
+	}
 	return db.db.QueryRow(query, args...)
 }
 

@@ -1,12 +1,18 @@
 package orm
 
-import "reflect"
+import (
+	"reflect"
+)
 
 type ORM struct {
 	dBData      map[string]interface{}
 	value       reflect.Value
 	elem        reflect.Value
 	tableSchema *TableSchema
+}
+
+func (orm ORM) Init(entity interface{}, engine *Engine) {
+	initIfNeeded(engine, reflect.ValueOf(entity), true)
 }
 
 func (orm ORM) MarkToDelete() {

@@ -54,7 +54,7 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 		}
 		v := reflect.ValueOf(entity)
 		value := reflect.Indirect(v)
-		orm := engine.initIfNeeded(v, true)
+		orm := initIfNeeded(engine, v, true)
 		isDirty, bind, err := getDirtyBind(value)
 		if err != nil {
 			return err

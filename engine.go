@@ -89,10 +89,6 @@ func (e *Engine) IsDirty(entity interface{}) bool {
 	return is
 }
 
-func (e *Engine) Init(entity ...interface{}) {
-	e.initEntities(entity...)
-}
-
 func (e *Engine) Flush(entities ...interface{}) error {
 	return flush(e, false, entities...)
 }
@@ -173,40 +169,6 @@ func (e *Engine) RegisterDatabaseLogger(logger DatabaseLogger) {
 func (e *Engine) RegisterRedisLogger(logger CacheLogger) {
 	for _, red := range e.redis {
 		red.RegisterLogger(logger)
-	}
-}
-
-func (e *Engine) initIfNeeded(value reflect.Value, withReferences bool) *ORM {
-	elem := value.Elem()
-	address := elem.Field(0).Addr()
-	orm := address.Interface().(*ORM)
-	if orm.dBData == nil {
-		tableSchema := getTableSchema(e.config, elem.Type())
-		orm.dBData = make(map[string]interface{})
-		orm.elem = elem
-		orm.value = value
-		orm.tableSchema = tableSchema
-		if withReferences {
-			for _, code := range tableSchema.refOne {
-				reference := tableSchema.Tags[code]["ref"]
-				t, _ := e.config.getEntityType(reference)
-				n := reflect.New(t)
-				e.initIfNeeded(n, false)
-				elem.FieldByName(code).Set(n)
-			}
-		}
-		defaultInterface, is := value.Interface().(DefaultValuesInterface)
-		if is {
-			defaultInterface.SetDefaults()
-		}
-	}
-	return orm
-}
-
-func (e *Engine) initEntities(entity ...interface{}) {
-	for _, entity := range entity {
-		value := reflect.ValueOf(entity)
-		e.initIfNeeded(value, true)
 	}
 }
 

@@ -112,19 +112,19 @@ func TestFlush(t *testing.T) {
 	toDelete := edited2
 	edited1.Name = "Name 2.2"
 	toDelete.MarkToDelete()
-	newEntity := TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
-	engine.Init(&newEntity)
+	newEntity := &TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
+	newEntity.Init(newEntity, engine)
 	assert.True(t, engine.IsDirty(&edited1))
 	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(&edited2))
 	assert.Nil(t, err)
-	assert.True(t, engine.IsDirty(&newEntity))
+	assert.True(t, engine.IsDirty(newEntity))
 
-	err = engine.Flush(&edited1, &newEntity, &toDelete)
+	err = engine.Flush(&edited1, newEntity, &toDelete)
 	assert.Nil(t, err)
 
 	assert.False(t, engine.IsDirty(&edited1))
-	assert.False(t, engine.IsDirty(&newEntity))
+	assert.False(t, engine.IsDirty(newEntity))
 
 	var edited3 TestEntityFlush
 	var deleted TestEntityFlush
@@ -143,7 +143,7 @@ func TestFlush(t *testing.T) {
 func TestFlushErrors(t *testing.T) {
 	entity := TestEntityErrors{Name: "Name"}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
-	engine.Init(&entity)
+	entity.Init(&entity, engine)
 
 	entity.ReferenceOne.ID = 2
 	err := engine.Flush(&entity)

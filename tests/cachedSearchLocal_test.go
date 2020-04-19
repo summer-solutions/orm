@@ -40,10 +40,10 @@ func TestCachedSearchLocal(t *testing.T) {
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
-		e := TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
-		engine.Init(&e)
+		e := &TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
+		e.Init(e, engine)
 		e.ReferenceOne.ID = uint(i)
-		entities[i-1] = &e
+		entities[i-1] = e
 	}
 	for i := 6; i <= 10; i++ {
 		e := TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}

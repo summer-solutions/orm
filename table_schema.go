@@ -21,6 +21,7 @@ type cachedQueryDefinition struct {
 type TableSchema struct {
 	TableName        string
 	MysqlPoolName    string
+	engine           *Engine
 	t                reflect.Type
 	Tags             map[string]map[string]string
 	cachedIndexes    map[string]*cachedQueryDefinition

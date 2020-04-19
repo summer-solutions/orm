@@ -290,6 +290,9 @@ func TestSchema(t *testing.T) {
 	testDB.QueryRowMock = func(db sqlDB, counter int, query string, args ...interface{}) SQLRow {
 		return db.QueryRow(query, args...)
 	}
+	//alters, err = engine.GetAlters()
+	//assert.Nil(t, alters)
+	//assert.EqualError(t, err, "db error")
 }
 
 func TestSchemaWrongIndexPosition(t *testing.T) {
