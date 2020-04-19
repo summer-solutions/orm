@@ -9,6 +9,22 @@ import (
 	"github.com/summer-solutions/orm"
 )
 
+type fieldsColors struct {
+	Red    string
+	Green  string
+	Blue   string
+	Yellow string
+	Purple string
+}
+
+var Color = &fieldsColors{
+	Red:    "Red",
+	Green:  "Green",
+	Blue:   "Blue",
+	Yellow: "Yellow",
+	Purple: "Purple",
+}
+
 type TestEntityFlush struct {
 	orm.ORM
 	ID           uint16

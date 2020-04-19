@@ -145,7 +145,7 @@ func getAllTables(db sqlDB) ([]string, error) {
 	tables := make([]string, 0)
 	results, err := db.Query("SHOW TABLES")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer results.Close()
 	for results.Next() {
@@ -616,10 +616,7 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 				indexColumn := strings.Split(value, ":")
 				location := 1
 				if len(indexColumn) > 1 {
-					userLocation, err := strconv.Atoi(indexColumn[1])
-					if err != nil {
-						return nil, err
-					}
+					userLocation, _ := strconv.Atoi(indexColumn[1])
 					location = userLocation
 				}
 				current, has := indexes[indexColumn[0]]

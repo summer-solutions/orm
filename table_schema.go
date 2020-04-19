@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"github.com/segmentio/fasthash/fnv1a"
 )
 
@@ -266,6 +268,24 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema,
 		_, has = values["ref"]
 		if has {
 			oneRefs = append(oneRefs, key)
+		}
+		keys := []string{"index", "unique"}
+		for _, key := range keys {
+			indexAttribute, has := values[key]
+			if has {
+				indexColumns := strings.Split(indexAttribute, ",")
+				for _, value := range indexColumns {
+					indexColumn := strings.Split(value, ":")
+					if len(indexColumn) > 1 {
+						indexLocation, err := strconv.Atoi(indexColumn[1])
+						if err != nil {
+							return nil, errors.Errorf("invalid index position '%s' in index '%s' in %s", indexColumn[1], indexColumn[0], entityType.String())
+						} else if indexLocation <= 0 {
+							return nil, errors.Errorf("invalid index position '%s' in index '%s' in %s", indexColumn[1], indexColumn[0], entityType.String())
+						}
+					}
+				}
+			}
 		}
 	}
 	tableSchema := &TableSchema{TableName: table,

@@ -8,7 +8,31 @@ import (
 type sqlDB interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
-	Query(query string, args ...interface{}) (*sql.Rows, error)
+	Query(query string, args ...interface{}) (SQLRows, error)
+}
+
+type sqlDBStandard struct {
+	db *sql.DB
+}
+
+func (db *sqlDBStandard) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return db.db.Exec(query, args...)
+}
+
+func (db *sqlDBStandard) QueryRow(query string, args ...interface{}) *sql.Row {
+	return db.db.QueryRow(query, args...)
+}
+
+func (db *sqlDBStandard) Query(query string, args ...interface{}) (SQLRows, error) {
+	return db.db.Query(query, args...)
+}
+
+type SQLRows interface {
+	Next() bool
+	Err() error
+	Close() error
+	Scan(dest ...interface{}) error
+	Columns() ([]string, error)
 }
 
 type DB struct {
@@ -41,7 +65,7 @@ func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
 	return row
 }
 
-func (db *DB) Query(query string, args ...interface{}) (rows *sql.Rows, deferF func(), err error) {
+func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF func(), err error) {
 	start := time.Now()
 	rows, err = db.db.Query(query, args...)
 	db.log(query, time.Since(start).Microseconds(), args...)
