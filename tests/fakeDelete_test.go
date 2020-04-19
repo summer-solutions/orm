@@ -40,10 +40,10 @@ func TestFakeDelete(t *testing.T) {
 
 	entity2.MarkToDelete()
 	assert.True(t, entity2.FakeDelete)
-	assert.True(t, engine.IsDirty(entity2))
+	assert.True(t, entity2.IsDirty())
 	err = engine.Flush(entity2)
 	assert.Nil(t, err)
-	assert.False(t, engine.IsDirty(entity2))
+	assert.False(t, entity2.IsDirty())
 
 	total, err = engine.SearchWithCount(orm.NewWhere("1"), nil, &rows)
 	assert.Nil(t, err)

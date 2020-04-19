@@ -15,6 +15,11 @@ func (orm ORM) Init(entity interface{}, engine *Engine) {
 	initIfNeeded(engine, reflect.ValueOf(entity), true)
 }
 
+func (orm ORM) IsDirty() bool {
+	is, _, _ := getDirtyBind(orm.elem)
+	return is
+}
+
 func (orm ORM) MarkToDelete() {
 	if orm.tableSchema.hasFakeDelete {
 		orm.elem.FieldByName("FakeDelete").SetBool(true)

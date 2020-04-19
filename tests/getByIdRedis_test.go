@@ -57,7 +57,7 @@ func TestGetByIDRedis(t *testing.T) {
 	entity = TestEntityByIDRedis{}
 	err = engine.Flush(&entity)
 	assert.Nil(t, err)
-	assert.False(t, engine.IsDirty(&entity))
+	assert.False(t, entity.IsDirty())
 
 	var entity2 TestEntityByIDRedis
 	err = engine.GetByID(1, &entity2)
@@ -73,7 +73,7 @@ func TestGetByIDRedis(t *testing.T) {
 	entity.ReferenceOne.ID = 1
 	err = engine.Flush(&entity)
 	assert.Nil(t, err)
-	assert.False(t, engine.IsDirty(&entity))
+	assert.False(t, entity.IsDirty())
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
@@ -110,7 +110,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.Equal(t, AddressByIDRedis{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.JSON)
-	assert.False(t, engine.IsDirty(&entity))
+	assert.False(t, entity.IsDirty())
 	assert.Len(t, DBLogger.Queries, 1)
 
 	found, err = engine.TryByID(1, &entity, "ReferenceOne")
@@ -135,11 +135,11 @@ func TestGetByIDRedis(t *testing.T) {
 	entity.Address.Building = 12
 	entity.JSON = map[string]string{"name": "John"}
 
-	assert.True(t, engine.IsDirty(&entity))
+	assert.True(t, entity.IsDirty())
 
 	err = engine.Flush(&entity)
 	assert.Nil(t, err)
-	assert.False(t, engine.IsDirty(&entity))
+	assert.False(t, entity.IsDirty())
 
 	assert.Len(t, DBLogger.Queries, 2)
 

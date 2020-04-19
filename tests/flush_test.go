@@ -68,7 +68,7 @@ func TestFlush(t *testing.T) {
 		testEntity := entities[i-1]
 		assert.Equal(t, uint16(i), testEntity.ID)
 		assert.Equal(t, "Name "+strconv.Itoa(i), testEntity.Name)
-		assert.False(t, engine.IsDirty(testEntity))
+		assert.False(t, testEntity.IsDirty())
 		assert.Nil(t, testEntity.Date)
 		assert.NotNil(t, testEntity.DateNotNull)
 	}
@@ -80,8 +80,8 @@ func TestFlush(t *testing.T) {
 	entities[7].Date = &now
 
 	assert.Nil(t, err)
-	assert.True(t, engine.IsDirty(entities[1]))
-	assert.True(t, engine.IsDirty(entities[7]))
+	assert.True(t, entities[1].IsDirty())
+	assert.True(t, entities[7].IsDirty())
 	err = engine.Flush(entities[1], entities[7])
 	assert.Nil(t, err)
 
@@ -114,17 +114,17 @@ func TestFlush(t *testing.T) {
 	toDelete.MarkToDelete()
 	newEntity := &TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
 	newEntity.Init(newEntity, engine)
-	assert.True(t, engine.IsDirty(&edited1))
+	assert.True(t, edited1.IsDirty())
 	assert.Nil(t, err)
-	assert.True(t, engine.IsDirty(&edited2))
+	assert.True(t, edited2.IsDirty())
 	assert.Nil(t, err)
-	assert.True(t, engine.IsDirty(newEntity))
+	assert.True(t, newEntity.IsDirty())
 
 	err = engine.Flush(&edited1, newEntity, &toDelete)
 	assert.Nil(t, err)
 
-	assert.False(t, engine.IsDirty(&edited1))
-	assert.False(t, engine.IsDirty(newEntity))
+	assert.False(t, edited1.IsDirty())
+	assert.False(t, newEntity.IsDirty())
 
 	var edited3 TestEntityFlush
 	var deleted TestEntityFlush
