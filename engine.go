@@ -6,11 +6,16 @@ import (
 )
 
 type Engine struct {
-	config     *Config
-	dbs        map[string]*DB
-	localCache map[string]*LocalCache
-	redis      map[string]*RedisCache
-	locks      map[string]*Locker
+	config      *Config
+	dbs         map[string]*DB
+	localCache  map[string]*LocalCache
+	redis       map[string]*RedisCache
+	locks       map[string]*Locker
+	logMetaData map[string]string
+}
+
+func (e *Engine) SetLogMetaData(metaData map[string]string) {
+	e.logMetaData = metaData
 }
 
 func (e *Engine) RegisterNewEntity(entityReference interface{}) {

@@ -21,6 +21,7 @@ type Config struct {
 	entities             map[string]reflect.Type
 	sqlClients           map[string]*DBConfig
 	dirtyQueues          map[string]DirtyQueueSender
+	logQueues            map[string]LogQueueSender
 	lazyQueuesCodes      map[string]string
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
@@ -71,6 +72,16 @@ func (c *Config) GetDirtyQueueCodes() []string {
 	codes := make([]string, len(c.dirtyQueues))
 	i := 0
 	for code := range c.dirtyQueues {
+		codes[i] = code
+		i++
+	}
+	return codes
+}
+
+func (c *Config) GetLogQueueCodes() []string {
+	codes := make([]string, len(c.logQueues))
+	i := 0
+	for code := range c.logQueues {
 		codes[i] = code
 		i++
 	}

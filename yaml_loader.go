@@ -43,6 +43,12 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 					return nil, err
 				}
 				registry.RegisterDirtyQueue(key, &RedisDirtyQueueSender{PoolName: valAsString})
+			case "logQueue":
+				valAsString, err := validateOrmString(value, key)
+				if err != nil {
+					return nil, err
+				}
+				registry.RegisterLogQueue(key, &RedisLogQueueSender{PoolName: valAsString})
 			case "localCache":
 				number, err := validateOrmInt(value, key)
 				if err != nil {

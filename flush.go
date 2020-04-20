@@ -42,6 +42,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 	localCacheDeletes := make(map[string]map[string]bool)
 	redisKeysToDelete := make(map[string]map[string]bool)
 	dirtyQueues := make(map[string][]*DirtyQueueValue)
+	logQueues := make(map[string][]*LogQueueValue)
 	lazyMap := make(map[string]interface{})
 
 	for _, v := range entities {
@@ -144,7 +145,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				for k, v := range orm.dBData {
 					old[k] = v
 				}
-				injectBind(value, bind)
+				data := injectBind(value, bind)
 				localCache, hasLocalCache := schema.GetLocalCache(engine)
 				redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
 				if hasLocalCache {
@@ -162,6 +163,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 					addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 				}
 				addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
+				addToLogQueue(logQueues, schema, currentID, data)
 			}
 		}
 	}
@@ -214,6 +216,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 			}
 			addDirtyQueues(dirtyQueues, bind, schema, id, "i")
+			addToLogQueue(logQueues, schema, id, bind)
 			id++
 			afterSaveInterface, is := entity.(AfterSavedInterface)
 			if is {
@@ -306,6 +309,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		}
 		for id, bind := range deleteBinds {
 			addDirtyQueues(dirtyQueues, bind, schema, id, "d")
+			addToLogQueue(logQueues, schema, id, nil)
 		}
 	}
 	for _, values := range localCacheSets {
@@ -381,6 +385,19 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			return err
 		}
 	}
+	for k, v := range logQueues {
+		if engine.config.logQueues == nil {
+			return fmt.Errorf("unregistered log queue %s", k)
+		}
+		queue, has := engine.config.logQueues[k]
+		if !has {
+			return fmt.Errorf("unregistered log queue %s", k)
+		}
+		err := queue.Send(engine, v)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -392,12 +409,14 @@ func serializeForLazyQueue(lazyMap map[string]interface{}) (string, error) {
 	return string(encoded), nil
 }
 
-func injectBind(value reflect.Value, bind map[string]interface{}) {
-	oldFields := value.Field(0).Interface().(ORM)
+func injectBind(value reflect.Value, bind map[string]interface{}) map[string]interface{} {
+	field := value.Field(0)
+	oldFields := field.Interface().(ORM)
 	for key, value := range bind {
 		oldFields.dBData[key] = value
 	}
-	value.Field(0).Set(reflect.ValueOf(oldFields))
+	field.Set(reflect.ValueOf(oldFields))
+	return oldFields.dBData
 }
 
 func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value reflect.Value,
@@ -696,6 +715,16 @@ func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interfac
 	for k, v := range results {
 		keys[k] = append(keys[k], v)
 	}
+}
+
+func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *TableSchema, id uint64, data map[string]interface{}) {
+	key := tableSchema.logPoolName
+	if keys[key] == nil {
+		keys[key] = make([]*LogQueueValue, 0)
+	}
+	val := &LogQueueValue{TableName: tableSchema.TableName, ID: id,
+		PoolName: tableSchema.logPoolName, Data: data, Updated: time.Now()}
+	keys[key] = append(keys[key], val)
 }
 
 func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, values []interface{}) {
