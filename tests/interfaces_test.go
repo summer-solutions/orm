@@ -44,12 +44,12 @@ func TestInterfaces(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, TestEntityInterfaces{}, TestEntityInterfacesRef{})
 
 	e := &TestEntityInterfacesRef{}
-	engine.RegisterNewEntity(e)
+	engine.RegisterEntity(e)
 	err := e.Flush()
 	assert.Nil(t, err)
 
 	entity := &TestEntityInterfaces{}
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)
 	assert.Equal(t, uint(1), entity.ReferenceOne.ID)

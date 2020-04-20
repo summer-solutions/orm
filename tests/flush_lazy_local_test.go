@@ -29,7 +29,7 @@ func TestFlushLazyLocal(t *testing.T) {
 	for i := 1; i <= 10; i++ {
 		e := &TestEntityFlushLazyLocal{Name: "Name " + strconv.Itoa(i)}
 		entities[i-1] = e
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		err := e.FlushLazy()
 		assert.Nil(t, err)
 	}

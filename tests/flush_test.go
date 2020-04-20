@@ -120,7 +120,7 @@ func TestFlush(t *testing.T) {
 	edited1.Name = "Name 2.2"
 	toDelete.MarkToDelete()
 	newEntity := &TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
-	engine.RegisterNewEntity(newEntity)
+	engine.RegisterEntity(newEntity)
 	assert.True(t, edited1.IsDirty())
 	assert.Nil(t, err)
 	assert.True(t, edited2.IsDirty())
@@ -156,7 +156,7 @@ func TestFlush(t *testing.T) {
 func TestFlushErrors(t *testing.T) {
 	entity := &TestEntityErrors{Name: "Name"}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 
 	entity.ReferenceOne.ID = 2
 	err := entity.Flush()
@@ -171,7 +171,7 @@ func TestFlushErrors(t *testing.T) {
 	assert.Nil(t, err)
 
 	entity = &TestEntityErrors{Name: "Name"}
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	err = entity.Flush()
 	assert.NotNil(t, err)
 	duplicatedError, is := err.(*orm.DuplicatedKeyError)

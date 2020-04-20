@@ -21,7 +21,7 @@ func (e *Engine) SetLogMetaData(key string, value interface{}) {
 	e.logMetaData[key] = value
 }
 
-func (e *Engine) RegisterNewEntity(entityReference interface{}) {
+func (e *Engine) RegisterEntity(entityReference interface{}) {
 	value := reflect.ValueOf(entityReference)
 	if value.Kind() != reflect.Ptr {
 		panic(fmt.Errorf("registered entity '%s' is not a poninter", value.Type().String()))

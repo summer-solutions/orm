@@ -18,11 +18,11 @@ func TestGetByIDsLocal(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	e := &TestEntityByIDsLocal{Name: "Hi"}
-	engine.RegisterNewEntity(e)
+	engine.RegisterEntity(e)
 	err := e.Flush()
 	assert.Nil(t, err)
 	e = &TestEntityByIDsLocal{Name: "Hello"}
-	engine.RegisterNewEntity(e)
+	engine.RegisterEntity(e)
 	err = e.Flush()
 	assert.Nil(t, err)
 

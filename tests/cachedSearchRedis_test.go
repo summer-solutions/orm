@@ -26,14 +26,14 @@ func TestCachedSearchRedis(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
 		entities[i-1] = e
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		err := e.Flush()
 		assert.Nil(t, err)
 	}
 	for i := 6; i <= 10; i++ {
 		e := &TestEntityIndexTestRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		entities[i-1] = e
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		err := e.Flush()
 		assert.Nil(t, err)
 	}
@@ -131,7 +131,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 12)
 
 	entity = &TestEntityIndexTestRedis{Name: "Name 11", Age: uint16(18)}
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	err = entity.Flush()
 	assert.Nil(t, err)
 
@@ -161,7 +161,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, RedisLogger.Requests, 2)
 
 	entity = &TestEntityIndexTestRedis{Name: "Name 12", Age: uint16(18)}
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	err = entity.Flush()
 	assert.Nil(t, err)
 

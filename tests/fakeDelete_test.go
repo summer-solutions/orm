@@ -22,12 +22,12 @@ func TestFakeDelete(t *testing.T) {
 	engine := PrepareTables(t, registry, TestEntityFakeDelete{})
 
 	entity := &TestEntityFakeDelete{}
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	entity.Name = "one"
 	err := entity.Flush()
 	assert.Nil(t, err)
 	entity2 := &TestEntityFakeDelete{}
-	engine.RegisterNewEntity(entity2)
+	engine.RegisterEntity(entity2)
 	entity2.Name = "two"
 	err = entity2.Flush()
 	assert.Nil(t, err)

@@ -57,7 +57,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.False(t, found)
 
 	entity = &TestEntityByIDLocal{}
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	err = entity.Flush()
 	assert.Nil(t, err)
 

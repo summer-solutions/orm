@@ -55,7 +55,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.False(t, found)
 
 	entity = &TestEntityByIDRedis{}
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.False(t, entity.IsDirty())

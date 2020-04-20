@@ -28,7 +28,7 @@ func TestFlushLazyRedis(t *testing.T) {
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
 		e := &TestEntityFlushLazyRedis{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		entities[i-1] = e
 		err := e.FlushLazy()
 		assert.Nil(t, err)

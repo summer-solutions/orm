@@ -47,7 +47,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 
 	for _, v := range entities {
 		if !v.IsValid() {
-			return fmt.Errorf("unregistered struct. run engine.RegisterNewEntity(entity) before entity.Flush()")
+			return fmt.Errorf("unregistered struct. run engine.RegisterEntity(entity) before entity.Flush()")
 		}
 		value := reflect.Indirect(v)
 		validate, is := v.Interface().(ValidateInterface)

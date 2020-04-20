@@ -33,7 +33,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestLocalRedisRef{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		err := e.Flush()
 		assert.Nil(t, err)
 	}
@@ -41,7 +41,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		e.ReferenceOne.ID = uint(i)
 		entities[i-1] = e
 		err := e.Flush()
@@ -49,7 +49,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	}
 	for i := 6; i <= 10; i++ {
 		e := &TestEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		entities[i-1] = e
 		err := e.Flush()
 		assert.Nil(t, err)
@@ -157,7 +157,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 8)
 
 	entity = &TestEntityIndexTestLocalRedis{Name: "Name 11", Age: uint16(18)}
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	err = entity.Flush()
 	assert.Nil(t, err)
 

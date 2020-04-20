@@ -22,7 +22,7 @@ func TestLog(t *testing.T) {
 	logDB, _ := engine.GetMysql("log")
 	receiver := NewLogReceiver(engine, &RedisLogReceiver{Redis: queueRedis})
 
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	entity.Name = "Hello"
 	err = entity.Flush()
 	assert.Nil(t, err)

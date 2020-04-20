@@ -25,7 +25,7 @@ func TestFlushInCache(t *testing.T) {
 	entityLocal := &TestEntityFlusherInCacheLocal{}
 	engine := PrepareTables(t, &orm.Registry{}, entityRedis, entityLocal)
 
-	engine.RegisterNewEntity(entityRedis)
+	engine.RegisterEntity(entityRedis)
 	err := entityRedis.Flush()
 	assert.Nil(t, err)
 

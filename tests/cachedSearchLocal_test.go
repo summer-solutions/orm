@@ -34,7 +34,7 @@ func TestCachedSearchLocal(t *testing.T) {
 
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestLocalRef{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		err := e.Flush()
 		assert.Nil(t, err)
 	}
@@ -42,7 +42,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		e.ReferenceOne.ID = uint(i)
 		entities[i-1] = e
 		err := e.Flush()
@@ -51,7 +51,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	for i := 6; i <= 10; i++ {
 		e := &TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		entities[i-1] = e
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		err := e.Flush()
 		assert.Nil(t, err)
 	}
@@ -155,7 +155,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 8)
 
 	entity = &TestEntityIndexTestLocal{Name: "Name 11", Age: uint16(18)}
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	err = entity.Flush()
 	assert.Nil(t, err)
 

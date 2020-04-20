@@ -29,12 +29,12 @@ func TestSearch(t *testing.T) {
 	var refs = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
 		r := &TestEntitySearchRef{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterNewEntity(r)
+		engine.RegisterEntity(r)
 		refs[i-1] = r
 		err := r.Flush()
 		assert.Nil(t, err)
 		e := &TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterNewEntity(e)
+		engine.RegisterEntity(e)
 		e.ReferenceOne = r
 		entities[i-1] = e
 		err = e.Flush()

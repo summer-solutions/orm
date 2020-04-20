@@ -21,7 +21,7 @@ func TestLoggers(t *testing.T) {
 	entity := &TestEntityLoggers{}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	engine.RegisterNewEntity(entity)
+	engine.RegisterEntity(entity)
 	err := entity.Flush()
 	assert.Nil(t, err)
 
