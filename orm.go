@@ -5,7 +5,6 @@ import (
 )
 
 type Entity interface {
-	GetID() uint64
 	GetTableSchema() *TableSchema
 	IsDirty() bool
 	Flush() error
@@ -22,11 +21,6 @@ type ORM struct {
 	elem        reflect.Value
 	tableSchema *TableSchema
 	engine      *Engine
-	id          uint64
-}
-
-func (orm ORM) GetID() uint64 {
-	return orm.id
 }
 
 func (orm ORM) GetTableSchema() *TableSchema {
