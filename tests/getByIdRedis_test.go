@@ -47,10 +47,10 @@ func TestGetByIDRedis(t *testing.T) {
 	var entity *TestEntityByIDRedis
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	found, err := engine.TryByID(100, entity)
+	found, err := engine.LoadByID(100, entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-	found, err = engine.TryByID(100, entity)
+	found, err = engine.LoadByID(100, entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
@@ -61,13 +61,15 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.False(t, entity.IsDirty())
 
 	var entity2 TestEntityByIDRedis
-	err = engine.GetByID(1, &entity2)
+	has, err := engine.LoadByID(1, &entity2)
+	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity2.ID)
 	assert.False(t, entity2.ReferenceOne.Loaded())
 
 	var entity3 TestEntityByIDRedis
-	err = engine.GetByID(1, &entity3)
+	has, err = engine.LoadByID(1, &entity3)
+	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity3.ID)
 
@@ -81,7 +83,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.True(t, has)
 	pool.RegisterLogger(DBLogger)
 
-	found, err = engine.TryByID(1, entity, "ReferenceOne")
+	found, err = engine.LoadByID(1, entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -114,7 +116,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.False(t, entity.IsDirty())
 	assert.Len(t, DBLogger.Queries, 1)
 
-	found, err = engine.TryByID(1, &entity, "ReferenceOne")
+	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.True(t, entity.ReferenceOne.Loaded())
@@ -144,7 +146,7 @@ func TestGetByIDRedis(t *testing.T) {
 
 	assert.Len(t, DBLogger.Queries, 2)
 
-	found, err = engine.TryByID(1, &entity)
+	found, err = engine.LoadByID(1, &entity)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -166,12 +168,12 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"name": "John"}, entity.JSON)
 	assert.Len(t, DBLogger.Queries, 3)
 
-	_, err = engine.TryByID(1, &entity)
+	_, err = engine.LoadByID(1, &entity)
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 3)
 }
 
-func BenchmarkGetByID(b *testing.B) {
+func BenchmarkLoadByID(b *testing.B) {
 	var entity TestEntityByIDRedis
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
@@ -180,6 +182,6 @@ func BenchmarkGetByID(b *testing.B) {
 	assert.Nil(b, err)
 
 	for n := 0; n < b.N; n++ {
-		_, _ = engine.TryByID(1, &entity)
+		_, _ = engine.LoadByID(1, &entity)
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-func tryByID(engine *Engine, id uint64, entity interface{}, references ...string) (found bool, err error) {
+func loadByID(engine *Engine, id uint64, entity interface{}, references ...string) (found bool, err error) {
 	val := reflect.ValueOf(entity)
 	elem := val.Elem()
 	if !elem.IsValid() {
@@ -107,17 +107,6 @@ func tryByID(engine *Engine, id uint64, entity interface{}, references ...string
 		}
 	}
 	return true, nil
-}
-
-func getByID(engine *Engine, id uint64, entity interface{}, references ...string) error {
-	found, err := engine.TryByID(id, entity, references...)
-	if err != nil {
-		return err
-	}
-	if !found {
-		return fmt.Errorf("entity %T with id %d not found", entity, id)
-	}
-	return nil
 }
 
 func buildRedisValue(entity interface{}, schema *TableSchema) string {

@@ -42,19 +42,12 @@ func (orm ORM) Loaded() bool {
 	return has
 }
 
-func (orm ORM) Load(engine *Engine) error {
-	if orm.Loaded() {
-		return nil
-	}
-	return orm.Refresh(engine)
-}
-
-func (orm ORM) Refresh(engine *Engine) error {
+func (orm ORM) Load(engine *Engine) (has bool, err error) {
 	id := orm.elem.Field(1).Uint()
 	if id == 0 {
-		return nil
+		return false, nil
 	}
-	return engine.GetByID(id, orm.value.Interface())
+	return engine.LoadByID(id, orm.value.Interface())
 }
 
 func (orm ORM) ForceMarkToDelete() {

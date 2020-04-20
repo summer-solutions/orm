@@ -144,12 +144,8 @@ func (e *Engine) FlushInCache(entities ...interface{}) error {
 	return flushInCache(e, entities...)
 }
 
-func (e *Engine) TryByID(id uint64, entity interface{}, references ...string) (found bool, err error) {
-	return tryByID(e, id, entity, references...)
-}
-
-func (e *Engine) GetByID(id uint64, entity interface{}, references ...string) error {
-	return getByID(e, id, entity, references...)
+func (e *Engine) LoadByID(id uint64, entity interface{}, references ...string) (found bool, err error) {
+	return loadByID(e, id, entity, references...)
 }
 
 func (e *Engine) GetAlters() (alters []Alter, err error) {

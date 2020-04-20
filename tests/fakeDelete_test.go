@@ -52,11 +52,13 @@ func TestFakeDelete(t *testing.T) {
 	assert.Equal(t, 1, total)
 	assert.Equal(t, "one", rows[0].Name)
 
-	err = engine.GetByID(1, entity)
+	has, err := engine.LoadByID(1, entity)
+	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.False(t, entity.FakeDelete)
 
-	err = engine.GetByID(2, entity2)
+	has, err = engine.LoadByID(2, entity2)
+	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.True(t, entity2.FakeDelete)
 
@@ -71,7 +73,7 @@ func TestFakeDelete(t *testing.T) {
 	entity2.ForceMarkToDelete()
 	err = entity2.Flush()
 	assert.Nil(t, err)
-	has, err := engine.TryByID(2, entity2)
+	has, err = engine.LoadByID(2, entity2)
 	assert.Nil(t, err)
 	assert.False(t, has)
 

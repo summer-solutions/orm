@@ -358,8 +358,8 @@ func main() {
     config, err := registry.NewConfig()
     engine := orm.NewEngine(config)
 
-    found, err := engine.TryByID(1, &entity) //found has false if row does not exists
-    err = engine.GetByID(2, &entity) //if will return err if entity does not exists
+    found, err := engine.LoadByID(1, &entity) //found has false if row does not exists
+    err = engine.LoadByID(2, &entity) //if will return err if entity does not exists
 
     var entities []*TestEntity
     //missing is []uint64 that contains id of rows that doesn't exists, 
@@ -444,8 +444,8 @@ func main() {
     var entity1 TestEntity
     var entity2 TestEntity
     entity3 := TestEntity{Name: "Hello"}
-    err := engine.GetByID(1, &entity1)
-    err = engine.GetByID(2, &entity2)
+    err := engine.LoadByID(1, &entity1)
+    err = engine.LoadByID(2, &entity2)
     flusher.RegisterEntity(&entity1, &entity2, &entity3)
    
     entity1.Name = "New Name"
@@ -635,7 +635,7 @@ func main() {
     
     user := UserEntity{Name: "John"}
     var user2 UserEntity
-    err := engine.GetByID(1, &user2)
+    err := engine.LoadByID(1, &user2)
     user2.MarkToDelete()
     err = engine.FlushLazy(&user, &user2)
     
@@ -695,7 +695,7 @@ func main() {
     engine := orm.NewEngine(config)
     
     var user UserEntity
-    err := engine.GetByID(1, &user)
+    err := engine.LoadByID(1, &user)
     user.Name = "New name"
     err = engine.FlushInCache(&user) //updated only in redis
     user.Name = "New name 2"

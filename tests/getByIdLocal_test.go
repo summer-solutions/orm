@@ -49,10 +49,10 @@ func TestGetByIDLocal(t *testing.T) {
 	var entity *TestEntityByIDLocal
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	found, err := engine.TryByID(100, entity)
+	found, err := engine.LoadByID(100, entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-	found, err = engine.TryByID(100, entity)
+	found, err = engine.LoadByID(100, entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
@@ -63,7 +63,8 @@ func TestGetByIDLocal(t *testing.T) {
 
 	assert.False(t, entity.IsDirty())
 
-	err = engine.GetByID(1, entity)
+	has, err := engine.LoadByID(1, entity)
+	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity.ID)
 
@@ -77,7 +78,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.True(t, has)
 	pool.RegisterLogger(DBLogger)
 
-	found, err = engine.TryByID(1, entity, "ReferenceOne")
+	found, err = engine.LoadByID(1, entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -140,7 +141,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 1)
 
 	var entity2 TestEntityByIDLocal
-	found, err = engine.TryByID(1, &entity2)
+	found, err = engine.LoadByID(1, &entity2)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity2)
@@ -172,6 +173,6 @@ func BenchmarkGetByIDLocal(b *testing.B) {
 	assert.Nil(b, err)
 
 	for n := 0; n < b.N; n++ {
-		_, _ = engine.TryByID(1, &entity)
+		_, _ = engine.LoadByID(1, &entity)
 	}
 }

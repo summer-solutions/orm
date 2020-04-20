@@ -230,7 +230,7 @@ func cachedSearchOne(engine *Engine, entity interface{}, indexName string, argum
 		}
 	}
 	if id > 0 {
-		return true, engine.GetByID(id, entity)
+		return engine.LoadByID(id, entity)
 	}
 	return false, nil
 }

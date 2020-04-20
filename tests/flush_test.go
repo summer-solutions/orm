@@ -90,9 +90,11 @@ func TestFlush(t *testing.T) {
 
 	var edited1 TestEntityFlush
 	var edited2 TestEntityFlush
-	err = engine.GetByID(2, &edited1)
+	has, err := engine.LoadByID(2, &edited1)
+	assert.True(t, has)
 	assert.Nil(t, err)
-	err = engine.GetByID(8, &edited2)
+	has, err = engine.LoadByID(8, &edited2)
+	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2.1", edited1.Name)
 	assert.Equal(t, uint16(7), edited1.ReferenceOne.ID)
@@ -102,12 +104,14 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, now.Format("2006-01-02"), edited2.Date.Format("2006-01-02"))
 	assert.False(t, edited1.ReferenceOne.Loaded())
 	assert.False(t, edited2.ReferenceOne.Loaded())
-	err = edited1.ReferenceOne.Load(engine)
+	has, err = edited1.ReferenceOne.Load(engine)
+	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.True(t, edited1.ReferenceOne.Loaded())
 	assert.Equal(t, "Name 7", edited1.ReferenceOne.Name)
 
-	err = edited2.ReferenceOne.Refresh(engine)
+	has, err = edited2.ReferenceOne.Load(engine)
+	assert.False(t, has)
 	assert.Nil(t, err)
 	assert.False(t, edited2.ReferenceOne.Loaded())
 	assert.Equal(t, "", edited2.ReferenceOne.Name)
@@ -136,11 +140,13 @@ func TestFlush(t *testing.T) {
 	var edited3 TestEntityFlush
 	var deleted TestEntityFlush
 	var new11 TestEntityFlush
-	err = engine.GetByID(2, &edited3)
+	has, err = engine.LoadByID(2, &edited3)
+	assert.True(t, has)
 	assert.Nil(t, err)
-	hasDeleted, err := engine.TryByID(8, &deleted)
+	hasDeleted, err := engine.LoadByID(8, &deleted)
 	assert.Nil(t, err)
-	err = engine.GetByID(11, &new11)
+	has, err = engine.LoadByID(11, &new11)
+	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2.2", edited3.Name)
 	assert.False(t, hasDeleted)

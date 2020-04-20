@@ -16,7 +16,7 @@ func TestConfig(t *testing.T) {
 
 	var entity time.Time
 
-	has, err := engine.TryByID(1, &entity)
+	has, err := engine.LoadByID(1, &entity)
 	assert.False(t, has)
 	assert.EqualError(t, err, "entity 'time.Time' is not registered")
 }

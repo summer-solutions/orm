@@ -163,7 +163,7 @@ func TestSchema(t *testing.T) {
 	assert.Nil(t, err)
 	err = tableSchema.UpdateSchemaAndTruncateTable(engine)
 	assert.Nil(t, err)
-	has, err := engine.TryByID(1, &entity)
+	has, err := engine.LoadByID(1, &entity)
 	assert.Nil(t, err)
 	assert.False(t, has)
 
