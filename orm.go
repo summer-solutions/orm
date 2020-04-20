@@ -4,12 +4,29 @@ import (
 	"reflect"
 )
 
+type Entity interface {
+	GetID() uint64
+	GetTableSchema() *TableSchema
+	IsDirty() bool
+	Flush() error
+	FlushLazy() error
+	MarkToDelete()
+	Loaded() bool
+	Load(engine *Engine) (has bool, err error)
+	ForceMarkToDelete()
+}
+
 type ORM struct {
 	dBData      map[string]interface{}
 	value       reflect.Value
 	elem        reflect.Value
 	tableSchema *TableSchema
 	engine      *Engine
+	id          uint64
+}
+
+func (orm ORM) GetID() uint64 {
+	return orm.id
 }
 
 func (orm ORM) GetTableSchema() *TableSchema {
