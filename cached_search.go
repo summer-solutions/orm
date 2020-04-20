@@ -169,9 +169,21 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 			nonZero = append(nonZero, id)
 		}
 	}
-	err = engine.GetByIDs(nonZero, entities, references...)
+	missing, err := engine.LoadByIDs(nonZero, entities, references...)
 	if err != nil {
 		return 0, err
+	}
+	if len(missing) > 0 {
+		if hasLocalCache {
+			localCache.Remove(cacheKey)
+		}
+		if hasRedis {
+			err = redisCache.Del(cacheKey)
+			if err != nil {
+				return 0, err
+			}
+		}
+		return cachedSearch(engine, entities, indexName, pager, arguments, references)
 	}
 	return
 }

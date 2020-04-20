@@ -32,7 +32,7 @@ func TestGetByIDsLocal(t *testing.T) {
 	pool.RegisterLogger(DBLogger)
 
 	var found []*TestEntityByIDsLocal
-	missing, err := engine.TryByIDs([]uint64{2, 3, 1}, &found)
+	missing, err := engine.LoadByIDs([]uint64{2, 3, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
@@ -43,7 +43,7 @@ func TestGetByIDsLocal(t *testing.T) {
 	assert.Equal(t, "Hi", found[1].Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = engine.TryByIDs([]uint64{2, 3, 1}, &found)
+	missing, err = engine.LoadByIDs([]uint64{2, 3, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
@@ -52,7 +52,7 @@ func TestGetByIDsLocal(t *testing.T) {
 	assert.Equal(t, uint(1), found[1].ID)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = engine.TryByIDs([]uint64{5, 6, 7}, &found)
+	missing, err = engine.LoadByIDs([]uint64{5, 6, 7}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
@@ -72,6 +72,6 @@ func BenchmarkGetByIDsLocal(b *testing.B) {
 
 	var found []*TestEntityByIDsLocal
 	for n := 0; n < b.N; n++ {
-		_, _ = engine.TryByIDs([]uint64{1, 2, 3}, &found)
+		_, _ = engine.LoadByIDs([]uint64{1, 2, 3}, &found)
 	}
 }

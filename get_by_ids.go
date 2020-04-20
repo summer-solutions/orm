@@ -7,17 +7,6 @@ import (
 	"strings"
 )
 
-func getByIDs(engine *Engine, ids []uint64, entities interface{}, references ...string) error {
-	missing, err := engine.TryByIDs(ids, entities, references...)
-	if err != nil {
-		return err
-	}
-	if len(missing) > 0 {
-		return fmt.Errorf("entities not found with ids %v", missing)
-	}
-	return nil
-}
-
 func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64, err error) {
 	originalIDs := ids
 	lenIDs := len(ids)

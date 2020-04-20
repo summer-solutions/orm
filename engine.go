@@ -83,14 +83,6 @@ func (e *Engine) SearchOne(where *Where, entity interface{}) (bool, error) {
 	return searchOne(true, e, where, entity)
 }
 
-func (e *Engine) GetByIDs(ids []uint64, entities interface{}, references ...string) error {
-	return getByIDs(e, ids, entities, references...)
-}
-
-func (e *Engine) TryByIDs(ids []uint64, entities interface{}, references ...string) (missing []uint64, err error) {
-	return tryByIDs(e, ids, reflect.ValueOf(entities).Elem(), references)
-}
-
 func (e *Engine) CachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) (has bool, err error) {
 	return cachedSearchOne(e, entity, indexName, arguments...)
 }
@@ -114,6 +106,10 @@ func (e *Engine) FlushInCache(entities ...interface{}) error {
 
 func (e *Engine) LoadByID(id uint64, entity interface{}, references ...string) (found bool, err error) {
 	return loadByID(e, id, entity, references...)
+}
+
+func (e *Engine) LoadByIDs(ids []uint64, entities interface{}, references ...string) (missing []uint64, err error) {
+	return tryByIDs(e, ids, reflect.ValueOf(entities).Elem(), references)
 }
 
 func (e *Engine) GetAlters() (alters []Alter, err error) {

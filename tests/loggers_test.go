@@ -56,7 +56,7 @@ func TestLoggers(t *testing.T) {
 
 	bufCache.Reset()
 	var entities []*TestEntityLoggers
-	missing, err := engine.TryByIDs([]uint64{10, 11, 12}, &entities)
+	missing, err := engine.LoadByIDs([]uint64{10, 11, 12}, &entities)
 	assert.Nil(t, err)
 	assert.Len(t, missing, 3)
 	assert.Greater(t, strings.Index(bufCache.String(), "[MISSES 3]"), 0)
