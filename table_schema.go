@@ -34,6 +34,8 @@ type TableSchema struct {
 	redisCacheName   string
 	cachePrefix      string
 	hasFakeDelete    bool
+	hasLog           bool
+	logPoolName      string
 }
 
 func getTableSchema(c *Config, entityType reflect.Type) *TableSchema {
@@ -260,6 +262,11 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema,
 			oneRefs = append(oneRefs, key)
 		}
 	}
+	logPoolName := tags["ORM"]["log"]
+	if logPoolName == "true" {
+		logPoolName = mysql
+	}
+
 	tableSchema := &TableSchema{TableName: table,
 		MysqlPoolName:    mysql,
 		t:                entityType,
@@ -274,7 +281,9 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema,
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
 		cachePrefix:      cachePrefix,
-		hasFakeDelete:    hasFakeDelete}
+		hasFakeDelete:    hasFakeDelete,
+		hasLog:           logPoolName != "",
+		logPoolName:      logPoolName}
 	return tableSchema, nil
 }
 

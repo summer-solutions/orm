@@ -30,7 +30,7 @@ var color = &fieldsColors{
 }
 
 type testEntitySchema struct {
-	ORM                  `orm:"mysql=schema"`
+	ORM                  `orm:"mysql=schema;log=log"`
 	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
@@ -89,6 +89,7 @@ type testEntitySchemaUnsupportedField struct {
 func TestSchema(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_schema", "schema")
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_log", "log")
 
 	var entity testEntitySchema
 	var entityRef testEntitySchemaRef
