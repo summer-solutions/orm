@@ -11,11 +11,14 @@ type Engine struct {
 	localCache  map[string]*LocalCache
 	redis       map[string]*RedisCache
 	locks       map[string]*Locker
-	logMetaData map[string]string
+	logMetaData map[string]interface{}
 }
 
-func (e *Engine) SetLogMetaData(metaData map[string]string) {
-	e.logMetaData = metaData
+func (e *Engine) SetLogMetaData(key string, value interface{}) {
+	if e.logMetaData == nil {
+		e.logMetaData = make(map[string]interface{})
+	}
+	e.logMetaData[key] = value
 }
 
 func (e *Engine) RegisterNewEntity(entityReference interface{}) {

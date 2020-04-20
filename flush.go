@@ -718,11 +718,14 @@ func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interfac
 }
 
 func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *TableSchema, id uint64, data map[string]interface{}) {
+	if !tableSchema.hasLog {
+		return
+	}
 	key := tableSchema.logPoolName
 	if keys[key] == nil {
 		keys[key] = make([]*LogQueueValue, 0)
 	}
-	val := &LogQueueValue{TableName: tableSchema.TableName, ID: id,
+	val := &LogQueueValue{TableName: tableSchema.logTableName, ID: id,
 		PoolName: tableSchema.logPoolName, Data: data, Updated: time.Now()}
 	keys[key] = append(keys[key], val)
 }

@@ -36,6 +36,7 @@ type TableSchema struct {
 	hasFakeDelete    bool
 	hasLog           bool
 	logPoolName      string
+	logTableName     string
 }
 
 func getTableSchema(c *Config, entityType reflect.Type) *TableSchema {
@@ -283,7 +284,8 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema,
 		cachePrefix:      cachePrefix,
 		hasFakeDelete:    hasFakeDelete,
 		hasLog:           logPoolName != "",
-		logPoolName:      logPoolName}
+		logPoolName:      logPoolName,
+		logTableName:     fmt.Sprintf("_log_%s_%s", mysql, table)}
 	return tableSchema, nil
 }
 

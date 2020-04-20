@@ -74,13 +74,12 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 				return nil, errors.Trace(err)
 			}
 			if tableSchema.hasLog {
-				logTableName := fmt.Sprintf("_log_%s_%s", tableSchema.MysqlPoolName, tableSchema.TableName)
 				logPool, has := engine.GetMysql(tableSchema.logPoolName)
 				if !has {
 					return nil, fmt.Errorf("unregistered mysql pool `%s`", tableSchema.logPoolName)
 				}
 				var tableDef string
-				err = logPool.QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", logTableName)).Scan(&tableDef)
+				err = logPool.QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.logTableName)).Scan(&tableDef)
 				hasLogTable := true
 				if err != nil {
 					if err.Error() == "sql: no rows in result set" {
@@ -90,29 +89,29 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 					}
 				}
 				logTableSchema := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n  `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,\n  "+
-					"`entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `data` json NOT NULL,\n  "+
+					"`entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `data` json DEFAULT NULL,\n  "+
 					"PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;",
-					logPool.databaseName, logTableName)
+					logPool.databaseName, tableSchema.logTableName)
 				if !hasLogTable {
 					alters = append(alters, Alter{SQL: logTableSchema, Safe: true, Pool: tableSchema.logPoolName})
 				} else {
 					var skip, createTableDB string
-					err = logPool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", logTableName)).Scan(&skip, &createTableDB)
+					err = logPool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.logTableName)).Scan(&skip, &createTableDB)
 					if err != nil {
 						return nil, errors.Trace(err)
 					}
 					createTableDB = strings.Replace(createTableDB, "CREATE TABLE ", fmt.Sprintf("CREATE TABLE `%s`.", logPool.databaseName), 1) + ";"
 					if logTableSchema != createTableDB {
-						isEmpty, err := isTableEmptyInPool(engine, tableSchema.logPoolName, logTableName)
+						isEmpty, err := isTableEmptyInPool(engine, tableSchema.logPoolName, tableSchema.logTableName)
 						if err != nil {
 							return nil, errors.Trace(err)
 						}
-						dropTableSQL := fmt.Sprintf("DROP TABLE `%s`.`%s`;", logPool.databaseName, logTableName)
+						dropTableSQL := fmt.Sprintf("DROP TABLE `%s`.`%s`;", logPool.databaseName, tableSchema.logTableName)
 						alters = append(alters, Alter{SQL: dropTableSQL, Safe: isEmpty, Pool: tableSchema.logPoolName})
 						alters = append(alters, Alter{SQL: logTableSchema, Safe: true, Pool: tableSchema.logPoolName})
 					}
 				}
-				tablesInEntities[tableSchema.logPoolName][logTableName] = true
+				tablesInEntities[tableSchema.logPoolName][tableSchema.logTableName] = true
 			}
 			if !has {
 				continue
