@@ -41,16 +41,13 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, rows, 0)
 
 	DBLogger := &TestDatabaseLogger{}
-	pool, has := engine.GetMysql()
-	assert.True(t, has)
+	pool := engine.GetMysql()
 	pool.RegisterLogger(DBLogger)
 	LoggerRedisCache := &TestCacheLogger{}
-	cache, has := engine.GetRedis()
-	assert.True(t, has)
+	cache := engine.GetRedis()
 	cache.RegisterLogger(LoggerRedisCache)
 	LoggerRedisQueue := &TestCacheLogger{}
-	cacheQueue, has := engine.GetRedis("default_queue")
-	assert.True(t, has)
+	cacheQueue := engine.GetRedis("default_queue")
 	cacheQueue.RegisterLogger(LoggerRedisQueue)
 
 	entityRedis.Name = "Name 2"
@@ -66,7 +63,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Equal(t, "SADD 1 values dirty_queue", LoggerRedisQueue.Requests[0])
 
 	var loadedEntity TestEntityFlusherInCacheRedis
-	has, err = engine.LoadByID(1, &loadedEntity)
+	has, err := engine.LoadByID(1, &loadedEntity)
 	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2", loadedEntity.Name)

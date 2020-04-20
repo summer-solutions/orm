@@ -135,8 +135,7 @@ func prepareRedis(t *testing.T) *orm.RedisCache {
 	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
 	engine := config.CreateEngine()
-	r, has := engine.GetRedis()
-	assert.True(t, has)
+	r := engine.GetRedis()
 	err = r.FlushDB()
 	assert.Nil(t, err)
 	return r

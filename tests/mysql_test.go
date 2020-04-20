@@ -24,11 +24,6 @@ func TestMySQL(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	db, has := engine.GetMysql("missing")
-	assert.False(t, has)
-	assert.Nil(t, db)
-
-	db, has = engine.GetMysql()
-	assert.True(t, has)
+	db := engine.GetMysql()
 	assert.NotNil(t, db)
 }

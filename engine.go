@@ -21,8 +21,8 @@ func (e *Engine) SetLogMetaData(key string, value interface{}) {
 	e.logMetaData[key] = value
 }
 
-func (e *Engine) RegisterEntity(entityReference interface{}) {
-	value := reflect.ValueOf(entityReference)
+func (e *Engine) RegisterEntity(entity Entity) {
+	value := reflect.ValueOf(entity)
 	if value.Kind() != reflect.Ptr {
 		panic(fmt.Errorf("registered entity '%s' is not a poninter", value.Type().String()))
 	}
@@ -33,40 +33,52 @@ func (e *Engine) GetConfig() *Config {
 	return e.config
 }
 
-func (e *Engine) GetMysql(code ...string) (db *DB, has bool) {
+func (e *Engine) GetMysql(code ...string) *DB {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	db, has = e.dbs[dbCode]
-	return db, has
+	db, has := e.dbs[dbCode]
+	if !has {
+		panic(fmt.Errorf("unregistered mysql pool '%s'", dbCode))
+	}
+	return db
 }
 
-func (e *Engine) GetLocalCache(code ...string) (cache *LocalCache, has bool) {
+func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	cache, has = e.localCache[dbCode]
-	return cache, has
+	cache, has := e.localCache[dbCode]
+	if !has {
+		panic(fmt.Errorf("unregistered local cache pool '%s'", dbCode))
+	}
+	return cache
 }
 
-func (e *Engine) GetRedis(code ...string) (cache *RedisCache, has bool) {
+func (e *Engine) GetRedis(code ...string) *RedisCache {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	cache, has = e.redis[dbCode]
-	return cache, has
+	cache, has := e.redis[dbCode]
+	if !has {
+		panic(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
+	}
+	return cache
 }
 
-func (e *Engine) GetLocker(code ...string) (locker *Locker, has bool) {
+func (e *Engine) GetLocker(code ...string) *Locker {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	locker, has = e.locks[dbCode]
-	return locker, has
+	locker, has := e.locks[dbCode]
+	if !has {
+		panic(fmt.Errorf("unregistered locker pool '%s'", dbCode))
+	}
+	return locker
 }
 
 func (e *Engine) SearchWithCount(where *Where, pager *Pager, entities interface{}, references ...string) (totalRows int, err error) {
@@ -91,7 +103,7 @@ func (e *Engine) SearchOne(where *Where, entity interface{}) (bool, error) {
 	return searchOne(true, e, where, entity)
 }
 
-func (e *Engine) CachedSearchOne(entity interface{}, indexName string, arguments ...interface{}) (has bool, err error) {
+func (e *Engine) CachedSearchOne(entity Entity, indexName string, arguments ...interface{}) (has bool, err error) {
 	return cachedSearchOne(e, entity, indexName, arguments...)
 }
 
@@ -104,7 +116,7 @@ func (e *Engine) CachedSearchWithReferences(entities interface{}, indexName stri
 	return cachedSearch(e, entities, indexName, pager, arguments, references)
 }
 
-func (e *Engine) ClearByIDs(entity interface{}, ids ...uint64) error {
+func (e *Engine) ClearByIDs(entity Entity, ids ...uint64) error {
 	return clearByIDs(e, entity, ids...)
 }
 
@@ -112,7 +124,7 @@ func (e *Engine) FlushInCache(entities ...interface{}) error {
 	return flushInCache(e, entities...)
 }
 
-func (e *Engine) LoadByID(id uint64, entity interface{}, references ...string) (found bool, err error) {
+func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found bool, err error) {
 	return loadByID(e, id, entity, references...)
 }
 
@@ -136,6 +148,6 @@ func (e *Engine) RegisterRedisLogger(logger CacheLogger) {
 	}
 }
 
-func (e *Engine) getRedisForQueue(code string) (*RedisCache, bool) {
+func (e *Engine) getRedisForQueue(code string) *RedisCache {
 	return e.GetRedis(code + "_queue")
 }

@@ -314,12 +314,12 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 	}
 	for _, values := range localCacheSets {
 		for cacheCode, keys := range values {
-			cache, _ := engine.GetLocalCache(cacheCode)
+			cache := engine.GetLocalCache(cacheCode)
 			cache.MSet(keys...)
 		}
 	}
 	for cacheCode, allKeys := range localCacheDeletes {
-		cache, _ := engine.GetLocalCache(cacheCode)
+		cache := engine.GetLocalCache(cacheCode)
 		keys := make([]string, len(allKeys))
 		i := 0
 		for key := range allKeys {
@@ -338,7 +338,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		}
 	}
 	for cacheCode, allKeys := range redisKeysToDelete {
-		cache, _ := engine.GetRedis(cacheCode)
+		cache := engine.GetRedis(cacheCode)
 		keys := make([]string, len(allKeys))
 		i := 0
 		for key := range allKeys {
@@ -365,7 +365,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			return err
 		}
 		code := "default"
-		redis, _ := engine.getRedisForQueue(code)
+		redis := engine.getRedisForQueue(code)
 		_, err = redis.LPush("lazy_queue", v)
 		if err != nil {
 			return err

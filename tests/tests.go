@@ -22,20 +22,17 @@ func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}
 
 	engine := config.CreateEngine()
 	assert.Equal(t, engine.GetConfig(), config)
-	redisCache, has := engine.GetRedis()
-	assert.True(t, has)
+	redisCache := engine.GetRedis()
 	err = redisCache.FlushDB()
 	assert.Nil(t, err)
-	redisCache, has = engine.GetRedis("default_queue")
-	assert.True(t, has)
+	redisCache = engine.GetRedis("default_queue")
 	err = redisCache.FlushDB()
 	assert.Nil(t, err)
 
 	alters, err := engine.GetAlters()
 	assert.Nil(t, err)
 	for _, alter := range alters {
-		pool, has := engine.GetMysql(alter.Pool)
-		assert.True(t, has)
+		pool := engine.GetMysql(alter.Pool)
 		_, err := pool.Exec(alter.SQL)
 		assert.Nil(t, err)
 	}

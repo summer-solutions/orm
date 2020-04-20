@@ -19,10 +19,10 @@ func TestFlushLazyRedis(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	DBLogger := &TestDatabaseLogger{}
-	pool, _ := engine.GetMysql()
+	pool := engine.GetMysql()
 	pool.RegisterLogger(DBLogger)
 	LoggerQueue := &TestCacheLogger{}
-	cache, _ := engine.GetRedis("default_queue")
+	cache := engine.GetRedis("default_queue")
 	cache.RegisterLogger(LoggerQueue)
 
 	var entities = make([]interface{}, 10)

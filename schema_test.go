@@ -108,7 +108,7 @@ func TestSchema(t *testing.T) {
 	assert.Nil(t, err)
 	_, err = tableSchemaRef.GetMysql(engine).Exec("DROP TABLE IF EXISTS `ToDrop`")
 	assert.Nil(t, err)
-	logDB, _ := engine.GetMysql("log")
+	logDB := engine.GetMysql("log")
 	_, err = logDB.Exec("DROP TABLE IF EXISTS `_log_schema_testEntitySchema`")
 	assert.Nil(t, err)
 	_, err = logDB.Exec("DROP TABLE IF EXISTS `_log_default_testEntityLog`")
@@ -133,7 +133,7 @@ func TestSchema(t *testing.T) {
 	assert.Equal(t, "ALTER TABLE `test_schema`.`testEntitySchema`\n  ADD CONSTRAINT `test_schema:testEntitySchema:ReferenceOneCascade` FOREIGN KEY (`ReferenceOneCascade`) REFERENCES `test_schema`.`testEntitySchemaRef` (`ID`) ON DELETE CASCADE,\n  ADD CONSTRAINT `test_schema:testEntitySchema:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `test_schema`.`testEntitySchemaRef` (`ID`) ON DELETE RESTRICT;", alters[3].SQL)
 
 	for _, alter := range alters {
-		pool, _ := engine.GetMysql(alter.Pool)
+		pool := engine.GetMysql(alter.Pool)
 		_, err = pool.Exec(alter.SQL)
 		assert.Nil(t, err)
 	}

@@ -40,7 +40,7 @@ func TestLoggers(t *testing.T) {
 	cacheLogger.SetLogger(log.New(&bufCache, "", log.Lshortfile))
 	engine.RegisterRedisLogger(&cacheLogger)
 
-	has, err := engine.LoadByID(1, &entity)
+	has, err := engine.LoadByID(1, entity)
 	assert.Nil(t, err)
 	assert.True(t, has)
 
@@ -48,7 +48,7 @@ func TestLoggers(t *testing.T) {
 	assert.Greater(t, strings.Index(bufCache.String(), "[GET] TestEntityLoggers1642010974:1 [MISS]"), 0)
 
 	bufCache.Reset()
-	has, err = engine.LoadByID(1, &entity)
+	has, err = engine.LoadByID(1, entity)
 	assert.Nil(t, err)
 	assert.True(t, has)
 	assert.Equal(t, -1, strings.Index(bufCache.String(), "[GET] TestEntityLoggers1642010974:1 [MISS]"))

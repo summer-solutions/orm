@@ -15,8 +15,7 @@ func TestGetSetLocal(t *testing.T) {
 	engine := config.CreateEngine()
 
 	testLogger := &TestCacheLogger{}
-	cache, has := engine.GetLocalCache()
-	assert.True(t, has)
+	cache := engine.GetLocalCache()
 	cache.RegisterLogger(testLogger)
 
 	val := cache.GetSet("test", 1, func() interface{} {

@@ -108,6 +108,6 @@ func (r *DirtyReceiver) MarkDirty(entityName string, ids ...uint64) error {
 
 func (r *DirtyReceiver) getRedis() *RedisCache {
 	queue, _ := r.engine.config.dirtyQueues[r.queueCode].(*RedisDirtyQueueSender)
-	redis, _ := r.engine.GetRedis(queue.PoolName)
+	redis := r.engine.GetRedis(queue.PoolName)
 	return redis
 }

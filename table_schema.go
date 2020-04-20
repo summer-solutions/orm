@@ -99,22 +99,21 @@ func (tableSchema *TableSchema) UpdateSchemaAndTruncateTable(engine *Engine) err
 }
 
 func (tableSchema *TableSchema) GetMysql(engine *Engine) *DB {
-	db, _ := engine.GetMysql(tableSchema.MysqlPoolName)
-	return db
+	return engine.GetMysql(tableSchema.MysqlPoolName)
 }
 
 func (tableSchema *TableSchema) GetLocalCache(engine *Engine) (cache *LocalCache, has bool) {
 	if tableSchema.localCacheName == "" {
 		return nil, false
 	}
-	return engine.GetLocalCache(tableSchema.localCacheName)
+	return engine.GetLocalCache(tableSchema.localCacheName), true
 }
 
 func (tableSchema *TableSchema) GetRedisCacheContainer(engine *Engine) (cache *RedisCache, has bool) {
 	if tableSchema.redisCacheName == "" {
 		return nil, false
 	}
-	return engine.GetRedis(tableSchema.redisCacheName)
+	return engine.GetRedis(tableSchema.redisCacheName), true
 }
 
 func (tableSchema *TableSchema) GetReferences() []string {

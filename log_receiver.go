@@ -62,10 +62,7 @@ func (r *LogReceiver) Digest() (has bool, err error) {
 	if received == nil {
 		return false, nil
 	}
-	poolDB, has := r.engine.GetMysql(received.PoolName)
-	if !has {
-		return true, errors.Errorf("unknown mysql pool '%s'", received.PoolName)
-	}
+	poolDB := r.engine.GetMysql(received.PoolName)
 	/* #nosec */
 	query := fmt.Sprintf("INSERT INTO `%s`(`entity_id`, `added_at`, `meta`, `data`) VALUES(?, ?, ?, ?)", received.TableName)
 	var meta, data interface{}

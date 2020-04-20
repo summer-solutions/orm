@@ -16,13 +16,13 @@ func NewLazyReceiver(engine *Engine, queueName string) *LazyReceiver {
 
 func (r *LazyReceiver) Size() (int64, error) {
 	code := r.queueName + "_queue"
-	redis, _ := r.engine.GetRedis(code)
+	redis := r.engine.GetRedis(code)
 	return redis.LLen("lazy_queue")
 }
 
 func (r *LazyReceiver) Digest() (has bool, err error) {
 	code := r.queueName + "_queue"
-	redis, _ := r.engine.GetRedis(code)
+	redis := r.engine.GetRedis(code)
 	key := "lazy_queue"
 	val, found, err := redis.RPop(key)
 	if err != nil {
@@ -59,7 +59,7 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 		for _, query := range validQueries {
 			validInsert := query.([]interface{})
 			code := validInsert[0].(string)
-			db, _ := engine.GetMysql(code)
+			db := engine.GetMysql(code)
 			sql := validInsert[1].(string)
 			attributes := validInsert[2].([]interface{})
 			_, err := db.Exec(sql, attributes...)

@@ -19,13 +19,13 @@ func NewFlushFromCacheReceiver(engine *Engine, queueName string) *FlushFromCache
 
 func (r *FlushFromCacheReceiver) Size() (int64, error) {
 	name := r.queueName + "_queue"
-	redis, _ := r.engine.GetRedis(name)
+	redis := r.engine.GetRedis(name)
 	return redis.SCard("dirty_queue")
 }
 
 func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	name := r.queueName + "_queue"
-	cache, _ := r.engine.GetRedis(name)
+	cache := r.engine.GetRedis(name)
 	value, has, err := cache.SPop("dirty_queue")
 	if err != nil || !has {
 		return false, err

@@ -29,7 +29,7 @@ func TestDirtyQueue(t *testing.T) {
 	engine := PrepareTables(t, registry, entityAll, entityAge)
 
 	LoggerRedisQueue := &TestCacheLogger{}
-	cache, _ := engine.GetRedis("default_queue")
+	cache := engine.GetRedis("default_queue")
 	cache.RegisterLogger(LoggerRedisQueue)
 
 	engine.RegisterEntity(entityAll)

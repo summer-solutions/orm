@@ -64,7 +64,7 @@ func (orm ORM) Load(engine *Engine) (has bool, err error) {
 	if id == 0 {
 		return false, nil
 	}
-	return engine.LoadByID(id, orm.value.Interface())
+	return engine.LoadByID(id, orm.value.Interface().(Entity))
 }
 
 func (orm ORM) ForceMarkToDelete() {

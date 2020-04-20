@@ -53,7 +53,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 		for _, pool := range engine.config.sqlClients {
 			poolName := pool.code
 			tablesInDB[poolName] = make(map[string]bool)
-			pool, _ := engine.GetMysql(poolName)
+			pool := engine.GetMysql(poolName)
 			tables, err := getAllTables(pool.db)
 			if err != nil {
 				return nil, err
@@ -74,10 +74,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 				return nil, errors.Trace(err)
 			}
 			if tableSchema.hasLog {
-				logPool, has := engine.GetMysql(tableSchema.logPoolName)
-				if !has {
-					return nil, fmt.Errorf("unregistered mysql pool `%s`", tableSchema.logPoolName)
-				}
+				logPool := engine.GetMysql(tableSchema.logPoolName)
 				var tableDef string
 				err = logPool.QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.logTableName)).Scan(&tableDef)
 				hasLogTable := true
@@ -131,7 +128,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 				if dropForeignKeyAlter != "" {
 					alters = append(alters, Alter{SQL: dropForeignKeyAlter, Safe: true, Pool: poolName})
 				}
-				pool, _ := engine.GetMysql(poolName)
+				pool := engine.GetMysql(poolName)
 				dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableName)
 				isEmpty, err := isTableEmptyInPool(engine, poolName, tableName)
 				if err != nil {
@@ -177,8 +174,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 }
 
 func isTableEmptyInPool(engine *Engine, poolName string, tableName string) (bool, error) {
-	pool, _ := engine.GetMysql(poolName)
-	return isTableEmpty(pool.db, tableName)
+	return isTableEmpty(engine.GetMysql(poolName).db, tableName)
 }
 
 func getAllTables(db sqlDB) ([]string, error) {
@@ -209,7 +205,7 @@ func getSchemaChanges(engine *Engine, tableSchema *TableSchema) (has bool, alter
 	columns, _ := checkStruct(tableSchema, engine, tableSchema.t, indexes, foreignKeys, "")
 	var newIndexes []string
 	var newForeignKeys []string
-	pool, _ := engine.GetMysql(tableSchema.MysqlPoolName)
+	pool := engine.GetMysql(tableSchema.MysqlPoolName)
 	createTableSQL := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", pool.GetDatabaseName(), tableSchema.TableName)
 	createTableForiegnKeysSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.TableName)
 	columns[0][1] += " AUTO_INCREMENT"
@@ -528,7 +524,7 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 	query := "SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_TABLE_SCHEMA " +
 		"FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL " +
 		"AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
-	pool, _ := engine.GetMysql(poolName)
+	pool := engine.GetMysql(poolName)
 	results, def, err := pool.Query(fmt.Sprintf(query, pool.GetDatabaseName(), tableName))
 	if err != nil {
 		return nil, err
@@ -568,7 +564,7 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) (string, error) {
 	var skip string
 	var createTableDB string
-	pool, _ := engine.GetMysql(poolName)
+	pool := engine.GetMysql(poolName)
 	err := pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableName)).Scan(&skip, &createTableDB)
 	if err != nil {
 		return "", errors.Trace(err)

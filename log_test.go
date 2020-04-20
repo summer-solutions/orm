@@ -16,10 +16,10 @@ type testEntityLog struct {
 func TestLog(t *testing.T) {
 	entity := &testEntityLog{}
 	engine := PrepareTables(t, &Registry{}, entity, entity)
-	queueRedis, _ := engine.GetRedis("default_log")
+	queueRedis := engine.GetRedis("default_log")
 	err := queueRedis.FlushDB()
 	assert.Nil(t, err)
-	logDB, _ := engine.GetMysql("log")
+	logDB := engine.GetMysql("log")
 	receiver := NewLogReceiver(engine, &RedisLogReceiver{Redis: queueRedis})
 
 	engine.RegisterEntity(entity)

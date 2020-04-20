@@ -15,8 +15,7 @@ func TestLock(t *testing.T) {
 	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
 	engine := config.CreateEngine()
-	locker, has := engine.GetLocker()
-	assert.True(t, has)
+	locker := engine.GetLocker()
 
 	lock, has, err := locker.Obtain("test", 10*time.Second, 0*time.Second)
 	assert.Nil(t, err)
@@ -34,9 +33,6 @@ func TestLock(t *testing.T) {
 	assert.Nil(t, err)
 	err = lock.Release()
 	assert.Nil(t, err)
-	locker, has = engine.GetLocker("test")
-	assert.False(t, has)
-	assert.Nil(t, locker)
 
 	lock, has, err = locker.Obtain("test", 0*time.Second, 10*time.Second)
 	assert.Nil(t, lock)

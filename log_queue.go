@@ -25,7 +25,7 @@ type RedisLogQueueSender struct {
 }
 
 func (s *RedisLogQueueSender) Send(engine *Engine, values []*LogQueueValue) error {
-	r, _ := engine.GetRedis(s.PoolName)
+	r := engine.GetRedis(s.PoolName)
 	members := make([]interface{}, len(values))
 	for i, val := range values {
 		val.Meta = engine.logMetaData
