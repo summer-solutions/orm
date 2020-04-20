@@ -19,7 +19,8 @@ func TestMySQL(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, entity, entity)
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityMySQL{Name: "Name " + strconv.Itoa(i)}
-		err := engine.Flush(e)
+		engine.RegisterNewEntity(e)
+		err := e.Flush()
 		assert.Nil(t, err)
 	}
 

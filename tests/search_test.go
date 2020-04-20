@@ -28,23 +28,23 @@ func TestSearch(t *testing.T) {
 	var entities = make([]interface{}, 10)
 	var refs = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
-		r := TestEntitySearchRef{Name: "Name " + strconv.Itoa(i)}
-		refs[i-1] = &r
+		r := &TestEntitySearchRef{Name: "Name " + strconv.Itoa(i)}
+		engine.RegisterNewEntity(r)
+		refs[i-1] = r
+		err := r.Flush()
+		assert.Nil(t, err)
 		e := &TestEntitySearch{Name: "Name " + strconv.Itoa(i)}
-		e.Init(e, engine)
-		e.ReferenceOne = &r
+		engine.RegisterNewEntity(e)
+		e.ReferenceOne = r
 		entities[i-1] = e
+		err = e.Flush()
+		assert.Nil(t, err)
 	}
-	err := engine.Flush(refs...)
-	assert.Nil(t, err)
-	err = engine.Flush(entities...)
-	assert.Nil(t, err)
-
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
 	where := orm.NewWhere("`ID` > ?", 1)
 	where.Append("AND `ID` < ?", 8)
 	var rows []*TestEntitySearch
-	err = engine.Search(where, pager, &rows, "ReferenceOne")
+	err := engine.Search(where, pager, &rows, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, rows[0].ReferenceOne.Loaded())
 	assert.Len(t, rows, 6)

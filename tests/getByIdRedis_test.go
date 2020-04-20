@@ -44,18 +44,19 @@ type TestEntityByIDRedis struct {
 }
 
 func TestGetByIDRedis(t *testing.T) {
-	var entity TestEntityByIDRedis
+	var entity *TestEntityByIDRedis
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	found, err := engine.TryByID(100, &entity)
+	found, err := engine.TryByID(100, entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-	found, err = engine.TryByID(100, &entity)
+	found, err = engine.TryByID(100, entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	entity = TestEntityByIDRedis{}
-	err = engine.Flush(&entity)
+	entity = &TestEntityByIDRedis{}
+	engine.RegisterNewEntity(entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.False(t, entity.IsDirty())
 
@@ -71,7 +72,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Equal(t, uint(1), entity3.ID)
 
 	entity.ReferenceOne.ID = 1
-	err = engine.Flush(&entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.False(t, entity.IsDirty())
 
@@ -80,7 +81,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.True(t, has)
 	pool.RegisterLogger(DBLogger)
 
-	found, err = engine.TryByID(1, &entity, "ReferenceOne")
+	found, err = engine.TryByID(1, entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -137,7 +138,7 @@ func TestGetByIDRedis(t *testing.T) {
 
 	assert.True(t, entity.IsDirty())
 
-	err = engine.Flush(&entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.False(t, entity.IsDirty())
 
@@ -175,7 +176,8 @@ func BenchmarkGetByID(b *testing.B) {
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	entity = TestEntityByIDRedis{}
-	_ = engine.Flush(&entity)
+	err := entity.Flush()
+	assert.Nil(b, err)
 
 	for n := 0; n < b.N; n++ {
 		_, _ = engine.TryByID(1, &entity)

@@ -127,6 +127,9 @@ func (r *Registry) RegisterEntity(entity ...interface{}) {
 	}
 	for _, e := range entity {
 		t := reflect.TypeOf(e)
+		if t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
 		r.entities[t.String()] = t
 	}
 }

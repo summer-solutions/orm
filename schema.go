@@ -590,8 +590,8 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 	for _, key := range keys {
 		indexAttribute, has := attributes[key]
 		unique := key == "unique"
-		if key == "index" && field.Type.Kind().String() == "ptr" {
-			refOneSchema, _ = engine.config.GetTableSchema(field.Type.Elem())
+		if key == "index" && field.Type.Kind() == reflect.Ptr {
+			refOneSchema = getTableSchema(engine.config, field.Type.Elem())
 			if refOneSchema != nil {
 				onDelete := "RESTRICT"
 				_, hasCascade := attributes["cascade"]
@@ -703,8 +703,8 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 			}
 			return structFields, nil
 		} else if kind == "ptr" {
-			subSchema, has := engine.config.GetTableSchema(field.Type.Elem())
-			if has {
+			subSchema := getTableSchema(engine.config, field.Type.Elem())
+			if subSchema != nil {
 				definition = handleReferenceOne(subSchema, attributes)
 				addNotNullIfNotSet = false
 				addDefaultNullIfNullable = true

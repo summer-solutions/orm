@@ -18,10 +18,11 @@ type TestEntityLoggers struct {
 }
 
 func TestLoggers(t *testing.T) {
-	entity := TestEntityLoggers{}
+	entity := &TestEntityLoggers{}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	err := engine.Flush(&entity)
+	engine.RegisterNewEntity(entity)
+	err := entity.Flush()
 	assert.Nil(t, err)
 
 	os.Stdout, _ = os.Open(os.DevNull)

@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,7 +41,11 @@ func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}
 	}
 
 	for _, entity := range entities {
-		tableSchema, _ := config.GetTableSchema(entity)
+		eType := reflect.TypeOf(entity)
+		if eType.Kind() == reflect.Ptr {
+			eType = eType.Elem()
+		}
+		tableSchema, _ := config.GetTableSchema(eType.String())
 		err = tableSchema.TruncateTable(engine)
 		assert.Nil(t, err)
 		err = tableSchema.UpdateSchema(engine)

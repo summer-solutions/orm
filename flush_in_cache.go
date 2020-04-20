@@ -6,7 +6,7 @@ import (
 )
 
 func flushInCache(engine *Engine, entities ...interface{}) error {
-	invalidEntities := make([]interface{}, 0)
+	invalidEntities := make([]reflect.Value, 0)
 	validEntities := make([]interface{}, 0)
 	redisValues := make(map[string][]interface{})
 
@@ -23,7 +23,7 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 		schema := orm.tableSchema
 		cache, hasRedis := schema.GetRedisCacheContainer(engine)
 		if !hasRedis || id == 0 {
-			invalidEntities = append(invalidEntities, entity)
+			invalidEntities = append(invalidEntities, value)
 		} else {
 			isDirty, bind, err := getDirtyBind(elem)
 			if err != nil {
@@ -48,7 +48,7 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 		}
 	}
 	if len(invalidEntities) > 0 {
-		err := engine.Flush(invalidEntities...)
+		err := flush(engine, false, invalidEntities...)
 		if err != nil {
 			return err
 		}

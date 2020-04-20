@@ -30,7 +30,7 @@ func (err *ForeignKeyError) Error() string {
 	return err.Message
 }
 
-func flush(engine *Engine, lazy bool, entities ...interface{}) error {
+func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
@@ -44,16 +44,27 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 	dirtyQueues := make(map[string][]*DirtyQueueValue)
 	lazyMap := make(map[string]interface{})
 
-	for _, entity := range entities {
-		validate, is := entity.(ValidateInterface)
+	for _, v := range entities {
+		if !v.IsValid() {
+			return fmt.Errorf("unregistered struct. run engine.RegisterNewEntity(entity) before entity.Flush()")
+		}
+		value := reflect.Indirect(v)
+		validate, is := v.Interface().(ValidateInterface)
 		if is {
 			err := validate.Validate()
 			if err != nil {
 				return err
 			}
+		} else {
+			validate, is := value.Interface().(ValidateInterface)
+			if is {
+				err := validate.Validate()
+				if err != nil {
+					return err
+				}
+			}
 		}
-		v := reflect.ValueOf(entity)
-		value := reflect.Indirect(v)
+
 		orm := initIfNeeded(engine, v, true)
 		isDirty, bind, err := getDirtyBind(value)
 		if err != nil {
@@ -252,14 +263,13 @@ func flush(engine *Engine, lazy bool, entities ...interface{}) error {
 								if total == 0 {
 									break
 								}
-								toDeleteAll := make([]interface{}, total)
+								toDeleteAll := make([]reflect.Value, total)
 								for i := 0; i < total; i++ {
 									toDeleteValue := subElem.Index(i)
 									toDeleteValue.Elem().Field(0).Addr().Interface().(*ORM).MarkToDelete()
-									toDelete := toDeleteValue.Interface()
-									toDeleteAll[i] = toDelete
+									toDeleteAll[i] = toDeleteValue
 								}
-								err = engine.Flush(toDeleteAll...)
+								err = flush(engine, lazy, toDeleteAll...)
 								if err != nil {
 									return err
 								}

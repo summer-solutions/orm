@@ -46,31 +46,29 @@ type TestEntityByIDLocal struct {
 }
 
 func TestGetByIDLocal(t *testing.T) {
-	var entity TestEntityByIDLocal
+	var entity *TestEntityByIDLocal
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	err := engine.GetByID(200, &entity)
-	assert.EqualError(t, err, "entity *tests.TestEntityByIDLocal with id 200 not found")
-
-	found, err := engine.TryByID(100, &entity)
+	found, err := engine.TryByID(100, entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-	found, err = engine.TryByID(100, &entity)
+	found, err = engine.TryByID(100, entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	entity = TestEntityByIDLocal{}
-	err = engine.Flush(&entity)
+	entity = &TestEntityByIDLocal{}
+	engine.RegisterNewEntity(entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 
 	assert.False(t, entity.IsDirty())
 
-	err = engine.GetByID(1, &entity)
+	err = engine.GetByID(1, entity)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity.ID)
 
 	entity.ReferenceOne.ID = 1
-	err = engine.Flush(&entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.False(t, entity.IsDirty())
 
@@ -79,7 +77,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.True(t, has)
 	pool.RegisterLogger(DBLogger)
 
-	found, err = engine.TryByID(1, &entity, "ReferenceOne")
+	found, err = engine.TryByID(1, entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -135,7 +133,7 @@ func TestGetByIDLocal(t *testing.T) {
 
 	assert.True(t, entity.IsDirty())
 
-	err = engine.Flush(&entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.Nil(t, err)
 	assert.False(t, entity.IsDirty())
@@ -170,7 +168,8 @@ func BenchmarkGetByIDLocal(b *testing.B) {
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	entity = TestEntityByIDLocal{}
-	_ = engine.Flush(&entity)
+	err := entity.Flush()
+	assert.Nil(b, err)
 
 	for n := 0; n < b.N; n++ {
 		_, _ = engine.TryByID(1, &entity)

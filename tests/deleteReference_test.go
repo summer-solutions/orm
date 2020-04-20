@@ -29,29 +29,35 @@ func TestDeleteReference(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, TestEntityDeleteReference{},
 		TestEntityDeleteReferenceRefRestrict{}, TestEntityDeleteReferenceRefCascade{})
 	entity1 := &TestEntityDeleteReference{}
+	engine.RegisterNewEntity(entity1)
+	err := entity1.Flush()
+	assert.Nil(t, err)
 	entity2 := &TestEntityDeleteReference{}
-	err := engine.Flush(entity1, entity2)
+	engine.RegisterNewEntity(entity2)
+	err = entity2.Flush()
 	assert.Nil(t, err)
 
 	entityRestrict := &TestEntityDeleteReferenceRefRestrict{}
-	entityRestrict.Init(entityRestrict, engine)
+	engine.RegisterNewEntity(entityRestrict)
 	entityRestrict.ReferenceOne.ID = 1
-	err = engine.Flush(entityRestrict)
+	err = entityRestrict.Flush()
 	assert.Nil(t, err)
 
 	entity1.MarkToDelete()
-	err = engine.Flush(entity1)
+	err = entity1.Flush()
 	assert.NotNil(t, err)
 	assert.IsType(t, &orm.ForeignKeyError{}, err)
 	assert.Equal(t, "test:TestEntityDeleteReferenceRefRestrict:ReferenceOne", err.(*orm.ForeignKeyError).Constraint)
 
 	entityCascade := &TestEntityDeleteReferenceRefCascade{}
 	entityCascade2 := &TestEntityDeleteReferenceRefCascade{}
-	entityCascade.Init(entityCascade, engine)
-	entityCascade2.Init(entityCascade2, engine)
+	engine.RegisterNewEntity(entityCascade)
+	engine.RegisterNewEntity(entityCascade2)
 	entityCascade.ReferenceOne.ID = 2
 	entityCascade2.ReferenceOne.ID = 2
-	err = engine.Flush(entityCascade, entityCascade2)
+	err = entityCascade.Flush()
+	assert.Nil(t, err)
+	err = entityCascade2.Flush()
 	assert.Nil(t, err)
 
 	var rows []*TestEntityDeleteReferenceRefCascade
@@ -60,7 +66,7 @@ func TestDeleteReference(t *testing.T) {
 	assert.Equal(t, 2, total)
 
 	entity2.MarkToDelete()
-	err = engine.Flush(entity2)
+	err = entity2.Flush()
 	assert.Nil(t, err)
 
 	total, err = engine.CachedSearch(&rows, "IndexReferenceOne", nil, 2)

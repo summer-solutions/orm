@@ -10,7 +10,7 @@ func initIfNeeded(engine *Engine, value reflect.Value, withReferences bool) *ORM
 	orm := address.Interface().(*ORM)
 	if orm.dBData == nil {
 		tableSchema := getTableSchema(engine.config, elem.Type())
-		tableSchema.engine = engine
+		orm.engine = engine
 		orm.dBData = make(map[string]interface{})
 		orm.elem = elem
 		orm.value = value

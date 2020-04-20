@@ -21,11 +21,12 @@ type TestEntityFlusherInCacheLocal struct {
 }
 
 func TestFlushInCache(t *testing.T) {
-	entityRedis := TestEntityFlusherInCacheRedis{Name: "Name", Age: 18}
-	entityLocal := TestEntityFlusherInCacheLocal{}
+	entityRedis := &TestEntityFlusherInCacheRedis{Name: "Name", Age: 18}
+	entityLocal := &TestEntityFlusherInCacheLocal{}
 	engine := PrepareTables(t, &orm.Registry{}, entityRedis, entityLocal)
 
-	err := engine.Flush(&entityRedis)
+	engine.RegisterNewEntity(entityRedis)
+	err := entityRedis.Flush()
 	assert.Nil(t, err)
 
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
@@ -55,7 +56,7 @@ func TestFlushInCache(t *testing.T) {
 	entityRedis.Name = "Name 2"
 	entityRedis.Age = 10
 
-	err = engine.FlushInCache(&entityLocal, &entityRedis)
+	err = engine.FlushInCache(entityLocal, entityRedis)
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 1)
 	assert.Equal(t, "INSERT INTO TestEntityFlusherInCacheLocal() VALUES () []", DBLogger.Queries[0])

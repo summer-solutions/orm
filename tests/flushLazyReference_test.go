@@ -19,15 +19,24 @@ func TestFlushLazyReference(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	entity1 := &TestEntityFlushLazyReference{Name: "Name 1"}
-	entity1.Init(entity1, engine)
+	engine.RegisterNewEntity(entity1)
 	entity2 := &TestEntityFlushLazyReference{Name: "Name 2"}
+	engine.RegisterNewEntity(entity2)
 	entity3 := &TestEntityFlushLazyReference{Name: "Name 3"}
+	engine.RegisterNewEntity(entity3)
 	entity4 := &TestEntityFlushLazyReference{Name: "Name 4"}
+	engine.RegisterNewEntity(entity4)
 
 	entity1.ReferenceOne = entity2
-
-	err := engine.Flush(entity1, entity2, entity3, entity4)
+	err := entity1.Flush()
 	assert.Nil(t, err)
+	err = entity2.Flush()
+	assert.Nil(t, err)
+	err = entity3.Flush()
+	assert.Nil(t, err)
+	err = entity4.Flush()
+	assert.Nil(t, err)
+
 	assert.Equal(t, uint(2), entity1.ReferenceOne.ID)
 
 	err = engine.GetByID(1, &entity)

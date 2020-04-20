@@ -9,15 +9,24 @@ type ORM struct {
 	value       reflect.Value
 	elem        reflect.Value
 	tableSchema *TableSchema
+	engine      *Engine
 }
 
-func (orm ORM) Init(entity interface{}, engine *Engine) {
-	initIfNeeded(engine, reflect.ValueOf(entity), true)
+func (orm ORM) GetTableSchema() *TableSchema {
+	return orm.tableSchema
 }
 
 func (orm ORM) IsDirty() bool {
 	is, _, _ := getDirtyBind(orm.elem)
 	return is
+}
+
+func (orm ORM) Flush() error {
+	return flush(orm.engine, false, orm.value)
+}
+
+func (orm ORM) FlushLazy() error {
+	return flush(orm.engine, true, orm.value)
 }
 
 func (orm ORM) MarkToDelete() {

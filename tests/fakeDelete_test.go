@@ -22,12 +22,14 @@ func TestFakeDelete(t *testing.T) {
 	engine := PrepareTables(t, registry, TestEntityFakeDelete{})
 
 	entity := &TestEntityFakeDelete{}
+	engine.RegisterNewEntity(entity)
 	entity.Name = "one"
-	err := engine.Flush(entity)
+	err := entity.Flush()
 	assert.Nil(t, err)
 	entity2 := &TestEntityFakeDelete{}
+	engine.RegisterNewEntity(entity2)
 	entity2.Name = "two"
-	err = engine.Flush(entity2)
+	err = entity2.Flush()
 	assert.Nil(t, err)
 
 	var rows []*TestEntityFakeDelete
@@ -41,7 +43,7 @@ func TestFakeDelete(t *testing.T) {
 	entity2.MarkToDelete()
 	assert.True(t, entity2.FakeDelete)
 	assert.True(t, entity2.IsDirty())
-	err = engine.Flush(entity2)
+	err = entity2.Flush()
 	assert.Nil(t, err)
 	assert.False(t, entity2.IsDirty())
 
@@ -67,14 +69,14 @@ func TestFakeDelete(t *testing.T) {
 	assert.Equal(t, 0, total)
 
 	entity2.ForceMarkToDelete()
-	err = engine.Flush(entity2)
+	err = entity2.Flush()
 	assert.Nil(t, err)
 	has, err := engine.TryByID(2, entity2)
 	assert.Nil(t, err)
 	assert.False(t, has)
 
 	entity.MarkToDelete()
-	err = engine.Flush(entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 
 	has, err = engine.SearchOne(orm.NewWhere("1"), entity)

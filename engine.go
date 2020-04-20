@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/bsm/redislock"
@@ -44,6 +45,14 @@ func NewEngine(config *Config) *Engine {
 	return e
 }
 
+func (e *Engine) RegisterNewEntity(entityReference interface{}) {
+	value := reflect.ValueOf(entityReference)
+	if value.Kind() != reflect.Ptr {
+		panic(fmt.Errorf("registered entity '%s' is not a poninter", value.Type().String()))
+	}
+	initIfNeeded(e, value, true)
+}
+
 func (e *Engine) GetConfig() *Config {
 	return e.config
 }
@@ -82,14 +91,6 @@ func (e *Engine) GetLocker(code ...string) (locker *Locker, has bool) {
 	}
 	locker, has = e.locks[dbCode]
 	return locker, has
-}
-
-func (e *Engine) Flush(entities ...interface{}) error {
-	return flush(e, false, entities...)
-}
-
-func (e *Engine) FlushLazy(entities ...interface{}) error {
-	return flush(e, true, entities...)
 }
 
 func (e *Engine) SearchWithCount(where *Where, pager *Pager, entities interface{}, references ...string) (totalRows int, err error) {

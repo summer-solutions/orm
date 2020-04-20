@@ -1,19 +1,30 @@
 package orm
 
+import "reflect"
+
 type Flusher struct {
 	Lazy     bool
+	values   []reflect.Value
 	entities []interface{}
 }
 
 type AutoFlusher struct {
 	Limit        int
 	Lazy         bool
+	values       []reflect.Value
 	entities     []interface{}
 	currentIndex int
 }
 
 func (f *Flusher) RegisterEntity(entities ...interface{}) {
-	f.entities = append(f.entities, entities...)
+	for _, entity := range entities {
+		f.entities = append(f.entities, entity)
+		f.values = append(f.values, reflect.ValueOf(entity))
+	}
+}
+
+func (f *Flusher) GetEntities() []interface{} {
+	return f.entities
 }
 
 func (f *AutoFlusher) RegisterEntity(engine *Engine, entities ...interface{}) error {
@@ -22,34 +33,39 @@ func (f *AutoFlusher) RegisterEntity(engine *Engine, entities ...interface{}) er
 	}
 	for _, entity := range entities {
 		if f.currentIndex == f.Limit {
-			_, err := f.Flush(engine)
+			err := f.Flush(engine)
 			if err != nil {
 				return err
 			}
 		}
+		f.values = append(f.values, reflect.ValueOf(entity))
 		f.entities = append(f.entities, entity)
 		f.currentIndex = f.currentIndex + 1
 	}
 	return nil
 }
 
-func (f *Flusher) Flush(engine *Engine) ([]interface{}, error) {
-	err := flush(engine, f.Lazy, f.entities...)
+func (f *Flusher) Flush(engine *Engine) error {
+	err := flush(engine, f.Lazy, f.values...)
 	if err != nil {
-		return f.entities, err
+		return err
 	}
-	toReturn := f.entities
 	f.entities = make([]interface{}, 0)
-	return toReturn, nil
+	f.values = make([]reflect.Value, 0)
+	return nil
 }
 
-func (f *AutoFlusher) Flush(engine *Engine) ([]interface{}, error) {
-	err := flush(engine, f.Lazy, f.entities...)
+func (f *AutoFlusher) Flush(engine *Engine) error {
+	err := flush(engine, f.Lazy, f.values...)
 	if err != nil {
-		return f.entities, err
+		return err
 	}
 	f.currentIndex = 0
-	toReturn := f.entities
 	f.entities = make([]interface{}, 0)
-	return toReturn, nil
+	f.values = make([]reflect.Value, 0)
+	return nil
+}
+
+func (f *AutoFlusher) GetEntities() []interface{} {
+	return f.entities
 }

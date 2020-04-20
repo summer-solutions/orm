@@ -62,7 +62,7 @@ func TestFlush(t *testing.T) {
 		flusher.RegisterEntity(&e)
 		entities[i-1] = &e
 	}
-	_, err := flusher.Flush(engine)
+	err := flusher.Flush(engine)
 	assert.Nil(t, err)
 	for i := 1; i < 10; i++ {
 		testEntity := entities[i-1]
@@ -82,7 +82,10 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, entities[1].IsDirty())
 	assert.True(t, entities[7].IsDirty())
-	err = engine.Flush(entities[1], entities[7])
+	err = entities[1].Flush()
+	assert.Nil(t, err)
+	err = entities[7].Flush()
+	assert.Nil(t, err)
 	assert.Nil(t, err)
 
 	var edited1 TestEntityFlush
@@ -113,14 +116,18 @@ func TestFlush(t *testing.T) {
 	edited1.Name = "Name 2.2"
 	toDelete.MarkToDelete()
 	newEntity := &TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
-	newEntity.Init(newEntity, engine)
+	engine.RegisterNewEntity(newEntity)
 	assert.True(t, edited1.IsDirty())
 	assert.Nil(t, err)
 	assert.True(t, edited2.IsDirty())
 	assert.Nil(t, err)
 	assert.True(t, newEntity.IsDirty())
 
-	err = engine.Flush(&edited1, newEntity, &toDelete)
+	err = edited1.Flush()
+	assert.Nil(t, err)
+	err = newEntity.Flush()
+	assert.Nil(t, err)
+	err = toDelete.Flush()
 	assert.Nil(t, err)
 
 	assert.False(t, edited1.IsDirty())
@@ -141,12 +148,12 @@ func TestFlush(t *testing.T) {
 }
 
 func TestFlushErrors(t *testing.T) {
-	entity := TestEntityErrors{Name: "Name"}
+	entity := &TestEntityErrors{Name: "Name"}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
-	entity.Init(&entity, engine)
+	engine.RegisterNewEntity(entity)
 
 	entity.ReferenceOne.ID = 2
-	err := engine.Flush(&entity)
+	err := entity.Flush()
 	assert.NotNil(t, err)
 	keyError, is := err.(*orm.ForeignKeyError)
 	assert.True(t, is)
@@ -154,11 +161,12 @@ func TestFlushErrors(t *testing.T) {
 	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`TestEntityErrors`, CONSTRAINT `test:TestEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `TestEntityErrors` (`ID`))", keyError.Error())
 
 	entity.ReferenceOne.ID = 0
-	err = engine.Flush(&entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 
-	entity = TestEntityErrors{Name: "Name"}
-	err = engine.Flush(&entity)
+	entity = &TestEntityErrors{Name: "Name"}
+	engine.RegisterNewEntity(entity)
+	err = entity.Flush()
 	assert.NotNil(t, err)
 	duplicatedError, is := err.(*orm.DuplicatedKeyError)
 	assert.True(t, is)

@@ -26,19 +26,12 @@ type Config struct {
 	enums                map[string]reflect.Value
 }
 
-func (c *Config) GetTableSchema(entityOrTypeOrName interface{}) (tableSchema *TableSchema, has bool) {
-	asString, is := entityOrTypeOrName.(string)
-	var val interface{}
-	if is {
-		t, has := c.getEntityType(asString)
-		if !has {
-			return nil, false
-		}
-		val = t
-	} else {
-		val = entityOrTypeOrName
+func (c *Config) GetTableSchema(entityName string) (tableSchema *TableSchema, has bool) {
+	t, has := c.getEntityType(entityName)
+	if !has {
+		return nil, false
 	}
-	tableSchema = getTableSchema(c, val)
+	tableSchema = getTableSchema(c, t)
 	return tableSchema, tableSchema != nil
 }
 

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -28,15 +29,14 @@ func TestEntityByIDsRedis(t *testing.T) {
 	flusher := orm.Flusher{}
 	for i := 1; i <= 10; i++ {
 		e := &TestEntityByIDsRedisCache{Name: "Name " + strconv.Itoa(i)}
-		e.Init(e, engine)
+		engine.RegisterNewEntity(e)
 		flusher.RegisterEntity(e)
 		e2 := &TestEntityByIDsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
-		e2.Init(e2, engine)
+		engine.RegisterNewEntity(e2)
 		flusher.RegisterEntity(e2)
 	}
-	response, err := flusher.Flush(engine)
+	err := flusher.Flush(engine)
 	assert.Nil(t, err)
-	assert.Len(t, response, 20)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool, has := engine.GetMysql()
@@ -97,7 +97,12 @@ func BenchmarkGetByIDsRedis(b *testing.B) {
 	var entity TestEntityByIDsRedisCache
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
-	_ = engine.Flush(&TestEntityByIDsRedisCache{Name: "Hi 1"}, &TestEntityByIDsRedisCache{Name: "Hi 2"}, &TestEntityByIDsRedisCache{Name: "Hi 3"})
+	for i := 1; i <= 3; i++ {
+		e := &TestEntityByIDsRedisCache{Name: fmt.Sprintf("Name %d", i)}
+		err := e.Flush()
+		assert.Nil(b, err)
+	}
+
 	var found []TestEntityByIDsRedisCache
 	for n := 0; n < b.N; n++ {
 		_, _ = engine.TryByIDs([]uint64{1, 2, 3}, &found)

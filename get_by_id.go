@@ -9,7 +9,22 @@ import (
 func tryByID(engine *Engine, id uint64, entity interface{}, references ...string) (found bool, err error) {
 	val := reflect.ValueOf(entity)
 	elem := val.Elem()
+	if !elem.IsValid() {
+		val = reflect.New(reflect.TypeOf(entity).Elem())
+		elem = val.Elem()
+		entity = val.Interface()
+	}
 	entityType := elem.Type()
+	for {
+		if entityType.Kind() == reflect.Ptr {
+			entityType = entityType.Elem()
+			val = val.Elem()
+			elem = val.Elem()
+			entity = val.Interface()
+		} else {
+			break
+		}
+	}
 	schema := getTableSchema(engine.config, entityType)
 	if schema == nil {
 		return false, EntityNotRegisteredError{Name: entityType.String()}

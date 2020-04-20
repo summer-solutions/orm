@@ -35,8 +35,7 @@ func (e *TestEntityInterfaces) Validate() error {
 	return nil
 }
 
-func (e *TestEntityInterfaces) AfterSaved(engine *orm.Engine) error {
-	_ = engine
+func (e *TestEntityInterfaces) AfterSaved(_ *orm.Engine) error {
 	e.Calculated = int(e.Uint) + int(e.ReferenceOne.ID)
 	return nil
 }
@@ -44,25 +43,27 @@ func (e *TestEntityInterfaces) AfterSaved(engine *orm.Engine) error {
 func TestInterfaces(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, TestEntityInterfaces{}, TestEntityInterfacesRef{})
 
-	err := engine.Flush(&TestEntityInterfacesRef{})
+	e := &TestEntityInterfacesRef{}
+	engine.RegisterNewEntity(e)
+	err := e.Flush()
 	assert.Nil(t, err)
 
 	entity := &TestEntityInterfaces{}
-	entity.Init(entity, engine)
+	engine.RegisterNewEntity(entity)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)
 	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
 
-	err = engine.Flush(entity)
+	err = entity.Flush()
 	assert.NotNil(t, err)
 	assert.Error(t, err, "uint too low")
 	entity.Uint = 5
-	err = engine.Flush(entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.Equal(t, 6, entity.Calculated)
 
 	entity.Uint = 10
-	err = engine.Flush(entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.Equal(t, 11, entity.Calculated)
 }

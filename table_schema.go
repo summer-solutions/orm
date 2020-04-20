@@ -21,7 +21,6 @@ type cachedQueryDefinition struct {
 type TableSchema struct {
 	TableName        string
 	MysqlPoolName    string
-	engine           *Engine
 	t                reflect.Type
 	Tags             map[string]map[string]string
 	cachedIndexes    map[string]*cachedQueryDefinition
@@ -37,15 +36,7 @@ type TableSchema struct {
 	hasFakeDelete    bool
 }
 
-func getTableSchema(c *Config, entityOrType interface{}) *TableSchema {
-	asType, ok := entityOrType.(reflect.Type)
-	if ok {
-		return getTableSchemaFromValue(c, asType)
-	}
-	return getTableSchemaFromValue(c, reflect.TypeOf(entityOrType))
-}
-
-func getTableSchemaFromValue(c *Config, entityType reflect.Type) *TableSchema {
+func getTableSchema(c *Config, entityType reflect.Type) *TableSchema {
 	return c.tableSchemas[entityType]
 }
 
@@ -144,7 +135,7 @@ func (tableSchema *TableSchema) GetUsage(config *Config) (map[reflect.Type][]str
 	results := make(map[reflect.Type][]string)
 	if config.entities != nil {
 		for _, t := range config.entities {
-			schema, _ := config.GetTableSchema(t)
+			schema := getTableSchema(config, t)
 			for _, columnName := range schema.refOne {
 				ref, has := schema.Tags[columnName]["ref"]
 				if has && ref == tableSchema.t.String() {
