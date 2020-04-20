@@ -3,8 +3,6 @@ package orm
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/bsm/redislock"
 )
 
 type Engine struct {
@@ -13,36 +11,6 @@ type Engine struct {
 	localCache map[string]*LocalCache
 	redis      map[string]*RedisCache
 	locks      map[string]*Locker
-}
-
-func NewEngine(config *Config) *Engine {
-	e := &Engine{config: config}
-	e.dbs = make(map[string]*DB)
-	if e.config.sqlClients != nil {
-		for key, val := range e.config.sqlClients {
-			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName, db: &sqlDBStandard{db: val.db}}
-		}
-	}
-	e.localCache = make(map[string]*LocalCache)
-	if e.config.localCacheContainers != nil {
-		for key, val := range e.config.localCacheContainers {
-			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, ttl: val.ttl}
-		}
-	}
-	e.redis = make(map[string]*RedisCache)
-	if e.config.redisServers != nil {
-		for key, val := range e.config.redisServers {
-			e.redis[key] = &RedisCache{engine: e, code: val.code, client: val.client}
-		}
-	}
-	e.locks = make(map[string]*Locker)
-	if e.config.lockServers != nil {
-		for key, val := range e.config.lockServers {
-			locker := redislock.New(e.config.redisServers[val].client)
-			e.locks[key] = &Locker{locker: locker}
-		}
-	}
-	return e
 }
 
 func (e *Engine) RegisterNewEntity(entityReference interface{}) {

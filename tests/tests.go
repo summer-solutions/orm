@@ -20,7 +20,7 @@ func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}
 	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
 
-	engine := orm.NewEngine(config)
+	engine := config.CreateEngine()
 	assert.Equal(t, engine.GetConfig(), config)
 	redisCache, has := engine.GetRedis()
 	assert.True(t, has)

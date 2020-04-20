@@ -14,7 +14,7 @@ func TestLock(t *testing.T) {
 	registry.RegisterLocker("default", "default")
 	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
-	engine := orm.NewEngine(config)
+	engine := config.CreateEngine()
 	locker, has := engine.GetLocker()
 	assert.True(t, has)
 

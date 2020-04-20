@@ -12,7 +12,7 @@ func TestConfig(t *testing.T) {
 	registry := orm.Registry{}
 	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
-	engine := orm.NewEngine(config)
+	engine := config.CreateEngine()
 
 	var entity time.Time
 

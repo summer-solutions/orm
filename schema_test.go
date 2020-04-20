@@ -97,7 +97,7 @@ func TestSchema(t *testing.T) {
 
 	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
-	engine := NewEngine(config)
+	engine := config.CreateEngine()
 
 	tableSchema, _ := config.GetTableSchema("orm.testEntitySchema")
 	err = tableSchema.DropTable(engine)

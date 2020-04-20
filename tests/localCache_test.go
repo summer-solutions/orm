@@ -12,7 +12,7 @@ func TestGetSetLocal(t *testing.T) {
 	registry.RegisterLocalCache(10)
 	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
-	engine := orm.NewEngine(config)
+	engine := config.CreateEngine()
 
 	testLogger := &TestCacheLogger{}
 	cache, has := engine.GetLocalCache()

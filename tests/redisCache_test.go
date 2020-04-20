@@ -134,7 +134,7 @@ func prepareRedis(t *testing.T) *orm.RedisCache {
 	registry.RegisterRedis("localhost:6379", 15)
 	config, err := registry.CreateConfig()
 	assert.Nil(t, err)
-	engine := orm.NewEngine(config)
+	engine := config.CreateEngine()
 	r, has := engine.GetRedis()
 	assert.True(t, has)
 	err = r.FlushDB()
