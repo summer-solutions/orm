@@ -68,6 +68,19 @@ func (c *Config) GetTableSchema(entityName string) (tableSchema *TableSchema, ha
 	return tableSchema, tableSchema != nil
 }
 
+func (c *Config) GetTableSchemaForEntity(entity Entity) *TableSchema {
+	t := reflect.TypeOf(entity)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	tableSchema := getTableSchema(c, t)
+	if tableSchema == nil {
+		panic(fmt.Errorf("unregistered entity '%s' is not a poninter", t.String()))
+	}
+	return tableSchema
+}
+
+
 func (c *Config) GetDirtyQueueCodes() []string {
 	codes := make([]string, len(c.dirtyQueues))
 	i := 0
