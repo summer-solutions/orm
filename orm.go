@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -11,7 +12,7 @@ type Entity interface {
 	FlushLazy() error
 	MarkToDelete()
 	Loaded() bool
-	Load(engine *Engine) (has bool, err error)
+	Load(engine *Engine) error
 	ForceMarkToDelete()
 }
 
@@ -24,23 +25,35 @@ type ORM struct {
 }
 
 func (orm ORM) GetTableSchema() TableSchema {
+	orm.checkIsRegistered()
 	return orm.tableSchema
 }
 
+// Returns true if at least one filed needs to be saved in database
 func (orm ORM) IsDirty() bool {
+	orm.checkIsRegistered()
 	is, _, _ := getDirtyBind(orm.elem)
 	return is
 }
 
+// Save data in database (only if IsDirty() is true)
 func (orm ORM) Flush() error {
+	orm.checkIsRegistered()
 	return flush(orm.engine, false, orm.value)
 }
 
+// Add changes to queue and all changes will be saved in database in separate thread
 func (orm ORM) FlushLazy() error {
+	orm.checkIsRegistered()
 	return flush(orm.engine, true, orm.value)
 }
 
+// Mark entity to be deleted from database.
+// Delete query is executed in Flush() method.
+// If entity has FakeDelete column row will be kept in database
+// with flag that is deleted.
 func (orm ORM) MarkToDelete() {
+	orm.checkIsRegistered()
 	if orm.tableSchema.hasFakeDelete {
 		orm.elem.FieldByName("FakeDelete").SetBool(true)
 		return
@@ -48,19 +61,41 @@ func (orm ORM) MarkToDelete() {
 	orm.dBData["_delete"] = true
 }
 
+// Mark entity to be deleted from database even if it has FakeDelete column.
+func (orm ORM) ForceMarkToDelete() {
+	orm.checkIsRegistered()
+	orm.dBData["_delete"] = true
+}
+
+// Returns false if entity is not loaded from DB.
+// It can happen when you loaded entity and it's reference is not loaded from DB.
 func (orm ORM) Loaded() bool {
+	if orm.dBData == nil {
+		return false
+	}
 	_, has := orm.dBData["_loaded"]
 	return has
 }
 
-func (orm ORM) Load(engine *Engine) (has bool, err error) {
+// You should execute for entities in one reference that are not loaded.
+// This method do nothing if entity is already loaded or reference has ID = 0
+// Example:
+// engine.LoadById(1, &user)
+// user.School.Load(engine)
+func (orm ORM) Load(engine *Engine) error {
+	if orm.Loaded() {
+		return nil
+	}
 	id := orm.elem.Field(1).Uint()
 	if id == 0 {
-		return false, nil
+		return nil
 	}
-	return engine.LoadByID(id, orm.value.Interface().(Entity))
+	_, err := engine.LoadByID(id, orm.value.Interface().(Entity))
+	return err
 }
 
-func (orm ORM) ForceMarkToDelete() {
-	orm.dBData["_delete"] = true
+func (orm ORM) checkIsRegistered() {
+	if orm.tableSchema == nil {
+		panic(fmt.Errorf("unregistered struct. run engine.RegisterEntity(entity) before entity.Flush()"))
+	}
 }
