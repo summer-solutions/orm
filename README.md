@@ -297,6 +297,7 @@ You should also run it once when your application starts.
     localCache, has := tableSchema.GetLocalCache(engine) 
     redisCache, has := tableSchema.GetRedisCache(engine)
     columns := tableSchema.GetColumns()
+    tableSchema.GetTableName()
  }
  
  ```
@@ -363,7 +364,7 @@ func main() {
 
     /* flush can return 2 special errors */
     orm.DuplicatedKeyError{} //when unique index is broken
-    orm.ForeignKeyError{} //whne foreign key is broken
+    orm.ForeignKeyError{} //when foreign key is broken
 }
 
 ```
