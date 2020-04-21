@@ -77,7 +77,7 @@ func (orm ORM) Loaded() bool {
 	return has
 }
 
-// You should execute for entities in one reference that are not loaded.
+// You should execute it in references that are not loaded.
 // This method do nothing if entity is already loaded or reference has ID = 0
 // Example:
 // engine.LoadById(1, &user)
