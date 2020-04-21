@@ -26,16 +26,13 @@ func TestEntityByIDsRedis(t *testing.T) {
 	var entityRef TestEntityByIDsRedisCacheRef
 	engine := PrepareTables(t, &orm.Registry{}, entityRef, entity)
 
-	flusher := orm.Flusher{}
 	for i := 1; i <= 10; i++ {
 		e := &TestEntityByIDsRedisCache{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterEntity(e)
-		flusher.RegisterEntity(e)
+		engine.TrackEntity(e)
 		e2 := &TestEntityByIDsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterEntity(e2)
-		flusher.RegisterEntity(e2)
+		engine.TrackEntity(e2)
 	}
-	err := flusher.Flush(engine)
+	err := engine.FlushTrackedEntities()
 	assert.Nil(t, err)
 
 	DBLogger := &TestDatabaseLogger{}

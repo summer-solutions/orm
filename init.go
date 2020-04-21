@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -10,6 +11,9 @@ func initIfNeeded(engine *Engine, value reflect.Value, withReferences bool) *ORM
 	orm := address.Interface().(*ORM)
 	if orm.dBData == nil {
 		tableSchema := getTableSchema(engine.registry, elem.Type())
+		if tableSchema == nil {
+			panic(fmt.Errorf("entity '%s' is registered", value.Type().String()))
+		}
 		orm.engine = engine
 		orm.dBData = make(map[string]interface{})
 		orm.elem = elem

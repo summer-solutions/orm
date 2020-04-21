@@ -6,12 +6,14 @@ import (
 )
 
 type Engine struct {
-	registry    *validatedRegistry
-	dbs         map[string]*DB
-	localCache  map[string]*LocalCache
-	redis       map[string]*RedisCache
-	locks       map[string]*Locker
-	logMetaData map[string]interface{}
+	registry               *validatedRegistry
+	dbs                    map[string]*DB
+	localCache             map[string]*LocalCache
+	redis                  map[string]*RedisCache
+	locks                  map[string]*Locker
+	logMetaData            map[string]interface{}
+	trackedEntities        []reflect.Value
+	trackedEntitiesCounter int
 }
 
 func (e *Engine) SetLogMetaData(key string, value interface{}) {
@@ -21,12 +23,30 @@ func (e *Engine) SetLogMetaData(key string, value interface{}) {
 	e.logMetaData[key] = value
 }
 
-func (e *Engine) RegisterEntity(entity Entity) {
-	value := reflect.ValueOf(entity)
-	if value.Kind() != reflect.Ptr {
-		panic(fmt.Errorf("registered entity '%s' is not a poninter", value.Type().String()))
+func (e *Engine) RegisterEntity(entity ...Entity) {
+	for _, element := range entity {
+		initIfNeeded(e, e.getValue(element), true)
 	}
-	initIfNeeded(e, value, true)
+}
+
+func (e *Engine) TrackEntity(entity ...Entity) {
+	for _, element := range entity {
+		value := e.getValue(element)
+		initIfNeeded(e, value, true)
+		e.trackedEntities = append(e.trackedEntities, value)
+		e.trackedEntitiesCounter++
+		if e.trackedEntitiesCounter == 100000 {
+			panic(fmt.Errorf("track limit 100000 excedded"))
+		}
+	}
+}
+
+func (e *Engine) FlushTrackedEntities() error {
+	return e.flushTrackedEntities(false)
+}
+
+func (e *Engine) LazyTrackedEntities() error {
+	return e.flushTrackedEntities(false)
 }
 
 func (e *Engine) GetRegistry() ValidatedRegistry {
@@ -150,4 +170,23 @@ func (e *Engine) RegisterRedisLogger(logger CacheLogger) {
 
 func (e *Engine) getRedisForQueue(code string) *RedisCache {
 	return e.GetRedis(code + "_queue")
+}
+
+func (e *Engine) getValue(entity Entity) reflect.Value {
+	value := reflect.ValueOf(entity)
+	if value.Kind() != reflect.Ptr {
+		panic(fmt.Errorf("registered entity '%s' is not a poninter", value.Type().String()))
+	}
+	initIfNeeded(e, value, true)
+	return value
+}
+
+func (e *Engine) flushTrackedEntities(lazy bool) error {
+	err := flush(e, lazy, e.trackedEntities...)
+	if err != nil {
+		return err
+	}
+	e.trackedEntities = make([]reflect.Value, 0)
+	e.trackedEntitiesCounter = 0
+	return nil
 }

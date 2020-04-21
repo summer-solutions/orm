@@ -41,6 +41,7 @@ type validatedRegistry struct {
 func (r *validatedRegistry) CreateEngine() *Engine {
 	e := &Engine{registry: r}
 	e.dbs = make(map[string]*DB)
+	e.trackedEntities = make([]reflect.Value, 0)
 	if e.registry.sqlClients != nil {
 		for key, val := range e.registry.sqlClients {
 			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName, db: &sqlDBStandard{db: val.db}}
