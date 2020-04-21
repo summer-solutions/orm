@@ -49,6 +49,10 @@ func (e *Engine) LazyTrackedEntities() error {
 	return e.flushTrackedEntities(false)
 }
 
+func (e *Engine) ClearTrackedEntities() {
+	e.trackedEntities = make([]reflect.Value, 0)
+}
+
 func (e *Engine) GetRegistry() ValidatedRegistry {
 	return e.registry
 }
