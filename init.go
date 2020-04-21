@@ -18,7 +18,7 @@ func initIfNeeded(engine *Engine, value reflect.Value, withReferences bool) *ORM
 		if withReferences {
 			for _, code := range tableSchema.refOne {
 				reference := tableSchema.Tags[code]["ref"]
-				t, _ := engine.registry.entities[reference]
+				t := engine.registry.entities[reference]
 				n := reflect.New(t)
 				initIfNeeded(engine, n, false)
 				elem.FieldByName(code).Set(n)
