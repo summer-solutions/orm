@@ -16,7 +16,16 @@ func (e EntityNotRegisteredError) Error() string {
 	return fmt.Sprintf("entity '%s' is not registered", strings.Trim(e.Name, "*[]"))
 }
 
-type Config struct {
+type ValidatedRegistry interface {
+	CreateEngine() *Engine
+	GetTableSchema(entityName string) *TableSchema
+	GetTableSchemaForEntity(entity Entity) *TableSchema
+	GetDirtyQueueCodes() []string
+	GetLogQueueCodes() []string
+	GetLazyQueueCodes() []string
+}
+
+type validatedRegistry struct {
 	tableSchemas         map[reflect.Type]*TableSchema
 	entities             map[string]reflect.Type
 	sqlClients           map[string]*DBConfig
@@ -29,92 +38,82 @@ type Config struct {
 	enums                map[string]reflect.Value
 }
 
-func (c *Config) CreateEngine() *Engine {
-	e := &Engine{config: c}
+func (r *validatedRegistry) CreateEngine() *Engine {
+	e := &Engine{registry: r}
 	e.dbs = make(map[string]*DB)
-	if e.config.sqlClients != nil {
-		for key, val := range e.config.sqlClients {
+	if e.registry.sqlClients != nil {
+		for key, val := range e.registry.sqlClients {
 			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName, db: &sqlDBStandard{db: val.db}}
 		}
 	}
 	e.localCache = make(map[string]*LocalCache)
-	if e.config.localCacheContainers != nil {
-		for key, val := range e.config.localCacheContainers {
+	if e.registry.localCacheContainers != nil {
+		for key, val := range e.registry.localCacheContainers {
 			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, ttl: val.ttl}
 		}
 	}
 	e.redis = make(map[string]*RedisCache)
-	if e.config.redisServers != nil {
-		for key, val := range e.config.redisServers {
+	if e.registry.redisServers != nil {
+		for key, val := range e.registry.redisServers {
 			e.redis[key] = &RedisCache{engine: e, code: val.code, client: val.client}
 		}
 	}
 	e.locks = make(map[string]*Locker)
-	if e.config.lockServers != nil {
-		for key, val := range e.config.lockServers {
-			locker := redislock.New(e.config.redisServers[val].client)
+	if e.registry.lockServers != nil {
+		for key, val := range e.registry.lockServers {
+			locker := redislock.New(e.registry.redisServers[val].client)
 			e.locks[key] = &Locker{locker: locker}
 		}
 	}
 	return e
 }
 
-func (c *Config) GetTableSchema(entityName string) (tableSchema *TableSchema, has bool) {
-	t, has := c.getEntityType(entityName)
+func (r *validatedRegistry) GetTableSchema(entityName string) *TableSchema {
+	t, has := r.entities[entityName]
 	if !has {
-		return nil, false
+		return nil
 	}
-	tableSchema = getTableSchema(c, t)
-	return tableSchema, tableSchema != nil
+	return getTableSchema(r, t)
 }
 
-func (c *Config) GetTableSchemaForEntity(entity Entity) *TableSchema {
+func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) *TableSchema {
 	t := reflect.TypeOf(entity)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-	tableSchema := getTableSchema(c, t)
+	tableSchema := getTableSchema(r, t)
 	if tableSchema == nil {
-		panic(fmt.Errorf("unregistered entity '%s' is not a poninter", t.String()))
+		panic(EntityNotRegisteredError{Name: t.String()})
 	}
 	return tableSchema
 }
 
-
-func (c *Config) GetDirtyQueueCodes() []string {
-	codes := make([]string, len(c.dirtyQueues))
+func (r *validatedRegistry) GetDirtyQueueCodes() []string {
+	codes := make([]string, len(r.dirtyQueues))
 	i := 0
-	for code := range c.dirtyQueues {
+	for code := range r.dirtyQueues {
 		codes[i] = code
 		i++
 	}
 	return codes
 }
 
-func (c *Config) GetLogQueueCodes() []string {
-	codes := make([]string, len(c.logQueues))
+func (r *validatedRegistry) GetLogQueueCodes() []string {
+	codes := make([]string, len(r.logQueues))
 	i := 0
-	for code := range c.logQueues {
+	for code := range r.logQueues {
 		codes[i] = code
 		i++
 	}
 	return codes
 }
 
-func (c *Config) GetLazyQueueCodes() []string {
-	codes := make([]string, len(c.lazyQueuesCodes))
+func (r *validatedRegistry) GetLazyQueueCodes() []string {
+	codes := make([]string, len(r.lazyQueuesCodes))
 	i := 0
-	for code := range c.lazyQueuesCodes {
+	for code := range r.lazyQueuesCodes {
 		codes[i] = code
 		i++
 	}
 	return codes
-}
-
-func (c *Config) getEntityType(name string) (t reflect.Type, has bool) {
-	t, is := c.entities[name]
-	if !is {
-		return nil, false
-	}
-	return t, true
 }

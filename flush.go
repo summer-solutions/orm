@@ -147,7 +147,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				}
 				data := injectBind(value, bind)
 				localCache, hasLocalCache := schema.GetLocalCache(engine)
-				redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
+				redisCache, hasRedis := schema.GetRedisCache(engine)
 				if hasLocalCache {
 					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(v.Interface(), schema))
 					keys := getCacheQueriesKeys(schema, bind, orm.dBData, false)
@@ -168,7 +168,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		}
 	}
 	for typeOf, values := range insertKeys {
-		schema := getTableSchema(engine.config, typeOf)
+		schema := getTableSchema(engine.registry, typeOf)
 		finalValues := make([]string, len(values))
 		for key, val := range values {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
@@ -194,7 +194,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			id = uint64(insertID)
 		}
 		localCache, hasLocalCache := schema.GetLocalCache(engine)
-		redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
+		redisCache, hasRedis := schema.GetRedisCache(engine)
 		for key, value := range insertReflectValues[typeOf] {
 			elem := value.Elem()
 			entity := value.Interface()
@@ -228,7 +228,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		}
 	}
 	for typeOf, deleteBinds := range deleteBinds {
-		schema := getTableSchema(engine.config, typeOf)
+		schema := getTableSchema(engine.registry, typeOf)
 		ids := make([]interface{}, len(deleteBinds))
 		i := 0
 		for id := range deleteBinds {
@@ -241,14 +241,14 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		if lazy {
 			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, ids)
 		} else {
-			usage, err := schema.GetUsage(engine.config)
+			usage, err := schema.GetUsage(engine.registry)
 			if err != nil {
 				return err
 			}
 			if len(usage) > 0 {
 				for refT, refColumns := range usage {
 					for _, refColumn := range refColumns {
-						refSchema := getTableSchema(engine.config, refT)
+						refSchema := getTableSchema(engine.registry, refT)
 						_, isCascade := refSchema.Tags[refColumn]["cascade"]
 						if isCascade {
 							subValue := reflect.New(reflect.SliceOf(reflect.PtrTo(refT)))
@@ -292,7 +292,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		}
 
 		localCache, hasLocalCache := schema.GetLocalCache(engine)
-		redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
+		redisCache, hasRedis := schema.GetRedisCache(engine)
 		if hasLocalCache {
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
@@ -373,10 +373,10 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 	}
 
 	for k, v := range dirtyQueues {
-		if engine.config.dirtyQueues == nil {
+		if engine.registry.dirtyQueues == nil {
 			return fmt.Errorf("unregistered lazy queue %s", k)
 		}
-		queue, has := engine.config.dirtyQueues[k]
+		queue, has := engine.registry.dirtyQueues[k]
 		if !has {
 			return fmt.Errorf("unregistered lazy queue %s", k)
 		}
@@ -386,10 +386,10 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		}
 	}
 	for k, v := range logQueues {
-		if engine.config.logQueues == nil {
+		if engine.registry.logQueues == nil {
 			return fmt.Errorf("unregistered log queue %s", k)
 		}
-		queue, has := engine.config.logQueues[k]
+		queue, has := engine.registry.logQueues[k]
 		if !has {
 			return fmt.Errorf("unregistered log queue %s", k)
 		}

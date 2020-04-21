@@ -24,13 +24,13 @@ type Registry struct {
 	locks                map[string]string
 }
 
-func (r *Registry) CreateConfig() (*Config, error) {
-	config := &Config{}
+func (r *Registry) Validate() (ValidatedRegistry, error) {
+	registry := &validatedRegistry{}
 	l := len(r.entities)
-	config.tableSchemas = make(map[reflect.Type]*TableSchema, l)
-	config.entities = make(map[string]reflect.Type)
-	if config.sqlClients == nil {
-		config.sqlClients = make(map[string]*DBConfig)
+	registry.tableSchemas = make(map[reflect.Type]*TableSchema, l)
+	registry.entities = make(map[string]reflect.Type)
+	if registry.sqlClients == nil {
+		registry.sqlClients = make(map[string]*DBConfig)
 	}
 	for k, v := range r.sqlClients {
 		db, err := sql.Open("mysql", v.dataSourceName)
@@ -64,68 +64,68 @@ func (r *Registry) CreateConfig() (*Config, error) {
 		db.SetMaxIdleConns(maxIdleConnections)
 		db.SetConnMaxLifetime(time.Duration(waitTimeout) * time.Second)
 		v.db = db
-		config.sqlClients[k] = v
+		registry.sqlClients[k] = v
 	}
-	if config.dirtyQueues == nil {
-		config.dirtyQueues = make(map[string]DirtyQueueSender)
+	if registry.dirtyQueues == nil {
+		registry.dirtyQueues = make(map[string]DirtyQueueSender)
 	}
 	for k, v := range r.dirtyQueues {
-		config.dirtyQueues[k] = v
+		registry.dirtyQueues[k] = v
 	}
-	if config.logQueues == nil {
-		config.logQueues = make(map[string]LogQueueSender)
+	if registry.logQueues == nil {
+		registry.logQueues = make(map[string]LogQueueSender)
 	}
 	for k, v := range r.logQueues {
-		config.logQueues[k] = v
+		registry.logQueues[k] = v
 	}
-	if config.lazyQueuesCodes == nil {
-		config.lazyQueuesCodes = make(map[string]string)
+	if registry.lazyQueuesCodes == nil {
+		registry.lazyQueuesCodes = make(map[string]string)
 	}
 	for k, v := range r.lazyQueuesCodes {
-		config.lazyQueuesCodes[k] = v
+		registry.lazyQueuesCodes[k] = v
 	}
 
-	if config.lockServers == nil {
-		config.lockServers = make(map[string]string)
+	if registry.lockServers == nil {
+		registry.lockServers = make(map[string]string)
 	}
 	for k, v := range r.locks {
-		config.lockServers[k] = v
+		registry.lockServers[k] = v
 	}
 
-	if config.localCacheContainers == nil {
-		config.localCacheContainers = make(map[string]*LocalCacheConfig)
+	if registry.localCacheContainers == nil {
+		registry.localCacheContainers = make(map[string]*LocalCacheConfig)
 	}
 	for k, v := range r.localCacheContainers {
-		config.localCacheContainers[k] = v
+		registry.localCacheContainers[k] = v
 	}
-	if config.redisServers == nil {
-		config.redisServers = make(map[string]*RedisCacheConfig)
+	if registry.redisServers == nil {
+		registry.redisServers = make(map[string]*RedisCacheConfig)
 	}
 	for k, v := range r.redisServers {
-		config.redisServers[k] = v
+		registry.redisServers[k] = v
 	}
-	if config.enums == nil {
-		config.enums = make(map[string]reflect.Value)
+	if registry.enums == nil {
+		registry.enums = make(map[string]reflect.Value)
 	}
 	for k, v := range r.enums {
-		config.enums[k] = v
+		registry.enums[k] = v
 	}
 	for name, entityType := range r.entities {
 		tableSchema, err := initTableSchema(r, entityType)
 		if err != nil {
 			return nil, err
 		}
-		config.tableSchemas[entityType] = tableSchema
-		config.entities[name] = entityType
+		registry.tableSchemas[entityType] = tableSchema
+		registry.entities[name] = entityType
 	}
-	engine := config.CreateEngine()
-	for _, schema := range config.tableSchemas {
+	engine := registry.CreateEngine()
+	for _, schema := range registry.tableSchemas {
 		_, err := checkStruct(schema, engine, schema.t, make(map[string]*index), make(map[string]*foreignIndex), "")
 		if err != nil {
 			return nil, errors.Annotatef(err, "invalid entity struct '%s'", schema.t.String())
 		}
 	}
-	return config, nil
+	return registry, nil
 }
 
 func (r *Registry) RegisterEntity(entity ...interface{}) {

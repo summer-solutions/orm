@@ -96,14 +96,14 @@ func TestSchema(t *testing.T) {
 	registry.RegisterEntity(entity, entityRef)
 	registry.RegisterEnum("tests.Color", color)
 
-	config, err := registry.CreateConfig()
+	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
-	engine := config.CreateEngine()
+	engine := validatedRegistry.CreateEngine()
 
-	tableSchema, _ := config.GetTableSchema("orm.testEntitySchema")
+	tableSchema := validatedRegistry.GetTableSchema("orm.testEntitySchema")
 	err = tableSchema.DropTable(engine)
 	assert.Nil(t, err)
-	tableSchemaRef, _ := config.GetTableSchema("orm.testEntitySchemaRef")
+	tableSchemaRef := validatedRegistry.GetTableSchema("orm.testEntitySchemaRef")
 	err = tableSchemaRef.DropTable(engine)
 	assert.Nil(t, err)
 	_, err = tableSchemaRef.GetMysql(engine).Exec("DROP TABLE IF EXISTS `ToDrop`")
@@ -306,7 +306,7 @@ func TestSchemaWrongIndexPosition(t *testing.T) {
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_schema", "schema")
 	var entityInvalid testEntitySchemaInvalidIndex
 	registry.RegisterEntity(entityInvalid)
-	_, err := registry.CreateConfig()
+	_, err := registry.Validate()
 	assert.EqualError(t, err, "invalid entity struct 'orm.testEntitySchemaInvalidIndex': invalid index position 'wrong' in index 'MyIndex'")
 }
 
@@ -315,6 +315,6 @@ func TestSchemaUnsupportedField(t *testing.T) {
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_schema", "schema")
 	var entityInvalid testEntitySchemaUnsupportedField
 	registry.RegisterEntity(entityInvalid)
-	_, err := registry.CreateConfig()
+	_, err := registry.Validate()
 	assert.EqualError(t, err, "invalid entity struct 'orm.testEntitySchemaUnsupportedField': unsupported field type: Wrong []time.Duration in orm.testEntitySchemaUnsupportedField")
 }

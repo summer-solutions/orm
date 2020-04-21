@@ -21,7 +21,7 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 		id := elem.Field(1).Uint()
 		entityName := t.String()
 		schema := orm.tableSchema
-		cache, hasRedis := schema.GetRedisCacheContainer(engine)
+		cache, hasRedis := schema.GetRedisCache(engine)
 		if !hasRedis || id == 0 {
 			invalidEntities = append(invalidEntities, value)
 		} else {

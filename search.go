@@ -15,11 +15,11 @@ func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager
 
 func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.Value) (bool, error) {
 	entityType := value.Elem().Type()
-	schema := getTableSchema(engine.config, entityType)
+	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
 		return false, EntityNotRegisteredError{Name: entityType.String()}
 	}
-	fieldsList, err := buildFieldList(engine.config, schema, entityType, "")
+	fieldsList, err := buildFieldList(engine.registry, schema, entityType, "")
 	if err != nil {
 		return false, err
 	}
@@ -76,12 +76,12 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
 	}
 	entities.SetLen(0)
-	entityType, has := getEntityTypeForSlice(engine.config, entities.Type())
+	entityType, has := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
 		return 0, EntityNotRegisteredError{Name: entities.String()}
 	}
-	schema := getTableSchema(engine.config, entityType)
-	fieldsList, err := buildFieldList(engine.config, schema, entityType, "")
+	schema := getTableSchema(engine.registry, entityType)
+	fieldsList, err := buildFieldList(engine.registry, schema, entityType, "")
 	if err != nil {
 		return 0, err
 	}
@@ -157,7 +157,7 @@ func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity interfa
 }
 
 func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int, err error) {
-	schema := getTableSchema(engine.config, entityType)
+	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
 		return nil, 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
@@ -377,7 +377,7 @@ func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string
 	return index, nil
 }
 
-func buildFieldList(config *Config, schema *TableSchema, t reflect.Type, prefix string) (string, error) {
+func buildFieldList(registry *validatedRegistry, schema *TableSchema, t reflect.Type, prefix string) (string, error) {
 	fieldsList := ""
 	for i := 0; i < t.NumField(); i++ {
 		var columnNameRaw string
@@ -403,7 +403,7 @@ func buildFieldList(config *Config, schema *TableSchema, t reflect.Type, prefix 
 		default:
 			k := field.Type.Kind().String()
 			if k == "struct" {
-				f, err := buildFieldList(config, schema, field.Type, field.Name)
+				f, err := buildFieldList(registry, schema, field.Type, field.Name)
 				if err != nil {
 					return "", err
 				}
@@ -423,7 +423,8 @@ func buildFieldList(config *Config, schema *TableSchema, t reflect.Type, prefix 
 	return fieldsList, nil
 }
 
-func getEntityTypeForSlice(config *Config, sliceType reflect.Type) (reflect.Type, bool) {
+func getEntityTypeForSlice(registry *validatedRegistry, sliceType reflect.Type) (reflect.Type, bool) {
 	name := strings.Trim(sliceType.String(), "*[]")
-	return config.getEntityType(name)
+	e, has := registry.entities[name]
+	return e, has
 }

@@ -49,8 +49,8 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 	tablesInDB := make(map[string]map[string]bool)
 	tablesInEntities := make(map[string]map[string]bool)
 
-	if engine.config.sqlClients != nil {
-		for _, pool := range engine.config.sqlClients {
+	if engine.registry.sqlClients != nil {
+		for _, pool := range engine.registry.sqlClients {
 			poolName := pool.code
 			tablesInDB[poolName] = make(map[string]bool)
 			pool := engine.GetMysql(poolName)
@@ -65,9 +65,9 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 		}
 	}
 	alters = make([]Alter, 0)
-	if engine.config.entities != nil {
-		for _, t := range engine.config.entities {
-			tableSchema := getTableSchema(engine.config, t)
+	if engine.registry.entities != nil {
+		for _, t := range engine.registry.entities {
+			tableSchema := getTableSchema(engine.registry, t)
 			tablesInEntities[tableSchema.MysqlPoolName][tableSchema.TableName] = true
 			has, newAlters, err := tableSchema.GetSchemaChanges(engine)
 			if err != nil {
@@ -627,7 +627,7 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 		indexAttribute, has := attributes[key]
 		unique := key == "unique"
 		if key == "index" && field.Type.Kind() == reflect.Ptr {
-			refOneSchema = getTableSchema(engine.config, field.Type.Elem())
+			refOneSchema = getTableSchema(engine.registry, field.Type.Elem())
 			if refOneSchema != nil {
 				onDelete := "RESTRICT"
 				_, hasCascade := attributes["cascade"]
@@ -707,12 +707,12 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 		}
 		definition, addNotNullIfNotSet, defaultValue = "tinyint(1)", true, "'0'"
 	case "string", "[]string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.config, attributes, false)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false)
 		if err != nil {
 			return nil, err
 		}
 	case "interface {}":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.config, attributes, true)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, true)
 		if err != nil {
 			return nil, err
 		}
@@ -739,7 +739,7 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 			}
 			return structFields, nil
 		} else if kind == "ptr" {
-			subSchema := getTableSchema(engine.config, field.Type.Elem())
+			subSchema := getTableSchema(engine.registry, field.Type.Elem())
 			if subSchema != nil {
 				definition = handleReferenceOne(subSchema, attributes)
 				addNotNullIfNotSet = false
@@ -786,15 +786,15 @@ func handleFloat(floatDefinition string, attributes map[string]string) (string, 
 	return definition, true, defaultValue
 }
 
-func handleString(config *Config, attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
+func handleString(registry *validatedRegistry, attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
 	var definition string
 	enum, hasEnum := attributes["enum"]
 	if hasEnum {
-		return handleSetEnum(config, "enum", enum, attributes)
+		return handleSetEnum(registry, "enum", enum, attributes)
 	}
 	set, haSet := attributes["set"]
 	if haSet {
-		return handleSetEnum(config, "set", set, attributes)
+		return handleSetEnum(registry, "set", set, attributes)
 	}
 	var addDefaultNullIfNullable = true
 	length, hasLength := attributes["length"]
@@ -822,11 +822,11 @@ func handleString(config *Config, attributes map[string]string, forceMax bool) (
 	return definition, false, addDefaultNullIfNullable, defaultValue, nil
 }
 
-func handleSetEnum(config *Config, fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
-	if config.enums == nil {
+func handleSetEnum(registry *validatedRegistry, fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
+	if registry.enums == nil {
 		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
 	}
-	enum, has := config.enums[attribute]
+	enum, has := registry.enums[attribute]
 	if !has {
 		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
 	}

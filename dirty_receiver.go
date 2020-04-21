@@ -32,10 +32,10 @@ func (r *DirtyReceiver) Size() (int64, error) {
 
 func (r *DirtyReceiver) GetEntities() []string {
 	results := make([]string, 0)
-	if r.engine.config.entities != nil {
+	if r.engine.registry.entities != nil {
 	Exit:
-		for name, t := range r.engine.config.entities {
-			schema := getTableSchema(r.engine.config, t)
+		for name, t := range r.engine.registry.entities {
+			schema := getTableSchema(r.engine.registry, t)
 			for _, tags := range schema.Tags {
 				queues, has := tags["dirty"]
 				if has {
@@ -68,11 +68,11 @@ func (r *DirtyReceiver) Digest(max int, handler DirtyHandler) (has bool, err err
 		if len(val) != 3 {
 			continue
 		}
-		t, has := r.engine.config.getEntityType(val[0])
+		t, has := r.engine.registry.entities[val[0]]
 		if !has {
 			continue
 		}
-		tableSchema := getTableSchema(r.engine.config, t)
+		tableSchema := getTableSchema(r.engine.registry, t)
 		id, err := strconv.ParseUint(val[2], 10, 64)
 		if err != nil {
 			continue
@@ -107,7 +107,7 @@ func (r *DirtyReceiver) MarkDirty(entityName string, ids ...uint64) error {
 }
 
 func (r *DirtyReceiver) getRedis() *RedisCache {
-	queue, _ := r.engine.config.dirtyQueues[r.queueCode].(*RedisDirtyQueueSender)
+	queue, _ := r.engine.registry.dirtyQueues[r.queueCode].(*RedisDirtyQueueSender)
 	redis := r.engine.GetRedis(queue.PoolName)
 	return redis
 }

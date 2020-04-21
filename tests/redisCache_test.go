@@ -132,9 +132,9 @@ func TestSet(t *testing.T) {
 func prepareRedis(t *testing.T) *orm.RedisCache {
 	registry := &orm.Registry{}
 	registry.RegisterRedis("localhost:6379", 15)
-	config, err := registry.CreateConfig()
+	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
-	engine := config.CreateEngine()
+	engine := validatedRegistry.CreateEngine()
 	r := engine.GetRedis()
 	err = r.FlushDB()
 	assert.Nil(t, err)

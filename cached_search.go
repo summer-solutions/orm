@@ -11,11 +11,11 @@ import (
 func cachedSearch(engine *Engine, entities interface{}, indexName string, pager *Pager,
 	arguments []interface{}, references []string) (totalRows int, err error) {
 	value := reflect.ValueOf(entities)
-	entityType, has := getEntityTypeForSlice(engine.config, value.Type())
+	entityType, has := getEntityTypeForSlice(engine.registry, value.Type())
 	if !has {
 		return 0, EntityNotRegisteredError{Name: entityType.String()}
 	}
-	schema := getTableSchema(engine.config, entityType)
+	schema := getTableSchema(engine.registry, entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
 		return 0, fmt.Errorf("uknown index %s", indexName)
@@ -30,7 +30,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
-	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
+	redisCache, hasRedis := schema.GetRedisCache(engine)
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	const idsOnCachePage = 1000
 
@@ -191,7 +191,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments ...interface{}) (has bool, err error) {
 	value := reflect.ValueOf(entity)
 	entityType := value.Elem().Type()
-	schema := getTableSchema(engine.config, entityType)
+	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
 		return false, EntityNotRegisteredError{Name: entityType.String()}
 	}
@@ -201,7 +201,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	}
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
-	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
+	redisCache, hasRedis := schema.GetRedisCache(engine)
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	var fromCache map[string]interface{}
 	if hasLocalCache {

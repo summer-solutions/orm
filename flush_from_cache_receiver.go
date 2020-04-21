@@ -32,12 +32,12 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	}
 	val := strings.Split(value, ":")
 	id, _ := strconv.ParseUint(val[1], 10, 64)
-	t, has := r.engine.config.getEntityType(val[0])
+	t, has := r.engine.registry.entities[val[0]]
 	if !has {
 		return true, nil
 	}
-	schema := getTableSchema(r.engine.config, t)
-	cacheEntity, _ := schema.GetRedisCacheContainer(r.engine)
+	schema := getTableSchema(r.engine.registry, t)
+	cacheEntity, _ := schema.GetRedisCache(r.engine)
 	cacheKey := schema.getCacheKey(id)
 	inCache, has, _ := cacheEntity.Get(cacheKey)
 	if !has {

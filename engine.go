@@ -6,7 +6,7 @@ import (
 )
 
 type Engine struct {
-	config      *Config
+	registry    *validatedRegistry
 	dbs         map[string]*DB
 	localCache  map[string]*LocalCache
 	redis       map[string]*RedisCache
@@ -29,8 +29,8 @@ func (e *Engine) RegisterEntity(entity Entity) {
 	initIfNeeded(e, value, true)
 }
 
-func (e *Engine) GetConfig() *Config {
-	return e.config
+func (e *Engine) GetRegistry() ValidatedRegistry {
+	return e.registry
 }
 
 func (e *Engine) GetMysql(code ...string) *DB {

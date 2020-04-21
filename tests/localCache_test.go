@@ -10,9 +10,9 @@ import (
 func TestGetSetLocal(t *testing.T) {
 	registry := &orm.Registry{}
 	registry.RegisterLocalCache(10)
-	config, err := registry.CreateConfig()
+	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
-	engine := config.CreateEngine()
+	engine := validatedRegistry.CreateEngine()
 
 	testLogger := &TestCacheLogger{}
 	cache := engine.GetLocalCache()

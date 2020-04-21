@@ -12,9 +12,9 @@ func TestLock(t *testing.T) {
 	registry := &orm.Registry{}
 	registry.RegisterRedis("localhost:6379", 5)
 	registry.RegisterLocker("default", "default")
-	config, err := registry.CreateConfig()
+	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
-	engine := config.CreateEngine()
+	engine := validatedRegistry.CreateEngine()
 	locker := engine.GetLocker()
 
 	lock, has, err := locker.Obtain("test", 10*time.Second, 0*time.Second)

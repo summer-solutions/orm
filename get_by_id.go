@@ -25,7 +25,7 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 			break
 		}
 	}
-	schema := getTableSchema(engine.config, entityType)
+	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
 		return false, EntityNotRegisteredError{Name: entityType.String()}
 	}
@@ -49,7 +49,7 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 			return true, err
 		}
 	}
-	redisCache, hasRedis := schema.GetRedisCacheContainer(engine)
+	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if hasRedis {
 		cacheKey = schema.getCacheKey(id)
 		row, has, err := redisCache.Get(cacheKey)

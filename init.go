@@ -9,7 +9,7 @@ func initIfNeeded(engine *Engine, value reflect.Value, withReferences bool) *ORM
 	address := elem.Field(0).Addr()
 	orm := address.Interface().(*ORM)
 	if orm.dBData == nil {
-		tableSchema := getTableSchema(engine.config, elem.Type())
+		tableSchema := getTableSchema(engine.registry, elem.Type())
 		orm.engine = engine
 		orm.dBData = make(map[string]interface{})
 		orm.elem = elem
@@ -18,7 +18,7 @@ func initIfNeeded(engine *Engine, value reflect.Value, withReferences bool) *ORM
 		if withReferences {
 			for _, code := range tableSchema.refOne {
 				reference := tableSchema.Tags[code]["ref"]
-				t, _ := engine.config.getEntityType(reference)
+				t, _ := engine.registry.entities[reference]
 				n := reflect.New(t)
 				initIfNeeded(engine, n, false)
 				elem.FieldByName(code).Set(n)

@@ -39,8 +39,8 @@ type TableSchema struct {
 	logTableName     string
 }
 
-func getTableSchema(c *Config, entityType reflect.Type) *TableSchema {
-	return c.tableSchemas[entityType]
+func getTableSchema(registry *validatedRegistry, entityType reflect.Type) *TableSchema {
+	return registry.tableSchemas[entityType]
 }
 
 func (tableSchema *TableSchema) GetType() reflect.Type {
@@ -109,7 +109,7 @@ func (tableSchema *TableSchema) GetLocalCache(engine *Engine) (cache *LocalCache
 	return engine.GetLocalCache(tableSchema.localCacheName), true
 }
 
-func (tableSchema *TableSchema) GetRedisCacheContainer(engine *Engine) (cache *RedisCache, has bool) {
+func (tableSchema *TableSchema) GetRedisCache(engine *Engine) (cache *RedisCache, has bool) {
 	if tableSchema.redisCacheName == "" {
 		return nil, false
 	}
@@ -120,24 +120,15 @@ func (tableSchema *TableSchema) GetReferences() []string {
 	return tableSchema.refOne
 }
 
-func (tableSchema TableSchema) getCacheKey(id uint64) string {
-	return fmt.Sprintf("%s%s:%d", tableSchema.cachePrefix, tableSchema.columnsStamp, id)
-}
-
-func (tableSchema TableSchema) getCacheKeySearch(indexName string, parameters ...interface{}) string {
-	hash := fnv1a.HashString32(fmt.Sprintf("%v", parameters))
-	return fmt.Sprintf("%s_%s_%d", tableSchema.cachePrefix, indexName, hash)
-}
-
 func (tableSchema *TableSchema) GetColumns() map[string]string {
 	return tableSchema.columnPathMap
 }
 
-func (tableSchema *TableSchema) GetUsage(config *Config) (map[reflect.Type][]string, error) {
+func (tableSchema *TableSchema) GetUsage(registry *validatedRegistry) (map[reflect.Type][]string, error) {
 	results := make(map[reflect.Type][]string)
-	if config.entities != nil {
-		for _, t := range config.entities {
-			schema := getTableSchema(config, t)
+	if registry.entities != nil {
+		for _, t := range registry.entities {
+			schema := getTableSchema(registry, t)
 			for _, columnName := range schema.refOne {
 				ref, has := schema.Tags[columnName]["ref"]
 				if has && ref == tableSchema.t.String() {
@@ -378,4 +369,13 @@ func extractTag(registry *Registry, field reflect.StructField) (map[string]map[s
 		}
 	}
 	return make(map[string]map[string]string), nil, nil
+}
+
+func (tableSchema TableSchema) getCacheKey(id uint64) string {
+	return fmt.Sprintf("%s%s:%d", tableSchema.cachePrefix, tableSchema.columnsStamp, id)
+}
+
+func (tableSchema TableSchema) getCacheKeySearch(indexName string, parameters ...interface{}) string {
+	hash := fnv1a.HashString32(fmt.Sprintf("%v", parameters))
+	return fmt.Sprintf("%s_%s_%d", tableSchema.cachePrefix, indexName, hash)
 }

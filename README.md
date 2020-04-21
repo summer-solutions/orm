@@ -7,6 +7,10 @@
 
 ## Configuration
 
+First you need to define orm.Registry object and register all connection pools to MySQL, Redis and local cache.
+Also use this object to register queues, and entities. You should create this object once when application
+starts.
+
 ```go
 package main
 
@@ -28,7 +32,8 @@ func main() {
 
     /* Redis used to handle queues (explained later) */
     registry.RegisterRedis("localhost:6379", 3, "queues_pool")
-    registry.RegisterLazyQueue("default", "queues_pool")//if not defined orm is using default redis pool
+    registry.RegisterLazyQueue("default", "queues_pool")
+    registry.RegisterLogQueue("default", "queues_pool")
 
     /* Local cache (in memory) */
     registry.RegisterLocalCache(1000) //you need to define cache size
@@ -38,10 +43,6 @@ func main() {
     /* Redis used to handle locks (explained later) */
     registry.RegisterRedis("localhost:6379", 4, "lockers_pool")
     registry.RegisterLocker("default", "lockers_pool")
-    
-    /* here ORM is validating that everywhere is setup correctly */
-    config, err := registry.CreateConfig()
-
 }
 
 ```
@@ -56,6 +57,7 @@ default:
    lazyQueue: redisQueues
    locker: default
    dirtyQueue: redisQueues
+   logQueue: redisQueues
    localCache: 1000
 second_pool:
    mysql: root:root@tcp(localhost:3311)/db2
@@ -170,7 +172,10 @@ func main() {
     }
 
     registry := &orm.Registry{}
-    registry.RegisterEntity(TestEntitySchema{}, TestEntitySchemaRef{}, TestEntitySecondPool{})
+    var testEntitySchema TestEntitySchema
+    var testEntitySchemaRef TestEntitySchemaRef
+    var testEntitySecondPool TestEntitySecondPool
+    registry.RegisterEntity(testEntitySchema, testEntitySchemaRef, testEntitySecondPool)
     registry.RegisterEnum("Color", Color)
 
 }
@@ -179,11 +184,8 @@ func main() {
 There are only two golden rules you need to remember defining entity struct: 
 
  * first field must be type of "orm.ORM"
- * second argument must have name "ID" and must be type of one of uint, uint16, uint32, uint64
+ * second argument must have name "ID" and must be type of one of uint, uint16, uint32, uint24, uint64, rune
  
- 
- As you can see orm is not using null values like sql.NullString. Simply set empty string "" and orm will
- convert it to null in database if needed. 
  
  By default entity is not cached in local cache or redis, to change that simply use key "redisCache" or "localCache"
  in "orm" tag for "ORM" field:
@@ -224,8 +226,46 @@ There are only two golden rules you need to remember defining entity struct:
      }
  }
  ```
+
+## Validated registry
+
+Once you created your registry and registered all pools and entities you should validate it.
+You should also run it once when your application starts.
+
+ ```go
+ package main
  
- ## Updating schema
+ import "github.com/summer-solutions/orm"
+ 
+ func main() {
+    registry := &orm.Registry{}
+    //register pools and entities
+    validatedRegistry, err := registry.Validate()
+ }
+ 
+ ```
+ 
+ ## Creating engine
+ 
+ You need to crete engine to start working with entities (searching, saving).
+ 
+  ```go
+  package main
+  
+  import "github.com/summer-solutions/orm"
+  
+  func main() {
+     registry := &orm.Registry{}
+     //register pools and entities
+     validatedRegistry, err := registry.Validate()
+     engine := validatedRegistry.CreateEngine()
+  }
+  
+  ```
+ 
+ ## Checking and updading table schema
+ 
+ ORM provides useful object that describes entity structrure called TabelSchema:
  
  ```go
  package main
@@ -233,36 +273,30 @@ There are only two golden rules you need to remember defining entity struct:
  import "github.com/summer-solutions/orm"
  
  func main() {
- 
-     orm.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
-    
-     type FirstEntity struct {
-        orm.ORM
-        ID                   uint
-        Name                 string
-     }
-      
-    type SecondEntity struct {
-        orm.ORM
-        ID                   uint
-        Name                 string
-    }
-    
-    var firstEntity  FirstEntity
-    var secondEntity SecondEntity
-    registry := &orm.Registry{}
-	registry.RegisterEntity(firstEntity, secondEntity)
-    config, err := registry.CreateConfig()
-    
-    engine := orm.NewEngine(config)
+ 	registry := &orm.Registry{}
+    // register
+    validatedRegistry, err := registry.Validate() 
+    engine := validatatedRegistry.CreateEngine()
     alters, err := engine.GetAlters()
     
     /*optionally you can execute alters for each model*/
-    config.GetTableSchema(firstEntity).UpdateSchema() //it will create or alter table if needed
-    config.GetTableSchema(firstEntity).DropTable() //it will drop table if exist
-    config.GetTableSchema(firstEntity).TruncateTable()
-    //if you need to see queries:
-    has, alters, err := config.GetTableSchema(firstEntity).GetSchemaChanges()
+    var userEntity UserEntity
+    tableSchema := engine.GetRegistry().GetTableSchemaForEntity(userEntity)
+    //or
+    tableSchema := validatedRegistry.GetTableSchemaForEntity(userEntity)
+
+    /*checking table structure*/
+    tableSchema.UpdateSchema(engine) //it will create or alter table if needed
+    tableSchema.DropTable(engine) //it will drop table if exist
+    tableSchema.TruncateTable(engine)
+    tableSchema.UpdateSchemaAndTruncateTable(engine)
+    has, alters, err := tableSchema.GetSchemaChanges(engine)
+
+    /*getting table structure*/
+    db := tableSchema.GetMysql(engine)
+    localCache, has := tableSchema.GetLocalCache(engine) 
+    redisCache, has := tableSchema.GetRedisCache(engine)
+    columns := tableSchema.GetColumns()
  }
  
  ```

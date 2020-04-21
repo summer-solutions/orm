@@ -18,18 +18,17 @@ func TestYamlLoader(t *testing.T) {
 	registry, err := orm.InitByYaml(data)
 	assert.Nil(t, err)
 	assert.NotNil(t, registry)
-	config, err := registry.CreateConfig()
+	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
-	assert.NotNil(t, config)
+	assert.NotNil(t, validatedRegistry)
 
-	codes := config.GetLazyQueueCodes()
+	codes := validatedRegistry.GetLazyQueueCodes()
 	assert.Equal(t, []string{"default"}, codes)
-	codes = config.GetDirtyQueueCodes()
+	codes = validatedRegistry.GetDirtyQueueCodes()
 	assert.Equal(t, []string{"default"}, codes)
 
-	schema, has := config.GetTableSchema("test")
+	schema := validatedRegistry.GetTableSchema("test")
 	assert.Nil(t, schema)
-	assert.False(t, has)
 
 	invalidMap := make(map[string]interface{})
 	invalidMap["ss"] = "vv"

@@ -9,8 +9,8 @@ import (
 
 func TestConfig(t *testing.T) {
 	registry := orm.Registry{}
-	config, err := registry.CreateConfig()
+	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
-	engine := config.CreateEngine()
+	engine := validatedRegistry.CreateEngine()
 	assert.NotNil(t, engine)
 }

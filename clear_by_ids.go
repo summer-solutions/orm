@@ -6,7 +6,7 @@ import (
 
 func clearByIDs(engine *Engine, entity interface{}, ids ...uint64) error {
 	entityType := reflect.ValueOf(entity).Elem().Type()
-	schema := getTableSchema(engine.config, entityType)
+	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
 		return EntityNotRegisteredError{Name: entityType.String()}
 	}
@@ -18,7 +18,7 @@ func clearByIDs(engine *Engine, entity interface{}, ids ...uint64) error {
 	if has {
 		localCache.Remove(cacheKeys...)
 	}
-	redisCache, has := schema.GetRedisCacheContainer(engine)
+	redisCache, has := schema.GetRedisCache(engine)
 	if has {
 		return redisCache.Del(cacheKeys...)
 	}

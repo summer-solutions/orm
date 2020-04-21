@@ -57,11 +57,11 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *E
 	registry.RegisterLocalCache(1000)
 
 	registry.RegisterEntity(entities...)
-	config, err := registry.CreateConfig()
+	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 
-	engine := config.CreateEngine()
-	assert.Equal(t, engine.GetConfig(), config)
+	engine := validatedRegistry.CreateEngine()
+	assert.Equal(t, engine.GetRegistry(), validatedRegistry)
 	redisCache := engine.GetRedis()
 	err = redisCache.FlushDB()
 	assert.Nil(t, err)
@@ -82,7 +82,7 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *E
 		if eType.Kind() == reflect.Ptr {
 			eType = eType.Elem()
 		}
-		tableSchema, _ := config.GetTableSchema(eType.String())
+		tableSchema := validatedRegistry.GetTableSchema(eType.String())
 		err = tableSchema.TruncateTable(engine)
 		assert.Nil(t, err)
 		err = tableSchema.UpdateSchema(engine)
