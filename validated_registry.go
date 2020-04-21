@@ -18,15 +18,15 @@ func (e EntityNotRegisteredError) Error() string {
 
 type ValidatedRegistry interface {
 	CreateEngine() *Engine
-	GetTableSchema(entityName string) *TableSchema
-	GetTableSchemaForEntity(entity Entity) *TableSchema
+	GetTableSchema(entityName string) TableSchema
+	GetTableSchemaForEntity(entity Entity) TableSchema
 	GetDirtyQueueCodes() []string
 	GetLogQueueCodes() []string
 	GetLazyQueueCodes() []string
 }
 
 type validatedRegistry struct {
-	tableSchemas         map[reflect.Type]*TableSchema
+	tableSchemas         map[reflect.Type]*tableSchema
 	entities             map[string]reflect.Type
 	sqlClients           map[string]*DBConfig
 	dirtyQueues          map[string]DirtyQueueSender
@@ -68,7 +68,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 	return e
 }
 
-func (r *validatedRegistry) GetTableSchema(entityName string) *TableSchema {
+func (r *validatedRegistry) GetTableSchema(entityName string) TableSchema {
 	t, has := r.entities[entityName]
 	if !has {
 		return nil
@@ -76,7 +76,7 @@ func (r *validatedRegistry) GetTableSchema(entityName string) *TableSchema {
 	return getTableSchema(r, t)
 }
 
-func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) *TableSchema {
+func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) TableSchema {
 	t := reflect.TypeOf(entity)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()

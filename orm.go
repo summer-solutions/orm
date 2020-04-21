@@ -5,7 +5,7 @@ import (
 )
 
 type Entity interface {
-	GetTableSchema() *TableSchema
+	GetTableSchema() TableSchema
 	IsDirty() bool
 	Flush() error
 	FlushLazy() error
@@ -19,11 +19,11 @@ type ORM struct {
 	dBData      map[string]interface{}
 	value       reflect.Value
 	elem        reflect.Value
-	tableSchema *TableSchema
+	tableSchema *tableSchema
 	engine      *Engine
 }
 
-func (orm ORM) GetTableSchema() *TableSchema {
+func (orm ORM) GetTableSchema() TableSchema {
 	return orm.tableSchema
 }
 

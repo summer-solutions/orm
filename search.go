@@ -28,7 +28,7 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.
 		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
 	}
 	/* #nosec */
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, whereQuery)
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.tableName, whereQuery)
 
 	pool := schema.GetMysql(engine)
 	results, def, err := pool.Query(query, where.GetParameters()...)
@@ -90,7 +90,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
 	}
 	/* #nosec */
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, whereQuery,
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.tableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
 	results, def, err := pool.Query(query, where.GetParameters()...)
@@ -167,7 +167,7 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
 	}
 	/* #nosec */
-	query := fmt.Sprintf("SELECT `ID` FROM `%s` WHERE %s %s", schema.TableName, whereQuery,
+	query := fmt.Sprintf("SELECT `ID` FROM `%s` WHERE %s %s", schema.tableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
 	results, def, err := pool.Query(query, where.GetParameters()...)
@@ -195,13 +195,13 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 	return result, totalRows, nil
 }
 
-func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *TableSchema, foundRows int) (int, error) {
+func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *tableSchema, foundRows int) (int, error) {
 	totalRows := 0
 	if withCount {
 		totalRows = foundRows
 		if totalRows == pager.GetPageSize() || (foundRows == 0 && pager.CurrentPage > 1) {
 			/* #nosec */
-			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.TableName, where)
+			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.tableName, where)
 			var foundTotal string
 			pool := schema.GetMysql(engine)
 			err := pool.QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
@@ -232,7 +232,7 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value
 	return nil
 }
 
-func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string,
+func fillStruct(engine *Engine, schema *tableSchema, index uint16, data []string,
 	t reflect.Type, value reflect.Value, prefix string) (uint16, error) {
 	for i := 0; i < t.NumField(); i++ {
 		if index == 0 && i <= 1 { //skip id and orm
@@ -242,7 +242,7 @@ func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string
 		field := value.Field(i)
 		name := prefix + t.Field(i).Name
 
-		tags := schema.Tags[name]
+		tags := schema.tags[name]
 		_, has := tags["ignore"]
 		if has {
 			continue
@@ -377,12 +377,12 @@ func fillStruct(engine *Engine, schema *TableSchema, index uint16, data []string
 	return index, nil
 }
 
-func buildFieldList(registry *validatedRegistry, schema *TableSchema, t reflect.Type, prefix string) (string, error) {
+func buildFieldList(registry *validatedRegistry, schema *tableSchema, t reflect.Type, prefix string) (string, error) {
 	fieldsList := ""
 	for i := 0; i < t.NumField(); i++ {
 		var columnNameRaw string
 		field := t.Field(i)
-		tags := schema.Tags[prefix+t.Field(i).Name]
+		tags := schema.tags[prefix+t.Field(i).Name]
 		_, has := tags["ignore"]
 		if has {
 			continue

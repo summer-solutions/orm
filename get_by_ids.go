@@ -173,7 +173,7 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 	return keys, nil
 }
 
-func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Value, references []string, many bool) error {
+func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Value, references []string, many bool) error {
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
 	warmUpRefs := make(map[reflect.Type]map[uint64][]reflect.Value)
 	warmUpRowsIDs := make(map[reflect.Type][]uint64)
@@ -187,17 +187,17 @@ func warmUpReferences(engine *Engine, tableSchema *TableSchema, rows reflect.Val
 	}
 	for _, ref := range references {
 		parts := strings.Split(ref, "/")
-		_, has := tableSchema.Tags[parts[0]]
+		_, has := tableSchema.tags[parts[0]]
 		if !has {
 			return fmt.Errorf("invalid reference %s", ref)
 		}
-		parentRef, has := tableSchema.Tags[parts[0]]["ref"]
+		parentRef, has := tableSchema.tags[parts[0]]["ref"]
 		if !has {
 			return fmt.Errorf("missing reference tag %s", ref)
 		}
 		parentType, has := engine.registry.entities[parentRef]
 		if !has {
-			return EntityNotRegisteredError{Name: tableSchema.Tags[parts[0]]["ref"]}
+			return EntityNotRegisteredError{Name: tableSchema.tags[parts[0]]["ref"]}
 		}
 		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
 

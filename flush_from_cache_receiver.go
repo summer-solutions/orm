@@ -87,7 +87,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	db := schema.GetMysql(r.engine)
 
 	/* #nosec */
-	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.TableName, strings.Join(fields, ","))
+	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.tableName, strings.Join(fields, ","))
 	_, err = db.Exec(sql, attributes...)
 	if err != nil {
 		return true, err

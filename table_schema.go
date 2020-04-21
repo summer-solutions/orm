@@ -18,11 +18,27 @@ type cachedQueryDefinition struct {
 	Fields []string
 }
 
-type TableSchema struct {
-	TableName        string
-	MysqlPoolName    string
+type TableSchema interface {
+	GetTableName() string
+	GetType() reflect.Type
+	DropTable(engine *Engine) error
+	TruncateTable(engine *Engine) error
+	UpdateSchema(engine *Engine) error
+	UpdateSchemaAndTruncateTable(engine *Engine) error
+	GetMysql(engine *Engine) *DB
+	GetLocalCache(engine *Engine) (cache *LocalCache, has bool)
+	GetRedisCache(engine *Engine) (cache *RedisCache, has bool)
+	GetReferences() []string
+	GetColumns() map[string]string
+	GetUsage(registry *validatedRegistry) (map[reflect.Type][]string, error)
+	GetSchemaChanges(engine *Engine) (has bool, alters []Alter, err error)
+}
+
+type tableSchema struct {
+	tableName        string
+	mysqlPoolName    string
 	t                reflect.Type
-	Tags             map[string]map[string]string
+	tags             map[string]map[string]string
 	cachedIndexes    map[string]*cachedQueryDefinition
 	cachedIndexesOne map[string]*cachedQueryDefinition
 	cachedIndexesAll map[string]*cachedQueryDefinition
@@ -39,28 +55,32 @@ type TableSchema struct {
 	logTableName     string
 }
 
-func getTableSchema(registry *validatedRegistry, entityType reflect.Type) *TableSchema {
+func getTableSchema(registry *validatedRegistry, entityType reflect.Type) *tableSchema {
 	return registry.tableSchemas[entityType]
 }
 
-func (tableSchema *TableSchema) GetType() reflect.Type {
+func (tableSchema *tableSchema) GetTableName() string {
+	return tableSchema.tableName
+}
+
+func (tableSchema *tableSchema) GetType() reflect.Type {
 	return tableSchema.t
 }
 
-func (tableSchema *TableSchema) DropTable(engine *Engine) error {
+func (tableSchema *tableSchema) DropTable(engine *Engine) error {
 	pool := tableSchema.GetMysql(engine)
-	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.TableName))
+	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.tableName))
 	return err
 }
 
-func (tableSchema *TableSchema) TruncateTable(engine *Engine) error {
+func (tableSchema *tableSchema) TruncateTable(engine *Engine) error {
 	pool := tableSchema.GetMysql(engine)
 	_, err := pool.Exec("SET FOREIGN_KEY_CHECKS = 0")
 	if err != nil {
 		return err
 	}
 	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;",
-		pool.GetDatabaseName(), tableSchema.TableName))
+		pool.GetDatabaseName(), tableSchema.tableName))
 	if err != nil {
 		return err
 	}
@@ -71,7 +91,7 @@ func (tableSchema *TableSchema) TruncateTable(engine *Engine) error {
 	return nil
 }
 
-func (tableSchema *TableSchema) UpdateSchema(engine *Engine) error {
+func (tableSchema *tableSchema) UpdateSchema(engine *Engine) error {
 	pool := tableSchema.GetMysql(engine)
 	has, alters, err := tableSchema.GetSchemaChanges(engine)
 	if err != nil {
@@ -88,49 +108,49 @@ func (tableSchema *TableSchema) UpdateSchema(engine *Engine) error {
 	return nil
 }
 
-func (tableSchema *TableSchema) UpdateSchemaAndTruncateTable(engine *Engine) error {
+func (tableSchema *tableSchema) UpdateSchemaAndTruncateTable(engine *Engine) error {
 	err := tableSchema.UpdateSchema(engine)
 	if err != nil {
 		return err
 	}
 	pool := tableSchema.GetMysql(engine)
-	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.TableName))
+	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.tableName))
 	return err
 }
 
-func (tableSchema *TableSchema) GetMysql(engine *Engine) *DB {
-	return engine.GetMysql(tableSchema.MysqlPoolName)
+func (tableSchema *tableSchema) GetMysql(engine *Engine) *DB {
+	return engine.GetMysql(tableSchema.mysqlPoolName)
 }
 
-func (tableSchema *TableSchema) GetLocalCache(engine *Engine) (cache *LocalCache, has bool) {
+func (tableSchema *tableSchema) GetLocalCache(engine *Engine) (cache *LocalCache, has bool) {
 	if tableSchema.localCacheName == "" {
 		return nil, false
 	}
 	return engine.GetLocalCache(tableSchema.localCacheName), true
 }
 
-func (tableSchema *TableSchema) GetRedisCache(engine *Engine) (cache *RedisCache, has bool) {
+func (tableSchema *tableSchema) GetRedisCache(engine *Engine) (cache *RedisCache, has bool) {
 	if tableSchema.redisCacheName == "" {
 		return nil, false
 	}
 	return engine.GetRedis(tableSchema.redisCacheName), true
 }
 
-func (tableSchema *TableSchema) GetReferences() []string {
+func (tableSchema *tableSchema) GetReferences() []string {
 	return tableSchema.refOne
 }
 
-func (tableSchema *TableSchema) GetColumns() map[string]string {
+func (tableSchema *tableSchema) GetColumns() map[string]string {
 	return tableSchema.columnPathMap
 }
 
-func (tableSchema *TableSchema) GetUsage(registry *validatedRegistry) (map[reflect.Type][]string, error) {
+func (tableSchema *tableSchema) GetUsage(registry *validatedRegistry) (map[reflect.Type][]string, error) {
 	results := make(map[reflect.Type][]string)
 	if registry.entities != nil {
 		for _, t := range registry.entities {
 			schema := getTableSchema(registry, t)
 			for _, columnName := range schema.refOne {
-				ref, has := schema.Tags[columnName]["ref"]
+				ref, has := schema.tags[columnName]["ref"]
 				if has && ref == tableSchema.t.String() {
 					if results[t] == nil {
 						results[t] = make([]string, 0)
@@ -143,11 +163,11 @@ func (tableSchema *TableSchema) GetUsage(registry *validatedRegistry) (map[refle
 	return results, nil
 }
 
-func (tableSchema *TableSchema) GetSchemaChanges(engine *Engine) (has bool, alters []Alter, err error) {
+func (tableSchema *tableSchema) GetSchemaChanges(engine *Engine) (has bool, alters []Alter, err error) {
 	return getSchemaChanges(engine, tableSchema)
 }
 
-func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema, error) {
+func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema, error) {
 	tags, columnNames, columnPathMap := extractTags(registry, entityType, "")
 	oneRefs := make([]string, 0)
 	columnsStamp := fmt.Sprintf("%d", fnv1a.HashString32(fmt.Sprintf("%v", columnNames)))
@@ -258,10 +278,10 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*TableSchema,
 		logPoolName = mysql
 	}
 
-	tableSchema := &TableSchema{TableName: table,
-		MysqlPoolName:    mysql,
+	tableSchema := &tableSchema{tableName: table,
+		mysqlPoolName:    mysql,
 		t:                entityType,
-		Tags:             tags,
+		tags:             tags,
 		columnNames:      columnNames,
 		columnPathMap:    columnPathMap,
 		columnsStamp:     columnsStamp,
@@ -371,11 +391,11 @@ func extractTag(registry *Registry, field reflect.StructField) (map[string]map[s
 	return make(map[string]map[string]string), nil, nil
 }
 
-func (tableSchema TableSchema) getCacheKey(id uint64) string {
+func (tableSchema *tableSchema) getCacheKey(id uint64) string {
 	return fmt.Sprintf("%s%s:%d", tableSchema.cachePrefix, tableSchema.columnsStamp, id)
 }
 
-func (tableSchema TableSchema) getCacheKeySearch(indexName string, parameters ...interface{}) string {
+func (tableSchema *tableSchema) getCacheKeySearch(indexName string, parameters ...interface{}) string {
 	hash := fnv1a.HashString32(fmt.Sprintf("%v", parameters))
 	return fmt.Sprintf("%s_%s_%d", tableSchema.cachePrefix, indexName, hash)
 }

@@ -12,7 +12,7 @@ type DirtyReceiver struct {
 }
 
 type DirtyData struct {
-	TableSchema *TableSchema
+	TableSchema *tableSchema
 	ID          uint64
 	Inserted    bool
 	Updated     bool
@@ -36,7 +36,7 @@ func (r *DirtyReceiver) GetEntities() []string {
 	Exit:
 		for name, t := range r.engine.registry.entities {
 			schema := getTableSchema(r.engine.registry, t)
-			for _, tags := range schema.Tags {
+			for _, tags := range schema.tags {
 				queues, has := tags["dirty"]
 				if has {
 					queueNames := strings.Split(queues, ",")

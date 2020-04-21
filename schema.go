@@ -68,7 +68,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 	if engine.registry.entities != nil {
 		for _, t := range engine.registry.entities {
 			tableSchema := getTableSchema(engine.registry, t)
-			tablesInEntities[tableSchema.MysqlPoolName][tableSchema.TableName] = true
+			tablesInEntities[tableSchema.mysqlPoolName][tableSchema.tableName] = true
 			has, newAlters, err := tableSchema.GetSchemaChanges(engine)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -199,15 +199,15 @@ func getAllTables(db sqlDB) ([]string, error) {
 	return tables, nil
 }
 
-func getSchemaChanges(engine *Engine, tableSchema *TableSchema) (has bool, alters []Alter, err error) {
+func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alters []Alter, err error) {
 	indexes := make(map[string]*index)
 	foreignKeys := make(map[string]*foreignIndex)
 	columns, _ := checkStruct(tableSchema, engine, tableSchema.t, indexes, foreignKeys, "")
 	var newIndexes []string
 	var newForeignKeys []string
-	pool := engine.GetMysql(tableSchema.MysqlPoolName)
-	createTableSQL := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", pool.GetDatabaseName(), tableSchema.TableName)
-	createTableForiegnKeysSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.TableName)
+	pool := engine.GetMysql(tableSchema.mysqlPoolName)
+	createTableSQL := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n", pool.GetDatabaseName(), tableSchema.tableName)
+	createTableForiegnKeysSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.tableName)
 	columns[0][1] += " AUTO_INCREMENT"
 	for _, value := range columns {
 		createTableSQL += fmt.Sprintf("  %s,\n", value[1])
@@ -231,17 +231,17 @@ func getSchemaChanges(engine *Engine, tableSchema *TableSchema) (has bool, alter
 	createTableSQL += ") ENGINE=InnoDB DEFAULT CHARSET=utf8;"
 
 	var skip string
-	err = pool.QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.TableName)).Scan(&skip)
+	err = pool.QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.tableName)).Scan(&skip)
 	hasTable := true
 	if err != nil {
 		hasTable = false
 	}
 
 	if !hasTable {
-		alters = []Alter{{SQL: createTableSQL, Safe: true, Pool: tableSchema.MysqlPoolName}}
+		alters = []Alter{{SQL: createTableSQL, Safe: true, Pool: tableSchema.mysqlPoolName}}
 		if len(newForeignKeys) > 0 {
 			createTableForiegnKeysSQL = strings.TrimRight(createTableForiegnKeysSQL, ",\n") + ";"
-			alters = append(alters, Alter{SQL: createTableForiegnKeysSQL, Safe: true, Pool: tableSchema.MysqlPoolName})
+			alters = append(alters, Alter{SQL: createTableForiegnKeysSQL, Safe: true, Pool: tableSchema.mysqlPoolName})
 		}
 		has = true
 		err = nil
@@ -252,7 +252,7 @@ func getSchemaChanges(engine *Engine, tableSchema *TableSchema) (has bool, alter
 
 	var tableDBColumns = make([][2]string, 0)
 	var createTableDB string
-	err = pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.TableName)).Scan(&skip, &createTableDB)
+	err = pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.tableName)).Scan(&skip, &createTableDB)
 	if err != nil {
 		return false, nil, err
 	}
@@ -269,7 +269,7 @@ func getSchemaChanges(engine *Engine, tableSchema *TableSchema) (has bool, alter
 
 	var rows []indexDB
 	/* #nosec */
-	results, def, err := pool.Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.TableName))
+	results, def, err := pool.Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.tableName))
 	if err != nil {
 		return false, nil, errors.Trace(err)
 	}
@@ -297,7 +297,7 @@ func getSchemaChanges(engine *Engine, tableSchema *TableSchema) (has bool, alter
 		}
 	}
 
-	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableSchema.TableName, tableSchema.MysqlPoolName)
+	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableSchema.tableName, tableSchema.mysqlPoolName)
 	if err != nil {
 		return false, nil, err
 	}
@@ -416,16 +416,16 @@ OUTER:
 	if !hasAlters {
 		return
 	}
-	alterSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.TableName)
+	alterSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.tableName)
 	newAlters := make([]string, 0)
 	comments := make([]string, 0)
 	hasAlterNormal := false
 	hasAlterAddForeignKey := false
 	hasAlterRemoveForeignKey := false
 
-	alterSQLAddForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.TableName)
+	alterSQLAddForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.tableName)
 	newAltersAddForeignKey := make([]string, 0)
-	alterSQLRemoveForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.TableName)
+	alterSQLRemoveForeignKey := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.tableName)
 	newAltersRemoveForeignKey := make([]string, 0)
 
 	for _, value := range droppedColumns {
@@ -498,21 +498,21 @@ OUTER:
 			safe = true
 		} else {
 			db := tableSchema.GetMysql(engine)
-			isEmpty, err := isTableEmpty(db.db, tableSchema.TableName)
+			isEmpty, err := isTableEmpty(db.db, tableSchema.tableName)
 			if err != nil {
 				return false, nil, errors.Trace(err)
 			}
 			safe = isEmpty
 		}
-		alters = append(alters, Alter{SQL: alterSQL, Safe: safe, Pool: tableSchema.MysqlPoolName})
+		alters = append(alters, Alter{SQL: alterSQL, Safe: safe, Pool: tableSchema.mysqlPoolName})
 	}
 	if hasAlterRemoveForeignKey {
 		alterSQLRemoveForeignKey = strings.TrimRight(alterSQLRemoveForeignKey, ",\n") + ";"
-		alters = append(alters, Alter{SQL: alterSQLRemoveForeignKey, Safe: true, Pool: tableSchema.MysqlPoolName})
+		alters = append(alters, Alter{SQL: alterSQLRemoveForeignKey, Safe: true, Pool: tableSchema.mysqlPoolName})
 	}
 	if hasAlterAddForeignKey {
 		alterSQLAddForeignKey = strings.TrimRight(alterSQLAddForeignKey, ",\n") + ";"
-		alters = append(alters, Alter{SQL: alterSQLAddForeignKey, Safe: true, Pool: tableSchema.MysqlPoolName})
+		alters = append(alters, Alter{SQL: alterSQLAddForeignKey, Safe: true, Pool: tableSchema.mysqlPoolName})
 	}
 
 	has = true
@@ -605,7 +605,7 @@ func buildCreateForeignKeySQL(keyName string, definition *foreignIndex) string {
 		keyName, definition.Column, definition.ParentDatabase, definition.Table, definition.OnDelete)
 }
 
-func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field *reflect.StructField, indexes map[string]*index,
+func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *reflect.StructField, indexes map[string]*index,
 	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	var definition string
 	var addNotNullIfNotSet bool
@@ -614,7 +614,7 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 	var typeAsString = field.Type.String()
 	columnName := prefix + field.Name
 
-	attributes := tableSchema.Tags[columnName]
+	attributes := schema.tags[columnName]
 
 	_, has := attributes["ignore"]
 	if has {
@@ -622,7 +622,7 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 	}
 
 	keys := []string{"index", "unique"}
-	var refOneSchema *TableSchema
+	var refOneSchema *tableSchema
 	for _, key := range keys {
 		indexAttribute, has := attributes[key]
 		unique := key == "unique"
@@ -635,9 +635,9 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 					onDelete = "CASCADE"
 				}
 				pool := refOneSchema.GetMysql(engine)
-				foreignKey := &foreignIndex{Column: field.Name, Table: refOneSchema.TableName,
+				foreignKey := &foreignIndex{Column: field.Name, Table: refOneSchema.tableName,
 					ParentDatabase: pool.GetDatabaseName(), OnDelete: onDelete}
-				name := fmt.Sprintf("%s:%s:%s", pool.GetDatabaseName(), tableSchema.TableName, field.Name)
+				name := fmt.Sprintf("%s:%s:%s", pool.GetDatabaseName(), schema.tableName, field.Name)
 				foreignKeys[name] = foreignKey
 			}
 		}
@@ -733,7 +733,7 @@ func checkColumn(engine *Engine, tableSchema *TableSchema, t reflect.Type, field
 		kind := field.Type.Kind().String()
 		valid := false
 		if kind == "struct" {
-			structFields, err := checkStruct(tableSchema, engine, field.Type, indexes, foreignKeys, field.Name)
+			structFields, err := checkStruct(schema, engine, field.Type, indexes, foreignKeys, field.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -863,7 +863,7 @@ func handleTime(attributes map[string]string, nullable bool) (string, bool, bool
 	return "date", !nullable, true, defaultValue
 }
 
-func handleReferenceOne(schema *TableSchema, attributes map[string]string) string {
+func handleReferenceOne(schema *tableSchema, attributes map[string]string) string {
 	return convertIntToSchema(schema.t.Field(1).Type.String(), attributes)
 }
 
@@ -898,7 +898,7 @@ func convertIntToSchema(typeAsString string, attributes map[string]string) strin
 	}
 }
 
-func checkStruct(tableSchema *TableSchema, engine *Engine, t reflect.Type, indexes map[string]*index,
+func checkStruct(tableSchema *tableSchema, engine *Engine, t reflect.Type, indexes map[string]*index,
 	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	columns := make([][2]string, 0, t.NumField())
 	max := t.NumField() - 1

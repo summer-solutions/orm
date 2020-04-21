@@ -27,7 +27,7 @@ type Registry struct {
 func (r *Registry) Validate() (ValidatedRegistry, error) {
 	registry := &validatedRegistry{}
 	l := len(r.entities)
-	registry.tableSchemas = make(map[reflect.Type]*TableSchema, l)
+	registry.tableSchemas = make(map[reflect.Type]*tableSchema, l)
 	registry.entities = make(map[string]reflect.Type)
 	if registry.sqlClients == nil {
 		registry.sqlClients = make(map[string]*DBConfig)

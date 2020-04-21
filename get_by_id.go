@@ -109,12 +109,12 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 	return true, nil
 }
 
-func buildRedisValue(entity interface{}, schema *TableSchema) string {
+func buildRedisValue(entity interface{}, schema *tableSchema) string {
 	encoded, _ := json.Marshal(buildLocalCacheValue(entity, schema))
 	return string(encoded)
 }
 
-func buildLocalCacheValue(entity interface{}, schema *TableSchema) []string {
+func buildLocalCacheValue(entity interface{}, schema *tableSchema) []string {
 	bind := reflect.ValueOf(entity).Elem().Field(0).Addr().Interface().(*ORM).dBData
 	length := len(schema.columnNames)
 	value := make([]string, length-1)

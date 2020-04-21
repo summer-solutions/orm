@@ -123,7 +123,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				}
 				schema := orm.tableSchema
 				/* #nosec */
-				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.TableName, strings.Join(fields, ","))
+				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.tableName, strings.Join(fields, ","))
 				db := schema.GetMysql(engine)
 				values[i] = currentID
 				if lazy {
@@ -174,7 +174,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			finalValues[key] = fmt.Sprintf("`%s`", val)
 		}
 		/* #nosec */
-		sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES %s", schema.TableName, strings.Join(finalValues, ","), insertValues[typeOf])
+		sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES %s", schema.tableName, strings.Join(finalValues, ","), insertValues[typeOf])
 		for i := 1; i < totalInsert[typeOf]; i++ {
 			sql += "," + insertValues[typeOf]
 		}
@@ -236,7 +236,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			i++
 		}
 		/* #nosec */
-		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.TableName, NewWhere("`ID` IN ?", ids))
+		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.tableName, NewWhere("`ID` IN ?", ids))
 		db := schema.GetMysql(engine)
 		if lazy {
 			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, ids)
@@ -249,7 +249,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				for refT, refColumns := range usage {
 					for _, refColumn := range refColumns {
 						refSchema := getTableSchema(engine.registry, refT)
-						_, isCascade := refSchema.Tags[refColumn]["cascade"]
+						_, isCascade := refSchema.tags[refColumn]["cascade"]
 						if isCascade {
 							subValue := reflect.New(reflect.SliceOf(reflect.PtrTo(refT)))
 							subElem := subValue.Elem()
@@ -419,7 +419,7 @@ func injectBind(value reflect.Value, bind map[string]interface{}) map[string]int
 	return oldFields.dBData
 }
 
-func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value reflect.Value,
+func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value reflect.Value,
 	oldData map[string]interface{}, prefix string) (bind map[string]interface{}, err error) {
 	bind = make(map[string]interface{})
 	var hasOld = len(oldData) > 0
@@ -431,7 +431,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 		}
 		old := oldData[name]
 		field := value.Field(i)
-		attributes := tableSchema.Tags[name]
+		attributes := tableSchema.tags[name]
 		_, has := attributes["ignore"]
 		if has {
 			continue
@@ -520,7 +520,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 				bitSize = 64
 				precision = 16
 			}
-			fieldAttributes := tableSchema.Tags[name]
+			fieldAttributes := tableSchema.tags[name]
 			precisionAttribute, has := fieldAttributes["precision"]
 			if has {
 				userPrecision, err := strconv.Atoi(precisionAttribute)
@@ -545,7 +545,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 			value := field.Interface().(time.Time)
 			layout := "2006-01-02"
 			var valueAsString string
-			if tableSchema.Tags[name]["time"] == "true" {
+			if tableSchema.tags[name]["time"] == "true" {
 				if value.Year() == 1 {
 					valueAsString = "0001-01-01 00:00:00"
 				} else {
@@ -566,7 +566,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 			value := field.Interface().(*time.Time)
 			layout := "2006-01-02"
 			var valueAsString string
-			if tableSchema.Tags[name]["time"] == "true" {
+			if tableSchema.tags[name]["time"] == "true" {
 				if value != nil {
 					layout += " 15:04:05"
 				}
@@ -641,7 +641,7 @@ func createBind(id uint64, tableSchema *TableSchema, t reflect.Type, value refle
 	return
 }
 
-func getCacheQueriesKeys(schema *TableSchema, bind map[string]interface{}, data map[string]interface{}, addedDeleted bool) (keys []string) {
+func getCacheQueriesKeys(schema *tableSchema, bind map[string]interface{}, data map[string]interface{}, addedDeleted bool) (keys []string) {
 	keys = make([]string, 0)
 
 	for indexName, definition := range schema.cachedIndexesAll {
@@ -688,10 +688,10 @@ func addCacheDeletes(cacheDeletes map[string]map[string]bool, cacheCode string, 
 	}
 }
 
-func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interface{}, schema *TableSchema, id uint64, action string) {
+func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interface{}, schema *tableSchema, id uint64, action string) {
 	results := make(map[string]*DirtyQueueValue)
 	key := &DirtyQueueValue{EntityName: schema.t.String(), ID: id, Added: action == "i", Updated: action == "u", Deleted: action == "d"}
-	for column, tags := range schema.Tags {
+	for column, tags := range schema.tags {
 		queues, has := tags["dirty"]
 		if !has {
 			continue
@@ -717,7 +717,7 @@ func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interfac
 	}
 }
 
-func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *TableSchema, id uint64, data map[string]interface{}) {
+func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, id uint64, data map[string]interface{}) {
 	if !tableSchema.hasLog {
 		return
 	}
