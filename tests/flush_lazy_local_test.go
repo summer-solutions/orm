@@ -37,11 +37,7 @@ func TestFlushLazyLocal(t *testing.T) {
 	assert.Len(t, LoggerQueue.Requests, 10)
 	assert.Equal(t, "LPUSH 1 values _lazy_queue", LoggerQueue.Requests[0])
 
-	//found, err := engine.LoadByID(1, &entity)
-	//assert.Nil(t, err)
-	//assert.False(t, found)
-
-	LazyReceiver := orm.NewLazyReceiver(engine, "default")
+	LazyReceiver := orm.NewLazyReceiver(engine, &orm.RedisQueueSenderReceiver{PoolName: "default_queue"})
 	size, err := LazyReceiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(10), size)

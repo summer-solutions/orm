@@ -13,7 +13,7 @@ func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test")
 	registry.RegisterRedis("localhost:6379", 15)
 	registry.RegisterRedis("localhost:6379", 14, "default_queue")
-	registry.RegisterLazyQueue(&orm.RedisQueueSender{PoolName: "default_queue"})
+	registry.RegisterLazyQueue(&orm.RedisQueueSenderReceiver{PoolName: "default_queue"})
 	registry.RegisterLocalCache(1000)
 
 	registry.RegisterEntity(entities...)

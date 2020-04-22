@@ -5,34 +5,31 @@ import (
 	"fmt"
 )
 
+const lazyQueueName = "_lazy_queue"
+
 type LazyReceiver struct {
-	engine    *Engine
-	queueName string
+	engine              *Engine
+	queueSenderReceiver QueueSenderReceiver
 }
 
-func NewLazyReceiver(engine *Engine, queueName string) *LazyReceiver {
-	return &LazyReceiver{engine: engine, queueName: queueName}
+func NewLazyReceiver(engine *Engine, queueSenderReceiver QueueSenderReceiver) *LazyReceiver {
+	return &LazyReceiver{engine: engine, queueSenderReceiver: queueSenderReceiver}
 }
 
 func (r *LazyReceiver) Size() (int64, error) {
-	code := r.queueName + "_queue"
-	redis := r.engine.GetRedis(code)
-	return redis.LLen("_lazy_queue")
+	return r.queueSenderReceiver.Size(r.engine, lazyQueueName)
 }
 
 func (r *LazyReceiver) Digest() (has bool, err error) {
-	code := r.queueName + "_queue"
-	redis := r.engine.GetRedis(code)
-	key := "_lazy_queue"
-	val, found, err := redis.RPop(key)
+	has, asJSON, err := r.queueSenderReceiver.Receive(r.engine, lazyQueueName)
 	if err != nil {
 		return false, fmt.Errorf("%w", err)
 	}
-	if !found {
+	if !has {
 		return false, nil
 	}
 	var data interface{}
-	err = json.Unmarshal([]byte(val), &data)
+	err = json.Unmarshal([]byte(asJSON), &data)
 	if err != nil {
 		return true, err
 	}

@@ -374,7 +374,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		if !has {
 			return fmt.Errorf("unregistered log queu")
 		}
-		err = queue.Send(engine, "_lazy_queue", []string{v})
+		err = queue.Send(engine, lazyQueueName, []string{v})
 		if err != nil {
 			return err
 		}
@@ -411,7 +411,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			}
 			members[i] = string(asJSON)
 		}
-		err := queue.Send(engine, "_log_queue", members)
+		err := queue.Send(engine, logQueueName, members)
 		if err != nil {
 			return err
 		}

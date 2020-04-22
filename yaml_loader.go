@@ -30,7 +30,7 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 				if err != nil {
 					return nil, err
 				}
-				registry.RegisterLazyQueue(&RedisQueueSender{PoolName: valAsString})
+				registry.RegisterLazyQueue(&RedisQueueSenderReceiver{PoolName: valAsString})
 			case "locker":
 				valAsString, err := validateOrmString(value, key)
 				if err != nil {
@@ -48,7 +48,7 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 				if err != nil {
 					return nil, err
 				}
-				registry.RegisterLogQueue(key, &RedisQueueSender{PoolName: valAsString})
+				registry.RegisterLogQueue(key, &RedisQueueSenderReceiver{PoolName: valAsString})
 			case "localCache":
 				number, err := validateOrmInt(value, key)
 				if err != nil {

@@ -20,7 +20,7 @@ func TestLog(t *testing.T) {
 	err := queueRedis.FlushDB()
 	assert.Nil(t, err)
 	logDB := engine.GetMysql("log")
-	receiver := NewLogReceiver(engine, &RedisLogReceiver{Redis: queueRedis})
+	receiver := NewLogReceiver(engine, &RedisQueueSenderReceiver{PoolName: "default_log"})
 
 	engine.RegisterEntity(entity)
 	entity.Name = "Hello"
