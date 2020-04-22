@@ -65,7 +65,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity2.ID)
-	assert.False(t, entity2.ReferenceOne.Loaded())
+	assert.Nil(t, entity2.ReferenceOne)
 
 	var entity3 TestEntityByIDRedis
 	has, err = engine.LoadByID(1, &entity3)
@@ -73,7 +73,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity3.ID)
 
-	entity.ReferenceOne.ID = 1
+	entity.ReferenceOne = &TestEntityByIDRedis{ID: 1}
 	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.False(t, entity.IsDirty())

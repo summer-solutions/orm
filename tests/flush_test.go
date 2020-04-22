@@ -73,7 +73,7 @@ func TestFlush(t *testing.T) {
 	}
 
 	entities[1].Name = "Name 2.1"
-	entities[1].ReferenceOne.ID = 7
+	entities[1].ReferenceOne = &TestEntityFlush{ID: 7}
 	entities[7].Name = "Name 8.1"
 	now := time.Now()
 	entities[7].Date = &now
@@ -98,20 +98,14 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, "Name 2.1", edited1.Name)
 	assert.Equal(t, uint16(7), edited1.ReferenceOne.ID)
 	assert.Equal(t, "Name 8.1", edited2.Name)
-	assert.Equal(t, uint16(0), edited2.ReferenceOne.ID)
+	assert.Nil(t, edited2.ReferenceOne)
 	assert.NotNil(t, edited2.Date)
 	assert.Equal(t, now.Format("2006-01-02"), edited2.Date.Format("2006-01-02"))
 	assert.False(t, edited1.ReferenceOne.Loaded())
-	assert.False(t, edited2.ReferenceOne.Loaded())
 	err = edited1.ReferenceOne.Load(engine)
 	assert.Nil(t, err)
 	assert.True(t, edited1.ReferenceOne.Loaded())
 	assert.Equal(t, "Name 7", edited1.ReferenceOne.Name)
-
-	err = edited2.ReferenceOne.Load(engine)
-	assert.Nil(t, err)
-	assert.False(t, edited2.ReferenceOne.Loaded())
-	assert.Equal(t, "", edited2.ReferenceOne.Name)
 
 	toDelete := edited2
 	edited1.Name = "Name 2.2"
@@ -155,7 +149,7 @@ func TestFlushErrors(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 	engine.RegisterEntity(entity)
 
-	entity.ReferenceOne.ID = 2
+	entity.ReferenceOne = &TestEntityErrors{ID: 2}
 	err := entity.Flush()
 	assert.NotNil(t, err)
 	keyError, is := err.(*orm.ForeignKeyError)
@@ -163,7 +157,7 @@ func TestFlushErrors(t *testing.T) {
 	assert.Equal(t, "test:TestEntityErrors:ReferenceOne", keyError.Constraint)
 	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`TestEntityErrors`, CONSTRAINT `test:TestEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `TestEntityErrors` (`ID`))", keyError.Error())
 
-	entity.ReferenceOne.ID = 0
+	entity.ReferenceOne = nil
 	err = entity.Flush()
 	assert.Nil(t, err)
 

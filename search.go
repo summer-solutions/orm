@@ -217,7 +217,7 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 }
 
 func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
-	orm := initIfNeeded(engine, value, true)
+	orm := initIfNeeded(engine, value)
 	elem := value.Elem()
 	elem.Field(1).SetUint(id)
 	_, err := fillStruct(engine, orm.tableSchema, 0, data, entityType, elem, "")
@@ -361,12 +361,14 @@ func fillStruct(engine *Engine, schema *tableSchema, index uint16, data []string
 				continue
 			} else if k == "ptr" {
 				integer, _ := strconv.ParseUint(data[index], 10, 64)
-				if field.IsNil() {
+				if integer > 0 {
 					n := reflect.New(field.Type().Elem())
-					initIfNeeded(engine, n, false)
+					initIfNeeded(engine, n)
+					n.Elem().Field(1).SetUint(integer)
 					field.Set(n)
+				} else {
+					field.Set(reflect.Zero(field.Type()))
 				}
-				field.Elem().Field(1).SetUint(integer)
 				index++
 				continue
 			}

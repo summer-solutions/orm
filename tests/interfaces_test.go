@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,14 +24,7 @@ type TestEntityInterfacesRef struct {
 func (e *TestEntityInterfaces) SetDefaults() {
 	e.Uint = 3
 	e.Name = "hello"
-	e.ReferenceOne.ID = 1
-}
-
-func (e *TestEntityInterfaces) Validate() error {
-	if e.Uint < 5 {
-		return fmt.Errorf("uint too low")
-	}
-	return nil
+	e.ReferenceOne = &TestEntityInterfacesRef{ID: 1}
 }
 
 func (e *TestEntityInterfaces) AfterSaved(_ *orm.Engine) error {
@@ -54,9 +46,6 @@ func TestInterfaces(t *testing.T) {
 	assert.Equal(t, "hello", entity.Name)
 	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
 
-	err = entity.Flush()
-	assert.NotNil(t, err)
-	assert.Error(t, err, "uint too low")
 	entity.Uint = 5
 	err = entity.Flush()
 	assert.Nil(t, err)

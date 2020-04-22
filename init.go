@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-func initIfNeeded(engine *Engine, value reflect.Value, withReferences bool) *ORM {
+func initIfNeeded(engine *Engine, value reflect.Value) *ORM {
 	elem := value.Elem()
 	address := elem.Field(0).Addr()
 	orm := address.Interface().(*ORM)
@@ -19,15 +19,6 @@ func initIfNeeded(engine *Engine, value reflect.Value, withReferences bool) *ORM
 		orm.elem = elem
 		orm.value = value
 		orm.tableSchema = tableSchema
-		if withReferences {
-			for _, code := range tableSchema.refOne {
-				reference := tableSchema.tags[code]["ref"]
-				t := engine.registry.entities[reference]
-				n := reflect.New(t)
-				initIfNeeded(engine, n, false)
-				elem.FieldByName(code).Set(n)
-			}
-		}
 		defaultInterface, is := value.Interface().(DefaultValuesInterface)
 		if is {
 			defaultInterface.SetDefaults()

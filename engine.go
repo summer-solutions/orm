@@ -25,14 +25,14 @@ func (e *Engine) SetLogMetaData(key string, value interface{}) {
 
 func (e *Engine) RegisterEntity(entity ...Entity) {
 	for _, element := range entity {
-		initIfNeeded(e, e.getValue(element), true)
+		initIfNeeded(e, e.getValue(element))
 	}
 }
 
 func (e *Engine) TrackEntity(entity ...Entity) {
 	for _, element := range entity {
 		value := e.getValue(element)
-		initIfNeeded(e, value, true)
+		initIfNeeded(e, value)
 		e.trackedEntities = append(e.trackedEntities, value)
 		e.trackedEntitiesCounter++
 		if e.trackedEntitiesCounter == 100000 {
@@ -46,7 +46,7 @@ func (e *Engine) FlushTrackedEntities() error {
 }
 
 func (e *Engine) FlushLazyTrackedEntities() error {
-	return e.flushTrackedEntities(false)
+	return e.flushTrackedEntities(true)
 }
 
 func (e *Engine) ClearTrackedEntities() {
@@ -181,7 +181,7 @@ func (e *Engine) getValue(entity Entity) reflect.Value {
 	if value.Kind() != reflect.Ptr {
 		panic(fmt.Errorf("registered entity '%s' is not a poninter", value.Type().String()))
 	}
-	initIfNeeded(e, value, true)
+	initIfNeeded(e, value)
 	return value
 }
 

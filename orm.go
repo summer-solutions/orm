@@ -16,6 +16,8 @@ type Entity interface {
 	ForceMarkToDelete()
 	getDBData() map[string]interface{}
 	getTableSchema() *tableSchema
+	getValue() reflect.Value
+	getElem() reflect.Value
 }
 
 type ORM struct {
@@ -108,4 +110,12 @@ func (orm ORM) getDBData() map[string]interface{} {
 
 func (orm ORM) getTableSchema() *tableSchema {
 	return orm.tableSchema
+}
+
+func (orm ORM) getValue() reflect.Value {
+	return orm.value
+}
+
+func (orm ORM) getElem() reflect.Value {
+	return orm.elem
 }

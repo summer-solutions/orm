@@ -13,7 +13,7 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 	for _, entity := range entities {
 		value := reflect.ValueOf(entity)
 		elem := value.Elem()
-		orm := initIfNeeded(engine, value, true)
+		orm := initIfNeeded(engine, value)
 		orm.value = value
 		orm.elem = elem
 		t := elem.Type()

@@ -68,7 +68,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity.ID)
 
-	entity.ReferenceOne.ID = 1
+	entity.ReferenceOne = &TestEntityByIDLocal{ID: 1}
 	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.False(t, entity.IsDirty())

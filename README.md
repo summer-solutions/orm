@@ -449,20 +449,12 @@ func main() {
     // loading references: 
 
     _, err = engine.LoadById(1, &user)
-    user.School == nil // will always return false
-    user.School.ID == 0 //is false, it will be true if school is not required (nullable) and user has no school assigned in DB
     user.School.Loaded() //will return false because school is not loaded from DB yet
     err = user.School.Load(engine) //it will load school from db
     user.School.Loaded() //now it's true, you can access school fields like user.School.Name
     
-    // updating reference:
-    
-    // by reference
-    user.School = &anotherSchool
-    
-    //by ID
-    user.School.ID = 7 
-    user.School.Load(engine) //run it when you changed ID and School had different ID before
+    //If you want to set reference and you have only ID:
+    user.School = &SchoolEntity{ID: 1}
 
     // detaching reference
     user.School = nil
@@ -657,30 +649,6 @@ func main() {
     engine.Flush(user)
 }
 
-
-```
-
-## Validate
-
-If you need to define validation for entity simply extend orm.ValidateInterface.
-
-```go
-func main() {
-
-    type UserEntity struct {
-        orm.ORM
-        ID                   uint64
-        Name                 string
-    }
-
-    func (e *UserEntity) Validate() error {
-        if e.Name == "Tom" {
-            return fmt.Errorf("Tom is not allowed")
-        }
-        return nil
-    }
-    
-}
 
 ```
 

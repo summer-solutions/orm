@@ -42,7 +42,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
 		engine.RegisterEntity(e)
-		e.ReferenceOne.ID = uint(i)
+		e.ReferenceOne = &TestEntityIndexTestLocalRef{ID: uint(i)}
 		entities[i-1] = e
 		err := e.Flush()
 		assert.Nil(t, err)

@@ -208,10 +208,14 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 		for i := 0; i < l; i++ {
 			var ref reflect.Value
 			if many {
-				ref = rows.Index(i).Elem().FieldByName(parts[0]).Elem()
+				ref = rows.Index(i).Elem().FieldByName(parts[0])
 			} else {
-				ref = rows.FieldByName(parts[0]).Elem()
+				ref = rows.FieldByName(parts[0])
 			}
+			if ref.IsZero() {
+				continue
+			}
+			ref = ref.Elem()
 			refID := ref.Field(1).Uint()
 			ids := make([]uint64, 0)
 			if refID != 0 {

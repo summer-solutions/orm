@@ -30,17 +30,15 @@ func TestFlushLazyReference(t *testing.T) {
 	entity1.ReferenceOne = entity2
 	err := entity1.Flush()
 	assert.Nil(t, err)
-	err = entity2.Flush()
-	assert.Nil(t, err)
 	err = entity3.Flush()
 	assert.Nil(t, err)
 	err = entity4.Flush()
 	assert.Nil(t, err)
 
-	assert.Equal(t, uint(2), entity1.ReferenceOne.ID)
+	assert.Equal(t, uint(1), entity1.ReferenceOne.ID)
 
-	has, err := engine.LoadByID(1, &entity)
+	has, err := engine.LoadByID(2, &entity)
 	assert.True(t, has)
 	assert.Nil(t, err)
-	assert.Equal(t, uint(2), entity1.ReferenceOne.ID)
+	assert.Equal(t, uint(1), entity1.ReferenceOne.ID)
 }

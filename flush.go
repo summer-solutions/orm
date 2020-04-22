@@ -47,31 +47,33 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 	logQueues := make(map[string][]*LogQueueValue)
 	lazyMap := make(map[string]interface{})
 
+	var referencesToFlash map[reflect.Value]reflect.Value
+
 	for _, v := range entities {
 		if !v.IsValid() {
 			return fmt.Errorf("unregistered struct. run engine.RegisterEntity(entity) before entity.Flush()")
-		}
-		value := reflect.Indirect(v)
-		validate, is := v.Interface().(ValidateInterface)
-		if is {
-			err := validate.Validate()
-			if err != nil {
-				return err
-			}
-		} else {
-			validate, is := value.Interface().(ValidateInterface)
-			if is {
-				err := validate.Validate()
-				if err != nil {
-					return err
-				}
-			}
 		}
 		entity, ok := v.Interface().(Entity)
 		if !ok {
 			return fmt.Errorf("invalid entity '%s'", v.Type().String())
 		}
+		schema := entity.getTableSchema()
+		for _, refName := range schema.refOne {
+			refValue := entity.getElem().FieldByName(refName)
+			ref := refValue.Interface().(Entity)
+			if !refValue.IsNil() && refValue.Elem().Field(1).Uint() == 0 {
+				if referencesToFlash == nil {
+					referencesToFlash = make(map[reflect.Value]reflect.Value)
+				}
+				referencesToFlash[ref.getValue()] = ref.getValue()
+			}
+		}
+		if referencesToFlash != nil {
+			continue
+		}
+
 		dbData := entity.getDBData()
+		value := reflect.Indirect(v)
 		isDirty, bind, err := getDirtyBind(value)
 		if err != nil {
 			return err
@@ -126,7 +128,6 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 					values[i] = value
 					i++
 				}
-				schema := entity.getTableSchema()
 				/* #nosec */
 				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.GetTableName(), strings.Join(fields, ","))
 				db := schema.GetMysql(engine)
@@ -170,6 +171,33 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
 				addToLogQueue(logQueues, schema, currentID, data)
 			}
+		}
+	}
+
+	if referencesToFlash != nil {
+		if lazy {
+			return fmt.Errorf("lazy flush not supported for unsaved regerences")
+		}
+		toFlush := make([]reflect.Value, len(referencesToFlash))
+		i := 0
+		for _, v := range referencesToFlash {
+			toFlush[i] = v
+			i++
+		}
+		err := flush(engine, false, toFlush...)
+		if err != nil {
+			return err
+		}
+		rest := make([]reflect.Value, 0)
+		for _, v := range entities {
+			_, has := referencesToFlash[v]
+			if !has {
+				rest = append(rest, v)
+			}
+		}
+		err = flush(engine, false, rest...)
+		if err != nil {
+			return err
 		}
 	}
 	for typeOf, values := range insertKeys {
