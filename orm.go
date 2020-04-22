@@ -14,6 +14,7 @@ type Entity interface {
 	Loaded() bool
 	Load(engine *Engine) error
 	ForceMarkToDelete()
+	getDBData() map[string]interface{}
 }
 
 type ORM struct {
@@ -98,4 +99,8 @@ func (orm ORM) checkIsRegistered() {
 	if orm.tableSchema == nil {
 		panic(fmt.Errorf("unregistered struct. run engine.RegisterEntity(entity) before entity.Flush()"))
 	}
+}
+
+func (orm ORM) getDBData() map[string]interface{} {
+	return orm.dBData
 }

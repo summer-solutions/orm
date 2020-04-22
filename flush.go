@@ -149,7 +149,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				localCache, hasLocalCache := schema.GetLocalCache(engine)
 				redisCache, hasRedis := schema.GetRedisCache(engine)
 				if hasLocalCache {
-					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(v.Interface(), schema))
+					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(value, schema))
 					keys := getCacheQueriesKeys(schema, bind, orm.dBData, false)
 					addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 					keys = getCacheQueriesKeys(schema, bind, old, false)
@@ -203,7 +203,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			elem.Field(1).SetUint(id)
 			if hasLocalCache {
 				if !lazy {
-					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), buildLocalCacheValue(entity, schema))
+					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), buildLocalCacheValue(elem, schema))
 				} else {
 					addCacheDeletes(localCacheDeletes, db.GetPoolCode(), localCache.code, schema.getCacheKey(id))
 				}

@@ -168,6 +168,7 @@ func BenchmarkGetByIDLocal(b *testing.B) {
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	entity = TestEntityByIDLocal{}
+	engine.RegisterEntity(&entity)
 	err := entity.Flush()
 	assert.Nil(b, err)
 

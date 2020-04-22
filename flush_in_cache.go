@@ -38,7 +38,7 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 			}
 			injectBind(elem, bind)
 			entityCacheKey := schema.getCacheKey(id)
-			entityCacheValue := buildRedisValue(entity, schema)
+			entityCacheValue := buildRedisValue(elem, schema)
 			if redisValues[cache.code] == nil {
 				redisValues[cache.code] = make([]interface{}, 0)
 			}

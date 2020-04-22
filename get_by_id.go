@@ -12,7 +12,6 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 	if !elem.IsValid() {
 		val = reflect.New(reflect.TypeOf(entity).Elem())
 		elem = val.Elem()
-		entity = val.Interface()
 	}
 	entityType := elem.Type()
 	for {
@@ -20,7 +19,6 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 			entityType = entityType.Elem()
 			val = val.Elem()
 			elem = val.Elem()
-			entity = val.Interface()
 		} else {
 			break
 		}
@@ -75,7 +73,7 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 			return true, err
 		}
 	}
-	found, err = searchOne(false, engine, NewWhere("`ID` = ?", id), entity)
+	found, err = searchRow(false, engine, NewWhere("`ID` = ?", id), val)
 	if err != nil {
 		return false, err
 	}
@@ -92,10 +90,10 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 		return false, nil
 	}
 	if localCache != nil {
-		localCache.Set(cacheKey, buildLocalCacheValue(entity, schema))
+		localCache.Set(cacheKey, buildLocalCacheValue(elem, schema))
 	}
 	if redisCache != nil {
-		err = redisCache.Set(cacheKey, buildRedisValue(entity, schema), 0)
+		err = redisCache.Set(cacheKey, buildRedisValue(elem, schema), 0)
 		if err != nil {
 			return false, err
 		}
@@ -109,13 +107,13 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 	return true, nil
 }
 
-func buildRedisValue(entity interface{}, schema *tableSchema) string {
-	encoded, _ := json.Marshal(buildLocalCacheValue(entity, schema))
+func buildRedisValue(elem reflect.Value, schema *tableSchema) string {
+	encoded, _ := json.Marshal(buildLocalCacheValue(elem, schema))
 	return string(encoded)
 }
 
-func buildLocalCacheValue(entity interface{}, schema *tableSchema) []string {
-	bind := reflect.ValueOf(entity).Elem().Field(0).Addr().Interface().(*ORM).dBData
+func buildLocalCacheValue(elem reflect.Value, schema *tableSchema) []string {
+	bind := elem.Interface().(Entity).getDBData()
 	length := len(schema.columnNames)
 	value := make([]string, length-1)
 	j := 0
