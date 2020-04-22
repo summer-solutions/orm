@@ -644,7 +644,7 @@ func main() {
 
     //you can delete in two ways:
     user.MarkToDelete() -> will set user.FakeDelete = true
-    or:
+    //or:
     user.FakeDelete = true
 
     engine.Flush(user) //it will save entity id in Column `FakeDelete`.
@@ -831,7 +831,7 @@ func main() {
     registry.RegisterLocker("default", "my_pool")
     
     locker, _ := engine.GetLocker()
-    lock, err := locker.Obtain("my_lock", 1 * Time.Second, 1 * Time.Second)
+    lock, err := locker.Obtain("my_lock", 5 * Time.Second, 1 * Time.Second)
     if err != nil {
         panic(err)
     }
