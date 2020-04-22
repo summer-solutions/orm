@@ -312,55 +312,44 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    registry := &orm.Registry{}
-    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
+    //create engine
 
-    type TestEntity struct {
-        orm.ORM
-        ID                   uint
-        Name                 string
-    }
-    var entity TestEntity
-    registry.RegisterEntity(entity)
-    //code above you should execute only once, when application starts
-    
-    config, err := registry.NewConfig()
-    engine := orm.NewEngine(config)
+    entity := TestEntity{Name: "Name 1"}
+    engine.RegisterEntity(&entity) // you should use this function only for new entities
+    err := entity.Flush()
 
-    entity = TestEntity{Name: "Name 1"}
-    engine.Init(&entity) // you should use this function only for new entities
-    err := engine.Flush(&entity)
-    if err != nil {
-       ///...
-    }
 
     /*if you need to add more than one entity*/
     entity = TestEntity{Name: "Name 2"}
     entity2 := TestEntity{Name: "Name 3"}
-    engine.Init(&entity, &entity2)
+    engine.TrackEntity(&entity, &entity2) //it will also automatically run RegisterEntity()
+    defer engine.ClearTrackedEntities() //to be sure engine remove tracked entities in case of panic
     //it will execute only one query in MySQL adding two rows at once (atomic)
-    err = engine.Flush(&entity, &entity2)
-    if err != nil {
-       ///...
-    }
+    err = engine.FlushTrackedEntities()
+ 
 
     /* editing */
+
     entity.Name = "New name 2"
-    engine.IsDirty(entity) //returns true
-    engine.IsDirty(entity2) //returns false
-    err = engine.Flush(&entity)
-    if err != nil {
-       ///...
-    }
-    engine.IsDirty(entity) //returns false
+    entity.IsDirty(entity) //returns true
+    entity.IsDirty(entity2) //returns false
+    err = entity.Flush()
+    entity.IsDirty(entity) //returns false
+    // also if you need to update more than one entities you shouls use engine.TrackEntity feature:
+    engine.TrackEntity(&entity, &entity2)
+    entity.Name = "New name"
+    entity2.Name = "New name"
+    err = engine.FlushTrackedEntities()
     
     /* deleting */
     entity2.MarkToDelete()
     engine.IsDirty(entity2) //returns true
-    err = engine.Flush(&entity2)
-    if err != nil {
-       ///...
-    }
+    err = entity2.Flush()
+    //or 
+    engine.TrackEntity(&entity, &entity2)
+    entity.MarkToDelete()
+    entity2.MarkToDelete()
+    err = engine.FlushTrackedEntities()
 
     /* flush can return 2 special errors */
     orm.DuplicatedKeyError{} //when unique index is broken
@@ -369,10 +358,7 @@ func main() {
 
 ```
 
-If you need to work with more than one entity i strongly recommend ot use FLusher (described later).
-
-
-## Getting entities using primary keys
+## Loading entities using primary key
 
 ```go
 package main
@@ -381,31 +367,17 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
- 
-    type TestEntity struct {
-        orm.ORM
-        ID                   uint
-        Name                 string
-    }
     var entity TestEntity
-    registry := &orm.Registry{}
-   //.. register pools and entities
-    config, err := registry.NewConfig()
-    engine := orm.NewEngine(config)
-
-    found, err := engine.LoadByID(1, &entity) //found has false if row does not exists
-    err = engine.LoadByID(2, &entity) //if will return err if entity does not exists
+    has, err := engine.LoadByID(1, &entity)
 
     var entities []*TestEntity
-    //missing is []uint64 that contains id of rows that doesn't exists, 
-    // in this cause $found slice has nil for such keys
-    missing, err := engine.LoadByIDs([]uint64{2, 3, 1}, &entities) 
-    err = engine.LoadByIDs([]uint64{2, 3, 1}, &entities) //will return error if at least one row does not exist
+    missing, err := engine.LoadByIDs([]uint64{1, 3, 4}, &entities) //missing contains IDs that are missing in database
+   
 }
 
 ```
 
-## Getting entities using search
+## Loading entities using search
 
 ```go
 package main
@@ -413,18 +385,6 @@ package main
 import "github.com/summer-solutions/orm"
 
 func main() {
-
-   //.. register pools and entities
- 
-    type TestEntity struct {
-        orm.ORM
-        ID                   uint
-        Name                 string
-    }
-    registry := &orm.Registry{}
-   //.. register pools and entities
-    config, err := registry.CreateConfig()
-    engine := orm.NewEngine(config)
 
     var entities []*TestEntity
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
@@ -448,81 +408,6 @@ func main() {
 
 ```
 
-## Flusher and AutoFlusher
-
-Very often you need to change more than one entity. It's hard to track all of them
-to see if some of them are dirty. Also it's better to update them at the same time trying
-to minimize number of requests to database and cache. To solve this problem simple use Flusher:
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-
-   //.. register pools and entities
- 
-    type TestEntity struct {
-        orm.ORM
-        ID                   uint
-        Name                 string
-    }
-    registry := &orm.Registry{}
-   //.. register pools and entities
-    config, err := registry.CreateConfig()
-    engine := orm.NewEngine(config)
-
-    /* In this case flusher will keep maximum 10000 entities. If you add more it will panic */
-    flusher := orm.Flusher{}
-
-    var entity1 TestEntity
-    var entity2 TestEntity
-    entity3 := TestEntity{Name: "Hello"}
-    err := engine.LoadByID(1, &entity1)
-    err = engine.LoadByID(2, &entity2)
-    flusher.RegisterEntity(&entity1, &entity2, &entity3)
-   
-    entity1.Name = "New Name"
-    entity1.MarkToDelete()
-    
-    err = flusher.Flush(engine) //executes all queries at once
-    //or
-    entities, err := flusher.FlushAndReturn(engine)
-
-    /* 
-        in this case flusher will keep maximum 10000 entities. 
-        If you add more it automatically flush all of them and unregister them in flusher 
-    */
-    autoFlusher := orm.AutoFlusher()
-    
-    var entities []*TestEntity
-    pager := orm.Pager{CurrentPage: 1, PageSize: 100}
-    where := orm.NewWhere("1")
-    for {
-        err = engine.Search(where, pager, &entities)
-        for _, entity := range entities {
-          entity.Name = "New Name"
-          err = autoFlusher.RegisterEntity(&entity) //it will auto flush every 10 iterations
-        }
-        pager.IncrementPage()
-        if len(entities) < pager.GetPageSize() {
-            break
-        }
-    }
-    err = autoFlusher.Flush(engine)
-    if err != nil {
-       ///...
-    }
-    /* to change limit, but try to avoid bug numbers */
-    flusher.Limit = 20000
-    /* to use flushLazy */
-    flusher.Lazy = true
-}
-
-```
-
-
 ## Reference one to one
 
 ```go
@@ -532,13 +417,12 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-   //.. register pools and entities
- 
     type UserEntity struct {
         orm.ORM
         ID                   uint64
         Name                 string
-        School               *SchoolEntity
+        School               *SchoolEntity `orm:"required"` // key is "on delete restrict" by default not not nullable
+        SecondarySchool      *SchoolEntity // key is nullable
     }
     
     type SchoolEntity struct {
@@ -550,53 +434,55 @@ func main() {
     type UserHouse struct {
         orm.ORM
         ID                   uint64
-        User                 *UserEntity  `orm:"cascade"`
-    }
-    registry := &orm.Registry{}
-   //.. register pools and entities
-    config, err := registry.CreateConfig()
-    engine := orm.NewEngine(config)
-
-
-    /* 
-        ORM will add index and foreign key automatically. By default 'ON DELETE RESTRICT' but
-        you can add tag "cascade" to force 'ON DELETE CASCADE'
-    */
-    
-    school := SchoolEntity{Name: "Name of school"}
-    err := engine.Flush(&school)
-    if err != nil {
-       ///...
+        User                 *UserEntity  `orm:"cascade;required"` // on delete cascade and is not nullable
     }
     
+    // saving in DB:
+
     user := UserEntity{Name: "John"}
-    user.School.ID = school.ID
-    err = engine.Flush(&user)
-    if err != nil {
-       ///...
-    }
+    school := SchoolEntity{Name: "Name of school"}
+    house := UserHouse{Name: "Name of school"}
+    engine.TrackEntity(&user, &school, &house)
+    user.School = school
+    house.User = user
+    engine.FlushTrackedEntities()
 
-    /* accessing reference */
-    user.School.Loaded() //returns false
-    err = user.School.Load(engine) //fill from DB if not loaded
-    err = user.School.Refersh(engine) //load newest data from DB
+    // loading references: 
+
+    _, err = engine.LoadById(1, &user)
+    user.School == nil // will always return false
+    user.School.ID == 0 //is false, it will be true if school is not required (nullable) and user has no school assigned in DB
+    user.School.Loaded() //will return false because school is not loaded from DB yet
+    err = user.School.Load(engine) //it will load school from db
+    user.School.Loaded() //now it's true, you can access school fields like user.School.Name
     
+    // updating reference:
     
-    /* deleting reference */
-    user.School.ID = 0
-    err = engine.Flush(&user)
-    if err != nil {
-       ///...
-    }
+    // by reference
+    user.School = &anotherSchool
+    
+    //by ID
+    user.School.ID = 7 
+    user.School.Load(engine) //run it when you changed ID and School had different ID before
 
-    /* if you don't have ID yet you can still assign references */
-    school = SchoolEntity{Name: "New School"}
-    user.School = &school
-    err = engine.Flush(&user, &school)
-    if err != nil {
-       ///...
-    }
+    // detaching reference
+    user.School = nil
 
+    // preloading references
+    engine.LoadByID(1, &user, "*") //all references
+    engine.LoadByID(1, &user, "School") //only School
+    engine.LoadByID(1, &user, "School", "SecondarySchool") //only School and SecondarySchool
+    engine.LoadByID(1, &userHouse, "User/School", "User/SecondarySchool") //User, School and SecondarySchool in each User
+    engine.LoadByID(1, &userHouse, "User/*") // User, all references in User
+    engine.LoadByID(1, &userHouse, "User/*/*") // User, all references in User and all references in User subreferences
+    //You can have as many levels you want: User/School/AnotherReference/EvenMore/
+    
+    //You can preload referenes in all search and load methods:
+    engine.LoadByIDs()
+    engine.Search()
+    engine.SearchOne()
+    enginde.CachedSearch()
+    ...
 }
 
 ```
