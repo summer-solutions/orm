@@ -522,7 +522,7 @@ func main() {
 ## Lazy flush
 
 Sometimes you want to flush changes in database, but it's ok if data is flushed after some time. 
-For example whne you want to save some logs in database.
+For example when you want to save some logs in database.
 
 ```go
 package main
@@ -531,35 +531,20 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    // You need to register queue that will store queries
-    registry.RegisterLazyQueue("default", "queues_pool") 
-
- 
-    type UserEntity struct {
-        orm.ORM
-        ID                   uint64
-        Name                 string
-    }
-    config, err := registry.CreateConfig()
-    engine := orm.NewEngine(config)
+    // You need to register queue sender receiver that will send data to queue.
+    // Here we used RedisQueueSenderReceiver. If you want to use other queue service simply implement QueueSenderReceiver
+    registry.RegisterRedis("localhost:6379", 1, "queue_code")
+    queueSenderReceiver := &orm.RedisQueueSenderReceiver{PoolName: "queue_code"}
+    registry.RegisterLazyQueue(queueSenderReceiver) 
     
-    user := UserEntity{Name: "John"}
-    var user2 UserEntity
-    err := engine.LoadByID(1, &user2)
-    user2.MarkToDelete()
-    err = engine.FlushLazy(&user, &user2)
+    // now in code you can use FlushLazy() methods instead of Flush().
+    // it will send changes to queue (database and cached is not updated yet)
+    user.FlushLazy()
+    //or
+    engine.FlushLazyTrackedEntities()
     
-    /* you can use Flusher also */
-    flusher := &LazyFlusher(100, true)
-    user = UserEntity{Name: "Bob"}
-    err = flusher.RegisterEntity(&user)
-    err = flusher.Flush(engine)
-    if err != nil {
-       ///...
-    }
-    
-    /* you should run a thread that is receiving lazy queries */
-    lazyReceiver := orm.NewLazyReceiver{engine, "queues_pool"}
+    //You need to run code that will read data from queue and execute changes
+    lazyReceiver := orm.NewLazyReceiver(engine, queueSenderReceiver)
     for {
         has, err = lazyReceiver.Digest()
         if err != nil {
@@ -573,12 +558,9 @@ func main() {
 
 ```
 
-## Flush in cache
+## Log entity changes
 
-Sometimes you are changing entity very often and you don't want to flush changes
-to database every time entity is changed. If entity is using shared cached (redis) you
-can use FlushInCache feature. When entity is changed new data is stored in cache but 
-from time to time FlushFromCacheReceiver is flushing all differences between cache and database.
+ORM can store in database every change of entity in special log table.
 
 ```go
 package main
@@ -587,36 +569,35 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    registry := &orm.Registry{}
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/log_database", "log_db_pool") //it's recommended to keep logs in separated DB
 
-    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
-    registry.RegisterRedis("localhost:6379", 3, "queues_pool")
-    registry.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
-    //.. register entities
+    // You need to register queue sender receiver that will send  data to queue.
+    registry.RegisterRedis("localhost:6379", 1, "queue_code")
+    queueSenderReceiver := &orm.RedisQueueSenderReceiver{PoolName: "queue_code"}
+    registry.RegisterLogQueue("log_db_pool", queueSenderReceiver)  //all changes that will be stored in "log_db_pool" database
 
- 
-    type UserEntity struct {
-        orm.ORM
-        ID                   uint64
-        Name                 string
+    //next you need to define in Entity that you want to log changes. Just add "log" tag
+    type User struct {
+        ORM  `orm:"log=log_db_pool"`
+        ID   uint
+        Name string
+        Age  int
     }
+
+    // Now every change of User will be saved in log table
     
-    config, err := registry.CreateConfig()
-    engine := orm.NewEngine(config)
+    // You can add extra data to log, simply use this methods before Flush():
+    engine.SetLogMetaData("logged_user_id", 12) 
+    engine.SetLogMetaData("ip", request.GetUserIP())
     
-    var user UserEntity
-    err := engine.LoadByID(1, &user)
-    user.Name = "New name"
-    err = engine.FlushInCache(&user) //updated only in redis
-    user.Name = "New name 2"
-    err = engine.FlushInCache(&user) //updated only in redis
     
-    /* you should run a thread that is flushing changes in database */
-    lazyReceiver := orm.NewFlushFromCacheReceiver{engine, "queues_pool"}
+    //You need to run code that will read data from queue and store logs
+    lazyReceiver := orm.NewLogReceiver(engine, queueSenderReceiver)
     for {
-        //in our case it will only one query:
-        // UPDATE `UserEntity` SET `Name` = "New name 2" WHERE `ID` = 1
-        has, err := lazyReceiver.Digest()
+        has, err = lazyReceiver.Digest()
+        if err != nil {
+           ///...
+        }
         if !has {
             //sleep x seconds
         }   
@@ -735,9 +716,7 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    config := &orm.Config{}
     config.RegisterRedis("localhost:6379", 0)
-    engine := orm.NewEngine(config)
     
     //storing data in cached for x seconds
     val, err := engine.GetRedis().GetSet("key", 1, func() interface{} {
@@ -762,10 +741,7 @@ import "github.com/summer-solutions/orm"
 
 func main() {
     
-    registry := &orm.Registry{}
     registry.RegisterLocalCache(1000)
-    config, err := registry.CreateConfig()
-    engine := orm.NewEngine(config)
     
     //storing data in cached for x seconds
     val := engine.GetLocalCache().GetSet("key", 1, func() interface{} {
@@ -811,11 +787,9 @@ import (
 )
 
 func main() {
-
-    registry := &orm.Registry{}
+    
+    // register mysql pool
     registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
-    config, err := registry.CreateConfig()
-    engine := orm.NewEngine(config)
 
     res, err := engine.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `ID` = ?", "Hello", 2)
 
@@ -853,11 +827,9 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    registry := &orm.Registry{}
-    registry.RegisterRedis("localhost:6379", 0)
-    registry.RegisterLocker("default", "default")
-    config, err :=  registry.CreateConfig()
-    engine := orm.NewEngine(config)
+    // register redis and locker
+    registry.RegisterRedis("localhost:6379", 0, "my_pool")
+    registry.RegisterLocker("default", "my_pool")
     
     locker, _ := engine.GetLocker()
     lock, err := locker.Obtain("my_lock", 1 * Time.Second, 1 * Time.Second)

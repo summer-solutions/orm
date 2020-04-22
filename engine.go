@@ -45,7 +45,7 @@ func (e *Engine) FlushTrackedEntities() error {
 	return e.flushTrackedEntities(false)
 }
 
-func (e *Engine) LazyTrackedEntities() error {
+func (e *Engine) FlushLazyTrackedEntities() error {
 	return e.flushTrackedEntities(false)
 }
 

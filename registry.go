@@ -186,11 +186,11 @@ func (r *Registry) RegisterDirtyQueue(code string, sender DirtyQueueSender) {
 	r.dirtyQueues[code] = sender
 }
 
-func (r *Registry) RegisterLogQueue(code string, sender QueueSenderReceiver) {
+func (r *Registry) RegisterLogQueue(dbPoolName string, sender QueueSenderReceiver) {
 	if r.logQueues == nil {
 		r.logQueues = make(map[string]QueueSenderReceiver)
 	}
-	r.logQueues[code] = sender
+	r.logQueues[dbPoolName] = sender
 }
 
 func (r *Registry) RegisterLazyQueue(sender QueueSenderReceiver) {
