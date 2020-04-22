@@ -44,18 +44,18 @@ type TestEntityByIDRedis struct {
 }
 
 func TestGetByIDRedis(t *testing.T) {
-	var entity *TestEntityByIDRedis
+	var entity TestEntityByIDRedis
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	found, err := engine.LoadByID(100, entity)
+	found, err := engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-	found, err = engine.LoadByID(100, entity)
+	found, err = engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	entity = &TestEntityByIDRedis{}
-	engine.RegisterEntity(entity)
+	entity = TestEntityByIDRedis{}
+	engine.RegisterEntity(&entity)
 	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.False(t, entity.IsDirty())
@@ -83,7 +83,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.True(t, has)
 	pool.RegisterLogger(DBLogger)
 
-	found, err = engine.LoadByID(1, entity, "ReferenceOne")
+	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -116,7 +116,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.False(t, entity.IsDirty())
 	assert.Len(t, DBLogger.Queries, 1)
 
-	found, err = engine.LoadByID(1, entity, "ReferenceOne")
+	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.True(t, entity.ReferenceOne.Loaded())
@@ -146,7 +146,7 @@ func TestGetByIDRedis(t *testing.T) {
 
 	assert.Len(t, DBLogger.Queries, 2)
 
-	found, err = engine.LoadByID(1, entity)
+	found, err = engine.LoadByID(1, &entity)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
@@ -168,7 +168,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"name": "John"}, entity.JSON)
 	assert.Len(t, DBLogger.Queries, 3)
 
-	_, err = engine.LoadByID(1, entity)
+	_, err = engine.LoadByID(1, &entity)
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 3)
 }

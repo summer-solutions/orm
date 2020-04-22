@@ -55,10 +55,6 @@ func TestCachedSearchLocal(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	//var test *TestEntityIndexTestLocal
-	//found, _ := engine.LoadByID(1, test)
-	//os.Exit(0)
-
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []*TestEntityIndexTestLocal
 	totalRows, err := engine.CachedSearch(&rows, "IndexAge", pager, 10)

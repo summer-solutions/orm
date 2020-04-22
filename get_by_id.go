@@ -8,10 +8,12 @@ import (
 
 func loadByID(engine *Engine, id uint64, entity interface{}, references ...string) (found bool, err error) {
 	val := reflect.ValueOf(entity)
+	if val.Kind() != reflect.Ptr {
+		panic(fmt.Errorf("entity '%s' is not a poninter", val.Type().String()))
+	}
 	elem := val.Elem()
 	if !elem.IsValid() {
-		val = reflect.New(reflect.TypeOf(entity).Elem())
-		elem = val.Elem()
+		panic(fmt.Errorf("entity '%s' is not a addressable", val.Type().String()))
 	}
 	entityType := elem.Type()
 	for {

@@ -46,24 +46,24 @@ type TestEntityByIDLocal struct {
 }
 
 func TestGetByIDLocal(t *testing.T) {
-	var entity *TestEntityByIDLocal
+	var entity TestEntityByIDLocal
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	found, err := engine.LoadByID(100, entity)
+	found, err := engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-	found, err = engine.LoadByID(100, entity)
+	found, err = engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	entity = &TestEntityByIDLocal{}
-	engine.RegisterEntity(entity)
+	entity = TestEntityByIDLocal{}
+	engine.RegisterEntity(&entity)
 	err = entity.Flush()
 	assert.Nil(t, err)
 
 	assert.False(t, entity.IsDirty())
 
-	has, err := engine.LoadByID(1, entity)
+	has, err := engine.LoadByID(1, &entity)
 	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity.ID)
@@ -77,7 +77,7 @@ func TestGetByIDLocal(t *testing.T) {
 	pool := engine.GetMysql()
 	pool.RegisterLogger(DBLogger)
 
-	found, err = engine.LoadByID(1, entity, "ReferenceOne")
+	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
