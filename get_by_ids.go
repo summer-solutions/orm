@@ -193,7 +193,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 		parts := strings.Split(ref, "/")
 		_, has := tableSchema.tags[parts[0]]
 		if !has {
-			return fmt.Errorf("invalid reference %s", ref)
+			return fmt.Errorf("invalid reference %s in %s", ref, tableSchema.tableName)
 		}
 		parentRef, has := tableSchema.tags[parts[0]]["ref"]
 		if !has {
@@ -203,7 +203,10 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 		if !has {
 			return EntityNotRegisteredError{Name: tableSchema.tags[parts[0]]["ref"]}
 		}
-		warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], parts[1:]...)
+		newSub := parts[1:]
+		if len(newSub) > 0 {
+			warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], strings.Join(newSub, "/"))
+		}
 
 		for i := 0; i < l; i++ {
 			var ref reflect.Value
