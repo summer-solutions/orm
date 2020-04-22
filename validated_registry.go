@@ -31,7 +31,7 @@ type validatedRegistry struct {
 	sqlClients           map[string]*DBConfig
 	dirtyQueues          map[string]DirtyQueueSender
 	logQueues            map[string]QueueSender
-	lazyQueuesCodes      map[string]string
+	lazyQueues           map[string]QueueSender
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
 	lockServers          map[string]string
@@ -110,9 +110,9 @@ func (r *validatedRegistry) GetLogQueueCodes() []string {
 }
 
 func (r *validatedRegistry) GetLazyQueueCodes() []string {
-	codes := make([]string, len(r.lazyQueuesCodes))
+	codes := make([]string, len(r.lazyQueues))
 	i := 0
-	for code := range r.lazyQueuesCodes {
+	for code := range r.lazyQueues {
 		codes[i] = code
 		i++
 	}

@@ -17,13 +17,13 @@ func NewLazyReceiver(engine *Engine, queueName string) *LazyReceiver {
 func (r *LazyReceiver) Size() (int64, error) {
 	code := r.queueName + "_queue"
 	redis := r.engine.GetRedis(code)
-	return redis.LLen("lazy_queue")
+	return redis.LLen("_lazy_queue")
 }
 
 func (r *LazyReceiver) Digest() (has bool, err error) {
 	code := r.queueName + "_queue"
 	redis := r.engine.GetRedis(code)
-	key := "lazy_queue"
+	key := "_lazy_queue"
 	val, found, err := redis.RPop(key)
 	if err != nil {
 		return false, fmt.Errorf("%w", err)

@@ -367,8 +367,14 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			return err
 		}
 		code := "default"
-		redis := engine.getRedisForQueue(code)
-		_, err = redis.LPush("lazy_queue", v)
+		if engine.registry.lazyQueues == nil {
+			return fmt.Errorf("unregistered lazy queue")
+		}
+		queue, has := engine.registry.lazyQueues[code]
+		if !has {
+			return fmt.Errorf("unregistered log queu")
+		}
+		err = queue.Send(engine, "_lazy_queue", []string{v})
 		if err != nil {
 			return err
 		}
@@ -405,7 +411,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			}
 			members[i] = string(asJSON)
 		}
-		err := queue.Send(engine, members)
+		err := queue.Send(engine, "_log_queue", members)
 		if err != nil {
 			return err
 		}

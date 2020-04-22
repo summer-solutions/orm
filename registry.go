@@ -20,7 +20,7 @@ type Registry struct {
 	enums                map[string]reflect.Value
 	dirtyQueues          map[string]DirtyQueueSender
 	logQueues            map[string]QueueSender
-	lazyQueuesCodes      map[string]string
+	lazyQueues           map[string]QueueSender
 	locks                map[string]string
 }
 
@@ -78,11 +78,11 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.logQueues {
 		registry.logQueues[k] = v
 	}
-	if registry.lazyQueuesCodes == nil {
-		registry.lazyQueuesCodes = make(map[string]string)
+	if registry.lazyQueues == nil {
+		registry.lazyQueues = make(map[string]QueueSender)
 	}
-	for k, v := range r.lazyQueuesCodes {
-		registry.lazyQueuesCodes[k] = v
+	for k, v := range r.lazyQueues {
+		registry.lazyQueues[k] = v
 	}
 
 	if registry.lockServers == nil {
@@ -193,11 +193,11 @@ func (r *Registry) RegisterLogQueue(code string, sender QueueSender) {
 	r.logQueues[code] = sender
 }
 
-func (r *Registry) RegisterLazyQueue(code string, redisCode string) {
-	if r.lazyQueuesCodes == nil {
-		r.lazyQueuesCodes = make(map[string]string)
+func (r *Registry) RegisterLazyQueue(sender QueueSender) {
+	if r.lazyQueues == nil {
+		r.lazyQueues = make(map[string]QueueSender)
 	}
-	r.lazyQueuesCodes[code] = redisCode
+	r.lazyQueues["default"] = sender
 }
 
 func (r *Registry) RegisterLocker(code string, redisCode string) {
