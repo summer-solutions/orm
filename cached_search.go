@@ -31,6 +31,9 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
+	if !hasLocalCache && !hasRedis {
+		return 0, fmt.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
+	}
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	const idsOnCachePage = 1000
 
@@ -202,6 +205,9 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
+	if !hasLocalCache && !hasRedis {
+		return false, fmt.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
+	}
 	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
 	var fromCache map[string]interface{}
 	if hasLocalCache {
