@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/go-sql-driver/mysql"
 )
 
@@ -393,7 +395,17 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		if !has {
 			return fmt.Errorf("unregistered log queue %s", k)
 		}
-		err := queue.Send(engine, v)
+
+		members := make([]string, len(v))
+		for i, val := range v {
+			val.Meta = engine.logMetaData
+			asJSON, err := json.Marshal(val)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			members[i] = string(asJSON)
+		}
+		err := queue.Send(engine, members)
 		if err != nil {
 			return err
 		}

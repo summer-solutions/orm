@@ -1,10 +1,7 @@
 package orm
 
 import (
-	"encoding/json"
 	"time"
-
-	"github.com/juju/errors"
 )
 
 type LogQueueValue struct {
@@ -16,24 +13,19 @@ type LogQueueValue struct {
 	Updated   time.Time
 }
 
-type LogQueueSender interface {
-	Send(engine *Engine, values []*LogQueueValue) error
+type QueueSender interface {
+	Send(engine *Engine, values []string) error
 }
 
 type RedisLogQueueSender struct {
 	PoolName string
 }
 
-func (s *RedisLogQueueSender) Send(engine *Engine, values []*LogQueueValue) error {
+func (s *RedisLogQueueSender) Send(engine *Engine, values []string) error {
 	r := engine.GetRedis(s.PoolName)
 	members := make([]interface{}, len(values))
 	for i, val := range values {
-		val.Meta = engine.logMetaData
-		asJSON, err := json.Marshal(val)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		members[i] = string(asJSON)
+		members[i] = val
 	}
 	_, err := r.LPush("_log_queue", members...)
 	return err

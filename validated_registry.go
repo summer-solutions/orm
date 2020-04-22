@@ -30,7 +30,7 @@ type validatedRegistry struct {
 	entities             map[string]reflect.Type
 	sqlClients           map[string]*DBConfig
 	dirtyQueues          map[string]DirtyQueueSender
-	logQueues            map[string]LogQueueSender
+	logQueues            map[string]QueueSender
 	lazyQueuesCodes      map[string]string
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig

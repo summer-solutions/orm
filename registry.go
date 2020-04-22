@@ -19,7 +19,7 @@ type Registry struct {
 	entities             map[string]reflect.Type
 	enums                map[string]reflect.Value
 	dirtyQueues          map[string]DirtyQueueSender
-	logQueues            map[string]LogQueueSender
+	logQueues            map[string]QueueSender
 	lazyQueuesCodes      map[string]string
 	locks                map[string]string
 }
@@ -73,7 +73,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.dirtyQueues[k] = v
 	}
 	if registry.logQueues == nil {
-		registry.logQueues = make(map[string]LogQueueSender)
+		registry.logQueues = make(map[string]QueueSender)
 	}
 	for k, v := range r.logQueues {
 		registry.logQueues[k] = v
@@ -186,9 +186,9 @@ func (r *Registry) RegisterDirtyQueue(code string, sender DirtyQueueSender) {
 	r.dirtyQueues[code] = sender
 }
 
-func (r *Registry) RegisterLogQueue(code string, sender LogQueueSender) {
+func (r *Registry) RegisterLogQueue(code string, sender QueueSender) {
 	if r.logQueues == nil {
-		r.logQueues = make(map[string]LogQueueSender)
+		r.logQueues = make(map[string]QueueSender)
 	}
 	r.logQueues[code] = sender
 }

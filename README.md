@@ -487,7 +487,6 @@ func main() {
 
 ```
 
-
 ## Cached queries
 
 ```go
@@ -497,26 +496,21 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-   //.. register pools and entities
- 
+    //Fields that needs to be tracked for changes should start with ":"
+
     type UserEntity struct {
         orm.ORM
         ID                   uint64
         Name                 string
         Age                  uint16
         IndexAge             *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
-        IndexAll             *orm.CachedQuery `query:""`
-        IndexName            *orm.CachedQuery `queryOne:":Name = ?"`
+        IndexAll             *orm.CachedQuery `query:""` //cache all rows
+        IndexName            *orm.CachedQuery `queryOne:":Name = ?" orm:"max=100"` // be default cached query can cache max 50 000 rows
     }
-    registry := &orm.Registry{}
-    //.. register pools and entities
-    config, err := registry.CreateConfig()
-    engine := orm.NewEngine(config)
-    
-    user := UserEntity{Name: "John", Age: 18}
-    err := engine.Flush(&user)
-    pager := orm.Pager{CurrentPage: 1, PageSize: 100}
+
+    pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
     var users []*UserEntity
+    var user  UserEntity
     totalRows, err := engine.CachedSearch(&users, "IndexAge", pager, 18)
     totalRows, err = engine.CachedSearch(&users, "IndexAll", pager)
     has, err := engine.CachedSearchOne(&user, "IndexName", "John")
@@ -525,13 +519,10 @@ func main() {
 
 ```
 
-Beauty about cached cached queries is that you don't need to care about updating
-cache when entity is changed. Results are cached and updated automatically.
-
 ## Lazy flush
 
-Sometimes you want to flush changes in database, but it's ok if data is flushed
-asynchronously. Just use LazyFlush and LazyReceiver:
+Sometimes you want to flush changes in database, but it's ok if data is flushed after some time. 
+For example whne you want to save some logs in database.
 
 ```go
 package main
@@ -540,10 +531,8 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    registry := &orm.Registry{}
-    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
-    registry.RegisterRedis("localhost:6379", 3, "queues_pool")
-    registry.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
+    // You need to register queue that will store queries
+    registry.RegisterLazyQueue("default", "queues_pool") 
 
  
     type UserEntity struct {
