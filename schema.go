@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -98,6 +99,8 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 						return nil, errors.Trace(err)
 					}
 					createTableDB = strings.Replace(createTableDB, "CREATE TABLE ", fmt.Sprintf("CREATE TABLE `%s`.", logPool.databaseName), 1) + ";"
+					re := regexp.MustCompile(" AUTO_INCREMENT=[0-9]+ ")
+					createTableDB = re.ReplaceAllString(createTableDB, " ")
 					if logTableSchema != createTableDB {
 						isEmpty, err := isTableEmptyInPool(engine, tableSchema.logPoolName, tableSchema.logTableName)
 						if err != nil {

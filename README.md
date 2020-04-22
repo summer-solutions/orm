@@ -481,7 +481,7 @@ func main() {
     engine.LoadByIDs()
     engine.Search()
     engine.SearchOne()
-    enginde.CachedSearch()
+    engine.CachedSearch()
     ...
 }
 
