@@ -89,9 +89,6 @@ func main() {
 
 ## Defining entities
 
-Great, we have required connections defined, now it's time to define our data models.
-Simple create struct using special tag "orm":
-
 ```go
 package main
 
@@ -248,6 +245,7 @@ You should also run it once when your application starts.
  ## Creating engine
  
  You need to crete engine to start working with entities (searching, saving).
+ You must create engine for each http request and thread.
  
   ```go
   package main
@@ -273,7 +271,8 @@ You should also run it once when your application starts.
  import "github.com/summer-solutions/orm"
  
  func main() {
- 	registry := &orm.Registry{}
+    
+    registry := &orm.Registry{}
     // register
     validatedRegistry, err := registry.Validate() 
     engine := validatatedRegistry.CreateEngine()
