@@ -67,8 +67,11 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				}
 			}
 		}
-
-		orm := initIfNeeded(engine, v, true)
+		entity, ok := v.Interface().(Entity)
+		if !ok {
+			return fmt.Errorf("invalid entity '%s'", v.Type().String())
+		}
+		dbData := entity.getDBData()
 		isDirty, bind, err := getDirtyBind(value)
 		if err != nil {
 			return err
@@ -79,7 +82,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		bindLength := len(bind)
 
 		t := value.Type()
-		if len(orm.dBData) == 0 {
+		if len(dbData) == 0 {
 			values := make([]interface{}, bindLength)
 			valuesKeys := make([]string, bindLength)
 			if insertKeys[t] == nil {
@@ -110,11 +113,11 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		} else {
 			values := make([]interface{}, bindLength+1)
 			currentID := value.Field(1).Uint()
-			if orm.dBData["_delete"] == true {
+			if dbData["_delete"] == true {
 				if deleteBinds[t] == nil {
 					deleteBinds[t] = make(map[uint64]map[string]interface{})
 				}
-				deleteBinds[t][currentID] = orm.dBData
+				deleteBinds[t][currentID] = dbData
 			} else {
 				fields := make([]string, bindLength)
 				i := 0
@@ -123,9 +126,9 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 					values[i] = value
 					i++
 				}
-				schema := orm.tableSchema
+				schema := entity.getTableSchema()
 				/* #nosec */
-				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.tableName, strings.Join(fields, ","))
+				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.GetTableName(), strings.Join(fields, ","))
 				db := schema.GetMysql(engine)
 				values[i] = currentID
 				if lazy {
@@ -143,8 +146,8 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 						}
 					}
 				}
-				old := make(map[string]interface{}, len(orm.dBData))
-				for k, v := range orm.dBData {
+				old := make(map[string]interface{}, len(dbData))
+				for k, v := range dbData {
 					old[k] = v
 				}
 				data := injectBind(value, bind)
@@ -152,14 +155,14 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				redisCache, hasRedis := schema.GetRedisCache(engine)
 				if hasLocalCache {
 					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(value, schema))
-					keys := getCacheQueriesKeys(schema, bind, orm.dBData, false)
+					keys := getCacheQueriesKeys(schema, bind, dbData, false)
 					addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 					keys = getCacheQueriesKeys(schema, bind, old, false)
 					addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 				}
 				if hasRedis {
 					addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, schema.getCacheKey(currentID))
-					keys := getCacheQueriesKeys(schema, bind, orm.dBData, false)
+					keys := getCacheQueriesKeys(schema, bind, dbData, false)
 					addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 					keys = getCacheQueriesKeys(schema, bind, old, false)
 					addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)

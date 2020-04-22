@@ -15,6 +15,7 @@ type Entity interface {
 	Load(engine *Engine) error
 	ForceMarkToDelete()
 	getDBData() map[string]interface{}
+	getTableSchema() *tableSchema
 }
 
 type ORM struct {
@@ -103,4 +104,8 @@ func (orm ORM) checkIsRegistered() {
 
 func (orm ORM) getDBData() map[string]interface{} {
 	return orm.dBData
+}
+
+func (orm ORM) getTableSchema() *tableSchema {
+	return orm.tableSchema
 }
