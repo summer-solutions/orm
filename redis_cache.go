@@ -157,6 +157,18 @@ func (r *RedisCache) LRem(key string, count int64, value interface{}) error {
 	return nil
 }
 
+func (r *RedisCache) Ltrim(key string, start, stop int64) error {
+	s := time.Now()
+	_, err := r.client.LTrim(key, start, stop).Result()
+	if err != nil {
+		return err
+	}
+	if r.loggers != nil {
+		r.log(key, fmt.Sprintf("LTRIM %d %d", start, stop), time.Since(s).Microseconds(), 0)
+	}
+	return nil
+}
+
 func (r *RedisCache) ZCard(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZCard(key).Result()
