@@ -90,6 +90,9 @@ func (orm ORM) Load(engine *Engine) error {
 	if orm.Loaded() {
 		return nil
 	}
+	if orm.tableSchema == nil {
+		return fmt.Errorf("unregistered entity. run RegisterEntity() or TrackEntity() before Load()")
+	}
 	id := orm.elem.Field(1).Uint()
 	if id == 0 {
 		return nil

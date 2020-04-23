@@ -84,4 +84,24 @@ func TestReferences(t *testing.T) {
 	assert.Equal(t, "name 4", root.ReferenceOne.ReferenceTwo.ReferenceThree.Name)
 	assert.Equal(t, "name 3b", root.ReferenceSix.Name)
 	assert.Equal(t, "name 4", root.ReferenceSix.ReferenceThree.Name)
+
+	has, err = engine.LoadByID(1, &root)
+	assert.Nil(t, err)
+	assert.True(t, has)
+	assert.False(t, root.ReferenceOne.Loaded())
+	err = root.ReferenceOne.Load(engine)
+	assert.Nil(t, err)
+	assert.True(t, root.ReferenceOne.Loaded())
+
+	root.ReferenceFive = &TestEntityReferenceLevel3{ID: 2}
+	assert.False(t, root.ReferenceFive.Loaded())
+	err = root.ReferenceFive.Load(engine)
+	assert.EqualError(t, err, "unregistered entity. run RegisterEntity() or TrackEntity() before Load()")
+
+	err = root.Flush()
+	assert.Nil(t, err)
+	has, err = engine.LoadByID(1, &root)
+	assert.Nil(t, err)
+	assert.True(t, has)
+	assert.Equal(t, uint(2), root.ReferenceFive.ID)
 }
