@@ -9,50 +9,38 @@ import (
 	"time"
 )
 
-func SearchWithCount(where *Where, pager *Pager, entities interface{}, references ...string) (totalRows int, err error) {
-	return search(where, pager, true, reflect.ValueOf(entities).Elem(), references...)
+func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int, err error) {
+	return searchIDs(skipFakeDelete, engine, where, pager, true, entityType)
 }
 
-func Search(where *Where, pager *Pager, entities interface{}, references ...string) error {
-	_, err := search(where, pager, false, reflect.ValueOf(entities).Elem(), references...)
-	return err
-}
-
-func SearchIdsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int) {
-	return searchIdsWithCount(where, pager, reflect.TypeOf(entity))
-}
-
-func SearchIds(where *Where, pager *Pager, entity interface{}) []uint64 {
-	results, _ := searchIds(where, pager, false, reflect.TypeOf(entity))
-	return results
-}
-
-func SearchOne(where *Where, entity interface{}) (bool, error) {
-
-	value := reflect.ValueOf(entity)
-	has, err := searchRow(where, value)
-	if err != nil {
-		return false, err
-	}
-	return has, nil
-}
-
-func searchIdsWithCount(where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int) {
-	return searchIds(where, pager, true, entityType)
-}
-
-func searchRow(where *Where, value reflect.Value) (bool, error) {
-
+func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.Value) (bool, error) {
 	entityType := value.Elem().Type()
-	schema := getTableSchema(entityType)
-	var fieldsList = buildFieldList(entityType, "")
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.TableName, where)
-
-	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
+	schema := getTableSchema(engine.registry, entityType)
+	if schema == nil {
+		return false, EntityNotRegisteredError{Name: entityType.String()}
+	}
+	fieldsList, err := buildFieldList(engine.registry, schema, entityType, "")
 	if err != nil {
 		return false, err
 	}
+	whereQuery := where.String()
+	if skipFakeDelete && schema.hasFakeDelete {
+		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
+	}
+	/* #nosec */
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.tableName, whereQuery)
+
+	pool := schema.GetMysql(engine)
+	results, def, err := pool.Query(query, where.GetParameters()...)
+	if err != nil {
+		return false, err
+	}
+	defer def()
 	if !results.Next() {
+		err = results.Err()
+		if err != nil {
+			return false, err
+		}
 		return false, nil
 	}
 
@@ -71,30 +59,45 @@ func searchRow(where *Where, value reflect.Value) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
-	err = fillFromDBRow(values, value, entityType)
+	err = results.Err()
+	if err != nil {
+		return false, err
+	}
+	id, _ := strconv.ParseUint(values[0], 10, 64)
+	err = fillFromDBRow(id, engine, values[1:], value, entityType)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
-
+func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
 	}
 	entities.SetLen(0)
-	entityType := getEntityTypeForSlice(entities.Type())
-	schema := getTableSchema(entityType)
-
-	var fieldsList = buildFieldList(entityType, "")
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.TableName, where,
-		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
-	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
+	entityType, has := getEntityTypeForSlice(engine.registry, entities.Type())
+	if !has {
+		return 0, EntityNotRegisteredError{Name: entities.String()}
+	}
+	schema := getTableSchema(engine.registry, entityType)
+	fieldsList, err := buildFieldList(engine.registry, schema, entityType, "")
 	if err != nil {
 		return 0, err
 	}
+	whereQuery := where.String()
+	if skipFakeDelete && schema.hasFakeDelete {
+		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
+	}
+	/* #nosec */
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.tableName, whereQuery,
+		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
+	pool := schema.GetMysql(engine)
+	results, def, err := pool.Query(query, where.GetParameters()...)
+	if err != nil {
+		return 0, err
+	}
+	defer def()
 
 	columns, err := results.Columns()
 	if err != nil {
@@ -114,19 +117,28 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, 
 		}
 		err = results.Scan(valuePointers...)
 		if err != nil {
-			panic(err.Error())
+			return 0, err
 		}
 		value := reflect.New(entityType)
-		err = fillFromDBRow(values, value, entityType)
+		id, _ := strconv.ParseUint(values[0], 10, 64)
+		err = fillFromDBRow(id, engine, values[1:], value, entityType)
 		if err != nil {
 			return 0, err
 		}
 		val = reflect.Append(val, value)
 		i++
 	}
-	totalRows := getTotalRows(withCount, pager, where, schema, i)
+	err = results.Err()
+	if err != nil {
+		return 0, err
+	}
+
+	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, i)
+	if err != nil {
+		return 0, err
+	}
 	if len(references) > 0 && i > 0 {
-		err = warmUpReferences(schema, val, references, true)
+		err = warmUpReferences(engine, schema, val, references, true)
 		if err != nil {
 			return 0, err
 		}
@@ -135,74 +147,102 @@ func search(where *Where, pager *Pager, withCount bool, entities reflect.Value, 
 	return totalRows, nil
 }
 
-func searchIds(where *Where, pager *Pager, withCount bool, entityType reflect.Type) ([]uint64, int) {
-	schema := getTableSchema(entityType)
-	query := fmt.Sprintf("SELECT `Id` FROM `%s` WHERE %s %s", schema.TableName, where,
-		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
-	results, err := schema.GetMysql().Query(query, where.GetParameters()...)
+func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity interface{}) (bool, error) {
+	value := reflect.ValueOf(entity)
+	has, err := searchRow(skipFakeDelete, engine, where, value)
 	if err != nil {
-		panic(err.Error())
+		return false, err
 	}
+	return has, nil
+}
+
+func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int, err error) {
+	schema := getTableSchema(engine.registry, entityType)
+	if schema == nil {
+		return nil, 0, EntityNotRegisteredError{Name: entityType.String()}
+	}
+	whereQuery := where.String()
+	if skipFakeDelete && schema.hasFakeDelete {
+		/* #nosec */
+		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
+	}
+	/* #nosec */
+	query := fmt.Sprintf("SELECT `ID` FROM `%s` WHERE %s %s", schema.tableName, whereQuery,
+		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
+	pool := schema.GetMysql(engine)
+	results, def, err := pool.Query(query, where.GetParameters()...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer def()
 	result := make([]uint64, 0, pager.GetPageSize())
 	for results.Next() {
 		var row uint64
 		err = results.Scan(&row)
 		if err != nil {
-			panic(err.Error())
+			return nil, 0, err
 		}
 		result = append(result, row)
 	}
-	totalRows := getTotalRows(withCount, pager, where, schema, len(result))
-	return result, totalRows
+	err = results.Err()
+	if err != nil {
+		return nil, 0, err
+	}
+	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, len(result))
+	if err != nil {
+		return nil, 0, err
+	}
+	return result, totalRows, nil
 }
 
-func getTotalRows(withCount bool, pager *Pager, where *Where, schema *TableSchema, foundRows int) int {
+func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *tableSchema, foundRows int) (int, error) {
 	totalRows := 0
 	if withCount {
 		totalRows = foundRows
-		if totalRows == pager.GetPageSize() {
-			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.TableName, where)
+		if totalRows == pager.GetPageSize() || (foundRows == 0 && pager.CurrentPage > 1) {
+			/* #nosec */
+			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.tableName, where)
 			var foundTotal string
-			err := schema.GetMysql().QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
+			pool := schema.GetMysql(engine)
+			err := pool.QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
 			if err != nil {
-				panic(err.Error())
+				return 0, err
 			}
 			totalRows, _ = strconv.Atoi(foundTotal)
 		} else {
 			totalRows += (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 		}
 	}
-	return totalRows
+	return totalRows, nil
 }
 
-func fillFromDBRow(data []string, value reflect.Value, entityType reflect.Type) error {
-	orm := initIfNeeded(value)
+func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
+	orm := initIfNeeded(engine, value)
 	elem := value.Elem()
-	fillStruct(0, data, entityType, elem, "")
-	orm.dBData["Id"] = data[0]
-
-	_, bind, err := orm.isDirty(elem)
+	elem.Field(1).SetUint(id)
+	_, err := fillStruct(engine, orm.tableSchema, 0, data, entityType, elem, "")
 	if err != nil {
 		return err
 	}
-	for key, value := range bind {
-		orm.dBData[key] = value
+	orm.dBData["ID"] = id
+	orm.dBData["_loaded"] = true
+	for key, column := range orm.tableSchema.columnNames[1:] {
+		orm.dBData[column] = data[key]
 	}
 	return nil
 }
 
-func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value, prefix string) uint16 {
-
+func fillStruct(engine *Engine, schema *tableSchema, index uint16, data []string,
+	t reflect.Type, value reflect.Value, prefix string) (uint16, error) {
 	for i := 0; i < t.NumField(); i++ {
-
-		if index == 0 && i == 0 {
+		if index == 0 && i <= 1 { //skip id and orm
 			continue
 		}
 
 		field := value.Field(i)
 		name := prefix + t.Field(i).Name
 
-		tags := getTableSchema(t).Tags[name]
+		tags := schema.tags[name]
 		_, has := tags["ignore"]
 		if has {
 			continue
@@ -252,23 +292,21 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 				}
 				field.Set(slice)
 			}
-		case "[]uint64":
-			if data[index] != "" {
-				var values = strings.Split(data[index], " ")
-				var length = len(values)
-				slice := reflect.MakeSlice(field.Type(), length, length)
-				for key, value := range values {
-					integer, _ := strconv.ParseUint(value, 10, 64)
-					slice.Index(key).SetUint(integer)
-				}
-				field.Set(slice)
-			}
 		case "[]uint8":
 			bytes := data[index]
 			if bytes != "" {
 				field.SetBytes([]byte(bytes))
 			}
 		case "bool":
+			if schema.hasFakeDelete && name == "FakeDelete" {
+				val := true
+				if data[index] == "0" {
+					val = false
+				}
+				field.SetBool(val)
+				index++
+				continue
+			}
 			val := false
 			if data[index] == "1" {
 				val = true
@@ -280,6 +318,17 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 		case "float64":
 			float, _ := strconv.ParseFloat(data[index], 64)
 			field.SetFloat(float)
+		case "*time.Time":
+			if data[index] == "" {
+				field.Set(reflect.Zero(field.Type()))
+			} else {
+				layout := "2006-01-02"
+				if len(data[index]) == 19 {
+					layout += " 15:04:05"
+				}
+				value, _ := time.Parse(layout, data[index])
+				field.Set(reflect.ValueOf(&value))
+			}
 		case "time.Time":
 			layout := "2006-01-02"
 			if len(data[index]) == 19 {
@@ -287,9 +336,6 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 			}
 			value, _ := time.Parse(layout, data[index])
 			field.Set(reflect.ValueOf(value))
-		case "*orm.ReferenceOne":
-			integer, _ := strconv.ParseUint(data[index], 10, 64)
-			field.Interface().(*ReferenceOne).Id = integer
 		case "*orm.CachedQuery":
 			continue
 		case "interface {}":
@@ -297,48 +343,76 @@ func fillStruct(index uint16, data []string, t reflect.Type, value reflect.Value
 				var f interface{}
 				err := json.Unmarshal([]byte(data[index]), &f)
 				if err != nil {
-					panic(fmt.Errorf("invalid json: %s", data[index]))
+					return 0, err
 				}
 				field.Set(reflect.ValueOf(f))
 			}
 		default:
-			if field.Kind().String() == "struct" {
+			k := field.Kind().String()
+			if k == "struct" {
 				newVal := reflect.New(field.Type())
 				value := newVal.Elem()
-				index = fillStruct(index, data, field.Type(), value, name)
+				newIndex, err := fillStruct(engine, schema, index, data, field.Type(), value, name)
+				if err != nil {
+					return 0, err
+				}
+				index = newIndex
 				field.Set(value)
 				continue
+			} else if k == "ptr" {
+				integer, _ := strconv.ParseUint(data[index], 10, 64)
+				if integer > 0 {
+					n := reflect.New(field.Type().Elem())
+					initIfNeeded(engine, n)
+					n.Elem().Field(1).SetUint(integer)
+					field.Set(n)
+				} else {
+					field.Set(reflect.Zero(field.Type()))
+				}
+				index++
+				continue
 			}
-			panic(fmt.Errorf("unsoported field type: %s", field.Type().String()))
+			return 0, fmt.Errorf("unsupported field type: %s", field.Type().String())
 		}
 		index++
 	}
-	return index
+	return index, nil
 }
 
-func buildFieldList(t reflect.Type, prefix string) string {
+func buildFieldList(registry *validatedRegistry, schema *tableSchema, t reflect.Type, prefix string) (string, error) {
 	fieldsList := ""
 	for i := 0; i < t.NumField(); i++ {
 		var columnNameRaw string
 		field := t.Field(i)
-		tags := getTableSchema(t).Tags[field.Name]
+		tags := schema.tags[prefix+t.Field(i).Name]
 		_, has := tags["ignore"]
 		if has {
 			continue
 		}
-		if prefix == "" && (strings.ToLower(field.Name) == "id" || field.Name == "Orm") {
+		if prefix == "" && (strings.ToLower(field.Name) == "id" || field.Name == "ORM") {
 			continue
 		}
 		if field.Type.String() == "*orm.CachedQuery" {
 			continue
 		}
 		switch field.Type.String() {
-		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*orm.ReferenceOne", "time.Time":
+		case "time.Time":
+			columnNameRaw = prefix + t.Field(i).Name
+			fieldsList += fmt.Sprintf(",`%s`", columnNameRaw)
+		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*time.Time":
 			columnNameRaw = prefix + t.Field(i).Name
 			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 		default:
-			if field.Type.Kind().String() == "struct" {
-				fieldsList += buildFieldList(field.Type, field.Name)
+			k := field.Type.Kind().String()
+			if k == "struct" {
+				f, err := buildFieldList(registry, schema, field.Type, field.Name)
+				if err != nil {
+					return "", err
+				}
+				fieldsList += f
+			} else if k == "ptr" {
+				columnNameRaw = prefix + t.Field(i).Name
+				fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
 			} else {
 				columnNameRaw = prefix + t.Field(i).Name
 				fieldsList += fmt.Sprintf(",`%s`", columnNameRaw)
@@ -346,12 +420,13 @@ func buildFieldList(t reflect.Type, prefix string) string {
 		}
 	}
 	if prefix == "" {
-		fieldsList = "`Id`" + fieldsList
+		fieldsList = "`ID`" + fieldsList
 	}
-	return fieldsList
+	return fieldsList, nil
 }
 
-func getEntityTypeForSlice(sliceType reflect.Type) reflect.Type {
+func getEntityTypeForSlice(registry *validatedRegistry, sliceType reflect.Type) (reflect.Type, bool) {
 	name := strings.Trim(sliceType.String(), "*[]")
-	return GetEntityType(name)
+	e, has := registry.entities[name]
+	return e, has
 }

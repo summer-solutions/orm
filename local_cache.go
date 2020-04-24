@@ -1,19 +1,19 @@
 package orm
 
 import (
-	"container/list"
 	"fmt"
-	"github.com/golang/groupcache/lru"
 	"sync"
 	"time"
+
+	"github.com/golang/groupcache/lru"
 )
 
 type LocalCache struct {
+	engine  *Engine
 	code    string
 	lru     *lru.Cache
-	loggers *list.List
+	loggers []CacheLogger
 	ttl     int64
-	created int64
 }
 
 type ttlValue struct {
@@ -26,7 +26,7 @@ func (c *LocalCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 	if has {
 		ttlVal := val.(ttlValue)
 		if time.Now().Unix()-ttlVal.time <= int64(ttlSeconds) {
-			return ttlVal
+			return ttlVal.value
 		}
 	}
 	userVal := provider()
@@ -42,7 +42,7 @@ func (c *LocalCache) Get(key string) (value interface{}, ok bool) {
 	if !ok {
 		misses = 1
 	}
-	c.log(key, "GET", time.Now().Sub(start).Microseconds(), misses)
+	c.log(key, "GET", time.Since(start).Microseconds(), misses)
 	return
 }
 
@@ -58,7 +58,7 @@ func (c *LocalCache) MGet(keys ...string) map[string]interface{} {
 		}
 		results[key] = value
 	}
-	c.log(fmt.Sprintf("%v", keys), "MGET", time.Now().Sub(start).Microseconds(), misses)
+	c.log(fmt.Sprintf("%v", keys), "MGET", time.Since(start).Microseconds(), misses)
 	return results
 }
 
@@ -68,7 +68,7 @@ func (c *LocalCache) Set(key string, value interface{}) {
 	m.Lock()
 	c.lru.Add(key, value)
 	m.Unlock()
-	c.log(key, "ADD", time.Now().Sub(start).Microseconds(), 0)
+	c.log(key, "ADD", time.Since(start).Microseconds(), 0)
 }
 
 func (c *LocalCache) MSet(pairs ...interface{}) {
@@ -88,7 +88,7 @@ func (c *LocalCache) MSet(pairs ...interface{}) {
 			keys[j] = pairs[i].(string)
 			j++
 		}
-		c.log(fmt.Sprintf("%v", keys), "MSET", time.Now().Sub(start).Microseconds(), 0)
+		c.log(fmt.Sprintf("%v", keys), "MSET", time.Since(start).Microseconds(), 0)
 	}
 }
 
@@ -113,7 +113,7 @@ func (c *LocalCache) HMget(key string, fields ...string) map[string]interface{} 
 		}
 	}
 	if c.loggers != nil {
-		c.log(key, fmt.Sprintf("HMGET %v", fields), time.Now().Sub(start).Microseconds(), misses)
+		c.log(key, fmt.Sprintf("HMGET %v", fields), time.Since(start).Microseconds(), misses)
 	}
 	return results
 }
@@ -138,7 +138,7 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 			keys[i] = key
 			i++
 		}
-		c.log(key, fmt.Sprintf("HMSET %v", keys), time.Now().Sub(start).Microseconds(), 0)
+		c.log(key, fmt.Sprintf("HMSET %v", keys), time.Since(start).Microseconds(), 0)
 	}
 }
 
@@ -150,7 +150,7 @@ func (c *LocalCache) Remove(keys ...string) {
 		c.lru.Remove(v)
 	}
 	m.Unlock()
-	c.log("", fmt.Sprintf("REMOVE MANY %v", keys), time.Now().Sub(start).Microseconds(), 0)
+	c.log("", fmt.Sprintf("REMOVE MANY %v", keys), time.Since(start).Microseconds(), 0)
 }
 
 func (c *LocalCache) Clear() {
@@ -159,24 +159,20 @@ func (c *LocalCache) Clear() {
 	m.Lock()
 	c.lru.Clear()
 	m.Unlock()
-	c.log("", "CLEAR", time.Now().Sub(start).Microseconds(), 0)
+	c.log("", "CLEAR", time.Since(start).Microseconds(), 0)
 }
 
-func (c *LocalCache) RegisterLogger(logger CacheLogger) *list.Element {
+func (c *LocalCache) RegisterLogger(logger CacheLogger) {
 	if c.loggers == nil {
-		c.loggers = list.New()
+		c.loggers = make([]CacheLogger, 0)
 	}
-	return c.loggers.PushFront(logger)
-}
-
-func (c *LocalCache) UnregisterLogger(element *list.Element) {
-	c.loggers.Remove(element)
+	c.loggers = append(c.loggers, logger)
 }
 
 func (c *LocalCache) log(key string, operation string, microseconds int64, misses int) {
 	if c.loggers != nil {
-		for e := c.loggers.Front(); e != nil; e = e.Next() {
-			e.Value.(CacheLogger)("LOCAL", c.code, key, operation, microseconds, misses)
+		for _, logger := range c.loggers {
+			logger.Log("LOCAL", c.code, key, operation, microseconds, misses)
 		}
 	}
 }

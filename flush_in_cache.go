@@ -5,28 +5,27 @@ import (
 	"reflect"
 )
 
-func FlushInCache(entities ...interface{}) error {
-
-	invalidEntities := make([]interface{}, 0)
+func flushInCache(engine *Engine, entities ...interface{}) error {
+	invalidEntities := make([]reflect.Value, 0)
 	validEntities := make([]interface{}, 0)
 	redisValues := make(map[string][]interface{})
 
 	for _, entity := range entities {
-
 		value := reflect.ValueOf(entity)
 		elem := value.Elem()
-		orm := initIfNeeded(value)
-		elem.Field(0).Interface().(*ORM).elem = elem
+		orm := initIfNeeded(engine, value)
+		orm.value = value
+		orm.elem = elem
 		t := elem.Type()
 
 		id := elem.Field(1).Uint()
 		entityName := t.String()
-		schema := getTableSchema(t)
-		cache := schema.GetRedisCacheContainer()
-		if cache == nil || id == 0 {
-			invalidEntities = append(invalidEntities, entity)
+		schema := orm.tableSchema
+		cache, hasRedis := schema.GetRedisCache(engine)
+		if !hasRedis || id == 0 {
+			invalidEntities = append(invalidEntities, value)
 		} else {
-			isDirty, bind, err := orm.isDirty(elem)
+			isDirty, bind, err := getDirtyBind(elem)
 			if err != nil {
 				return err
 			}
@@ -39,7 +38,7 @@ func FlushInCache(entities ...interface{}) error {
 			}
 			injectBind(elem, bind)
 			entityCacheKey := schema.getCacheKey(id)
-			entityCacheValue := buildRedisValue(entity, schema)
+			entityCacheValue := buildRedisValue(elem, schema)
 			if redisValues[cache.code] == nil {
 				redisValues[cache.code] = make([]interface{}, 0)
 			}
@@ -49,18 +48,20 @@ func FlushInCache(entities ...interface{}) error {
 		}
 	}
 	if len(invalidEntities) > 0 {
-		err := Flush(invalidEntities...)
+		err := flush(engine, false, invalidEntities...)
 		if err != nil {
 			return err
 		}
 	}
 	if len(validEntities) > 0 {
-		_, err := getRedisForQueue("default").SAdd("dirty_queue", validEntities...)
+		code := "default"
+		redis := engine.getRedisForQueue(code)
+		_, err := redis.SAdd("dirty_queue", validEntities...)
 		if err != nil {
 			return err
 		}
 		for cacheCode, keys := range redisValues {
-			err = GetRedis(cacheCode).MSet(keys...)
+			err = engine.GetRedis(cacheCode).MSet(keys...)
 			if err != nil {
 				return err
 			}

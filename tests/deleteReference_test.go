@@ -1,66 +1,75 @@
 package tests
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
-	"testing"
 )
 
 type TestEntityDeleteReference struct {
-	Orm *orm.ORM `orm:"localCache"`
-	Id  uint
+	orm.ORM `orm:"localCache"`
+	ID      uint
 }
 
 type TestEntityDeleteReferenceRefRestrict struct {
-	Orm          *orm.ORM `orm:"localCache"`
-	Id           uint
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityDeleteReference"`
+	orm.ORM      `orm:"localCache"`
+	ID           uint
+	ReferenceOne *TestEntityDeleteReference
 }
 
 type TestEntityDeleteReferenceRefCascade struct {
-	Orm               *orm.ORM `orm:"localCache"`
-	Id                uint
-	ReferenceOne      *orm.ReferenceOne `orm:"ref=tests.TestEntityDeleteReference;cascade"`
-	IndexReferenceOne *orm.CachedQuery  `query:":ReferenceOne = ?"`
+	orm.ORM           `orm:"localCache"`
+	ID                uint
+	ReferenceOne      *TestEntityDeleteReference `orm:"cascade"`
+	IndexReferenceOne *orm.CachedQuery           `query:":ReferenceOne = ?"`
 }
 
 func TestDeleteReference(t *testing.T) {
-	PrepareTables(TestEntityDeleteReference{}, TestEntityDeleteReferenceRefRestrict{}, TestEntityDeleteReferenceRefCascade{})
+	engine := PrepareTables(t, &orm.Registry{}, TestEntityDeleteReference{},
+		TestEntityDeleteReferenceRefRestrict{}, TestEntityDeleteReferenceRefCascade{})
 	entity1 := &TestEntityDeleteReference{}
+	engine.RegisterEntity(entity1)
+	err := entity1.Flush()
+	assert.Nil(t, err)
 	entity2 := &TestEntityDeleteReference{}
-	err := orm.Flush(entity1, entity2)
+	engine.RegisterEntity(entity2)
+	err = entity2.Flush()
 	assert.Nil(t, err)
 
 	entityRestrict := &TestEntityDeleteReferenceRefRestrict{}
-	orm.Init(entityRestrict)
-	entityRestrict.ReferenceOne.Id = 1
-	err = orm.Flush(entityRestrict)
+	engine.RegisterEntity(entityRestrict)
+	entityRestrict.ReferenceOne = &TestEntityDeleteReference{ID: 1}
+	err = entityRestrict.Flush()
 	assert.Nil(t, err)
 
-	entity1.Orm.MarkToDelete()
-	err = orm.Flush(entity1)
+	entity1.MarkToDelete()
+	err = entity1.Flush()
 	assert.NotNil(t, err)
 	assert.IsType(t, &orm.ForeignKeyError{}, err)
 	assert.Equal(t, "test:TestEntityDeleteReferenceRefRestrict:ReferenceOne", err.(*orm.ForeignKeyError).Constraint)
 
 	entityCascade := &TestEntityDeleteReferenceRefCascade{}
 	entityCascade2 := &TestEntityDeleteReferenceRefCascade{}
-	orm.Init(entityCascade, entityCascade2)
-	entityCascade.ReferenceOne.Id = 2
-	entityCascade2.ReferenceOne.Id = 2
-	err = orm.Flush(entityCascade, entityCascade2)
+	engine.RegisterEntity(entityCascade)
+	engine.RegisterEntity(entityCascade2)
+	entityCascade.ReferenceOne = &TestEntityDeleteReference{ID: 2}
+	entityCascade2.ReferenceOne = &TestEntityDeleteReference{ID: 2}
+	err = entityCascade.Flush()
+	assert.Nil(t, err)
+	err = entityCascade2.Flush()
 	assert.Nil(t, err)
 
 	var rows []*TestEntityDeleteReferenceRefCascade
-	total, err := orm.CachedSearch(&rows, "IndexReferenceOne", nil, 2)
+	total, err := engine.CachedSearch(&rows, "IndexReferenceOne", nil, 2)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, total)
 
-	entity2.Orm.MarkToDelete()
-	err = orm.Flush(entity2)
+	entity2.MarkToDelete()
+	err = entity2.Flush()
 	assert.Nil(t, err)
 
-	total, err = orm.CachedSearch(&rows, "IndexReferenceOne", nil, 2)
+	total, err = engine.CachedSearch(&rows, "IndexReferenceOne", nil, 2)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, total)
 }

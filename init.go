@@ -1,0 +1,28 @@
+package orm
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func initIfNeeded(engine *Engine, value reflect.Value) *ORM {
+	elem := value.Elem()
+	address := elem.Field(0).Addr()
+	orm := address.Interface().(*ORM)
+	if orm.dBData == nil {
+		tableSchema := getTableSchema(engine.registry, elem.Type())
+		if tableSchema == nil {
+			panic(fmt.Errorf("entity '%s' is registered", value.Type().String()))
+		}
+		orm.engine = engine
+		orm.dBData = make(map[string]interface{})
+		orm.elem = elem
+		orm.value = value
+		orm.tableSchema = tableSchema
+		defaultInterface, is := value.Interface().(DefaultValuesInterface)
+		if is {
+			defaultInterface.SetDefaults()
+		}
+	}
+	return orm
+}

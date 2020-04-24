@@ -2,61 +2,71 @@ package tests
 
 import (
 	"fmt"
+	"reflect"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
 
-func PrepareTables(entities ...interface{}) (TableSchema *orm.TableSchema) {
-	_ = orm.RegisterMySqlPool("root:root@tcp(localhost:3308)/test")
-	_ = orm.RegisterRedis("localhost:6379", 15).FlushDB()
-	_ = orm.RegisterRedis("localhost:6379", 14, "default_queue").FlushDB()
-	orm.RegisterLazyQueue("default", "default_queue")
-	orm.RegisterLocalCache(1000)
+func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}) *orm.Engine {
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test")
+	registry.RegisterRedis("localhost:6379", 15)
+	registry.RegisterRedis("localhost:6379", 14, "default_queue")
+	registry.RegisterLazyQueue(&orm.RedisQueueSenderReceiver{PoolName: "default_queue"})
+	registry.RegisterLocalCache(1000)
 
-	orm.RegisterEntity(entities...)
+	registry.RegisterEntity(entities...)
+	validatedRegistry, err := registry.Validate()
+	assert.Nil(t, err)
 
-	alters, _ := orm.GetAlters()
+	engine := validatedRegistry.CreateEngine()
+	assert.Equal(t, engine.GetRegistry(), validatedRegistry)
+	redisCache := engine.GetRedis()
+	err = redisCache.FlushDB()
+	assert.Nil(t, err)
+	redisCache = engine.GetRedis("default_queue")
+	err = redisCache.FlushDB()
+	assert.Nil(t, err)
+
+	alters, err := engine.GetAlters()
+	assert.Nil(t, err)
 	for _, alter := range alters {
-		_, err := orm.GetMysql(alter.Pool).Exec(alter.Sql)
-		if err != nil {
-			fmt.Printf("%s\n", alter.Sql)
-			panic(err)
-		}
+		pool := engine.GetMysql(alter.Pool)
+		_, err := pool.Exec(alter.SQL)
+		assert.Nil(t, err)
 	}
 
 	for _, entity := range entities {
-		TableSchema = orm.GetTableSchema(entity)
-		err := TableSchema.TruncateTable()
-		if err != nil {
-			panic(err)
+		eType := reflect.TypeOf(entity)
+		if eType.Kind() == reflect.Ptr {
+			eType = eType.Elem()
 		}
-		err = TableSchema.UpdateSchema()
-		if err != nil {
-			panic(err)
-		}
-		localCache := TableSchema.GetLocalCache()
-		if localCache != nil {
+		tableSchema := validatedRegistry.GetTableSchema(eType.String())
+		err = tableSchema.TruncateTable(engine)
+		assert.Nil(t, err)
+		err = tableSchema.UpdateSchema(engine)
+		assert.Nil(t, err)
+		localCache, has := tableSchema.GetLocalCache(engine)
+		if has {
 			localCache.Clear()
 		}
 	}
-	return
+	return engine
 }
 
 type TestDatabaseLogger struct {
 	Queries []string
 }
 
-func (l *TestDatabaseLogger) Logger() orm.DatabaseLogger {
-	return func(mysqlCode string, query string, microseconds int64, args ...interface{}) {
-		l.Queries = append(l.Queries, fmt.Sprintf("%s %v", query, args))
-	}
+func (l *TestDatabaseLogger) Log(_ string, query string, _ int64, args ...interface{}) {
+	l.Queries = append(l.Queries, fmt.Sprintf("%s %v", query, args))
 }
 
 type TestCacheLogger struct {
 	Requests []string
 }
 
-func (c *TestCacheLogger) Logger() orm.CacheLogger {
-	return func(cacheType string, code string, key string, operation string, microseconds int64, misses int) {
-		c.Requests = append(c.Requests, fmt.Sprintf("%s %s", operation, key))
-	}
+func (c *TestCacheLogger) Log(_ string, _ string, key string, operation string, _ int64, _ int) {
+	c.Requests = append(c.Requests, fmt.Sprintf("%s %s", operation, key))
 }

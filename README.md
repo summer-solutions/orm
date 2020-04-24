@@ -1,9 +1,15 @@
 # orm
 
-## Defining database and cache pool connections
+![Check & test](https://github.com/summer-solutions/orm/workflows/Check%20&%20test/badge.svg)
+[![codecov](https://codecov.io/gh/summer-solutions/orm/branch/master/graph/badge.svg)](https://codecov.io/gh/summer-solutions/orm)
+[![Go Report Card](https://goreportcard.com/badge/github.com/summer-solutions/orm)](https://goreportcard.com/report/github.com/summer-solutions/orm)
+[![MIT license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
-First you need to define connections to all databases. You should do it once, 
-when your application starts.
+## Configuration
+
+First you need to define orm.Registry object and register all connection pools to MySQL, Redis and local cache.
+Also use this object to register queues, and entities. You should create this object once when application
+starts.
 
 ```go
 package main
@@ -12,49 +18,50 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    /*MySQL */
+    registry := &orm.Registry{}
 
-    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    /*MySQL */
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
     //optionally you can define pool name as second argument
-    orm.RegisterMySqlPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
 
     /* Redis */
-
-    orm.RegisterRedis("localhost:6379", 0) //seconds argument is a redis database number
+    registry.RegisterRedis("localhost:6379", 0)
     //optionally you can define pool name as second argument
-    orm.RegisterRedis("localhost:6379", 1, "second_pool")
+    registry.RegisterRedis("localhost:6379", 1, "second_pool")
 
     /* Redis used to handle queues (explained later) */
-
-    orm.RegisterRedis("localhost:6379", 3, "queues_pool")
-    orm.RegisterLazyQueue("default", "queues_pool")//if not defined orm is using default redis pool
+    registry.RegisterRedis("localhost:6379", 3, "queues_pool")
+    registry.RegisterLazyQueue("default", "queues_pool")
+    registry.RegisterLogQueue("default", "queues_pool")
 
     /* Local cache (in memory) */
-
-    orm.RegisterLocalCache(1000) //you need to define cache size
+    registry.RegisterLocalCache(1000) //you need to define cache size
     //optionally you can define pool name as second argument
-    orm.RegisterLocalCache(100, "second_pool")
+    registry.RegisterLocalCache(100, "second_pool")
 
+    /* Redis used to handle locks (explained later) */
+    registry.RegisterRedis("localhost:6379", 4, "lockers_pool")
+    registry.RegisterLocker("default", "lockers_pool")
 }
 
 ```
 
-##### You can also configure orm using yaml configuration file:
+##### You can also create registry using yaml configuration file:
 
 ```.yaml
-
-orm:
-  default:
-    mysql: root:root@tcp(localhost:3310)/db
-    redis: localhost:6379:0
-    redisQueues: localhost:6379:1
-    lazyQueue: redisQueues
-    dirtyQueue: redisQueues
-    localCache: 1000
-  second_pool:
-    mysql: root:root@tcp(localhost:3311)/db2
-    redis: localhost:6380:1 
-
+default:
+   mysql: root:root@tcp(localhost:3310)/db
+   redis: localhost:6379:0
+   redisQueues: localhost:6379:1
+   lazyQueue: redisQueues
+   locker: default
+   dirtyQueue: redisQueues
+   logQueue: redisQueues
+   localCache: 1000
+second_pool:
+   mysql: root:root@tcp(localhost:3311)/db2
+   redis: localhost:6380:1 
 ```
 
 ```go
@@ -73,21 +80,14 @@ func main() {
         //...
     }
     
-    var parsedYaml map[interface{}]interface{}
+    var parsedYaml map[string]interface{}
     err = yaml.Unmarshal(yamlFileData, &parsedYaml)
-    err = orm.InitByYaml(parsedYaml)
-    if err != nil {
-        //...
-    }
-
+    registry, err := orm.InitByYaml(parsedYaml)
 }
 
 ```
 
 ## Defining entities
-
-Great, we have required connections defined, now it's time to define our data models.
-Simple create struct using special tag "orm":
 
 ```go
 package main
@@ -121,8 +121,8 @@ func main() {
     }
     
     type TestEntitySchema struct {
-        Orm                  *orm.ORM
-        Id                   uint
+        orm.ORM
+        ID                   uint
         Name                 string `orm:"length=100;index=FirstIndex"`
         NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
         BigName              string `orm:"length=max"`
@@ -146,40 +146,46 @@ func main() {
         Set                  []string `orm:"set=tests.Color"`
         Year                 uint16   `orm:"year=true"`
         YearNotNull          uint16   `orm:"year=true;required"`
-        Date                 time.Time
-        DateNotNull          time.Time `orm:"required"`
-        DateTime             time.Time `orm:"time=true"`
+        Date                 *time.Time
+        DateNotNull          time.Time
+        DateTime             *time.Time `orm:"time=true"`
+        DateTimeNotNull      time.Time  `orm:"time=true"`
         Address              AddressSchema
         Json                 interface{}
-        ReferenceOne         *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef"`
-        ReferenceOneCascade  *orm.ReferenceOne `orm:"ref=tests.TestEntitySchemaRef;cascade"`
+        ReferenceOne         *TestEntitySchemaRef
+        ReferenceOneCascade  *TestEntitySchemaRef `orm:"cascade"`
         IgnoreField          []time.Time       `orm:"ignore"`
         Blob                 []byte
     }
     
     type TestEntitySchemaRef struct {
-        Orm  *orm.ORM
-        Id   uint
+        orm.ORM
+        ID   uint
         Name string
     }
     type TestEntitySecondPool struct {
-    	Orm                  *orm.ORM `orm:"mysql=second_pool"`
-    	Id                   uint
+    	orm.ORM `orm:"mysql=second_pool"`
+    	ID                   uint
     }
+
+    registry := &orm.Registry{}
+    var testEntitySchema TestEntitySchema
+    var testEntitySchemaRef TestEntitySchemaRef
+    var testEntitySecondPool TestEntitySecondPool
+    registry.RegisterEntity(testEntitySchema, testEntitySchemaRef, testEntitySecondPool)
+    registry.RegisterEnum("Color", Color)
+
 }
 ```
 
 There are only two golden rules you need to remember defining entity struct: 
 
- * first field must have name "Orm" and must be type of "*orm.ORM"
- * second argument must have name "Id" and must be type of one of uint, uint16, uint32, uint64
+ * first field must be type of "orm.ORM"
+ * second argument must have name "ID" and must be type of one of uint, uint16, uint32, uint24, uint64, rune
  
- 
- As you can see orm is not using null values like sql.NullString. Simply set empty string "" and orm will
- convert it to null in database if needed. 
  
  By default entity is not cached in local cache or redis, to change that simply use key "redisCache" or "localCache"
- in "orm" tag for "Orm" field:
+ in "orm" tag for "ORM" field:
  
  ```go
  package main
@@ -192,33 +198,72 @@ There are only two golden rules you need to remember defining entity struct:
  func main() {
  
      type TestEntityLocalCache struct {
-     	Orm                  *orm.ORM `orm:"localCache"` //default pool
+     	orm.ORM `orm:"localCache"` //default pool
         //...
      }
     
     type TestEntityLocalCacheSecondPool struct {
-     	Orm                  *orm.ORM `orm:"localCache=second_pool"`
+     	orm.ORM `orm:"localCache=second_pool"`
         //...
      }
     
     type TestEntityRedisCache struct {
-     	Orm                  *orm.ORM `orm:"redisCache"` //default pool
+     	orm.ORM `orm:"redisCache"` //default pool
         //...
      }
     
     type TestEntityRedisCacheSecondPool struct {
-     	Orm                  *orm.ORM `orm:"redisCache=second_pool"`
+     	orm.ORM `orm:"redisCache=second_pool"`
         //...
      }
 
     type TestEntityLocalAndRedisCache struct {
-     	Orm                  *orm.ORM `orm:"localCache;redisCache"`
+     	orm.ORM `orm:"localCache;redisCache"`
         //...
      }
  }
  ```
+
+## Validated registry
+
+Once you created your registry and registered all pools and entities you should validate it.
+You should also run it once when your application starts.
+
+ ```go
+ package main
  
- ## Updating schema
+ import "github.com/summer-solutions/orm"
+ 
+ func main() {
+    registry := &orm.Registry{}
+    //register pools and entities
+    validatedRegistry, err := registry.Validate()
+ }
+ 
+ ```
+ 
+ ## Creating engine
+ 
+ You need to crete engine to start working with entities (searching, saving).
+ You must create engine for each http request and thread.
+ 
+  ```go
+  package main
+  
+  import "github.com/summer-solutions/orm"
+  
+  func main() {
+     registry := &orm.Registry{}
+     //register pools and entities
+     validatedRegistry, err := registry.Validate()
+     engine := validatedRegistry.CreateEngine()
+  }
+  
+  ```
+ 
+ ## Checking and updading table schema
+ 
+ ORM provides useful object that describes entity structrure called TabelSchema:
  
  ```go
  package main
@@ -226,33 +271,32 @@ There are only two golden rules you need to remember defining entity struct:
  import "github.com/summer-solutions/orm"
  
  func main() {
- 
-     orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
     
-     type FirstEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint
-        Name                 string
-     }
-      
-    type SecondEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint
-        Name                 string
-    }
-    
-    var firstEntity  FirstEntity
-    var secondEntity SecondEntity
-	orm.RegisterEntity(firstEntity, secondEntity)
-    
-    alters, err := orm.GetAlters()
+    registry := &orm.Registry{}
+    // register
+    validatedRegistry, err := registry.Validate() 
+    engine := validatatedRegistry.CreateEngine()
+    alters, err := engine.GetAlters()
     
     /*optionally you can execute alters for each model*/
-    orm.GetTableSchema(firstEntity).UpdateSchema() //it will create or alter table if needed
-    orm.GetTableSchema(firstEntity).DropTable() //it will drop table if exist
-    orm.GetTableSchema(firstEntity).TruncateTable()
-    //if you need to see queries:
-    has, alters, err := orm.GetTableSchema(firstEntity).GetSchemaChanges()
+    var userEntity UserEntity
+    tableSchema := engine.GetRegistry().GetTableSchemaForEntity(userEntity)
+    //or
+    tableSchema := validatedRegistry.GetTableSchemaForEntity(userEntity)
+
+    /*checking table structure*/
+    tableSchema.UpdateSchema(engine) //it will create or alter table if needed
+    tableSchema.DropTable(engine) //it will drop table if exist
+    tableSchema.TruncateTable(engine)
+    tableSchema.UpdateSchemaAndTruncateTable(engine)
+    has, alters, err := tableSchema.GetSchemaChanges(engine)
+
+    /*getting table structure*/
+    db := tableSchema.GetMysql(engine)
+    localCache, has := tableSchema.GetLocalCache(engine) 
+    redisCache, has := tableSchema.GetRedisCache(engine)
+    columns := tableSchema.GetColumns()
+    tableSchema.GetTableName()
  }
  
  ```
@@ -267,63 +311,53 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
+    //create engine
 
-    type TestEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint
-        Name                 string
-    }
-    var entity TestEntity
-    orm.RegisterEntity(entity)
-    //code above you should execute only once, when application starts
-    
-    entity = TestEntity{Name: "Name 1"}
-    orm.Init(&entity) // you should use this function only for new entities
-    err := orm.Flush(&entity)
-    if err != nil {
-       ///...
-    }
+    entity := TestEntity{Name: "Name 1"}
+    engine.RegisterEntity(&entity) // you should use this function only for new entities
+    err := entity.Flush()
+
 
     /*if you need to add more than one entity*/
     entity = TestEntity{Name: "Name 2"}
     entity2 := TestEntity{Name: "Name 3"}
-    orm.Init(&entity, &entity2)
+    engine.TrackEntity(&entity, &entity2) //it will also automatically run RegisterEntity()
+    defer engine.ClearTrackedEntities() //to be sure engine remove tracked entities in case of panic
     //it will execute only one query in MySQL adding two rows at once (atomic)
-    err = orm.Flush(&entity, &entity2)
-    if err != nil {
-       ///...
-    }
+    err = engine.FlushTrackedEntities()
+ 
 
     /* editing */
+
     entity.Name = "New name 2"
-    entity.Orm.IsDirty() //returns true
-    entity2.Orm.IsDirty() //returns false
-    err = orm.Flush(&entity)
-    if err != nil {
-       ///...
-    }
-    entity.Orm.IsDirty() //returns false
+    entity.IsDirty(entity) //returns true
+    entity.IsDirty(entity2) //returns false
+    err = entity.Flush()
+    entity.IsDirty(entity) //returns false
+    // also if you need to update more than one entities you shouls use engine.TrackEntity feature:
+    engine.TrackEntity(&entity, &entity2)
+    entity.Name = "New name"
+    entity2.Name = "New name"
+    err = engine.FlushTrackedEntities()
     
     /* deleting */
-    entity2.Orm.MarkToDelete()
-    entity2.Orm.IsDirty() //returns true
-    err = orm.Flush(&entity)
-    if err != nil {
-       ///...
-    }
+    entity2.MarkToDelete()
+    engine.IsDirty(entity2) //returns true
+    err = entity2.Flush()
+    //or 
+    engine.TrackEntity(&entity, &entity2)
+    entity.MarkToDelete()
+    entity2.MarkToDelete()
+    err = engine.FlushTrackedEntities()
 
     /* flush can return 2 special errors */
     orm.DuplicatedKeyError{} //when unique index is broken
-    orm.ForeignKeyError{} //whne foreign key is broken
+    orm.ForeignKeyError{} //when foreign key is broken
 }
 
 ```
 
-If you need to work with more than one entity i strongly recommend ot use FLusher (described later).
-
-
-## Getting entities using primary keys
+## Loading entities using primary key
 
 ```go
 package main
@@ -332,27 +366,17 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-   //.. register pools and entities
- 
-    type TestEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint
-        Name                 string
-    }
     var entity TestEntity
-    found, err := orm.TryById(1, &entity) //found has false if row does not exists
-    err = orm.GetById(2, &entity) //if will return err if entity does not exists
+    has, err := engine.LoadByID(1, &entity)
 
     var entities []*TestEntity
-    //missing is []uint64 that contains id of rows that doesn't exists, 
-    // in this cause $found slice has nil for such keys
-    missing, err := orm.TryByIds([]uint64{2, 3, 1}, &entities) 
-    err = orm.GetByIds([]uint64{2, 3, 1}, &entities) //will return error if at least one row does not exist
+    missing, err := engine.LoadByIDs([]uint64{1, 3, 4}, &entities) //missing contains IDs that are missing in database
+   
 }
 
 ```
 
-## Getting entities using search
+## Loading entities using search
 
 ```go
 package main
@@ -360,105 +384,28 @@ package main
 import "github.com/summer-solutions/orm"
 
 func main() {
-
-   //.. register pools and entities
- 
-    type TestEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint
-        Name                 string
-    }
 
     var entities []*TestEntity
     pager := orm.Pager{CurrentPage: 1, PageSize: 100}
-    where := orm.NewWhere("`Id` > ? AND `Id` < ?", 1, 8)
-    err := orm.Search(where, pager, &entities)
+    where := orm.NewWhere("`ID` > ? AND `ID` < ?", 1, 8)
+    err := engine.Search(where, pager, &entities)
     
     //or if you need number of total rows
-    totalRows, err := orm.SearchWithCount(where, pager, &entities)
+    totalRows, err := engine.SearchWithCount(where, pager, &entities)
     
     //or if you need only one row
     where := orm.NewWhere("`Name` = ?", "Hello")
     var entity TestEntity
-    found, err := orm.SearchOne(where, &entity)
+    found, err := engine.SearchOne(where, &entity)
     
     //or if you need only primary keys
-    ids, err := orm.SearchIds(where, pager, entity)
+    ids, err := engine.SearchIDs(where, pager, entity)
     
     //or if you need only primary keys and total rows
-    ids, totalRows, err = orm.SearchIdsWithCount(where, pager, entity)
+    ids, totalRows, err = engine.SearchIDsWithCount(where, pager, entity)
 }
 
 ```
-
-## Flusher and AutoFlusher
-
-Very often you need to change more than one entity. It's hard to track all of them
-to see if some of them are dirty. Also it's better to update them at the same time trying
-to minimize number of requests to database and cache. To solve this problem simple use Flusher:
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-
-   //.. register pools and entities
- 
-    type TestEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint
-        Name                 string
-    }
-
-    /* In this case flusher will keep maximum 10000 entities. If you add more it will panic */
-    flusher := orm.Flusher{}
-
-    var entity1 TestEntity
-    var entity2 TestEntity
-    entity3 := TestEntity{Name: "Hello"}
-    err := orm.GetById(1, &entity1)
-    err = orm.GetById(2, &entity2)
-    flusher.RegisterEntity(&entity1, &entity2, &entity3)
-   
-    entity1.Name = "New Name"
-    entity1.Orm.MarkToDelete()
-    
-    err = flusher.Flush() //executes all queries at once
-
-    /* 
-        in this case flusher will keep maximum 10000 entities. 
-        If you add more it automatically flush all of them and unregister them in flusher 
-    */
-    autoFlusher = orm.AutoFlusher()
-    
-    var entities []*TestEntity
-    pager := orm.Pager{CurrentPage: 1, PageSize: 100}
-    where := orm.NewWhere("1")
-    for {
-        err = orm.Search(where, pager, &entities)
-        for _, entity := range entities {
-          entity.Name = "New Name"
-          err = autoFlusher.RegisterEntity(&entity) //it will auto flush every 10 iterations
-        }
-        pager.IncrementPage()
-        if len(entities) < pager.GetPageSize() {
-            break
-        }
-    }
-    err = autoFlusher.Flush()
-    if err != nil {
-       ///...
-    }
-    /* to change limit, but try to avoid bug numbers */
-    flusher.Limit = 20000
-    /* to use flushLazy */
-    flusher.Lazy = true
-}
-
-```
-
 
 ## Reference one to one
 
@@ -469,68 +416,67 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-   //.. register pools and entities
- 
     type UserEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
+        orm.ORM
+        ID                   uint64
         Name                 string
-        School               *orm.ReferenceOne  `orm:"ref=SchoolEntity"`
+        School               *SchoolEntity `orm:"required"` // key is "on delete restrict" by default not not nullable
+        SecondarySchool      *SchoolEntity // key is nullable
     }
     
     type SchoolEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
+        orm.ORM
+        ID                   uint64
         Name                 string
     }
 
     type UserHouse struct {
-        Orm                  *orm.ORM
-        Id                   uint64
-        User                 *orm.ReferenceOne  `orm:"ref=UserEntity;cascade"`
+        orm.ORM
+        ID                   uint64
+        User                 *UserEntity  `orm:"cascade;required"` // on delete cascade and is not nullable
     }
+    
+    // saving in DB:
 
-    /* 
-        Orm will add index and foreign key automatically. By default 'ON DELETE RESTRICT' but
-        you can add tag "cascade" to force 'ON DELETE CASCADE'
-    */
-    
-    school := SchoolEntity{Name: "Name of school"}
-    err := orm.Flush(&school)
-    if err != nil {
-       ///...
-    }
-    
     user := UserEntity{Name: "John"}
-    user.School.Id = school.Id
-    err = orm.Flush(&user)
-    if err != nil {
-       ///...
-    }
+    school := SchoolEntity{Name: "Name of school"}
+    house := UserHouse{Name: "Name of school"}
+    engine.TrackEntity(&user, &school, &house)
+    user.School = school
+    house.User = user
+    engine.FlushTrackedEntities()
 
-    /* accessing reference */
-    user.School.Has() //returns true
-    has, err := user.School.Load(&school) //has is true
+    // loading references: 
+
+    _, err = engine.LoadById(1, &user)
+    user.School.Loaded() //will return false because school is not loaded from DB yet
+    err = user.School.Load(engine) //it will load school from db
+    user.School.Loaded() //now it's true, you can access school fields like user.School.Name
     
-    /* deleting reference */
-    user.School.Id = 0
-    err = orm.Flush(&user)
-    if err != nil {
-       ///...
-    }
+    //If you want to set reference and you have only ID:
+    user.School = &SchoolEntity{ID: 1}
 
-    /* if you don't have ID yet you can still assign references */
-    school = SchoolEntity{Name: "New School"}
-    user.School.Reference = &school
-    err = orm.Flush(&user, &school)
-    if err != nil {
-       ///...
-    }
+    // detaching reference
+    user.School = nil
 
+    // preloading references
+    engine.LoadByID(1, &user, "*") //all references
+    engine.LoadByID(1, &user, "School") //only School
+    engine.LoadByID(1, &user, "School", "SecondarySchool") //only School and SecondarySchool
+    engine.LoadByID(1, &userHouse, "User/School", "User/SecondarySchool") //User, School and SecondarySchool in each User
+    engine.LoadByID(1, &userHouse, "User/*") // User, all references in User
+    engine.LoadByID(1, &userHouse, "User/*/*") // User, all references in User and all references in User subreferences
+    //You can have as many levels you want: User/School/AnotherReference/EvenMore/
+    
+    //You can preload referenes in all search and load methods:
+    engine.LoadByIDs()
+    engine.Search()
+    engine.SearchOne()
+    engine.CachedSearch()
+    ...
 }
 
 ```
-
 
 ## Cached queries
 
@@ -541,37 +487,33 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-   //.. register pools and entities
- 
+    //Fields that needs to be tracked for changes should start with ":"
+
     type UserEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
+        orm.ORM
+        ID                   uint64
         Name                 string
         Age                  uint16
-        IndexAge             *orm.CachedQuery `query:":Age = ? ORDER BY :Id"`
-        IndexAll             *orm.CachedQuery `query:""`
-        IndexName            *orm.CachedQuery `queryOne:":Name = ?"`
+        IndexAge             *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
+        IndexAll             *orm.CachedQuery `query:""` //cache all rows
+        IndexName            *orm.CachedQuery `queryOne:":Name = ?" orm:"max=100"` // be default cached query can cache max 50 000 rows
     }
-    
-    user := UserEntity{Name: "John", Age: 18}
-    err := orm.Flush(&user)
-    pager := orm.Pager{CurrentPage: 1, PageSize: 100}
+
+    pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
     var users []*UserEntity
-    totalRows, err := orm.CachedSearch(&users, "IndexAge", pager, 18)
-    totalRows, err = orm.CachedSearch(&users, "IndexAll", pager)
-    has, err := orm.CachedSearchOne(&user, "IndexName", "John")
+    var user  UserEntity
+    totalRows, err := engine.CachedSearch(&users, "IndexAge", pager, 18)
+    totalRows, err = engine.CachedSearch(&users, "IndexAll", pager)
+    has, err := engine.CachedSearchOne(&user, "IndexName", "John")
 
 }
 
 ```
 
-Beauty about cached cached queries is that you don't need to care about updating
-cache when entity is changed. Results are cached and updated automatically.
-
 ## Lazy flush
 
-Sometimes you want to flush changes in database, but it's ok if data is flushed
-asynchronously. Just use LazyFlush and LazyReceiver:
+Sometimes you want to flush changes in database, but it's ok if data is flushed after some time. 
+For example when you want to save some logs in database.
 
 ```go
 package main
@@ -580,35 +522,20 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
-    orm.RegisterRedis("localhost:6379", 3, "queues_pool")
-    orm.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
-    //.. register entities
-
- 
-    type UserEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
-        Name                 string
-    }
+    // You need to register queue sender receiver that will send data to queue.
+    // Here we used RedisQueueSenderReceiver. If you want to use other queue service simply implement QueueSenderReceiver
+    registry.RegisterRedis("localhost:6379", 1, "queue_code")
+    queueSenderReceiver := &orm.RedisQueueSenderReceiver{PoolName: "queue_code"}
+    registry.RegisterLazyQueue(queueSenderReceiver) 
     
-    user := UserEntity{Name: "John"}
-    var user2 UserEntity
-    err := orm.GetById(1, &user2)
-    user2.Orm.MarkToDelete()
-    err = orm.FlushLazy(&user, &user2)
+    // now in code you can use FlushLazy() methods instead of Flush().
+    // it will send changes to queue (database and cached is not updated yet)
+    user.FlushLazy()
+    //or
+    engine.FlushLazyTrackedEntities()
     
-    /* you can use Flusher also */
-    flusher := orm.NewLazyFlusher(100, true)
-    user = UserEntity{Name: "Bob"}
-    err = flusher.RegisterEntity(&user)
-    err = flusher.Flush()
-    if err != nil {
-       ///...
-    }
-    
-    /* you should run a thread that is receiving lazy queries */
-    lazyReceiver := orm.LazyReceiver{RedisName: "queues_pool"}
+    //You need to run code that will read data from queue and execute changes
+    lazyReceiver := orm.NewLazyReceiver(engine, queueSenderReceiver)
     for {
         has, err = lazyReceiver.Digest()
         if err != nil {
@@ -622,12 +549,9 @@ func main() {
 
 ```
 
-## Flush in cache
+## Log entity changes
 
-Sometimes you are changing entity very often and you don't want to flush changes
-to database every time entity is changed. If entity is using shared cached (redis) you
-can use FlushInCache feature. When entity is changed new data is stored in cache but 
-from time to time FlushFromCacheReceiver is flushing all differences between cache and database.
+ORM can store in database every change of entity in special log table.
 
 ```go
 package main
@@ -636,31 +560,35 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
-    orm.RegisterRedis("localhost:6379", 3, "queues_pool")
-    orm.RegisterLazyQueue("default", "queues_pool") //if not defined orm is using default redis pool
-    //.. register entities
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/log_database", "log_db_pool") //it's recommended to keep logs in separated DB
 
- 
-    type UserEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
-        Name                 string
+    // You need to register queue sender receiver that will send  data to queue.
+    registry.RegisterRedis("localhost:6379", 1, "queue_code")
+    queueSenderReceiver := &orm.RedisQueueSenderReceiver{PoolName: "queue_code"}
+    registry.RegisterLogQueue("log_db_pool", queueSenderReceiver)  //all changes that will be stored in "log_db_pool" database
+
+    //next you need to define in Entity that you want to log changes. Just add "log" tag
+    type User struct {
+        ORM  `orm:"log=log_db_pool"`
+        ID   uint
+        Name string
+        Age  int
     }
+
+    // Now every change of User will be saved in log table
     
-    var user UserEntity
-    err := orm.GetById(1, &user)
-    user.Name = "New name"
-    err = orm.FlushInCache(&user) //updated only in redis
-    user.Name = "New name 2"
-    err = orm.FlushInCache(&user) //updated only in redis
+    // You can add extra data to log, simply use this methods before Flush():
+    engine.SetLogMetaData("logged_user_id", 12) 
+    engine.SetLogMetaData("ip", request.GetUserIP())
     
-    /* you should run a thread that is flushing changes in database */
-    lazyReceiver := orm.FlushFromCacheReceiver{QueueName: "queues_pool"}
+    
+    //You need to run code that will read data from queue and store logs
+    lazyReceiver := orm.NewLogReceiver(engine, queueSenderReceiver)
     for {
-        //in our case it will only one query:
-        // UPDATE `UserEntity` SET `Name` = "New name 2" WHERE `Id` = 1
-        has, err := lazyReceiver.Digest()
+        has, err = lazyReceiver.Digest()
+        if err != nil {
+           ///...
+        }
         if !has {
             //sleep x seconds
         }   
@@ -677,8 +605,8 @@ If you need to define default values for entity simply extend orm.DefaultValuesI
 func main() {
 
     type UserEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
+        orm.ORM
+        ID                   uint64
         Name                 string
     }
 
@@ -690,27 +618,37 @@ func main() {
 
 ```
 
-## Validate
+## Fake delete
 
-If you need to define validation for entity simply extend orm.ValidateInterface.
+If you want to keep deleted entity in database but ny default this entity should be excluded
+from all engine.Search() and engine.CacheSearch() queries you can use FakeDelete column. Simply create
+field bool with name "FakeDelete".
 
 ```go
 func main() {
 
     type UserEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
+        orm.ORM
+        ID                   uint64
         Name                 string
+        FakeDelete           bool
     }
 
-    func (e *UserEntity) Validate() error {
-        if e.Name == "Tom" {
-            return fmt.Errorf("Tom is not allowed")
-        }
-        return nil
-    }
-    
+    //you can delete in two ways:
+    user.MarkToDelete() -> will set user.FakeDelete = true
+    //or:
+    user.FakeDelete = true
+
+    engine.Flush(user) //it will save entity id in Column `FakeDelete`.
+
+    //will return all rows where `FakeDelete` = 0
+    total, err = engine.SearchWithCount(orm.NewWhere("1"), nil, &rows)
+
+    //To force delete (remove row from DB):
+    user.ForceMarkToDelete()
+    engine.Flush(user)
 }
+
 
 ```
 
@@ -722,13 +660,13 @@ If you need to execute code after entity is added or updated simply extend orm.A
 func main() {
 
     type UserEntity struct {
-        Orm                  *orm.ORM
-        Id                   uint64
+        orm.ORM
+        ID                   uint64
         Value                int
         Calculated           string `orm:"ignore"`
     }
 
-    func (e *UserEntity) AfterSaved() error {
+    func (e *UserEntity) AfterSaved(engine *orm.Engine) error {
         e.Calculated = e.Value + 1
         return nil
     }
@@ -745,46 +683,21 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    orm.RegisterRedis("localhost:6379", 0)
+    config.RegisterRedis("localhost:6379", 0)
     
     //storing data in cached for x seconds
-    val, err := orm.GetRedis().GetSet("key", 1, func() interface{} {
+    val, err := engine.GetRedis().GetSet("key", 1, func() interface{} {
 		return "hello"
 	})
     
     //standard redis api
-    keys, err := orm.GetRedis().LRange("key", 1, 2)
-    err = orm.GetRedis().LPush("key", "a", "b")
+    keys, err := engine.GetRedis().LRange("key", 1, 2)
+    err = engine.GetRedis().LPush("key", "a", "b")
     //...
 }
 
 ```
 
-
-## Working with Shared lock
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-
-    orm.RegisterRedis("localhost:6379", 0)
-    
-    lock, err := orm.GetRedis().GetLock("lock_name", 10, func())
-    if err != nil {
-        //...
-    }
-    defer lock.Release()
-    
-    if lock == nil {
-        fmt.Println("Lock not required")
-        return
-    } 
-}
-
-```
 
 ## Working with local cache
 
@@ -794,37 +707,37 @@ package main
 import "github.com/summer-solutions/orm"
 
 func main() {
-
-    orm.RegisterLocalCache(1000)
+    
+    registry.RegisterLocalCache(1000)
     
     //storing data in cached for x seconds
-    val := orm.GetLocalCache().GetSet("key", 1, func() interface{} {
+    val := engine.GetLocalCache().GetSet("key", 1, func() interface{} {
         return "hello"
     })
     
     //getting value
-    value, has := orm.GetLocalCache().Get("key")
+    value, has := engine.GetLocalCache().Get("key")
     
     //getting many values
-    values := orm.GetLocalCache().MGet("key1", "key2")
+    values := engine.GetLocalCache().MGet("key1", "key2")
     
     //setting value
-    orm.GetLocalCache().Set("key", "value")
+    engine.GetLocalCache().Set("key", "value")
     
     //setting values
-    orm.GetLocalCache().MSet("key1", "value1", "key2", "value2" /*...*/)
+    engine.GetLocalCache().MSet("key1", "value1", "key2", "value2" /*...*/)
     
     //getting values from hash set (like redis HMGET)
-    values := orm.GetLocalCache().HMget("key")
+    values := engine.GetLocalCache().HMget("key")
     
     //setting values in hash set
-    orm.GetLocalCache().HMset("key", map[string]interface{}{"key1" : "value1", "key2": "value 2"})
+    engine.GetLocalCache().HMset("key", map[string]interface{}{"key1" : "value1", "key2": "value 2"})
 
     //deleting value
-    orm.GetLocalCache().Remove("key1", "key2" /*...*/)
+    engine.GetLocalCache().Remove("key1", "key2" /*...*/)
     
     //clearing cache
-    orm.GetLocalCache().Clear()
+    engine.GetLocalCache().Clear()
 
 }
 
@@ -841,13 +754,14 @@ import (
 )
 
 func main() {
+    
+    // register mysql pool
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
 
-    orm.RegisterMySqlPool("root:root@tcp(localhost:3306)/database_name")
-
-    res, err := orm.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `Id` = ?", "Hello", 2)
+    res, err := engine.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `ID` = ?", "Hello", 2)
 
     var row string
-    err = orm.GetMysql().QueryRow("SELECT * FROM `table_name` WHERE  `Id` = ?", 1).Scan(&row)
+    err = engine.GetMysql().QueryRow("SELECT * FROM `table_name` WHERE  `ID` = ?", 1).Scan(&row)
     if err != nil {
         if err != sql.ErrNoRows {
             ///...
@@ -855,12 +769,48 @@ func main() {
         //no row found
     }
     
-    results, err := orm.GetMysql().Query("SELECT * FROM `table_name` WHERE  `Id` > ? LIMIT 100", 1)
+    results, def, err := engine.GetMysql().Query("SELECT * FROM `table_name` WHERE  `ID` > ? LIMIT 100", 1)
+    //handle err
+    defer def()
     for results.Next() {
     	var row string
         err = results.Scan(&row)
     }
+    err = results.Err()
+    //handle err
 
+}
+
+```
+
+## Working with Locker
+
+Shared cached that is using redis
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    // register redis and locker
+    registry.RegisterRedis("localhost:6379", 0, "my_pool")
+    registry.RegisterLocker("default", "my_pool")
+    
+    locker, _ := engine.GetLocker()
+    lock, err := locker.Obtain("my_lock", 5 * Time.Second, 1 * Time.Second)
+    if err != nil {
+        panic(err)
+    }
+    defer lock.Release()
+    
+    // do smth
+    
+    ttl, err := lock.TTL()
+    if ttl == 0 {
+        panic("lock lost")
+    }
 }
 
 ```

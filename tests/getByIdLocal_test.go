@@ -1,20 +1,21 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/summer-solutions/orm"
 )
 
-type AddressByIdLocal struct {
+type AddressByIDLocal struct {
 	Street   string
 	Building uint16
 }
 
-type TestEntityByIdLocal struct {
-	Orm                  *orm.ORM `orm:"localCache"`
-	Id                   uint
+type TestEntityByIDLocal struct {
+	orm.ORM              `orm:"localCache"`
+	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`
 	Uint8                uint8  `orm:"unique=SecondIndex:2,ThirdIndex"`
@@ -37,36 +38,50 @@ type TestEntityByIdLocal struct {
 	Year                 uint16  `orm:"year=true"`
 	Date                 time.Time
 	DateTime             time.Time `orm:"time=true"`
-	Address              AddressByIdLocal
-	Json                 interface{}
+	Address              AddressByIDLocal
+	JSON                 interface{}
+	Uint8Slice           []uint8
 	Ignored              []time.Time `orm:"ignore"`
+	ReferenceOne         *TestEntityByIDLocal
 }
 
-func TestGetByIdLocal(t *testing.T) {
-	var entity TestEntityByIdLocal
-	PrepareTables(entity)
+func TestGetByIDLocal(t *testing.T) {
+	var entity TestEntityByIDLocal
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	found, err := orm.TryById(100, &entity)
+	found, err := engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
-	found, err = orm.TryById(100, &entity)
+	found, err = engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	entity = TestEntityByIdLocal{}
-	err = orm.Flush(&entity)
+	entity = TestEntityByIDLocal{}
+	engine.RegisterEntity(&entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, entity.IsDirty())
+
+	has, err := engine.LoadByID(1, &entity)
+	assert.True(t, has)
+	assert.Nil(t, err)
+	assert.Equal(t, uint(1), entity.ID)
+
+	entity.ReferenceOne = &TestEntityByIDLocal{ID: 1}
+	err = entity.Flush()
+	assert.Nil(t, err)
+	assert.False(t, entity.IsDirty())
 
 	DBLogger := &TestDatabaseLogger{}
-	orm.GetMysql().RegisterLogger(DBLogger.Logger())
+	pool := engine.GetMysql()
+	pool.RegisterLogger(DBLogger)
 
-	found, err = orm.TryById(1, &entity)
+	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
-	assert.Equal(t, uint(1), entity.Id)
+	assert.Equal(t, uint(1), entity.ID)
 	assert.Equal(t, "", entity.Name)
 	assert.Equal(t, "", entity.BigName)
 	assert.Equal(t, uint8(0), entity.Uint8)
@@ -86,14 +101,16 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Equal(t, float64(0), entity.Float64DecimalSigned)
 	assert.Equal(t, uint16(0), entity.Year)
 	assert.IsType(t, time.Time{}, entity.Date)
+	assert.NotNil(t, entity.ReferenceOne)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.IsType(t, time.Time{}, entity.DateTime)
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
-	assert.Equal(t, AddressByIdLocal{Street: "", Building: uint16(0)}, entity.Address)
-	assert.Nil(t, entity.Json)
+	assert.Equal(t, AddressByIDLocal{Street: "", Building: uint16(0)}, entity.Address)
+	assert.Nil(t, entity.JSON)
+	assert.Equal(t, "", string(entity.Uint8Slice))
 	assert.Nil(t, err)
 
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, entity.IsDirty())
 	assert.Len(t, DBLogger.Queries, 0)
 
 	entity.Name = "Test name"
@@ -111,19 +128,19 @@ func TestGetByIdLocal(t *testing.T) {
 	entity.DateTime = time.Date(2019, 2, 11, 12, 34, 11, 0, time.UTC)
 	entity.Address.Street = "wall street"
 	entity.Address.Building = 12
-	entity.Json = map[string]string{"name": "John"}
+	entity.JSON = map[string]string{"name": "John"}
+	entity.Uint8Slice = []byte("test me")
 
-	assert.Nil(t, err)
-	assert.True(t, entity.Orm.IsDirty())
+	assert.True(t, entity.IsDirty())
 
-	err = orm.Flush(&entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.Nil(t, err)
-	assert.False(t, entity.Orm.IsDirty())
+	assert.False(t, entity.IsDirty())
 	assert.Len(t, DBLogger.Queries, 1)
 
-	var entity2 TestEntityByIdLocal
-	found, err = orm.TryById(1, &entity2)
+	var entity2 TestEntityByIDLocal
+	found, err = engine.LoadByID(1, &entity2)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity2)
@@ -142,18 +159,20 @@ func TestGetByIdLocal(t *testing.T) {
 	assert.Equal(t, time.Date(2019, 2, 11, 12, 34, 11, 0, time.UTC), entity2.DateTime)
 	assert.Equal(t, "wall street", entity2.Address.Street)
 	assert.Equal(t, uint16(12), entity2.Address.Building)
-	assert.Equal(t, map[string]interface{}{"name": "John"}, entity2.Json)
+	assert.Equal(t, map[string]interface{}{"name": "John"}, entity2.JSON)
 	assert.Len(t, DBLogger.Queries, 1)
 }
 
-func BenchmarkGetByIdLocal(b *testing.B) {
-	var entity TestEntityByIdLocal
-	PrepareTables(entity)
+func BenchmarkGetByIDLocal(b *testing.B) {
+	var entity TestEntityByIDLocal
+	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
-	entity = TestEntityByIdLocal{}
-	_ = orm.Flush(&entity)
+	entity = TestEntityByIDLocal{}
+	engine.RegisterEntity(&entity)
+	err := entity.Flush()
+	assert.Nil(b, err)
 
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryById(1, &entity)
+		_, _ = engine.LoadByID(1, &entity)
 	}
 }

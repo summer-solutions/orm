@@ -4,10 +4,6 @@ type DefaultValuesInterface interface {
 	SetDefaults()
 }
 
-type ValidateInterface interface {
-	Validate() error
-}
-
 type AfterSavedInterface interface {
-	AfterSaved() error
+	AfterSaved(engine *Engine) error
 }

@@ -1,148 +1,96 @@
 package orm
 
 import (
-	"container/list"
 	"database/sql"
-	"fmt"
 	"time"
 )
 
+type sqlDB interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	QueryRow(query string, args ...interface{}) SQLRow
+	Query(query string, args ...interface{}) (SQLRows, error)
+}
+
+type sqlDBStandard struct {
+	db *sql.DB
+}
+
+func (db *sqlDBStandard) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return db.db.Exec(query, args...)
+}
+
+func (db *sqlDBStandard) QueryRow(query string, args ...interface{}) SQLRow {
+	return db.db.QueryRow(query, args...)
+}
+
+func (db *sqlDBStandard) Query(query string, args ...interface{}) (SQLRows, error) {
+	return db.db.Query(query, args...)
+}
+
+type SQLRows interface {
+	Next() bool
+	Err() error
+	Close() error
+	Scan(dest ...interface{}) error
+	Columns() ([]string, error)
+}
+
+type SQLRow interface {
+	Scan(dest ...interface{}) error
+}
+
 type DB struct {
-	db                           *sql.DB
-	code                         string
-	databaseName                 string
-	loggers                      *list.List
-	transaction                  *sql.Tx
-	transactionCounter           int
-	afterCommitLocalCacheSets    map[string][]interface{}
-	afterCommitLocalCacheDeletes map[string][]string
-	afterCommitRedisCacheDeletes map[string][]string
+	engine       *Engine
+	db           sqlDB
+	code         string
+	databaseName string
+	loggers      []DatabaseLogger
+}
+
+func (db *DB) GetDatabaseName() string {
+	return db.databaseName
+}
+
+func (db *DB) GetPoolCode() string {
+	return db.code
 }
 
 func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
 	start := time.Now()
-	if db.transaction != nil {
-		rows, err := db.transaction.Exec(query, args...)
-		db.log(query, time.Now().Sub(start).Microseconds(), args...)
-		return rows, err
-	}
 	rows, err := db.db.Exec(query, args...)
-	db.log(query, time.Now().Sub(start).Microseconds(), args...)
+	db.log(query, time.Since(start).Microseconds(), args...)
 	return rows, err
 }
 
-func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
+func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
 	start := time.Now()
-	if db.transaction != nil {
-		row := db.transaction.QueryRow(query, args...)
-		db.log(query, time.Now().Sub(start).Microseconds(), args...)
-		return row
-	}
 	row := db.db.QueryRow(query, args...)
-	db.log(query, time.Now().Sub(start).Microseconds(), args...)
+	db.log(query, time.Since(start).Microseconds(), args...)
 	return row
 }
 
-func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
+func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF func(), err error) {
 	start := time.Now()
-	if db.transaction != nil {
-		rows, err := db.transaction.Query(query, args...)
-		db.log(query, time.Now().Sub(start).Microseconds(), args...)
-		return rows, err
-	}
-	rows, err := db.db.Query(query, args...)
-	db.log(query, time.Now().Sub(start).Microseconds(), args...)
-	return rows, err
-}
-
-func (db *DB) BeginTransaction() error {
-	db.transactionCounter++
-	if db.transaction != nil {
-		return nil
-	}
-	start := time.Now()
-	transaction, err := db.db.Begin()
-	db.log("BEGIN TRANSACTION", time.Now().Sub(start).Microseconds())
-	if err != nil {
-		return err
-	}
-	db.transaction = transaction
-	return nil
-}
-
-func (db *DB) Commit() error {
-	if db.transaction == nil {
-		return nil
-	}
-	db.transactionCounter--
-	if db.transactionCounter == 0 {
-		start := time.Now()
-		err := db.transaction.Commit()
-		db.log("COMMIT", time.Now().Sub(start).Microseconds())
-		if err == nil {
-			if db.afterCommitLocalCacheSets != nil {
-				for cacheCode, pairs := range db.afterCommitLocalCacheSets {
-					GetLocalCache(cacheCode).MSet(pairs...)
-				}
-			}
-			db.afterCommitLocalCacheSets = nil
-			if db.afterCommitLocalCacheDeletes != nil {
-				for cacheCode, keys := range db.afterCommitLocalCacheDeletes {
-					GetLocalCache(cacheCode).Remove(keys...)
-				}
-			}
-			db.afterCommitLocalCacheDeletes = nil
-			if db.afterCommitRedisCacheDeletes != nil {
-				for cacheCode, keys := range db.afterCommitRedisCacheDeletes {
-					err := GetRedis(cacheCode).Del(keys...)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			db.afterCommitRedisCacheDeletes = nil
-			db.transaction = nil
+	rows, err = db.db.Query(query, args...)
+	db.log(query, time.Since(start).Microseconds(), args...)
+	return rows, func() {
+		if rows != nil {
+			_ = rows.Close()
 		}
-		return err
-	}
-	return nil
+	}, err
 }
 
-func (db *DB) Rollback() error {
-	if db.transaction == nil {
-		return nil
-	}
-	db.transactionCounter--
-	if db.transactionCounter == 0 {
-		db.afterCommitLocalCacheSets = nil
-		db.afterCommitLocalCacheDeletes = nil
-		start := time.Now()
-		err := db.transaction.Rollback()
-		db.log("ROLLBACK", time.Now().Sub(start).Microseconds())
-		if err == nil {
-			db.transaction = nil
-		}
-		return err
-	} else {
-		return fmt.Errorf("rollback in nested transaction not allowed")
-	}
-}
-
-func (db *DB) RegisterLogger(logger DatabaseLogger) *list.Element {
+func (db *DB) RegisterLogger(logger DatabaseLogger) {
 	if db.loggers == nil {
-		db.loggers = list.New()
+		db.loggers = make([]DatabaseLogger, 0)
 	}
-	return db.loggers.PushFront(logger)
-}
-
-func (db *DB) UnregisterLogger(element *list.Element) {
-	db.loggers.Remove(element)
+	db.loggers = append(db.loggers, logger)
 }
 
 func (db *DB) log(query string, microseconds int64, args ...interface{}) {
 	if db.loggers != nil {
-		for e := db.loggers.Front(); e != nil; e = e.Next() {
-			e.Value.(DatabaseLogger)(db.code, query, microseconds, args...)
+		for _, logger := range db.loggers {
+			logger.Log(db.code, query, microseconds, args...)
 		}
 	}
 }

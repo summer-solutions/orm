@@ -1,100 +1,105 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
+	"fmt"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/summer-solutions/orm"
 )
 
-type TestEntityByIdsRedisCache struct {
-	Orm  *orm.ORM `orm:"redisCache"`
-	Id   uint
-	Name string
+type TestEntityByIDsRedisCache struct {
+	orm.ORM `orm:"redisCache"`
+	ID      uint
+	Name    string
 }
 
-type TestEntityByIdsRedisCacheRef struct {
-	Orm  *orm.ORM `orm:"redisCache"`
-	Id   uint
-	Name string
+type TestEntityByIDsRedisCacheRef struct {
+	orm.ORM `orm:"redisCache"`
+	ID      uint
+	Name    string
 }
 
-func TestEntityByIdsRedis(t *testing.T) {
+func TestEntityByIDsRedis(t *testing.T) {
+	var entity TestEntityByIDsRedisCache
+	var entityRef TestEntityByIDsRedisCacheRef
+	engine := PrepareTables(t, &orm.Registry{}, entityRef, entity)
 
-	var entity TestEntityByIdsRedisCache
-	var entityRef TestEntityByIdsRedisCacheRef
-	PrepareTables(entityRef, entity)
-
-	flusher := orm.Flusher{}
 	for i := 1; i <= 10; i++ {
-		e := TestEntityByIdsRedisCache{Name: "Name " + strconv.Itoa(i)}
-		orm.Init(&e)
-		flusher.RegisterEntity(&e)
-		e2 := TestEntityByIdsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
-		orm.Init(&e2)
-		flusher.RegisterEntity(&e2)
+		e := &TestEntityByIDsRedisCache{Name: "Name " + strconv.Itoa(i)}
+		engine.TrackEntity(e)
+		e2 := &TestEntityByIDsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
+		engine.TrackEntity(e2)
 	}
-	err := flusher.Flush()
+	err := engine.FlushTrackedEntities()
 	assert.Nil(t, err)
 
 	DBLogger := &TestDatabaseLogger{}
-	orm.GetMysql().RegisterLogger(DBLogger.Logger())
+	pool := engine.GetMysql()
+	pool.RegisterLogger(DBLogger)
 	CacheLogger := &TestCacheLogger{}
-	orm.GetRedis().RegisterLogger(CacheLogger.Logger())
+	cache := engine.GetRedis()
+	cache.RegisterLogger(CacheLogger)
 
-	var found []*TestEntityByIdsRedisCache
-	missing, err := orm.TryByIds([]uint64{2, 13, 1}, &found)
+	var found []*TestEntityByIDsRedisCache
+	missing, err := engine.LoadByIDs([]uint64{2, 13, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{13}, missing)
-	assert.Equal(t, uint(2), found[0].Id)
+	assert.Equal(t, uint(2), found[0].ID)
 	assert.Equal(t, "Name 2", found[0].Name)
-	assert.Equal(t, uint(1), found[1].Id)
+	assert.Equal(t, uint(1), found[1].ID)
 	assert.Equal(t, "Name 1", found[1].Name)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = orm.TryByIds([]uint64{2, 13, 1}, &found)
+	missing, err = engine.LoadByIDs([]uint64{2, 13, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
 	assert.Len(t, missing, 1)
 	assert.Equal(t, []uint64{13}, missing)
-	assert.Equal(t, uint(2), found[0].Id)
-	assert.Equal(t, uint(1), found[1].Id)
+	assert.Equal(t, uint(2), found[0].ID)
+	assert.Equal(t, uint(1), found[1].ID)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = orm.TryByIds([]uint64{25, 26, 27}, &found)
+	missing, err = engine.LoadByIDs([]uint64{25, 26, 27}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
 	assert.Len(t, DBLogger.Queries, 2)
 
-	err = orm.GetRedis().FlushDB()
+	err = cache.FlushDB()
 	assert.Nil(t, err)
 	DBLogger.Queries = make([]string, 0)
 	CacheLogger.Requests = make([]string, 0)
 
 	DBLogger.Queries = make([]string, 0)
-	missing, err = orm.TryByIds([]uint64{8, 9, 10}, &found)
+	missing, err = engine.LoadByIDs([]uint64{8, 9, 10}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
 	assert.Len(t, DBLogger.Queries, 1)
 
-	missing, err = orm.TryByIds([]uint64{8, 9, 10}, &found)
+	missing, err = engine.LoadByIDs([]uint64{8, 9, 10}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
 	assert.Len(t, DBLogger.Queries, 1)
 }
 
-func BenchmarkGetByIdsRedis(b *testing.B) {
-	var entity TestEntityByIdsRedisCache
-	PrepareTables(entity)
+func BenchmarkGetByIDsRedis(b *testing.B) {
+	var entity TestEntityByIDsRedisCache
+	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
-	_ = orm.Flush(&TestEntityByIdsRedisCache{Name: "Hi 1"}, &TestEntityByIdsRedisCache{Name: "Hi 2"}, &TestEntityByIdsRedisCache{Name: "Hi 3"})
-	var found []TestEntityByIdsRedisCache
+	for i := 1; i <= 3; i++ {
+		e := &TestEntityByIDsRedisCache{Name: fmt.Sprintf("Name %d", i)}
+		err := e.Flush()
+		assert.Nil(b, err)
+	}
+
+	var found []TestEntityByIDsRedisCache
 	for n := 0; n < b.N; n++ {
-		_, _ = orm.TryByIds([]uint64{1, 2, 3}, &found)
+		_, _ = engine.LoadByIDs([]uint64{1, 2, 3}, &found)
 	}
 }

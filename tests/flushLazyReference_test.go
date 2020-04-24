@@ -1,35 +1,44 @@
 package tests
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
-	"testing"
 )
 
 type TestEntityFlushLazyReference struct {
-	Orm          *orm.ORM
-	Id           uint
+	orm.ORM
+	ID           uint
 	Name         string
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityFlushLazyReference"`
+	ReferenceOne *TestEntityFlushLazyReference
 }
 
 func TestFlushLazyReference(t *testing.T) {
 	var entity TestEntityFlushLazyReference
-	PrepareTables(entity)
+	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	entity1 := TestEntityFlushLazyReference{Name: "Name 1"}
-	entity2 := TestEntityFlushLazyReference{Name: "Name 2"}
-	entity3 := TestEntityFlushLazyReference{Name: "Name 3"}
-	entity4 := TestEntityFlushLazyReference{Name: "Name 4"}
-	orm.Init(&entity1, &entity2, &entity3, &entity4)
+	entity1 := &TestEntityFlushLazyReference{Name: "Name 1"}
+	engine.RegisterEntity(entity1)
+	entity2 := &TestEntityFlushLazyReference{Name: "Name 2"}
+	engine.RegisterEntity(entity2)
+	entity3 := &TestEntityFlushLazyReference{Name: "Name 3"}
+	engine.RegisterEntity(entity3)
+	entity4 := &TestEntityFlushLazyReference{Name: "Name 4"}
+	engine.RegisterEntity(entity4)
 
-	entity1.ReferenceOne.Reference = &entity2
-
-	err := orm.Flush(&entity1, &entity2, &entity3, &entity4)
+	entity1.ReferenceOne = entity2
+	err := entity1.Flush()
 	assert.Nil(t, err)
-	assert.Equal(t, uint64(2), entity1.ReferenceOne.Id)
-
-	err = orm.GetById(1, &entity)
+	err = entity3.Flush()
 	assert.Nil(t, err)
-	assert.Equal(t, uint64(2), entity1.ReferenceOne.Id)
+	err = entity4.Flush()
+	assert.Nil(t, err)
+
+	assert.Equal(t, uint(1), entity1.ReferenceOne.ID)
+
+	has, err := engine.LoadByID(2, &entity)
+	assert.True(t, has)
+	assert.Nil(t, err)
+	assert.Equal(t, uint(1), entity1.ReferenceOne.ID)
 }

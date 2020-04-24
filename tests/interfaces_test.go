@@ -1,66 +1,58 @@
 package tests
 
 import (
-	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
-	"testing"
 )
 
 type TestEntityInterfaces struct {
-	Orm          *orm.ORM
-	Id           uint
+	orm.ORM
+	ID           uint
 	Uint         uint
 	Name         string
-	ReferenceOne *orm.ReferenceOne `orm:"ref=tests.TestEntityInterfacesRef"`
-	Calculated   int               `orm:"ignore"`
+	ReferenceOne *TestEntityInterfacesRef
+	Calculated   int `orm:"ignore"`
 }
 
 type TestEntityInterfacesRef struct {
-	Orm *orm.ORM
-	Id  uint
+	orm.ORM
+	ID uint
 }
 
 func (e *TestEntityInterfaces) SetDefaults() {
 	e.Uint = 3
 	e.Name = "hello"
-	e.ReferenceOne.Id = 1
+	e.ReferenceOne = &TestEntityInterfacesRef{ID: 1}
 }
 
-func (e *TestEntityInterfaces) Validate() error {
-	if e.Uint < 5 {
-		return fmt.Errorf("uint too low")
-	}
-	return nil
-}
-
-func (e *TestEntityInterfaces) AfterSaved() error {
-	e.Calculated = int(e.Uint) + int(e.ReferenceOne.Id)
+func (e *TestEntityInterfaces) AfterSaved(_ *orm.Engine) error {
+	e.Calculated = int(e.Uint) + int(e.ReferenceOne.ID)
 	return nil
 }
 
 func TestInterfaces(t *testing.T) {
-	PrepareTables(TestEntityInterfaces{}, TestEntityInterfacesRef{})
+	engine := PrepareTables(t, &orm.Registry{}, TestEntityInterfaces{}, TestEntityInterfacesRef{})
 
-	err := orm.Flush(&TestEntityInterfacesRef{})
+	e := &TestEntityInterfacesRef{}
+	engine.RegisterEntity(e)
+	err := e.Flush()
 	assert.Nil(t, err)
 
 	entity := &TestEntityInterfaces{}
-	orm.Init(entity)
+	engine.RegisterEntity(entity)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)
-	assert.Equal(t, uint64(1), entity.ReferenceOne.Id)
+	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
 
-	err = orm.Flush(entity)
-	assert.NotNil(t, err)
-	assert.Error(t, err, "uint too low")
 	entity.Uint = 5
-	err = orm.Flush(entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.Equal(t, 6, entity.Calculated)
 
 	entity.Uint = 10
-	err = orm.Flush(entity)
+	err = entity.Flush()
 	assert.Nil(t, err)
 	assert.Equal(t, 11, entity.Calculated)
 }
