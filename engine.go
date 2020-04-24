@@ -128,7 +128,11 @@ func (e *Engine) SearchOne(where *Where, entity interface{}) (bool, error) {
 }
 
 func (e *Engine) CachedSearchOne(entity Entity, indexName string, arguments ...interface{}) (has bool, err error) {
-	return cachedSearchOne(e, entity, indexName, arguments...)
+	return cachedSearchOne(e, entity, indexName, arguments, nil)
+}
+
+func (e *Engine) CachedSearchOneWithReferences(entity Entity, indexName string, arguments []interface{}, references []string) (has bool, err error) {
+	return cachedSearchOne(e, entity, indexName, arguments, references)
 }
 
 func (e *Engine) CachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, err error) {

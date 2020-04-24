@@ -191,7 +191,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	return
 }
 
-func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments ...interface{}) (has bool, err error) {
+func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments []interface{}, references []string) (has bool, err error) {
 	value := reflect.ValueOf(entity)
 	entityType := value.Elem().Type()
 	schema := getTableSchema(engine.registry, entityType)
@@ -248,7 +248,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 		}
 	}
 	if id > 0 {
-		return engine.LoadByID(id, entity)
+		return engine.LoadByID(id, entity, references...)
 	}
 	return false, nil
 }
