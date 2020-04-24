@@ -72,11 +72,6 @@ func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 	}
 }
 
-func (e *Engine) GetTableSchema(entity Entity) TableSchema {
-	initEntityIfNeeded(e, entity)
-	return entity.getTableSchema()
-}
-
 func (e *Engine) IsDirty(entity Entity) bool {
 	if !entity.Loaded() {
 		return true
