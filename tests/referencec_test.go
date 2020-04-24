@@ -46,7 +46,7 @@ func TestReferences(t *testing.T) {
 	ref4b := TestEntityReferenceLevel4{Name: "name 4b"}
 
 	engine := PrepareTables(t, &orm.Registry{}, ref1, ref2, ref3, ref4)
-	engine.TrackEntity(&ref1, &ref2, &ref3, &ref4, &ref3b, &ref4b)
+	engine.Track(&ref1, &ref2, &ref3, &ref4, &ref3b, &ref4b)
 	ref1.ReferenceOne = &ref2
 	ref1.ReferenceSix = &ref3b
 	ref1.ReferenceSeven = &ref4b
@@ -54,7 +54,7 @@ func TestReferences(t *testing.T) {
 	ref3.ReferenceThree = &ref4
 	ref3b.ReferenceThree = &ref4
 
-	err := engine.FlushTrackedEntities()
+	err := engine.Flush()
 	assert.Nil(t, err)
 
 	assert.Equal(t, uint(1), ref1.ID)
@@ -89,16 +89,17 @@ func TestReferences(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, has)
 	assert.False(t, root.ReferenceOne.Loaded())
-	err = root.ReferenceOne.Load(engine)
+	err = engine.Load(root.ReferenceOne)
 	assert.Nil(t, err)
 	assert.True(t, root.ReferenceOne.Loaded())
 
+	engine.Track(&root)
 	root.ReferenceFive = &TestEntityReferenceLevel3{ID: 2}
 	assert.False(t, root.ReferenceFive.Loaded())
-	err = root.ReferenceFive.Load(engine)
-	assert.EqualError(t, err, "unregistered entity. run RegisterEntity() or TrackEntity() before Load()")
+	err = engine.Load(root.ReferenceFive)
+	assert.Nil(t, err)
 
-	err = root.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 	has, err = engine.LoadByID(1, &root)
 	assert.Nil(t, err)

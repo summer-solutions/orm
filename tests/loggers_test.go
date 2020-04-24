@@ -21,8 +21,7 @@ func TestLoggers(t *testing.T) {
 	entity := &TestEntityLoggers{}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
-	engine.RegisterEntity(entity)
-	err := entity.Flush()
+	err := engine.TrackAndFlush(entity)
 	assert.Nil(t, err)
 
 	os.Stdout, _ = os.Open(os.DevNull)

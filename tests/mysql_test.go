@@ -19,10 +19,10 @@ func TestMySQL(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, entity, entity)
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityMySQL{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterEntity(e)
-		err := e.Flush()
-		assert.Nil(t, err)
+		engine.Track(e)
 	}
+	err := engine.Flush()
+	assert.Nil(t, err)
 
 	db := engine.GetMysql()
 	assert.NotNil(t, db)

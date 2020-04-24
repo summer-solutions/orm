@@ -22,14 +22,14 @@ func TestFakeDelete(t *testing.T) {
 	engine := PrepareTables(t, registry, TestEntityFakeDelete{})
 
 	entity := &TestEntityFakeDelete{}
-	engine.RegisterEntity(entity)
+	engine.Track(entity)
 	entity.Name = "one"
-	err := entity.Flush()
+	err := engine.Flush()
 	assert.Nil(t, err)
 	entity2 := &TestEntityFakeDelete{}
-	engine.RegisterEntity(entity2)
+	engine.Track(entity2)
 	entity2.Name = "two"
-	err = entity2.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	var rows []*TestEntityFakeDelete
@@ -40,12 +40,12 @@ func TestFakeDelete(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, total)
 
-	entity2.MarkToDelete()
+	engine.MarkToDelete(entity2)
 	assert.True(t, entity2.FakeDelete)
-	assert.True(t, entity2.IsDirty())
-	err = entity2.Flush()
+	assert.True(t, engine.IsDirty(entity2))
+	err = engine.Flush()
 	assert.Nil(t, err)
-	assert.False(t, entity2.IsDirty())
+	assert.False(t, engine.IsDirty(entity2))
 
 	total, err = engine.SearchWithCount(orm.NewWhere("1"), nil, &rows)
 	assert.Nil(t, err)
@@ -70,15 +70,15 @@ func TestFakeDelete(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 0, total)
 
-	entity2.ForceMarkToDelete()
-	err = entity2.Flush()
+	engine.ForceMarkToDelete(entity2)
+	err = engine.Flush()
 	assert.Nil(t, err)
 	has, err = engine.LoadByID(2, entity2)
 	assert.Nil(t, err)
 	assert.False(t, has)
 
-	entity.MarkToDelete()
-	err = entity.Flush()
+	engine.MarkToDelete(entity)
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	has, err = engine.SearchOne(orm.NewWhere("1"), entity)

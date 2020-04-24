@@ -33,27 +33,27 @@ func TestCachedSearchLocal(t *testing.T) {
 
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestLocalRef{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterEntity(e)
-		err := e.Flush()
-		assert.Nil(t, err)
+		engine.Track(e)
 	}
+	err := engine.Flush()
+	assert.Nil(t, err)
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
-		engine.RegisterEntity(e)
+		engine.Track(e)
 		e.ReferenceOne = &TestEntityIndexTestLocalRef{ID: uint(i)}
 		entities[i-1] = e
-		err := e.Flush()
-		assert.Nil(t, err)
 	}
+	err = engine.Flush()
+	assert.Nil(t, err)
 	for i := 6; i <= 10; i++ {
 		e := &TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		entities[i-1] = e
-		engine.RegisterEntity(e)
-		err := e.Flush()
-		assert.Nil(t, err)
+		engine.Track(e)
 	}
+	err = engine.Flush()
+	assert.Nil(t, err)
 
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []*TestEntityIndexTestLocal
@@ -110,8 +110,9 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, uint(1), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 1)
 
+	engine.Track(rows[0])
 	rows[0].Age = 18
-	err = rows[0].Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 10}
@@ -136,8 +137,8 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 5)
 
-	rows[1].MarkToDelete()
-	err = rows[1].Flush()
+	engine.MarkToDelete(rows[1])
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
@@ -154,8 +155,8 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 8)
 
 	entity = &TestEntityIndexTestLocal{Name: "Name 11", Age: uint16(18)}
-	engine.RegisterEntity(entity)
-	err = entity.Flush()
+	engine.Track(entity)
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
@@ -209,9 +210,10 @@ func BenchmarkCachedSearchLocal(b *testing.B) {
 	for i := 1; i <= 10; i++ {
 		e := TestEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		entities[i-1] = &e
-		err := e.Flush()
-		assert.Nil(b, err)
+		engine.Track(&e)
 	}
+	err := engine.Flush()
+	assert.Nil(b, err)
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []*TestEntityIndexTestLocal
 	for n := 0; n < b.N; n++ {

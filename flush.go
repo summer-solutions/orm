@@ -121,6 +121,9 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				}
 				deleteBinds[t][currentID] = dbData
 			} else {
+				if !entity.Loaded() {
+					return fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getElem().Type().String(), currentID)
+				}
 				fields := make([]string, bindLength)
 				i := 0
 				for key, value := range bind {
@@ -303,7 +306,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 								toDeleteAll := make([]reflect.Value, total)
 								for i := 0; i < total; i++ {
 									toDeleteValue := subElem.Index(i)
-									toDeleteValue.Elem().Field(0).Addr().Interface().(*ORM).MarkToDelete()
+									engine.MarkToDelete(toDeleteValue.Interface().(Entity))
 									toDeleteAll[i] = toDeleteValue
 								}
 								err = flush(engine, lazy, toDeleteAll...)
@@ -465,6 +468,7 @@ func injectBind(value reflect.Value, bind map[string]interface{}) map[string]int
 	for key, value := range bind {
 		oldFields.dBData[key] = value
 	}
+	oldFields.loaded = true
 	field.Set(reflect.ValueOf(oldFields))
 	return oldFields.dBData
 }

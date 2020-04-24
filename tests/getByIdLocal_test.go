@@ -57,21 +57,22 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.False(t, found)
 
 	entity = TestEntityByIDLocal{}
-	engine.RegisterEntity(&entity)
-	err = entity.Flush()
+	engine.Track(&entity)
+	err = engine.Flush()
 	assert.Nil(t, err)
 
-	assert.False(t, entity.IsDirty())
+	assert.False(t, engine.IsDirty(entity))
 
 	has, err := engine.LoadByID(1, &entity)
 	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity.ID)
 
+	engine.Track(&entity)
 	entity.ReferenceOne = &TestEntityByIDLocal{ID: 1}
-	err = entity.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
-	assert.False(t, entity.IsDirty())
+	assert.False(t, engine.IsDirty(entity))
 
 	DBLogger := &TestDatabaseLogger{}
 	pool := engine.GetMysql()
@@ -110,9 +111,10 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Equal(t, "", string(entity.Uint8Slice))
 	assert.Nil(t, err)
 
-	assert.False(t, entity.IsDirty())
+	assert.False(t, engine.IsDirty(entity))
 	assert.Len(t, DBLogger.Queries, 0)
 
+	engine.Track(&entity)
 	entity.Name = "Test name"
 	entity.BigName = "Test big name"
 	entity.Uint8 = 2
@@ -131,12 +133,12 @@ func TestGetByIDLocal(t *testing.T) {
 	entity.JSON = map[string]string{"name": "John"}
 	entity.Uint8Slice = []byte("test me")
 
-	assert.True(t, entity.IsDirty())
+	assert.True(t, engine.IsDirty(entity))
 
-	err = entity.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 	assert.Nil(t, err)
-	assert.False(t, entity.IsDirty())
+	assert.False(t, engine.IsDirty(entity))
 	assert.Len(t, DBLogger.Queries, 1)
 
 	var entity2 TestEntityByIDLocal
@@ -168,8 +170,8 @@ func BenchmarkGetByIDLocal(b *testing.B) {
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	entity = TestEntityByIDLocal{}
-	engine.RegisterEntity(&entity)
-	err := entity.Flush()
+	engine.Track(&entity)
+	err := engine.Flush()
 	assert.Nil(b, err)
 
 	for n := 0; n < b.N; n++ {

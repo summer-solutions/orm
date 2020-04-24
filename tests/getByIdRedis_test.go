@@ -55,10 +55,10 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.False(t, found)
 
 	entity = TestEntityByIDRedis{}
-	engine.RegisterEntity(&entity)
-	err = entity.Flush()
+	engine.Track(&entity)
+	err = engine.Flush()
 	assert.Nil(t, err)
-	assert.False(t, entity.IsDirty())
+	assert.False(t, engine.IsDirty(entity))
 
 	var entity2 TestEntityByIDRedis
 	has, err := engine.LoadByID(1, &entity2)
@@ -73,10 +73,11 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity3.ID)
 
+	engine.Track(&entity)
 	entity.ReferenceOne = &TestEntityByIDRedis{ID: 1}
-	err = entity.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
-	assert.False(t, entity.IsDirty())
+	assert.False(t, engine.IsDirty(entity))
 
 	DBLogger := &TestDatabaseLogger{}
 	pool := engine.GetMysql()
@@ -113,7 +114,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.True(t, entity.Date.Equal(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)))
 	assert.Equal(t, AddressByIDRedis{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.JSON)
-	assert.False(t, entity.IsDirty())
+	assert.False(t, engine.IsDirty(entity))
 	assert.Len(t, DBLogger.Queries, 1)
 
 	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
@@ -121,6 +122,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.True(t, found)
 	assert.True(t, entity.ReferenceOne.Loaded())
 
+	engine.Track(&entity)
 	entity.Name = "Test name"
 	entity.BigName = "Test big name"
 	entity.Uint8 = 2
@@ -138,11 +140,11 @@ func TestGetByIDRedis(t *testing.T) {
 	entity.Address.Building = 12
 	entity.JSON = map[string]string{"name": "John"}
 
-	assert.True(t, entity.IsDirty())
+	assert.True(t, engine.IsDirty(entity))
 
-	err = entity.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
-	assert.False(t, entity.IsDirty())
+	assert.False(t, engine.IsDirty(entity))
 
 	assert.Len(t, DBLogger.Queries, 2)
 
@@ -174,14 +176,15 @@ func TestGetByIDRedis(t *testing.T) {
 }
 
 func BenchmarkLoadByID(b *testing.B) {
-	var entity TestEntityByIDRedis
+	var entity *TestEntityByIDRedis
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
-	entity = TestEntityByIDRedis{}
-	err := entity.Flush()
+	entity = &TestEntityByIDRedis{}
+	engine.Track(entity)
+	err := engine.Flush()
 	assert.Nil(b, err)
 
 	for n := 0; n < b.N; n++ {
-		_, _ = engine.LoadByID(1, &entity)
+		_, _ = engine.LoadByID(1, entity)
 	}
 }

@@ -23,13 +23,7 @@ func (e *Engine) SetLogMetaData(key string, value interface{}) {
 	e.logMetaData[key] = value
 }
 
-func (e *Engine) RegisterEntity(entity ...Entity) {
-	for _, element := range entity {
-		initIfNeeded(e, e.getValue(element))
-	}
-}
-
-func (e *Engine) TrackEntity(entity ...Entity) {
+func (e *Engine) Track(entity ...Entity) {
 	for _, element := range entity {
 		value := e.getValue(element)
 		initIfNeeded(e, value)
@@ -41,16 +35,55 @@ func (e *Engine) TrackEntity(entity ...Entity) {
 	}
 }
 
-func (e *Engine) FlushTrackedEntities() error {
+func (e *Engine) TrackAndFlush(entity ...Entity) error {
+	e.Track(entity...)
+	return e.Flush()
+}
+
+func (e *Engine) Flush() error {
 	return e.flushTrackedEntities(false)
 }
 
-func (e *Engine) FlushLazyTrackedEntities() error {
+func (e *Engine) FlushLazy() error {
 	return e.flushTrackedEntities(true)
 }
 
 func (e *Engine) ClearTrackedEntities() {
 	e.trackedEntities = make([]reflect.Value, 0)
+}
+
+func (e *Engine) MarkToDelete(entity ...Entity) {
+	for _, row := range entity {
+		e.Track(row)
+		initEntityIfNeeded(e, row)
+		if row.getTableSchema().hasFakeDelete {
+			row.getElem().FieldByName("FakeDelete").SetBool(true)
+			continue
+		}
+		row.getDBData()["_delete"] = true
+	}
+}
+
+func (e *Engine) ForceMarkToDelete(entity ...Entity) {
+	for _, row := range entity {
+		initEntityIfNeeded(e, row)
+		row.getDBData()["_delete"] = true
+		e.Track(row)
+	}
+}
+
+func (e *Engine) GetTableSchema(entity Entity) TableSchema {
+	initEntityIfNeeded(e, entity)
+	return entity.getTableSchema()
+}
+
+func (e *Engine) IsDirty(entity Entity) bool {
+	if !entity.Loaded() {
+		return true
+	}
+	initEntityIfNeeded(e, entity)
+	is, _, _ := getDirtyBind(entity.getElem())
+	return is
 }
 
 func (e *Engine) GetRegistry() ValidatedRegistry {
@@ -154,6 +187,19 @@ func (e *Engine) FlushInCache(entities ...interface{}) error {
 
 func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found bool, err error) {
 	return loadByID(e, id, entity, references...)
+}
+
+func (e *Engine) Load(entity Entity, references ...string) error {
+	if entity.Loaded() {
+		return nil
+	}
+	initEntityIfNeeded(e, entity)
+	id := entity.getElem().Field(1).Uint()
+	if id > 0 {
+		_, err := loadByID(e, id, entity, references...)
+		return err
+	}
+	return nil
 }
 
 func (e *Engine) LoadByIDs(ids []uint64, entities interface{}, references ...string) (missing []uint64, err error) {

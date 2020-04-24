@@ -30,11 +30,11 @@ func TestFlusherManual(t *testing.T) {
 
 	for i := 1; i <= 3; i++ {
 		e := TestEntityFlusherManual{Name: "Name " + strconv.Itoa(i)}
-		engine.TrackEntity(&e)
+		engine.Track(&e)
 	}
 	assert.Len(t, DBLogger.Queries, 0)
 
-	err := engine.FlushTrackedEntities()
+	err := engine.Flush()
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 1)
 	assert.Equal(t, "INSERT INTO TestEntityFlusherManual(`Name`) VALUES (?),(?),(?) [Name 1 Name 2 Name 3]", DBLogger.Queries[0])

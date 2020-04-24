@@ -26,17 +26,17 @@ func TestCachedSearchRedis(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		e := &TestEntityIndexTestRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
 		entities[i-1] = e
-		engine.RegisterEntity(e)
-		err := e.Flush()
-		assert.Nil(t, err)
+		engine.Track(e)
 	}
+	err := engine.Flush()
+	assert.Nil(t, err)
 	for i := 6; i <= 10; i++ {
 		e := &TestEntityIndexTestRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		entities[i-1] = e
-		engine.RegisterEntity(e)
-		err := e.Flush()
-		assert.Nil(t, err)
+		engine.Track(e)
 	}
+	err = engine.Flush()
+	assert.Nil(t, err)
 
 	DBLogger := &TestDatabaseLogger{}
 	pool := engine.GetMysql()
@@ -86,8 +86,9 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Equal(t, uint(1), rows[0].ID)
 	assert.Len(t, DBLogger.Queries, 4)
 
+	engine.Track(rows[0])
 	rows[0].Age = 18
-	err = rows[0].Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 10}
@@ -113,8 +114,8 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Queries, 9)
 
-	rows[1].MarkToDelete()
-	err = rows[1].Flush()
+	engine.MarkToDelete(rows[1])
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
@@ -131,8 +132,8 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 12)
 
 	entity = &TestEntityIndexTestRedis{Name: "Name 11", Age: uint16(18)}
-	engine.RegisterEntity(entity)
-	err = entity.Flush()
+	engine.Track(entity)
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
@@ -161,8 +162,8 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, RedisLogger.Requests, 2)
 
 	entity = &TestEntityIndexTestRedis{Name: "Name 12", Age: uint16(18)}
-	engine.RegisterEntity(entity)
-	err = entity.Flush()
+	engine.Track(entity)
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 100}
@@ -189,8 +190,9 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, DBLogger.Queries, 20)
 	assert.Len(t, RedisLogger.Requests, 5)
 
+	engine.Track(&entityOne)
 	entityOne.Name = "Name 10a"
-	err = entityOne.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 	has, err = engine.CachedSearchOne(&entityOne, "IndexName", "Name 10")
 	assert.Nil(t, err)
@@ -205,9 +207,10 @@ func BenchmarkCachedRedis(b *testing.B) {
 	for i := 1; i <= 10; i++ {
 		e := TestEntityIndexTestRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		entities[i-1] = &e
-		err := e.Flush()
-		assert.Nil(b, err)
+		engine.Track(&e)
 	}
+	err := engine.Flush()
+	assert.Nil(b, err)
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
 	var rows []TestEntityIndexTestRedis
 	for n := 0; n < b.N; n++ {

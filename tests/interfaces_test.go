@@ -36,23 +36,23 @@ func TestInterfaces(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, TestEntityInterfaces{}, TestEntityInterfacesRef{})
 
 	e := &TestEntityInterfacesRef{}
-	engine.RegisterEntity(e)
-	err := e.Flush()
+	err := engine.TrackAndFlush(e)
 	assert.Nil(t, err)
 
 	entity := &TestEntityInterfaces{}
-	engine.RegisterEntity(entity)
+	engine.Track(entity)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)
 	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
 
 	entity.Uint = 5
-	err = entity.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 	assert.Equal(t, 6, entity.Calculated)
 
+	engine.Track(entity)
 	entity.Uint = 10
-	err = entity.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 	assert.Equal(t, 11, entity.Calculated)
 }

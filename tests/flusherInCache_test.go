@@ -25,8 +25,8 @@ func TestFlushInCache(t *testing.T) {
 	entityLocal := &TestEntityFlusherInCacheLocal{}
 	engine := PrepareTables(t, &orm.Registry{}, entityRedis, entityLocal)
 
-	engine.RegisterEntity(entityRedis)
-	err := entityRedis.Flush()
+	engine.Track(entityRedis)
+	err := engine.Flush()
 	assert.Nil(t, err)
 
 	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}

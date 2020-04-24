@@ -20,11 +20,13 @@ func TestLog(t *testing.T) {
 	err := queueRedis.FlushDB()
 	assert.Nil(t, err)
 	logDB := engine.GetMysql("log")
+	_, err = logDB.Exec("TRUNCATE TABLE `_log_default_testEntityLog`")
+	assert.Nil(t, err)
 	receiver := NewLogReceiver(engine, &RedisQueueSenderReceiver{PoolName: "default_log"})
 
-	engine.RegisterEntity(entity)
+	engine.Track(entity)
 	entity.Name = "Hello"
-	err = entity.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	size, err := receiver.Size()
@@ -66,9 +68,10 @@ func TestLog(t *testing.T) {
 	assert.Nil(t, logs[0].Meta)
 	assert.Equal(t, "{\"Age\": \"0\", \"Name\": \"Hello\"}", string(logs[0].Data.([]uint8)))
 
+	engine.Track(entity)
 	entity.Age = 12
 	engine.SetLogMetaData("user_id", "7")
-	err = entity.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 	has, err = receiver.Digest()
 	assert.Nil(t, err)
@@ -80,14 +83,15 @@ func TestLog(t *testing.T) {
 	assert.Equal(t, "{\"Age\": \"12\", \"Name\": \"Hello\"}", string(logs[1].Data.([]uint8)))
 
 	engine.SetLogMetaData("source", "test")
-	err = entity.Flush()
+	engine.Track(entity)
+	err = engine.Flush()
 	assert.Nil(t, err)
 	has, err = receiver.Digest()
 	assert.Nil(t, err)
 	assert.False(t, has)
 
-	entity.MarkToDelete()
-	err = entity.Flush()
+	engine.MarkToDelete(entity)
+	err = engine.Flush()
 	assert.Nil(t, err)
 	has, err = receiver.Digest()
 	assert.Nil(t, err)

@@ -225,7 +225,7 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value
 		return err
 	}
 	orm.dBData["ID"] = id
-	orm.dBData["_loaded"] = true
+	orm.loaded = true
 	for key, column := range orm.tableSchema.columnNames[1:] {
 		orm.dBData[column] = data[key]
 	}

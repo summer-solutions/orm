@@ -58,20 +58,21 @@ func TestFlush(t *testing.T) {
 	var entities = make([]*TestEntityFlush, 10)
 	for i := 1; i <= 10; i++ {
 		e := TestEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: Color.Red, Set: []string{Color.Red, Color.Blue}}
-		engine.TrackEntity(&e)
+		engine.Track(&e)
 		entities[i-1] = &e
 	}
-	err := engine.FlushTrackedEntities()
+	err := engine.Flush()
 	assert.Nil(t, err)
 	for i := 1; i < 10; i++ {
 		testEntity := entities[i-1]
 		assert.Equal(t, uint16(i), testEntity.ID)
 		assert.Equal(t, "Name "+strconv.Itoa(i), testEntity.Name)
-		assert.False(t, testEntity.IsDirty())
+		assert.False(t, engine.IsDirty(testEntity))
 		assert.Nil(t, testEntity.Date)
 		assert.NotNil(t, testEntity.DateNotNull)
 	}
 
+	engine.Track(entities[1], entities[7])
 	entities[1].Name = "Name 2.1"
 	entities[1].ReferenceOne = &TestEntityFlush{ID: 7}
 	entities[7].Name = "Name 8.1"
@@ -79,12 +80,9 @@ func TestFlush(t *testing.T) {
 	entities[7].Date = &now
 
 	assert.Nil(t, err)
-	assert.True(t, entities[1].IsDirty())
-	assert.True(t, entities[7].IsDirty())
-	err = entities[1].Flush()
-	assert.Nil(t, err)
-	err = entities[7].Flush()
-	assert.Nil(t, err)
+	assert.True(t, engine.IsDirty(entities[1]))
+	assert.True(t, engine.IsDirty(entities[7]))
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	var edited1 TestEntityFlush
@@ -102,31 +100,28 @@ func TestFlush(t *testing.T) {
 	assert.NotNil(t, edited2.Date)
 	assert.Equal(t, now.Format("2006-01-02"), edited2.Date.Format("2006-01-02"))
 	assert.False(t, edited1.ReferenceOne.Loaded())
-	err = edited1.ReferenceOne.Load(engine)
+	err = engine.Load(edited1.ReferenceOne)
 	assert.Nil(t, err)
 	assert.True(t, edited1.ReferenceOne.Loaded())
 	assert.Equal(t, "Name 7", edited1.ReferenceOne.Name)
 
 	toDelete := edited2
+	engine.Track(&edited1)
 	edited1.Name = "Name 2.2"
-	toDelete.MarkToDelete()
+	engine.MarkToDelete(&toDelete)
 	newEntity := &TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
-	engine.RegisterEntity(newEntity)
-	assert.True(t, edited1.IsDirty())
+	engine.Track(newEntity)
+	assert.True(t, engine.IsDirty(edited1))
 	assert.Nil(t, err)
-	assert.True(t, edited2.IsDirty())
+	assert.True(t, engine.IsDirty(edited2))
 	assert.Nil(t, err)
-	assert.True(t, newEntity.IsDirty())
+	assert.True(t, engine.IsDirty(newEntity))
 
-	err = edited1.Flush()
-	assert.Nil(t, err)
-	err = newEntity.Flush()
-	assert.Nil(t, err)
-	err = toDelete.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 
-	assert.False(t, edited1.IsDirty())
-	assert.False(t, newEntity.IsDirty())
+	assert.False(t, engine.IsDirty(edited1))
+	assert.False(t, engine.IsDirty(newEntity))
 
 	var edited3 TestEntityFlush
 	var deleted TestEntityFlush
@@ -147,23 +142,25 @@ func TestFlush(t *testing.T) {
 func TestFlushErrors(t *testing.T) {
 	entity := &TestEntityErrors{Name: "Name"}
 	engine := PrepareTables(t, &orm.Registry{}, entity)
-	engine.RegisterEntity(entity)
+	engine.Track(entity)
 
 	entity.ReferenceOne = &TestEntityErrors{ID: 2}
-	err := entity.Flush()
+	err := engine.Flush()
 	assert.NotNil(t, err)
 	keyError, is := err.(*orm.ForeignKeyError)
 	assert.True(t, is)
 	assert.Equal(t, "test:TestEntityErrors:ReferenceOne", keyError.Constraint)
 	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`TestEntityErrors`, CONSTRAINT `test:TestEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `TestEntityErrors` (`ID`))", keyError.Error())
+	engine.ClearTrackedEntities()
 
+	engine.Track(entity)
 	entity.ReferenceOne = nil
-	err = entity.Flush()
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	entity = &TestEntityErrors{Name: "Name"}
-	engine.RegisterEntity(entity)
-	err = entity.Flush()
+	engine.Track(entity)
+	err = engine.Flush()
 	assert.NotNil(t, err)
 	duplicatedError, is := err.(*orm.DuplicatedKeyError)
 	assert.True(t, is)

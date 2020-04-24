@@ -28,34 +28,32 @@ func TestFlushLazyRedis(t *testing.T) {
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
 		e := &TestEntityFlushLazyRedis{Name: "Name " + strconv.Itoa(i)}
-		engine.RegisterEntity(e)
+		engine.Track(e)
 		entities[i-1] = e
-		err := e.FlushLazy()
-		assert.Nil(t, err)
 	}
+	err := engine.FlushLazy()
+	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 0)
-	assert.Len(t, LoggerQueue.Requests, 10)
+	assert.Len(t, LoggerQueue.Requests, 1)
 	assert.Equal(t, "LPUSH 1 values _lazy_queue", LoggerQueue.Requests[0])
 
 	LazyReceiver := orm.NewLazyReceiver(engine, &orm.RedisQueueSenderReceiver{PoolName: "default_queue"})
 	size, err := LazyReceiver.Size()
 	assert.Nil(t, err)
-	assert.Equal(t, int64(10), size)
-	for i := 1; i <= 10; i++ {
-		has, err := LazyReceiver.Digest()
-		assert.Nil(t, err)
-		assert.True(t, has)
-	}
+	assert.Equal(t, int64(1), size)
 	has, err := LazyReceiver.Digest()
+	assert.Nil(t, err)
+	assert.True(t, has)
+	has, err = LazyReceiver.Digest()
 	assert.Nil(t, err)
 	assert.False(t, has)
 	size, err = LazyReceiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)
-	assert.Len(t, DBLogger.Queries, 10)
-	assert.Len(t, LoggerQueue.Requests, 23)
-	assert.Equal(t, "RPOP _lazy_queue", LoggerQueue.Requests[20])
-	assert.Equal(t, "RPOP _lazy_queue", LoggerQueue.Requests[21])
+	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, LoggerQueue.Requests, 5)
+	assert.Equal(t, "RPOP _lazy_queue", LoggerQueue.Requests[2])
+	assert.Equal(t, "RPOP _lazy_queue", LoggerQueue.Requests[3])
 	found, err := engine.LoadByID(1, &entity)
 	assert.Nil(t, err)
 	assert.True(t, found)
@@ -63,8 +61,9 @@ func TestFlushLazyRedis(t *testing.T) {
 
 	DBLogger.Queries = make([]string, 0)
 	LoggerQueue.Requests = make([]string, 0)
+	engine.Track(&entity)
 	entity.Name = "Name 1.1"
-	err = entity.FlushLazy()
+	err = engine.FlushLazy()
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 0)
 	assert.Len(t, LoggerQueue.Requests, 1)
@@ -87,8 +86,8 @@ func TestFlushLazyRedis(t *testing.T) {
 
 	DBLogger.Queries = make([]string, 0)
 	LoggerQueue.Requests = make([]string, 0)
-	entity.MarkToDelete()
-	err = entity.FlushLazy()
+	engine.MarkToDelete(&entity)
+	err = engine.FlushLazy()
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Queries, 0)
 	assert.Len(t, LoggerQueue.Requests, 1)

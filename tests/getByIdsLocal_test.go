@@ -18,12 +18,12 @@ func TestGetByIDsLocal(t *testing.T) {
 	engine := PrepareTables(t, &orm.Registry{}, entity)
 
 	e := &TestEntityByIDsLocal{Name: "Hi"}
-	engine.RegisterEntity(e)
-	err := e.Flush()
+	engine.Track(e)
+	err := engine.Flush()
 	assert.Nil(t, err)
 	e = &TestEntityByIDsLocal{Name: "Hello"}
-	engine.RegisterEntity(e)
-	err = e.Flush()
+	engine.Track(e)
+	err = engine.Flush()
 	assert.Nil(t, err)
 
 	DBLogger := &TestDatabaseLogger{}
@@ -63,10 +63,12 @@ func BenchmarkGetByIDsLocal(b *testing.B) {
 	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
 
 	e := &TestEntityByIDsLocal{Name: "Hi 1"}
-	err := e.Flush()
+	engine.Track(e)
+	err := engine.Flush()
 	assert.Nil(b, err)
 	e = &TestEntityByIDsLocal{Name: "Hi 3"}
-	err = e.Flush()
+	engine.Track(e)
+	err = engine.Flush()
 	assert.Nil(b, err)
 
 	var found []*TestEntityByIDsLocal

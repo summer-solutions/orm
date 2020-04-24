@@ -28,11 +28,11 @@ func TestEntityByIDsRedis(t *testing.T) {
 
 	for i := 1; i <= 10; i++ {
 		e := &TestEntityByIDsRedisCache{Name: "Name " + strconv.Itoa(i)}
-		engine.TrackEntity(e)
+		engine.Track(e)
 		e2 := &TestEntityByIDsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
-		engine.TrackEntity(e2)
+		engine.Track(e2)
 	}
-	err := engine.FlushTrackedEntities()
+	err := engine.Flush()
 	assert.Nil(t, err)
 
 	DBLogger := &TestDatabaseLogger{}
@@ -94,7 +94,8 @@ func BenchmarkGetByIDsRedis(b *testing.B) {
 
 	for i := 1; i <= 3; i++ {
 		e := &TestEntityByIDsRedisCache{Name: fmt.Sprintf("Name %d", i)}
-		err := e.Flush()
+		engine.Track(e)
+		err := engine.Flush()
 		assert.Nil(b, err)
 	}
 

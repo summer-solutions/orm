@@ -261,7 +261,7 @@ You should also run it once when your application starts.
   
   ```
  
- ## Checking and updading table schema
+ ## Checking and updating table schema
  
  ORM provides useful object that describes entity structrure called TabelSchema:
  
@@ -314,41 +314,28 @@ func main() {
     //create engine
 
     entity := TestEntity{Name: "Name 1"}
-    engine.RegisterEntity(&entity) // you should use this function only for new entities
-    err := entity.Flush()
-
+    err := engine.TrackAndFlush(&entity)
 
     /*if you need to add more than one entity*/
     entity = TestEntity{Name: "Name 2"}
     entity2 := TestEntity{Name: "Name 3"}
-    engine.TrackEntity(&entity, &entity2) //it will also automatically run RegisterEntity()
-    defer engine.ClearTrackedEntities() //to be sure engine remove tracked entities in case of panic
+    engine.Track(&entity, &entity2) //it will also automatically run RegisterEntity()
     //it will execute only one query in MySQL adding two rows at once (atomic)
-    err = engine.FlushTrackedEntities()
+    err = engine.Flush()
  
-
     /* editing */
 
+    engine.Track(&entity, &entity2)
     entity.Name = "New name 2"
-    entity.IsDirty(entity) //returns true
-    entity.IsDirty(entity2) //returns false
-    err = entity.Flush()
-    entity.IsDirty(entity) //returns false
-    // also if you need to update more than one entities you shouls use engine.TrackEntity feature:
-    engine.TrackEntity(&entity, &entity2)
-    entity.Name = "New name"
-    entity2.Name = "New name"
-    err = engine.FlushTrackedEntities()
+    engine.IsDirty(entity) //returns true
+    engine.IsDirty(entity2) //returns false
+    err = entity.Flush() //it will save data in DB for all dirty tracked entities and untrack all of them
+    engine.IsDirty(entity) //returns false
     
     /* deleting */
-    entity2.MarkToDelete()
+    engine.MarkToDelete(entity2)
     engine.IsDirty(entity2) //returns true
-    err = entity2.Flush()
-    //or 
-    engine.TrackEntity(&entity, &entity2)
-    entity.MarkToDelete()
-    entity2.MarkToDelete()
-    err = engine.FlushTrackedEntities()
+    err = engine.Flush()
 
     /* flush can return 2 special errors */
     orm.DuplicatedKeyError{} //when unique index is broken
@@ -371,7 +358,7 @@ func main() {
 
     var entities []*TestEntity
     missing, err := engine.LoadByIDs([]uint64{1, 3, 4}, &entities) //missing contains IDs that are missing in database
-   
+
 }
 
 ```
@@ -441,17 +428,21 @@ func main() {
     user := UserEntity{Name: "John"}
     school := SchoolEntity{Name: "Name of school"}
     house := UserHouse{Name: "Name of school"}
-    engine.TrackEntity(&user, &school, &house)
+    engine.Track(&user, &school, &house)
     user.School = school
     house.User = user
-    engine.FlushTrackedEntities()
+    engine.Flush()
 
     // loading references: 
 
     _, err = engine.LoadById(1, &user)
-    user.School.Loaded() //will return false because school is not loaded from DB yet
+    user.School != nil //returns true, School has ID: 1 but other fields are nof filled
+    user.School.ID == 1 //true
+    user.School.Loaded() //false
+    user.Name == "" //true
     err = user.School.Load(engine) //it will load school from db
     user.School.Loaded() //now it's true, you can access school fields like user.School.Name
+    user.Name == "Name of school" //true
     
     //If you want to set reference and you have only ID:
     user.School = &SchoolEntity{ID: 1}
@@ -531,8 +522,6 @@ func main() {
     // now in code you can use FlushLazy() methods instead of Flush().
     // it will send changes to queue (database and cached is not updated yet)
     user.FlushLazy()
-    //or
-    engine.FlushLazyTrackedEntities()
     
     //You need to run code that will read data from queue and execute changes
     lazyReceiver := orm.NewLazyReceiver(engine, queueSenderReceiver)
@@ -635,7 +624,7 @@ func main() {
     }
 
     //you can delete in two ways:
-    user.MarkToDelete() -> will set user.FakeDelete = true
+    engine.MarkToDelete(user) -> will set user.FakeDelete = true
     //or:
     user.FakeDelete = true
 
@@ -645,7 +634,7 @@ func main() {
     total, err = engine.SearchWithCount(orm.NewWhere("1"), nil, &rows)
 
     //To force delete (remove row from DB):
-    user.ForceMarkToDelete()
+    engine.ForceMarkToDelete(user)
     engine.Flush(user)
 }
 

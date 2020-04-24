@@ -5,6 +5,13 @@ import (
 	"reflect"
 )
 
+func initEntityIfNeeded(engine *Engine, entity Entity) *ORM {
+	if entity.getTableSchema() == nil {
+		return initIfNeeded(engine, reflect.ValueOf(entity))
+	}
+	return initIfNeeded(engine, entity.getValue())
+}
+
 func initIfNeeded(engine *Engine, value reflect.Value) *ORM {
 	elem := value.Elem()
 	address := elem.Field(0).Addr()
