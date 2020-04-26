@@ -5,6 +5,9 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
@@ -35,12 +38,14 @@ func TestEntityByIDsRedis(t *testing.T) {
 	err := engine.Flush()
 	assert.Nil(t, err)
 
-	DBLogger := &TestDatabaseLogger{}
+	DBLogger := memory.New()
 	pool := engine.GetMysql()
-	pool.RegisterLogger(DBLogger)
-	CacheLogger := &TestCacheLogger{}
+	pool.AddLogger(DBLogger)
+	pool.SetLogLevel(log.InfoLevel)
+	CacheLogger := memory.New()
 	cache := engine.GetRedis()
-	cache.RegisterLogger(CacheLogger)
+	cache.AddLogger(CacheLogger)
+	cache.SetLogLevel(log.InfoLevel)
 
 	var found []*TestEntityByIDsRedisCache
 	missing, err := engine.LoadByIDs([]uint64{2, 13, 1}, &found)
@@ -52,7 +57,7 @@ func TestEntityByIDsRedis(t *testing.T) {
 	assert.Equal(t, "Name 2", found[0].Name)
 	assert.Equal(t, uint(1), found[1].ID)
 	assert.Equal(t, "Name 1", found[1].Name)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	missing, err = engine.LoadByIDs([]uint64{2, 13, 1}, &found)
 	assert.Nil(t, err)
@@ -61,31 +66,31 @@ func TestEntityByIDsRedis(t *testing.T) {
 	assert.Equal(t, []uint64{13}, missing)
 	assert.Equal(t, uint(2), found[0].ID)
 	assert.Equal(t, uint(1), found[1].ID)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	missing, err = engine.LoadByIDs([]uint64{25, 26, 27}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
-	assert.Len(t, DBLogger.Queries, 2)
+	assert.Len(t, DBLogger.Entries, 2)
 
 	err = cache.FlushDB()
 	assert.Nil(t, err)
-	DBLogger.Queries = make([]string, 0)
-	CacheLogger.Requests = make([]string, 0)
+	DBLogger.Entries = make([]*log.Entry, 0)
+	CacheLogger.Entries = make([]*log.Entry, 0)
 
-	DBLogger.Queries = make([]string, 0)
+	DBLogger.Entries = make([]*log.Entry, 0)
 	missing, err = engine.LoadByIDs([]uint64{8, 9, 10}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	missing, err = engine.LoadByIDs([]uint64{8, 9, 10}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 }
 
 func BenchmarkGetByIDsRedis(b *testing.B) {

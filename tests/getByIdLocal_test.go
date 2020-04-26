@@ -4,6 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/apex/log"
+
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
@@ -74,9 +78,10 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, engine.IsDirty(entity))
 
-	DBLogger := &TestDatabaseLogger{}
+	DBLogger := memory.New()
 	pool := engine.GetMysql()
-	pool.RegisterLogger(DBLogger)
+	pool.AddLogger(DBLogger)
+	pool.SetLogLevel(log.InfoLevel)
 
 	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
@@ -112,7 +117,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.False(t, engine.IsDirty(entity))
-	assert.Len(t, DBLogger.Queries, 0)
+	assert.Len(t, DBLogger.Entries, 0)
 
 	engine.Track(&entity)
 	entity.Name = "Test name"
@@ -139,7 +144,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Nil(t, err)
 	assert.False(t, engine.IsDirty(entity))
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	var entity2 TestEntityByIDLocal
 	found, err = engine.LoadByID(1, &entity2)
@@ -162,7 +167,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Equal(t, "wall street", entity2.Address.Street)
 	assert.Equal(t, uint16(12), entity2.Address.Building)
 	assert.Equal(t, map[string]interface{}{"name": "John"}, entity2.JSON)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 }
 
 func BenchmarkGetByIDLocal(b *testing.B) {

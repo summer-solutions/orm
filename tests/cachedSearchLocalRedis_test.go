@@ -4,6 +4,9 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
@@ -70,9 +73,10 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, "", rows[0].ReferenceOne.Name)
 	assert.False(t, rows[0].ReferenceOne.Loaded())
 
-	DBLogger := &TestDatabaseLogger{}
+	DBLogger := memory.New()
 	pool := engine.GetMysql()
-	pool.RegisterLogger(DBLogger)
+	pool.AddLogger(DBLogger)
+	pool.SetLogLevel(log.InfoLevel)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
@@ -84,7 +88,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, uint(8), rows[2].ID)
 	assert.Equal(t, uint(9), rows[3].ID)
 	assert.Equal(t, uint(10), rows[4].ID)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
@@ -95,7 +99,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, uint(8), rows[2].ID)
 	assert.Equal(t, uint(9), rows[3].ID)
 	assert.Equal(t, uint(10), rows[4].ID)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	pager = &orm.Pager{CurrentPage: 2, PageSize: 4}
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
@@ -103,7 +107,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, uint(10), rows[0].ID)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 5}
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
@@ -111,7 +115,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
 	assert.Equal(t, uint(1), rows[0].ID)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	engine.Track(rows[0])
 	rows[0].Age = 18
@@ -125,20 +129,20 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Len(t, rows, 6)
 	assert.Equal(t, uint(1), rows[0].ID)
 	assert.Equal(t, uint(6), rows[1].ID)
-	assert.Len(t, DBLogger.Queries, 3)
+	assert.Len(t, DBLogger.Entries, 3)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, 4, totalRows)
 	assert.Len(t, rows, 4)
 	assert.Equal(t, uint(2), rows[0].ID)
-	assert.Len(t, DBLogger.Queries, 4)
+	assert.Len(t, DBLogger.Entries, 4)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Nil(t, err)
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
-	assert.Len(t, DBLogger.Queries, 5)
+	assert.Len(t, DBLogger.Entries, 5)
 
 	engine.MarkToDelete(rows[1])
 	err = engine.Flush()
@@ -149,13 +153,13 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, 3, totalRows)
 	assert.Len(t, rows, 3)
 	assert.Equal(t, uint(3), rows[0].ID)
-	assert.Len(t, DBLogger.Queries, 7)
+	assert.Len(t, DBLogger.Entries, 7)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Nil(t, err)
 	assert.Equal(t, 9, totalRows)
 	assert.Len(t, rows, 9)
-	assert.Len(t, DBLogger.Queries, 8)
+	assert.Len(t, DBLogger.Entries, 8)
 
 	entity = &TestEntityIndexTestLocalRedis{Name: "Name 11", Age: uint16(18)}
 	engine.Track(entity)
@@ -167,13 +171,13 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, 7, totalRows)
 	assert.Len(t, rows, 7)
 	assert.Equal(t, uint(11), rows[6].ID)
-	assert.Len(t, DBLogger.Queries, 10)
+	assert.Len(t, DBLogger.Entries, 10)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Nil(t, err)
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
-	assert.Len(t, DBLogger.Queries, 11)
+	assert.Len(t, DBLogger.Entries, 11)
 
 	err = engine.ClearByIDs(entity, 1, 3)
 	assert.Nil(t, err)
@@ -181,7 +185,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
-	assert.Len(t, DBLogger.Queries, 12)
+	assert.Len(t, DBLogger.Entries, 12)
 
 	var row TestEntityIndexTestLocalRedis
 	has, err := engine.CachedSearchOne(&row, "IndexName", "Name 6")
@@ -197,7 +201,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
-	assert.Len(t, DBLogger.Queries, 15)
+	assert.Len(t, DBLogger.Entries, 15)
 	assert.Equal(t, "Name 1", rows[0].ReferenceOne.Name)
 	assert.Equal(t, "Name 3", rows[1].ReferenceOne.Name)
 	assert.True(t, rows[0].ReferenceOne.Loaded())

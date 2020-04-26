@@ -3,6 +3,10 @@ package tests
 import (
 	"testing"
 
+	"github.com/apex/log"
+
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
@@ -26,9 +30,10 @@ func TestGetByIDsLocal(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	DBLogger := &TestDatabaseLogger{}
+	DBLogger := memory.New()
 	pool := engine.GetMysql()
-	pool.RegisterLogger(DBLogger)
+	pool.AddLogger(DBLogger)
+	pool.SetLogLevel(log.InfoLevel)
 
 	var found []*TestEntityByIDsLocal
 	missing, err := engine.LoadByIDs([]uint64{2, 3, 1}, &found)
@@ -40,7 +45,7 @@ func TestGetByIDsLocal(t *testing.T) {
 	assert.Equal(t, "Hello", found[0].Name)
 	assert.Equal(t, uint(1), found[1].ID)
 	assert.Equal(t, "Hi", found[1].Name)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	missing, err = engine.LoadByIDs([]uint64{2, 3, 1}, &found)
 	assert.Nil(t, err)
@@ -49,13 +54,13 @@ func TestGetByIDsLocal(t *testing.T) {
 	assert.Equal(t, []uint64{3}, missing)
 	assert.Equal(t, uint(2), found[0].ID)
 	assert.Equal(t, uint(1), found[1].ID)
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	missing, err = engine.LoadByIDs([]uint64{5, 6, 7}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 0)
 	assert.Len(t, missing, 3)
-	assert.Len(t, DBLogger.Queries, 2)
+	assert.Len(t, DBLogger.Entries, 2)
 }
 
 func BenchmarkGetByIDsLocal(b *testing.B) {

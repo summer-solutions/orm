@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
@@ -28,9 +31,10 @@ func TestDirtyQueue(t *testing.T) {
 	registry.RegisterDirtyQueue("test", &orm.RedisDirtyQueueSender{PoolName: "default_queue"})
 	engine := PrepareTables(t, registry, entityAll, entityAge)
 
-	LoggerRedisQueue := &TestCacheLogger{}
+	LoggerRedisQueue := memory.New()
 	cache := engine.GetRedis("default_queue")
-	cache.RegisterLogger(LoggerRedisQueue)
+	cache.AddLogger(LoggerRedisQueue)
+	cache.SetLogLevel(log.InfoLevel)
 
 	engine.Track(entityAll)
 	err := engine.Flush()
@@ -39,8 +43,8 @@ func TestDirtyQueue(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	assert.Len(t, LoggerRedisQueue.Requests, 2)
-	assert.Equal(t, "SADD 1 values test", LoggerRedisQueue.Requests[0])
+	assert.Len(t, LoggerRedisQueue.Entries, 2)
+	assert.Equal(t, "[ORM][REDIS][SADD]", LoggerRedisQueue.Entries[0].Message)
 
 	receiver := orm.NewDirtyReceiver(engine, "test")
 
@@ -77,8 +81,8 @@ func TestDirtyQueue(t *testing.T) {
 	entityAll.Name = "Name 2"
 	err = engine.Flush()
 	assert.Nil(t, err)
-	assert.Len(t, LoggerRedisQueue.Requests, 7)
-	assert.Equal(t, "SADD 1 values test", LoggerRedisQueue.Requests[6])
+	assert.Len(t, LoggerRedisQueue.Entries, 7)
+	assert.Equal(t, "[ORM][REDIS][SADD]", LoggerRedisQueue.Entries[6].Message)
 
 	size, err = receiver.Size()
 	assert.Nil(t, err)
@@ -107,8 +111,8 @@ func TestDirtyQueue(t *testing.T) {
 	entityAge.Age = 10
 	err = engine.Flush()
 	assert.Nil(t, err)
-	assert.Len(t, LoggerRedisQueue.Requests, 12)
-	assert.Equal(t, "SADD 1 values test", LoggerRedisQueue.Requests[11])
+	assert.Len(t, LoggerRedisQueue.Entries, 12)
+	assert.Equal(t, "[ORM][REDIS][SADD]", LoggerRedisQueue.Entries[11].Message)
 
 	size, err = receiver.Size()
 	assert.Nil(t, err)

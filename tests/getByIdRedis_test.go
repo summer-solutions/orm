@@ -4,6 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/apex/log"
+
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
@@ -79,10 +83,11 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, engine.IsDirty(entity))
 
-	DBLogger := &TestDatabaseLogger{}
+	DBLogger := memory.New()
 	pool := engine.GetMysql()
 	assert.True(t, has)
-	pool.RegisterLogger(DBLogger)
+	pool.AddLogger(DBLogger)
+	pool.SetLogLevel(log.InfoLevel)
 
 	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
@@ -115,7 +120,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Equal(t, AddressByIDRedis{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.JSON)
 	assert.False(t, engine.IsDirty(entity))
-	assert.Len(t, DBLogger.Queries, 1)
+	assert.Len(t, DBLogger.Entries, 1)
 
 	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
@@ -146,7 +151,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, engine.IsDirty(entity))
 
-	assert.Len(t, DBLogger.Queries, 2)
+	assert.Len(t, DBLogger.Entries, 2)
 
 	found, err = engine.LoadByID(1, &entity)
 	assert.Nil(t, err)
@@ -168,11 +173,11 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Equal(t, "wall street", entity.Address.Street)
 	assert.Equal(t, uint16(12), entity.Address.Building)
 	assert.Equal(t, map[string]interface{}{"name": "John"}, entity.JSON)
-	assert.Len(t, DBLogger.Queries, 3)
+	assert.Len(t, DBLogger.Entries, 3)
 
 	_, err = engine.LoadByID(1, &entity)
 	assert.Nil(t, err)
-	assert.Len(t, DBLogger.Queries, 3)
+	assert.Len(t, DBLogger.Entries, 3)
 }
 
 func BenchmarkLoadByID(b *testing.B) {

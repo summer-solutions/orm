@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -53,20 +52,4 @@ func PrepareTables(t *testing.T, registry *orm.Registry, entities ...interface{}
 		}
 	}
 	return engine
-}
-
-type TestDatabaseLogger struct {
-	Queries []string
-}
-
-func (l *TestDatabaseLogger) Log(_ string, query string, _ int64, args ...interface{}) {
-	l.Queries = append(l.Queries, fmt.Sprintf("%s %v", query, args))
-}
-
-type TestCacheLogger struct {
-	Requests []string
-}
-
-func (c *TestCacheLogger) Log(_ string, _ string, key string, operation string, _ int64, _ int) {
-	c.Requests = append(c.Requests, fmt.Sprintf("%s %s", operation, key))
 }

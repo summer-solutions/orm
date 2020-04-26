@@ -2,12 +2,13 @@ package orm
 
 import (
 	"fmt"
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/multi"
+	"github.com/apex/log/handlers/text"
 
 	"github.com/bsm/redislock"
 )
@@ -49,23 +50,38 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 	e.dbs = make(map[string]*DB)
 	e.trackedEntities = make([]reflect.Value, 0)
 	e.log = r.log
-	e.logHandler = r.logHandler
+	e.logHandler = multi.New()
+	if r.logHandler != nil {
+		e.logHandler.Handlers = r.logHandler.Handlers
+	}
 	if e.registry.sqlClients != nil {
 		for key, val := range e.registry.sqlClients {
+			logHandler := multi.New()
+			if r.logHandler != nil {
+				logHandler.Handlers = r.logHandler.Handlers
+			}
 			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName,
-				db: &sqlDBStandard{db: val.db}, log: r.log, logHandler: r.logHandler}
+				db: &sqlDBStandard{db: val.db}, log: r.log, logHandler: logHandler}
 		}
 	}
 	e.localCache = make(map[string]*LocalCache)
 	if e.registry.localCacheContainers != nil {
 		for key, val := range e.registry.localCacheContainers {
-			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, ttl: val.ttl}
+			logHandler := multi.New()
+			if r.logHandler != nil {
+				logHandler.Handlers = r.logHandler.Handlers
+			}
+			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, ttl: val.ttl, log: r.log, logHandler: logHandler}
 		}
 	}
 	e.redis = make(map[string]*RedisCache)
 	if e.registry.redisServers != nil {
 		for key, val := range e.registry.redisServers {
-			e.redis[key] = &RedisCache{engine: e, code: val.code, client: val.client, log: r.log, logHandler: r.logHandler}
+			logHandler := multi.New()
+			if r.logHandler != nil {
+				logHandler.Handlers = r.logHandler.Handlers
+			}
+			e.redis[key] = &RedisCache{engine: e, code: val.code, client: val.client, log: r.log, logHandler: logHandler}
 		}
 	}
 	e.locks = make(map[string]*Locker)

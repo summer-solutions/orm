@@ -2,11 +2,12 @@ package orm
 
 import (
 	"fmt"
+	"os"
+	"reflect"
+
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
 	"github.com/apex/log/handlers/text"
-	"os"
-	"reflect"
 )
 
 type Engine struct {
@@ -229,18 +230,6 @@ func (e *Engine) LoadByIDs(ids []uint64, entities interface{}, references ...str
 
 func (e *Engine) GetAlters() (alters []Alter, err error) {
 	return getAlters(e)
-}
-
-func (e *Engine) RegisterDatabaseLogger(logger DatabaseLogger) {
-	for _, db := range e.dbs {
-		db.RegisterLogger(logger)
-	}
-}
-
-func (e *Engine) RegisterRedisLogger(logger CacheLogger) {
-	for _, red := range e.redis {
-		red.RegisterLogger(logger)
-	}
 }
 
 func (e *Engine) getRedisForQueue(code string) *RedisCache {

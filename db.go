@@ -2,11 +2,12 @@ package orm
 
 import (
 	"database/sql"
+	"os"
+	"time"
+
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
 	"github.com/apex/log/handlers/text"
-	"os"
-	"time"
 )
 
 type sqlDB interface {
@@ -48,7 +49,6 @@ type DB struct {
 	db           sqlDB
 	code         string
 	databaseName string
-	loggers      []DatabaseLogger
 	log          *log.Entry
 	logHandler   *multi.Handler
 }
@@ -81,7 +81,6 @@ func (db *DB) Exec(query string, args ...interface{}) (rows sql.Result, err erro
 	if db.log != nil {
 		db.fillLogFields(start, "exec", query, args).Info("[ORM][MYSQL][EXEC]")
 	}
-	db.logOld(query, time.Since(start).Microseconds(), args...)
 	return rows, err
 }
 
@@ -91,7 +90,6 @@ func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
 	if db.log != nil {
 		db.fillLogFields(start, "select", query, args).Info("[ORM][MYSQL][SELECT]")
 	}
-	db.logOld(query, time.Since(start).Microseconds(), args...)
 	return row
 }
 
@@ -101,27 +99,11 @@ func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF fun
 	if db.log != nil {
 		db.fillLogFields(start, "select", query, args).Info("[ORM][MYSQL][SELECT]")
 	}
-	db.logOld(query, time.Since(start).Microseconds(), args...)
 	return rows, func() {
 		if rows != nil {
 			_ = rows.Close()
 		}
 	}, err
-}
-
-func (db *DB) RegisterLogger(logger DatabaseLogger) {
-	if db.loggers == nil {
-		db.loggers = make([]DatabaseLogger, 0)
-	}
-	db.loggers = append(db.loggers, logger)
-}
-
-func (db *DB) logOld(query string, microseconds int64, args ...interface{}) {
-	if db.loggers != nil {
-		for _, logger := range db.loggers {
-			logger.Log(db.code, query, microseconds, args...)
-		}
-	}
 }
 
 func (db *DB) fillLogFields(start time.Time, typeCode string, query string, args []interface{}) *log.Entry {

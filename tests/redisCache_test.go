@@ -3,6 +3,10 @@ package tests
 import (
 	"testing"
 
+	"github.com/apex/log"
+
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/go-redis/redis/v7"
 
 	"github.com/stretchr/testify/assert"
@@ -11,30 +15,31 @@ import (
 
 func TestGetSetRedis(t *testing.T) {
 	r := prepareRedis(t)
-	testLogger := &TestCacheLogger{}
-	r.RegisterLogger(testLogger)
+	testLogger := memory.New()
+	r.AddLogger(testLogger)
+	r.SetLogLevel(log.InfoLevel)
 
 	val, err := r.GetSet("test", 1, func() interface{} {
 		return "hello"
 	})
 	assert.Nil(t, err)
 	assert.Equal(t, "hello", val)
-	assert.Len(t, testLogger.Requests, 2)
-	assert.Equal(t, "GET test", testLogger.Requests[0])
-	assert.Equal(t, "SET [1s] test", testLogger.Requests[1])
+	assert.Len(t, testLogger.Entries, 2)
+	assert.Equal(t, "[ORM][REDIS][GET]", testLogger.Entries[0].Message)
+	assert.Equal(t, "[ORM][REDIS][SET]", testLogger.Entries[1].Message)
 	val, err = r.GetSet("test", 1, func() interface{} {
 		return "hello"
 	})
 	assert.Nil(t, err)
 	assert.Equal(t, "hello", val)
-	assert.Len(t, testLogger.Requests, 3)
-	assert.Equal(t, "GET test", testLogger.Requests[2])
+	assert.Len(t, testLogger.Entries, 3)
+	assert.Equal(t, "[ORM][REDIS][GET]", testLogger.Entries[2].Message)
 }
 
 func TestList(t *testing.T) {
 	r := prepareRedis(t)
-	testLogger := &TestCacheLogger{}
-	r.RegisterLogger(testLogger)
+	testLogger := memory.New()
+	r.AddLogger(testLogger)
 
 	total, err := r.LPush("key", "a", "b", "c")
 	assert.Nil(t, err)
@@ -82,8 +87,8 @@ func TestList(t *testing.T) {
 
 func TestHash(t *testing.T) {
 	r := prepareRedis(t)
-	testLogger := &TestCacheLogger{}
-	r.RegisterLogger(testLogger)
+	testLogger := memory.New()
+	r.AddLogger(testLogger)
 
 	err := r.HSet("key", "field_1", "a")
 	assert.Nil(t, err)
@@ -109,8 +114,8 @@ func TestHash(t *testing.T) {
 
 func TestSet(t *testing.T) {
 	r := prepareRedis(t)
-	testLogger := &TestCacheLogger{}
-	r.RegisterLogger(testLogger)
+	testLogger := memory.New()
+	r.AddLogger(testLogger)
 
 	total, err := r.ZAdd("key", &redis.Z{Member: "a", Score: 100})
 	assert.Nil(t, err)

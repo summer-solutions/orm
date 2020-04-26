@@ -3,6 +3,10 @@ package tests
 import (
 	"testing"
 
+	"github.com/apex/log"
+
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
@@ -40,35 +44,38 @@ func TestFlushInCache(t *testing.T) {
 	assert.Equal(t, 0, totalRows)
 	assert.Len(t, rows, 0)
 
-	DBLogger := &TestDatabaseLogger{}
+	DBLogger := memory.New()
 	pool := engine.GetMysql()
-	pool.RegisterLogger(DBLogger)
-	LoggerRedisCache := &TestCacheLogger{}
+	pool.AddLogger(DBLogger)
+	pool.SetLogLevel(log.InfoLevel)
+	LoggerRedisCache := memory.New()
 	cache := engine.GetRedis()
-	cache.RegisterLogger(LoggerRedisCache)
-	LoggerRedisQueue := &TestCacheLogger{}
+	cache.AddLogger(LoggerRedisCache)
+	cache.SetLogLevel(log.InfoLevel)
+	LoggerRedisQueue := memory.New()
 	cacheQueue := engine.GetRedis("default_queue")
-	cacheQueue.RegisterLogger(LoggerRedisQueue)
+	cacheQueue.AddLogger(LoggerRedisQueue)
+	cacheQueue.SetLogLevel(log.InfoLevel)
 
 	entityRedis.Name = "Name 2"
 	entityRedis.Age = 10
 
 	err = engine.FlushInCache(entityLocal, entityRedis)
 	assert.Nil(t, err)
-	assert.Len(t, DBLogger.Queries, 1)
-	assert.Equal(t, "INSERT INTO TestEntityFlusherInCacheLocal() VALUES () []", DBLogger.Queries[0])
-	assert.Len(t, LoggerRedisCache.Requests, 1)
-	assert.Equal(t, "MSET [TestEntityFlusherInCacheRedis2048746768:1 ] ", LoggerRedisCache.Requests[0])
-	assert.Len(t, LoggerRedisQueue.Requests, 1)
-	assert.Equal(t, "SADD 1 values dirty_queue", LoggerRedisQueue.Requests[0])
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Equal(t, "[ORM][MYSQL][EXEC]", DBLogger.Entries[0].Message)
+	assert.Len(t, LoggerRedisCache.Entries, 1)
+	assert.Equal(t, "[ORM][REDIS][MSET]", LoggerRedisCache.Entries[0].Message)
+	assert.Len(t, LoggerRedisQueue.Entries, 1)
+	assert.Equal(t, "[ORM][REDIS][SADD]", LoggerRedisQueue.Entries[0].Message)
 
 	var loadedEntity TestEntityFlusherInCacheRedis
 	has, err := engine.LoadByID(1, &loadedEntity)
 	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2", loadedEntity.Name)
-	assert.Len(t, LoggerRedisCache.Requests, 2)
-	assert.Equal(t, "GET TestEntityFlusherInCacheRedis2048746768:1", LoggerRedisCache.Requests[1])
+	assert.Len(t, LoggerRedisCache.Entries, 2)
+	assert.Equal(t, "[ORM][REDIS][GET]", LoggerRedisCache.Entries[1].Message)
 
 	receiver := orm.NewFlushFromCacheReceiver(engine, "default")
 	size, err := receiver.Size()
