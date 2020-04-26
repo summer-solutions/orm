@@ -2,6 +2,10 @@ package orm
 
 import (
 	"fmt"
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/multi"
+	"github.com/apex/log/handlers/text"
+	"os"
 	"reflect"
 )
 
@@ -14,6 +18,28 @@ type Engine struct {
 	logMetaData            map[string]interface{}
 	trackedEntities        []reflect.Value
 	trackedEntitiesCounter int
+	log                    *log.Entry
+	logHandler             *multi.Handler
+}
+
+func (e *Engine) AddLogger(handler log.Handler) {
+	e.logHandler.Handlers = append(e.logHandler.Handlers, handler)
+}
+
+func (e *Engine) SetLogLevel(level log.Level) {
+	logger := log.Logger{Handler: e.logHandler, Level: level}
+	e.log = logger.WithField("source", "orm")
+	for _, db := range e.dbs {
+		db.log = e.log
+	}
+	for _, r := range e.redis {
+		r.log = e.log
+	}
+}
+
+func (e *Engine) EnableDebug() {
+	e.AddLogger(text.New(os.Stdout))
+	e.SetLogLevel(log.DebugLevel)
 }
 
 func (e *Engine) SetLogMetaData(key string, value interface{}) {

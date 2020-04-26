@@ -1,12 +1,11 @@
 package tests
 
 import (
-	"io/ioutil"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"testing"
 )
 
 func TestYamlLoader(t *testing.T) {

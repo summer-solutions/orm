@@ -2,6 +2,10 @@ package orm
 
 import (
 	"fmt"
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/multi"
+	"github.com/apex/log/handlers/text"
+	"os"
 	"reflect"
 	"strings"
 
@@ -36,15 +40,20 @@ type validatedRegistry struct {
 	redisServers         map[string]*RedisCacheConfig
 	lockServers          map[string]string
 	enums                map[string]reflect.Value
+	log                  *log.Entry
+	logHandler           *multi.Handler
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {
 	e := &Engine{registry: r}
 	e.dbs = make(map[string]*DB)
 	e.trackedEntities = make([]reflect.Value, 0)
+	e.log = r.log
+	e.logHandler = r.logHandler
 	if e.registry.sqlClients != nil {
 		for key, val := range e.registry.sqlClients {
-			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName, db: &sqlDBStandard{db: val.db}}
+			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName,
+				db: &sqlDBStandard{db: val.db}, log: r.log, logHandler: r.logHandler}
 		}
 	}
 	e.localCache = make(map[string]*LocalCache)
@@ -56,7 +65,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 	e.redis = make(map[string]*RedisCache)
 	if e.registry.redisServers != nil {
 		for key, val := range e.registry.redisServers {
-			e.redis[key] = &RedisCache{engine: e, code: val.code, client: val.client}
+			e.redis[key] = &RedisCache{engine: e, code: val.code, client: val.client, log: r.log, logHandler: r.logHandler}
 		}
 	}
 	e.locks = make(map[string]*Locker)
@@ -67,6 +76,20 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 		}
 	}
 	return e
+}
+
+func (r *validatedRegistry) AddLogger(handler log.Handler) {
+	r.logHandler.Handlers = append(r.logHandler.Handlers, handler)
+}
+
+func (r *validatedRegistry) SetLogLevel(level log.Level) {
+	logger := log.Logger{Handler: r.logHandler, Level: level}
+	r.log = logger.WithField("source", "orm")
+}
+
+func (r *validatedRegistry) EnableDebug() {
+	r.AddLogger(text.New(os.Stdout))
+	r.SetLogLevel(log.DebugLevel)
 }
 
 func (r *validatedRegistry) GetTableSchema(entityName string) TableSchema {

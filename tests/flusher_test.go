@@ -8,12 +8,6 @@ import (
 	"github.com/summer-solutions/orm"
 )
 
-type TestEntityFlusherAuto struct {
-	orm.ORM
-	ID   uint
-	Name string
-}
-
 type TestEntityFlusherManual struct {
 	orm.ORM
 	ID   uint

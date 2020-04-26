@@ -165,7 +165,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 					addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 				}
 				if hasRedis {
-					addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, schema.getCacheKey(currentID))
+					addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(currentID))
 					keys := getCacheQueriesKeys(schema, bind, dbData, false)
 					addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 					keys = getCacheQueriesKeys(schema, bind, old, false)
@@ -242,13 +242,13 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				if !lazy {
 					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), buildLocalCacheValue(elem, schema))
 				} else {
-					addCacheDeletes(localCacheDeletes, db.GetPoolCode(), localCache.code, schema.getCacheKey(id))
+					addCacheDeletes(localCacheDeletes, localCache.code, schema.getCacheKey(id))
 				}
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
 				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 			}
 			if hasRedis {
-				addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, schema.getCacheKey(id))
+				addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(id))
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
 				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 			}
@@ -339,7 +339,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 		}
 		if hasRedis {
 			for id, bind := range deleteBinds {
-				addCacheDeletes(redisKeysToDelete, db.GetPoolCode(), redisCache.code, schema.getCacheKey(id))
+				addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(id))
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
 				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 			}
