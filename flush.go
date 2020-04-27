@@ -51,7 +51,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 
 	for _, v := range entities {
 		if !v.IsValid() {
-			return fmt.Errorf("unregistered struct. run engine.RegisterEntity(entity) before entity.Flush()")
+			return fmt.Errorf("unregistered struct '%s'. run engine.RegisterEntity(entity) before entity.Flush()", v.Kind().String())
 		}
 		entity, ok := v.Interface().(Entity)
 		if !ok {
