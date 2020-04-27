@@ -10,7 +10,8 @@ type Entity interface {
 
 type entityAttributes struct {
 	onDuplicateKeyUpdate *Where
-	loaded bool
+	loaded               bool
+	delete               bool
 }
 
 type ORM struct {

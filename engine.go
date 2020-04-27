@@ -107,19 +107,19 @@ func (e *Engine) SetOnDuplicateKeyUpdate(update *Where, entity ...Entity) {
 func (e *Engine) MarkToDelete(entity ...Entity) {
 	for _, row := range entity {
 		e.Track(row)
-		initEntityIfNeeded(e, row)
-		if row.getORM().tableSchema.hasFakeDelete {
-			row.getORM().elem.FieldByName("FakeDelete").SetBool(true)
+		orm := initEntityIfNeeded(e, row)
+		if orm.tableSchema.hasFakeDelete {
+			orm.elem.FieldByName("FakeDelete").SetBool(true)
 			continue
 		}
-		row.getORM().dBData["_delete"] = true
+		orm.attributes.delete = true
 	}
 }
 
 func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 	for _, row := range entity {
-		initEntityIfNeeded(e, row)
-		row.getORM().dBData["_delete"] = true
+		orm := initEntityIfNeeded(e, row)
+		orm.attributes.delete = true
 		e.Track(row)
 	}
 }
@@ -133,8 +133,8 @@ func (e *Engine) IsDirty(entity Entity) bool {
 	if !e.Loaded(entity) {
 		return true
 	}
-	initEntityIfNeeded(e, entity)
-	is, _, _ := getDirtyBind(entity.getORM().elem)
+	orm := initEntityIfNeeded(e, entity)
+	is, _, _ := getDirtyBind(orm.elem)
 	return is
 }
 
@@ -245,8 +245,8 @@ func (e *Engine) Load(entity Entity, references ...string) error {
 	if e.Loaded(entity) {
 		return nil
 	}
-	initEntityIfNeeded(e, entity)
-	id := entity.getORM().elem.Field(1).Uint()
+	orm := initEntityIfNeeded(e, entity)
+	id := orm.elem.Field(1).Uint()
 	if id > 0 {
 		_, err := loadByID(e, id, entity, true, references...)
 		return err

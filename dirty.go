@@ -8,7 +8,7 @@ func getDirtyBind(value reflect.Value) (is bool, bind map[string]interface{}, er
 	id := value.Field(1).Uint()
 	t := value.Type()
 	ormField := value.Field(0).Addr().Interface().(*ORM)
-	if ormField.dBData["_delete"] == true {
+	if ormField.attributes.delete {
 		return true, nil, nil
 	}
 	bind, err = createBind(id, ormField.tableSchema, t, value, ormField.dBData, "")

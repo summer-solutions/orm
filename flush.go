@@ -72,7 +72,8 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			continue
 		}
 
-		dbData := entity.getORM().dBData
+		orm := entity.getORM()
+		dbData := orm.dBData
 		value := reflect.Indirect(v)
 		isDirty, bind, err := getDirtyBind(value)
 		if err != nil {
@@ -85,7 +86,12 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 
 		t := value.Type()
 		currentID := value.Field(1).Uint()
-		if len(dbData) == 0 {
+		if orm.attributes.delete {
+			if deleteBinds[t] == nil {
+				deleteBinds[t] = make(map[uint64]map[string]interface{})
+			}
+			deleteBinds[t][currentID] = dbData
+		} else if len(dbData) == 0 {
 			if currentID > 0 {
 				return fmt.Errorf("unloaded entity %s with ID %d", value.Type().String(), currentID)
 			}
@@ -204,65 +210,58 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			totalInsert[t]++
 		} else {
 			values := make([]interface{}, bindLength+1)
-			if dbData["_delete"] == true {
-				if deleteBinds[t] == nil {
-					deleteBinds[t] = make(map[uint64]map[string]interface{})
-				}
-				deleteBinds[t][currentID] = dbData
-			} else {
-				if !engine.Loaded(entity) {
-					return fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().elem.Type().String(), currentID)
-				}
-				fields := make([]string, bindLength)
-				i := 0
-				for key, value := range bind {
-					fields[i] = fmt.Sprintf("`%s` = ?", key)
-					values[i] = value
-					i++
-				}
-				/* #nosec */
-				sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.GetTableName(), strings.Join(fields, ","))
-				db := schema.GetMysql(engine)
-				values[i] = currentID
-				if lazy {
-					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
-				} else {
-					_, err := db.Exec(sql, values...)
-					if err != nil {
-						return convertToError(err)
-					}
-					afterSaved, is := v.Interface().(AfterSavedInterface)
-					if is {
-						err := afterSaved.AfterSaved(engine)
-						if err != nil {
-							return err
-						}
-					}
-				}
-				old := make(map[string]interface{}, len(dbData))
-				for k, v := range dbData {
-					old[k] = v
-				}
-				data := injectBind(value, bind)
-				localCache, hasLocalCache := schema.GetLocalCache(engine)
-				redisCache, hasRedis := schema.GetRedisCache(engine)
-				if hasLocalCache {
-					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(value, schema))
-					keys := getCacheQueriesKeys(schema, bind, dbData, false)
-					addCacheDeletes(localCacheDeletes, localCache.code, keys...)
-					keys = getCacheQueriesKeys(schema, bind, old, false)
-					addCacheDeletes(localCacheDeletes, localCache.code, keys...)
-				}
-				if hasRedis {
-					addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(currentID))
-					keys := getCacheQueriesKeys(schema, bind, dbData, false)
-					addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
-					keys = getCacheQueriesKeys(schema, bind, old, false)
-					addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
-				}
-				addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
-				addToLogQueue(logQueues, schema, currentID, data)
+			if !engine.Loaded(entity) {
+				return fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().elem.Type().String(), currentID)
 			}
+			fields := make([]string, bindLength)
+			i := 0
+			for key, value := range bind {
+				fields[i] = fmt.Sprintf("`%s` = ?", key)
+				values[i] = value
+				i++
+			}
+			/* #nosec */
+			sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.GetTableName(), strings.Join(fields, ","))
+			db := schema.GetMysql(engine)
+			values[i] = currentID
+			if lazy {
+				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
+			} else {
+				_, err := db.Exec(sql, values...)
+				if err != nil {
+					return convertToError(err)
+				}
+				afterSaved, is := v.Interface().(AfterSavedInterface)
+				if is {
+					err := afterSaved.AfterSaved(engine)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			old := make(map[string]interface{}, len(dbData))
+			for k, v := range dbData {
+				old[k] = v
+			}
+			data := injectBind(value, bind)
+			localCache, hasLocalCache := schema.GetLocalCache(engine)
+			redisCache, hasRedis := schema.GetRedisCache(engine)
+			if hasLocalCache {
+				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(value, schema))
+				keys := getCacheQueriesKeys(schema, bind, dbData, false)
+				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
+				keys = getCacheQueriesKeys(schema, bind, old, false)
+				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
+			}
+			if hasRedis {
+				addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(currentID))
+				keys := getCacheQueriesKeys(schema, bind, dbData, false)
+				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
+				keys = getCacheQueriesKeys(schema, bind, old, false)
+				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
+			}
+			addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
+			addToLogQueue(logQueues, schema, currentID, data)
 		}
 	}
 
