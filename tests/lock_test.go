@@ -29,10 +29,8 @@ func TestLock(t *testing.T) {
 
 	_, err = lock.TTL()
 	assert.Nil(t, err)
-	err = lock.Release()
-	assert.Nil(t, err)
-	err = lock.Release()
-	assert.Nil(t, err)
+	lock.Release()
+	lock.Release()
 
 	lock, has, err = locker.Obtain("test", 0*time.Second, 10*time.Second)
 	assert.Nil(t, lock)

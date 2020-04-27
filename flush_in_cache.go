@@ -48,7 +48,7 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 		}
 	}
 	if len(invalidEntities) > 0 {
-		err := flush(engine, false, invalidEntities...)
+		err := flush(engine, false, false, invalidEntities...)
 		if err != nil {
 			return err
 		}

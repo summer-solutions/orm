@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
@@ -47,6 +50,18 @@ type TestEntityErrors struct {
 	ID           uint16
 	Name         string `orm:"unique=NameIndex"`
 	ReferenceOne *TestEntityErrors
+}
+
+type TestEntityFlushTransactionLocal struct {
+	orm.ORM `orm:"localCache"`
+	ID      uint16
+	Name    string
+}
+
+type TestEntityFlushTransactionRedis struct {
+	orm.ORM `orm:"redisCache"`
+	ID      uint16
+	Name    string
 }
 
 func TestFlush(t *testing.T) {
@@ -137,6 +152,35 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, "Name 2.2", edited3.Name)
 	assert.False(t, hasDeleted)
 	assert.Equal(t, "Name 11", new11.Name)
+}
+
+func TestFlushInTransaction(t *testing.T) {
+	registry := &orm.Registry{}
+	registry.RegisterEnum("tests.Color", Color)
+	var entity TestEntityFlushTransactionLocal
+	var entity2 TestEntityFlushTransactionRedis
+	engine := PrepareTables(t, registry, entity, entity2)
+	logger := memory.New()
+	engine.AddLogger(logger)
+	engine.SetLogLevel(log.InfoLevel)
+
+	for i := 1; i <= 10; i++ {
+		e := TestEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}
+		engine.Track(&e)
+	}
+	for i := 1; i <= 10; i++ {
+		e := TestEntityFlushTransactionRedis{Name: "Name " + strconv.Itoa(i)}
+		engine.Track(&e)
+	}
+	err := engine.FlushInTransaction()
+	assert.Nil(t, err)
+	assert.Len(t, logger.Entries, 6)
+	assert.Equal(t, "[ORM][MYSQL][BEGIN]", logger.Entries[0].Message)
+	assert.Equal(t, "[ORM][MYSQL][EXEC]", logger.Entries[1].Message)
+	assert.Equal(t, "[ORM][MYSQL][EXEC]", logger.Entries[2].Message)
+	assert.Equal(t, "[ORM][MYSQL][COMMIT]", logger.Entries[3].Message)
+	assert.Equal(t, "[ORM][LOCAL][MSET]", logger.Entries[4].Message)
+	assert.Equal(t, "[ORM][REDIS][DEL]", logger.Entries[5].Message)
 }
 
 func TestFlushErrors(t *testing.T) {

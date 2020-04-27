@@ -18,6 +18,18 @@ type testSQLDB struct {
 	QueryRowMock testQueryRowFunc
 }
 
+func (db *testSQLDB) Begin() error {
+	return nil
+}
+
+func (db *testSQLDB) Commit() error {
+	return nil
+}
+
+func (db *testSQLDB) Rollback() (bool, error) {
+	return false, nil
+}
+
 func (db *testSQLDB) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return db.db.Exec(query, args...)
 }

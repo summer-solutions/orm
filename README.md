@@ -344,6 +344,34 @@ func main() {
 
 ```
 
+## Transactions
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+	
+    entity = TestEntity{Name: "Name 2"}
+    entity2 := TestEntity{Name: "Name 3"}
+    engine.Track(&entity, &entity2)
+
+    // DB transcation
+    err = engine.FlushInTransaction()
+    // or redis lock
+    err = engine.FlushWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
+    // or DB transcation nad redis lock
+    err = engine.FlushInTransactionWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
+ 
+    //manual transaction
+    db := engine.GetMysql()
+    db.Begin()
+    defer db.Rollback()
+    //run queries
+    db.Commit()
+```
+
 ## Loading entities using primary key
 
 ```go
@@ -801,5 +829,31 @@ func main() {
         panic("lock lost")
     }
 }
+
+```
+
+## Logging
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+	
+    //enable human friendly console log
+    validatedRegistry.EnableDebug() // for all database, redis, local cache queries in all engines created from this registry
+    engine.EnableDebug() //for all database, redis, local cache queries only in this engine
+    engine.GetRedis().EnableDebug() //only queries in this redis in this engine
+    engine.GetMysql().EnableDebug() //only queries in this DB in this engine
+    engine.GetLocalCache().EnableDebug() //only queries in this local cache in this engine
+
+    //adding custom logger example:
+    engine.AddLogger(json.New(os.Stdout))
+    
+    //read more about log handlers:
+    [APEX Log](https://github.com/apex/log)
+
+    
 
 ```

@@ -37,16 +37,15 @@ type Lock struct {
 	has  bool
 }
 
-func (l *Lock) Release() error {
+func (l *Lock) Release() {
 	if !l.has {
-		return nil
+		return
 	}
 	err := l.lock.Release()
 	if err != nil {
-		return err
+		panic(err)
 	}
 	l.has = false
-	return nil
 }
 
 func (l *Lock) TTL() (time.Duration, error) {

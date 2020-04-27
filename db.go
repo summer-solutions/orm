@@ -2,8 +2,11 @@ package orm
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"time"
+
+	"github.com/juju/errors"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
@@ -11,6 +14,9 @@ import (
 )
 
 type sqlDB interface {
+	Begin() error
+	Commit() error
+	Rollback() (bool, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	QueryRow(query string, args ...interface{}) SQLRow
 	Query(query string, args ...interface{}) (SQLRows, error)
@@ -18,17 +24,60 @@ type sqlDB interface {
 
 type sqlDBStandard struct {
 	db *sql.DB
+	tx *sql.Tx
+}
+
+func (db *sqlDBStandard) Begin() error {
+	if db.tx != nil {
+		return fmt.Errorf("transaction already started")
+	}
+	tx, err := db.db.Begin()
+	db.tx = tx
+	return err
+}
+
+func (db *sqlDBStandard) Commit() error {
+	if db.tx == nil {
+		return fmt.Errorf("transaction not started")
+	}
+	err := db.tx.Commit()
+	if err != nil {
+		return err
+	}
+	db.tx = nil
+	return nil
+}
+
+func (db *sqlDBStandard) Rollback() (bool, error) {
+	if db.tx == nil {
+		return false, nil
+	}
+	err := db.tx.Rollback()
+	if err != nil {
+		return true, err
+	}
+	db.tx = nil
+	return true, nil
 }
 
 func (db *sqlDBStandard) Exec(query string, args ...interface{}) (sql.Result, error) {
+	if db.tx != nil {
+		return db.tx.Exec(query, args...)
+	}
 	return db.db.Exec(query, args...)
 }
 
 func (db *sqlDBStandard) QueryRow(query string, args ...interface{}) SQLRow {
+	if db.tx != nil {
+		return db.tx.QueryRow(query, args...)
+	}
 	return db.db.QueryRow(query, args...)
 }
 
 func (db *sqlDBStandard) Query(query string, args ...interface{}) (SQLRows, error) {
+	if db.tx != nil {
+		return db.tx.Query(query, args...)
+	}
 	return db.db.Query(query, args...)
 }
 
@@ -75,6 +124,60 @@ func (db *DB) GetPoolCode() string {
 	return db.code
 }
 
+func (db *DB) Begin() error {
+	start := time.Now()
+	err := db.db.Begin()
+	if err != nil {
+		return err
+	}
+	if db.log != nil {
+		db.fillLogFields(start, "transaction", "START TRANSACTION", nil).Info("[ORM][MYSQL][BEGIN]")
+	}
+	return nil
+}
+
+func (db *DB) Commit() error {
+	start := time.Now()
+	err := db.db.Commit()
+	if err != nil {
+		return err
+	}
+	if db.log != nil {
+		db.fillLogFields(start, "transaction", "COMMIT", nil).Info("[ORM][MYSQL][COMMIT]")
+	}
+	if db.engine.afterCommitLocalCacheSets != nil {
+		for cacheCode, pairs := range db.engine.afterCommitLocalCacheSets {
+			cache := db.engine.GetLocalCache(cacheCode)
+			cache.MSet(pairs...)
+		}
+	}
+	db.engine.afterCommitLocalCacheSets = nil
+	if db.engine.afterCommitRedisCacheDeletes != nil {
+		for cacheCode, keys := range db.engine.afterCommitRedisCacheDeletes {
+			cache := db.engine.GetRedis(cacheCode)
+			err := cache.Del(keys...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	db.engine.afterCommitRedisCacheDeletes = nil
+	return nil
+}
+
+func (db *DB) Rollback() {
+	start := time.Now()
+	has, err := db.db.Rollback()
+	if err != nil {
+		panic(errors.Annotate(err, "rollback failed"))
+	}
+	if has && db.log != nil {
+		db.fillLogFields(start, "transaction", "ROLLBACK", nil).Info("[ORM][MYSQL][ROLLBACK]")
+	}
+	db.engine.afterCommitLocalCacheSets = nil
+	db.engine.afterCommitRedisCacheDeletes = nil
+}
+
 func (db *DB) Exec(query string, args ...interface{}) (rows sql.Result, err error) {
 	start := time.Now()
 	rows, err = db.db.Exec(query, args...)
@@ -107,12 +210,15 @@ func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF fun
 }
 
 func (db *DB) fillLogFields(start time.Time, typeCode string, query string, args []interface{}) *log.Entry {
-	return db.log.
+	e := db.log.
 		WithField("pool", db.code).
 		WithField("Query", query).
-		WithField("args", args).
 		WithField("microseconds", time.Since(start).Microseconds()).
 		WithField("target", "mysql").
 		WithField("type", typeCode).
 		WithField("time", start.Unix())
+	if args != nil {
+		e = e.WithField("args", args)
+	}
+	return e
 }

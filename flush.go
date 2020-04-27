@@ -32,7 +32,7 @@ func (err *ForeignKeyError) Error() string {
 	return err.Message
 }
 
-func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
+func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Value) error {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
@@ -187,7 +187,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			toFlush[i] = v
 			i++
 		}
-		err := flush(engine, false, toFlush...)
+		err := flush(engine, false, transaction, toFlush...)
 		if err != nil {
 			return err
 		}
@@ -198,7 +198,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 				rest = append(rest, v)
 			}
 		}
-		err = flush(engine, false, rest...)
+		err = flush(engine, transaction, false, rest...)
 		if err != nil {
 			return err
 		}
@@ -309,7 +309,7 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 									engine.MarkToDelete(toDeleteValue.Interface().(Entity))
 									toDeleteAll[i] = toDeleteValue
 								}
-								err = flush(engine, lazy, toDeleteAll...)
+								err = flush(engine, transaction, lazy, toDeleteAll...)
 								if err != nil {
 									return err
 								}
@@ -352,7 +352,14 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 	for _, values := range localCacheSets {
 		for cacheCode, keys := range values {
 			cache := engine.GetLocalCache(cacheCode)
-			cache.MSet(keys...)
+			if !transaction {
+				cache.MSet(keys...)
+			} else {
+				if engine.afterCommitLocalCacheSets == nil {
+					engine.afterCommitLocalCacheSets = make(map[string][]interface{})
+				}
+				engine.afterCommitLocalCacheSets[cacheCode] = append(engine.afterCommitLocalCacheSets[cacheCode], keys...)
+			}
 		}
 	}
 	for cacheCode, allKeys := range localCacheDeletes {
@@ -390,9 +397,16 @@ func flush(engine *Engine, lazy bool, entities ...reflect.Value) error {
 			}
 			deletesRedisCache.(map[string][]string)[cacheCode] = keys
 		} else {
-			err := cache.Del(keys...)
-			if err != nil {
-				return err
+			if !transaction {
+				err := cache.Del(keys...)
+				if err != nil {
+					return err
+				}
+			} else {
+				if engine.afterCommitRedisCacheDeletes == nil {
+					engine.afterCommitRedisCacheDeletes = make(map[string][]string)
+				}
+				engine.afterCommitRedisCacheDeletes[cacheCode] = append(engine.afterCommitRedisCacheDeletes[cacheCode], keys...)
 			}
 		}
 	}

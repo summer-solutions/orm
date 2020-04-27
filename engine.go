@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
@@ -11,16 +12,18 @@ import (
 )
 
 type Engine struct {
-	registry               *validatedRegistry
-	dbs                    map[string]*DB
-	localCache             map[string]*LocalCache
-	redis                  map[string]*RedisCache
-	locks                  map[string]*Locker
-	logMetaData            map[string]interface{}
-	trackedEntities        []reflect.Value
-	trackedEntitiesCounter int
-	log                    *log.Entry
-	logHandler             *multi.Handler
+	registry                     *validatedRegistry
+	dbs                          map[string]*DB
+	localCache                   map[string]*LocalCache
+	redis                        map[string]*RedisCache
+	locks                        map[string]*Locker
+	logMetaData                  map[string]interface{}
+	trackedEntities              []reflect.Value
+	trackedEntitiesCounter       int
+	log                          *log.Entry
+	logHandler                   *multi.Handler
+	afterCommitLocalCacheSets    map[string][]interface{}
+	afterCommitRedisCacheDeletes map[string][]string
 }
 
 func (e *Engine) AddLogger(handler log.Handler) {
@@ -35,6 +38,9 @@ func (e *Engine) SetLogLevel(level log.Level) {
 	}
 	for _, r := range e.redis {
 		r.log = e.log
+	}
+	for _, l := range e.localCache {
+		l.log = e.log
 	}
 }
 
@@ -68,11 +74,23 @@ func (e *Engine) TrackAndFlush(entity ...Entity) error {
 }
 
 func (e *Engine) Flush() error {
-	return e.flushTrackedEntities(false)
+	return e.flushTrackedEntities(false, false)
 }
 
 func (e *Engine) FlushLazy() error {
-	return e.flushTrackedEntities(true)
+	return e.flushTrackedEntities(true, false)
+}
+
+func (e *Engine) FlushInTransaction() error {
+	return e.flushTrackedEntities(false, true)
+}
+
+func (e *Engine) FlushWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) error {
+	return e.flushWithLock(false, lockerPool, lockName, ttl, waitTimeout)
+}
+
+func (e *Engine) FlushInTransactionWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) error {
+	return e.flushWithLock(true, lockerPool, lockName, ttl, waitTimeout)
 }
 
 func (e *Engine) ClearTrackedEntities() {
@@ -245,12 +263,56 @@ func (e *Engine) getValue(entity Entity) reflect.Value {
 	return value
 }
 
-func (e *Engine) flushTrackedEntities(lazy bool) error {
-	err := flush(e, lazy, e.trackedEntities...)
+func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
+	if e.trackedEntitiesCounter == 0 {
+		return nil
+	}
+	var dbPools map[string]*DB
+	if transaction {
+		dbPools = make(map[string]*DB)
+		for _, entity := range e.trackedEntities {
+			db := entity.Interface().(Entity).getTableSchema().GetMysql(e)
+			dbPools[db.code] = db
+		}
+		for _, db := range dbPools {
+			err := db.Begin()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	defer func() {
+		for _, db := range dbPools {
+			db.Rollback()
+		}
+	}()
+
+	err := flush(e, lazy, transaction, e.trackedEntities...)
 	if err != nil {
 		return err
+	}
+	if transaction {
+		for _, db := range dbPools {
+			err := db.Commit()
+			if err != nil {
+				return err
+			}
+		}
 	}
 	e.trackedEntities = make([]reflect.Value, 0)
 	e.trackedEntitiesCounter = 0
 	return nil
+}
+
+func (e *Engine) flushWithLock(trasaction bool, lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) error {
+	locker := e.GetLocker(lockerPool)
+	lock, has, err := locker.Obtain(lockName, ttl, waitTimeout)
+	if err != nil {
+		return err
+	}
+	if !has {
+		return fmt.Errorf("lock wait timeout")
+	}
+	defer lock.Release()
+	return e.flushTrackedEntities(false, trasaction)
 }
