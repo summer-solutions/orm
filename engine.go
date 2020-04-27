@@ -226,7 +226,7 @@ func (e *Engine) FlushInCache(entities ...interface{}) error {
 }
 
 func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found bool, err error) {
-	return loadByID(e, id, entity, references...)
+	return loadByID(e, id, entity, true, references...)
 }
 
 func (e *Engine) Load(entity Entity, references ...string) error {
@@ -236,7 +236,7 @@ func (e *Engine) Load(entity Entity, references ...string) error {
 	initEntityIfNeeded(e, entity)
 	id := entity.getElem().Field(1).Uint()
 	if id > 0 {
-		_, err := loadByID(e, id, entity, references...)
+		_, err := loadByID(e, id, entity, true, references...)
 		return err
 	}
 	return nil

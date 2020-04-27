@@ -44,6 +44,7 @@ type tableSchema struct {
 	cachedIndexesAll map[string]*cachedQueryDefinition
 	columnNames      []string
 	columnPathMap    map[string]string
+	uniqueIndices    map[string][]string
 	refOne           []string
 	columnsStamp     string
 	localCacheName   string
@@ -277,7 +278,20 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	if logPoolName == "true" {
 		logPoolName = mysql
 	}
-
+	uniqueIndices := make(map[string][]string)
+	for k, v := range tags {
+		keys, has := v["unique"]
+		if has {
+			values := strings.Split(keys, ",")
+			for _, indexName := range values {
+				parts := strings.Split(indexName, ":")
+				if uniqueIndices[parts[0]] == nil {
+					uniqueIndices[parts[0]] = make([]string, 0)
+				}
+				uniqueIndices[parts[0]] = append(uniqueIndices[parts[0]], k)
+			}
+		}
+	}
 	tableSchema := &tableSchema{tableName: table,
 		mysqlPoolName:    mysql,
 		t:                entityType,
@@ -292,6 +306,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
 		cachePrefix:      cachePrefix,
+		uniqueIndices:    uniqueIndices,
 		hasFakeDelete:    hasFakeDelete,
 		hasLog:           logPoolName != "",
 		logPoolName:      logPoolName,

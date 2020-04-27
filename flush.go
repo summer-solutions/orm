@@ -89,6 +89,92 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			if currentID > 0 {
 				return fmt.Errorf("unloaded entity %s with ID %d", value.Type().String(), currentID)
 			}
+			onUpdate := entity.getORM().onDuplicateKeyUpdate
+			if onUpdate != nil {
+				values := make([]string, bindLength)
+				columns := make([]string, bindLength)
+				bindRow := make([]interface{}, bindLength)
+				i := 0
+				for key, val := range bind {
+					columns[i] = fmt.Sprintf("`%s`", key)
+					values[i] = "?"
+					bindRow[i] = val
+					i++
+				}
+				/* #nosec */
+				sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES (%s)", schema.tableName, strings.Join(columns, ","), strings.Join(values, ","))
+				sql += " ON DUPLICATE KEY UPDATE "
+				subSQL := onUpdate.String()
+				if subSQL == "" {
+					subSQL = "1"
+				}
+				sql += subSQL
+				bindRow = append(bindRow, onUpdate.GetParameters()...)
+				db := schema.GetMysql(engine)
+				if lazy {
+					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, bindRow)
+				} else {
+					result, err := db.Exec(sql, bindRow...)
+					if err != nil {
+						return convertToError(err)
+					}
+					affected, err := result.RowsAffected()
+					if err != nil {
+						return err
+					}
+					var lastID int64
+					if affected > 0 {
+						lastID, err = result.LastInsertId()
+						if err != nil {
+							return err
+						}
+					}
+					if affected > 0 {
+						injectBind(entity.getElem(), bind)
+						entity.getElem().Field(1).SetUint(uint64(lastID))
+						updateCacheForInserted(entity.getElem(), schema, engine, lazy, uint64(lastID), bind, localCacheSets,
+							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
+						if affected == 2 {
+							_, err = loadByID(engine, uint64(lastID), entity, false)
+							if err != nil {
+								return err
+							}
+						}
+					} else {
+						valid := false
+						for _, index := range schema.uniqueIndices {
+							allNotNil := true
+							fields := make([]string, 0)
+							binds := make([]interface{}, 0)
+							for _, column := range index {
+								if bind[column] == nil {
+									allNotNil = false
+									break
+								}
+								fields = append(fields, fmt.Sprintf("`%s` = ?", column))
+								binds = append(binds, bind[column])
+							}
+							if allNotNil {
+								findWhere := NewWhere(strings.Join(fields, " AND "), binds)
+								has, err := engine.SearchOne(findWhere, entity)
+								if err != nil {
+									return err
+								}
+								if !has {
+									return fmt.Errorf("missing unique index to find updated row")
+								}
+								valid = true
+								break
+							}
+						}
+						if !valid {
+							return fmt.Errorf("missing unique index to find updated row")
+						}
+					}
+				}
+				continue
+			}
+
 			values := make([]interface{}, bindLength)
 			valuesKeys := make([]string, bindLength)
 			if insertKeys[t] == nil {
@@ -233,30 +319,13 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			}
 			id = uint64(insertID)
 		}
-		localCache, hasLocalCache := schema.GetLocalCache(engine)
-		redisCache, hasRedis := schema.GetRedisCache(engine)
 		for key, value := range insertReflectValues[typeOf] {
 			elem := value.Elem()
 			entity := value.Interface()
 			bind := insertBinds[typeOf][key]
 			injectBind(elem, bind)
 			elem.Field(1).SetUint(id)
-			if hasLocalCache {
-				if !lazy {
-					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), buildLocalCacheValue(elem, schema))
-				} else {
-					addCacheDeletes(localCacheDeletes, localCache.code, schema.getCacheKey(id))
-				}
-				keys := getCacheQueriesKeys(schema, bind, bind, true)
-				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
-			}
-			if hasRedis {
-				addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(id))
-				keys := getCacheQueriesKeys(schema, bind, bind, true)
-				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
-			}
-			addDirtyQueues(dirtyQueues, bind, schema, id, "i")
-			addToLogQueue(logQueues, schema, id, bind)
+			updateCacheForInserted(elem, schema, engine, lazy, id, bind, localCacheSets, localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 			id++
 			afterSaveInterface, is := entity.(AfterSavedInterface)
 			if is {
@@ -832,4 +901,28 @@ func convertToError(err error) error {
 		}
 	}
 	return err
+}
+
+func updateCacheForInserted(elem reflect.Value, schema *tableSchema, engine *Engine, lazy bool, id uint64,
+	bind map[string]interface{}, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
+	redisKeysToDelete map[string]map[string]bool, dirtyQueues map[string][]*DirtyQueueValue,
+	logQueues map[string][]*LogQueueValue) {
+	localCache, hasLocalCache := schema.GetLocalCache(engine)
+	redisCache, hasRedis := schema.GetRedisCache(engine)
+	if hasLocalCache {
+		if !lazy {
+			addLocalCacheSet(localCacheSets, schema.GetMysql(engine).GetPoolCode(), localCache.code, schema.getCacheKey(id), buildLocalCacheValue(elem, schema))
+		} else {
+			addCacheDeletes(localCacheDeletes, localCache.code, schema.getCacheKey(id))
+		}
+		keys := getCacheQueriesKeys(schema, bind, bind, true)
+		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
+	}
+	if hasRedis {
+		addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(id))
+		keys := getCacheQueriesKeys(schema, bind, bind, true)
+		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
+	}
+	addDirtyQueues(dirtyQueues, bind, schema, id, "i")
+	addToLogQueue(logQueues, schema, id, bind)
 }

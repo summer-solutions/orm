@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-func loadByID(engine *Engine, id uint64, entity interface{}, references ...string) (found bool, err error) {
+func loadByID(engine *Engine, id uint64, entity interface{}, useCache bool, references ...string) (found bool, err error) {
 	val := reflect.ValueOf(entity)
 	if val.Kind() != reflect.Ptr {
 		panic(fmt.Errorf("entity '%s' is not a poninter", val.Type().String()))
@@ -32,7 +32,7 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 	var cacheKey string
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 
-	if hasLocalCache {
+	if hasLocalCache && useCache {
 		cacheKey = schema.getCacheKey(id)
 		e, has := localCache.Get(cacheKey)
 		if has {
@@ -50,7 +50,7 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 		}
 	}
 	redisCache, hasRedis := schema.GetRedisCache(engine)
-	if hasRedis {
+	if hasRedis && useCache {
 		cacheKey = schema.getCacheKey(id)
 		row, has, err := redisCache.Get(cacheKey)
 		if err != nil {
@@ -91,10 +91,10 @@ func loadByID(engine *Engine, id uint64, entity interface{}, references ...strin
 		}
 		return false, nil
 	}
-	if localCache != nil {
+	if localCache != nil && useCache {
 		localCache.Set(cacheKey, buildLocalCacheValue(elem, schema))
 	}
-	if redisCache != nil {
+	if redisCache != nil && useCache {
 		err = redisCache.Set(cacheKey, buildRedisValue(elem, schema), 0)
 		if err != nil {
 			return false, err
