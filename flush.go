@@ -549,14 +549,12 @@ func serializeForLazyQueue(lazyMap map[string]interface{}) (string, error) {
 }
 
 func injectBind(value reflect.Value, bind map[string]interface{}) map[string]interface{} {
-	field := value.Field(0)
-	oldFields := field.Interface().(ORM)
+	orm := value.Interface().(Entity).getORM()
 	for key, value := range bind {
-		oldFields.dBData[key] = value
+		orm.dBData[key] = value
 	}
-	oldFields.loaded = true
-	field.Set(reflect.ValueOf(oldFields))
-	return oldFields.dBData
+	orm.attributes.loaded = true
+	return orm.dBData
 }
 
 func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value reflect.Value,

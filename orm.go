@@ -10,6 +10,7 @@ type Entity interface {
 
 type entityAttributes struct {
 	onDuplicateKeyUpdate *Where
+	loaded bool
 }
 
 type ORM struct {
@@ -18,7 +19,6 @@ type ORM struct {
 	elem        reflect.Value
 	tableSchema *tableSchema
 	engine      *Engine
-	loaded      bool
 	attributes  *entityAttributes
 }
 
