@@ -101,18 +101,18 @@ func (e *Engine) MarkToDelete(entity ...Entity) {
 	for _, row := range entity {
 		e.Track(row)
 		initEntityIfNeeded(e, row)
-		if row.getTableSchema().hasFakeDelete {
-			row.getElem().FieldByName("FakeDelete").SetBool(true)
+		if row.getORM().tableSchema.hasFakeDelete {
+			row.getORM().elem.FieldByName("FakeDelete").SetBool(true)
 			continue
 		}
-		row.getDBData()["_delete"] = true
+		row.getORM().dBData["_delete"] = true
 	}
 }
 
 func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 	for _, row := range entity {
 		initEntityIfNeeded(e, row)
-		row.getDBData()["_delete"] = true
+		row.getORM().dBData["_delete"] = true
 		e.Track(row)
 	}
 }
@@ -126,7 +126,7 @@ func (e *Engine) IsDirty(entity Entity) bool {
 		return true
 	}
 	initEntityIfNeeded(e, entity)
-	is, _, _ := getDirtyBind(entity.getElem())
+	is, _, _ := getDirtyBind(entity.getORM().elem)
 	return is
 }
 
@@ -238,7 +238,7 @@ func (e *Engine) Load(entity Entity, references ...string) error {
 		return nil
 	}
 	initEntityIfNeeded(e, entity)
-	id := entity.getElem().Field(1).Uint()
+	id := entity.getORM().elem.Field(1).Uint()
 	if id > 0 {
 		_, err := loadByID(e, id, entity, true, references...)
 		return err
@@ -275,7 +275,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 	if transaction {
 		dbPools = make(map[string]*DB)
 		for _, entity := range e.trackedEntities {
-			db := entity.Interface().(Entity).getTableSchema().GetMysql(e)
+			db := entity.Interface().(Entity).getORM().tableSchema.GetMysql(e)
 			dbPools[db.code] = db
 		}
 		for _, db := range dbPools {

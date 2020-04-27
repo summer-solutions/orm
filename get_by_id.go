@@ -115,7 +115,7 @@ func buildRedisValue(elem reflect.Value, schema *tableSchema) string {
 }
 
 func buildLocalCacheValue(elem reflect.Value, schema *tableSchema) []string {
-	bind := elem.Interface().(Entity).getDBData()
+	bind := elem.Interface().(Entity).getORM().dBData
 	length := len(schema.columnNames)
 	value := make([]string, length-1)
 	j := 0

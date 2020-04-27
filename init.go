@@ -6,10 +6,10 @@ import (
 )
 
 func initEntityIfNeeded(engine *Engine, entity Entity) *ORM {
-	if entity.getTableSchema() == nil {
+	if entity.getORM().tableSchema == nil {
 		return initIfNeeded(engine, reflect.ValueOf(entity))
 	}
-	return initIfNeeded(engine, entity.getValue())
+	return initIfNeeded(engine, entity.getORM().value)
 }
 
 func initIfNeeded(engine *Engine, value reflect.Value) *ORM {

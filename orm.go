@@ -6,10 +6,6 @@ import (
 
 type Entity interface {
 	isLoaded() bool
-	getDBData() map[string]interface{}
-	getTableSchema() *tableSchema
-	getValue() reflect.Value
-	getElem() reflect.Value
 	getORM() ORM
 }
 
@@ -29,22 +25,6 @@ func (orm ORM) isLoaded() bool {
 
 func (orm *ORM) SetOnDuplicateKeyUpdate(update *Where) {
 	orm.onDuplicateKeyUpdate = update
-}
-
-func (orm ORM) getDBData() map[string]interface{} {
-	return orm.dBData
-}
-
-func (orm ORM) getTableSchema() *tableSchema {
-	return orm.tableSchema
-}
-
-func (orm ORM) getValue() reflect.Value {
-	return orm.value
-}
-
-func (orm ORM) getElem() reflect.Value {
-	return orm.elem
 }
 
 func (orm ORM) getORM() ORM {

@@ -57,22 +57,22 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		if !ok {
 			return fmt.Errorf("invalid entity '%s'", v.Type().String())
 		}
-		schema := entity.getTableSchema()
+		schema := entity.getORM().tableSchema
 		for _, refName := range schema.refOne {
-			refValue := entity.getElem().FieldByName(refName)
+			refValue := entity.getORM().elem.FieldByName(refName)
 			ref := refValue.Interface().(Entity)
 			if !refValue.IsNil() && refValue.Elem().Field(1).Uint() == 0 {
 				if referencesToFlash == nil {
 					referencesToFlash = make(map[reflect.Value]reflect.Value)
 				}
-				referencesToFlash[ref.getValue()] = ref.getValue()
+				referencesToFlash[ref.getORM().value] = ref.getORM().value
 			}
 		}
 		if referencesToFlash != nil {
 			continue
 		}
 
-		dbData := entity.getDBData()
+		dbData := entity.getORM().dBData
 		value := reflect.Indirect(v)
 		isDirty, bind, err := getDirtyBind(value)
 		if err != nil {
@@ -130,9 +130,9 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 						}
 					}
 					if affected > 0 {
-						injectBind(entity.getElem(), bind)
-						entity.getElem().Field(1).SetUint(uint64(lastID))
-						updateCacheForInserted(entity.getElem(), schema, engine, lazy, uint64(lastID), bind, localCacheSets,
+						injectBind(entity.getORM().elem, bind)
+						entity.getORM().elem.Field(1).SetUint(uint64(lastID))
+						updateCacheForInserted(entity.getORM().elem, schema, engine, lazy, uint64(lastID), bind, localCacheSets,
 							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 						if affected == 2 {
 							_, err = loadByID(engine, uint64(lastID), entity, false)
@@ -211,7 +211,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 				deleteBinds[t][currentID] = dbData
 			} else {
 				if !engine.Loaded(entity) {
-					return fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getElem().Type().String(), currentID)
+					return fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().elem.Type().String(), currentID)
 				}
 				fields := make([]string, bindLength)
 				i := 0
