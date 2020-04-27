@@ -100,7 +100,7 @@ func (e *Engine) ClearTrackedEntities() {
 func (e *Engine) SetOnDuplicateKeyUpdate(update *Where, entity ...Entity) {
 	for _, row := range entity {
 		orm := initEntityIfNeeded(e, row)
-		orm.onDuplicateKeyUpdate = update
+		orm.attributes.onDuplicateKeyUpdate = update
 	}
 }
 

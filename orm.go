@@ -5,19 +5,23 @@ import (
 )
 
 type Entity interface {
-	getORM() ORM
+	getORM() *ORM
 }
 
-type ORM struct {
-	dBData               map[string]interface{}
-	value                reflect.Value
-	elem                 reflect.Value
-	tableSchema          *tableSchema
-	engine               *Engine
-	loaded               bool
+type entityAttributes struct {
 	onDuplicateKeyUpdate *Where
 }
 
-func (orm ORM) getORM() ORM {
-	return orm
+type ORM struct {
+	dBData      map[string]interface{}
+	value       reflect.Value
+	elem        reflect.Value
+	tableSchema *tableSchema
+	engine      *Engine
+	loaded      bool
+	attributes  *entityAttributes
+}
+
+func (orm ORM) getORM() *ORM {
+	return &orm
 }

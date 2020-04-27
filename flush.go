@@ -89,7 +89,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			if currentID > 0 {
 				return fmt.Errorf("unloaded entity %s with ID %d", value.Type().String(), currentID)
 			}
-			onUpdate := entity.getORM().onDuplicateKeyUpdate
+			onUpdate := entity.getORM().attributes.onDuplicateKeyUpdate
 			if onUpdate != nil {
 				values := make([]string, bindLength)
 				columns := make([]string, bindLength)
