@@ -5,7 +5,6 @@ import (
 )
 
 type Entity interface {
-	isLoaded() bool
 	getORM() ORM
 }
 
@@ -17,10 +16,6 @@ type ORM struct {
 	engine               *Engine
 	loaded               bool
 	onDuplicateKeyUpdate *Where
-}
-
-func (orm ORM) isLoaded() bool {
-	return orm.loaded
 }
 
 func (orm *ORM) SetOnDuplicateKeyUpdate(update *Where) {

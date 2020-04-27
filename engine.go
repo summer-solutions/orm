@@ -118,7 +118,7 @@ func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 }
 
 func (e *Engine) Loaded(entity Entity) bool {
-	return entity.isLoaded()
+	return entity.getORM().loaded
 }
 
 func (e *Engine) IsDirty(entity Entity) bool {
