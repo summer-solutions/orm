@@ -18,10 +18,6 @@ type ORM struct {
 	onDuplicateKeyUpdate *Where
 }
 
-func (orm *ORM) SetOnDuplicateKeyUpdate(update *Where) {
-	orm.onDuplicateKeyUpdate = update
-}
-
 func (orm ORM) getORM() ORM {
 	return orm
 }

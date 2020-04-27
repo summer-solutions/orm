@@ -97,6 +97,13 @@ func (e *Engine) ClearTrackedEntities() {
 	e.trackedEntities = make([]reflect.Value, 0)
 }
 
+func (e *Engine) SetOnDuplicateKeyUpdate(update *Where, entity ...Entity) {
+	for _, row := range entity {
+		orm := initEntityIfNeeded(e, row)
+		orm.onDuplicateKeyUpdate = update
+	}
+}
+
 func (e *Engine) MarkToDelete(entity ...Entity) {
 	for _, row := range entity {
 		e.Track(row)
@@ -308,7 +315,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 	return nil
 }
 
-func (e *Engine) flushWithLock(trasaction bool, lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) error {
+func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) error {
 	locker := e.GetLocker(lockerPool)
 	lock, has, err := locker.Obtain(lockName, ttl, waitTimeout)
 	if err != nil {
@@ -318,5 +325,5 @@ func (e *Engine) flushWithLock(trasaction bool, lockerPool string, lockName stri
 		return fmt.Errorf("lock wait timeout")
 	}
 	defer lock.Release()
-	return e.flushTrackedEntities(false, trasaction)
+	return e.flushTrackedEntities(false, transaction)
 }

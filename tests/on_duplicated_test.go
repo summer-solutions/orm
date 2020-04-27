@@ -31,19 +31,19 @@ func TestFlushOnDuplicated(t *testing.T) {
 	engine.ClearTrackedEntities()
 
 	entity.Name = "test2"
-	entity.SetOnDuplicateKeyUpdate(orm.NewWhere("`Counter` = `Counter` + ?", 1))
+	engine.SetOnDuplicateKeyUpdate(orm.NewWhere("`Counter` = `Counter` + ?", 1), &entity)
 	err = engine.TrackAndFlush(&entity)
 	assert.Nil(t, err)
 	assert.Equal(t, uint16(3), entity.ID)
 
 	entity = TestEntityOnDuplicated{Name: "test2"}
-	entity.SetOnDuplicateKeyUpdate(orm.NewWhere("`Counter` = `Counter` + ?", 1))
+	engine.SetOnDuplicateKeyUpdate(orm.NewWhere("`Counter` = `Counter` + ?", 1), &entity)
 	err = engine.TrackAndFlush(&entity)
 	assert.Nil(t, err)
 	assert.Equal(t, uint16(3), entity.ID)
 
 	entity = TestEntityOnDuplicated{Name: "test"}
-	entity.SetOnDuplicateKeyUpdate(orm.NewWhere("`Counter` = `Counter` + ?", 0))
+	engine.SetOnDuplicateKeyUpdate(orm.NewWhere("`Counter` = `Counter` + ?", 0), &entity)
 	err = engine.TrackAndFlush(&entity)
 	assert.Nil(t, err)
 	assert.Equal(t, uint16(1), entity.ID)
