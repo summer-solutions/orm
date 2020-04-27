@@ -117,8 +117,12 @@ func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 	}
 }
 
+func (e *Engine) Loaded(entity Entity) bool {
+	return entity.isLoaded()
+}
+
 func (e *Engine) IsDirty(entity Entity) bool {
-	if !entity.Loaded() {
+	if !e.Loaded(entity) {
 		return true
 	}
 	initEntityIfNeeded(e, entity)
@@ -230,7 +234,7 @@ func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found
 }
 
 func (e *Engine) Load(entity Entity, references ...string) error {
-	if entity.Loaded() {
+	if e.Loaded(entity) {
 		return nil
 	}
 	initEntityIfNeeded(e, entity)

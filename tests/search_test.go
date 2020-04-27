@@ -46,7 +46,7 @@ func TestSearch(t *testing.T) {
 	var rows []*TestEntitySearch
 	err := engine.Search(where, pager, &rows, "ReferenceOne")
 	assert.Nil(t, err)
-	assert.True(t, rows[0].ReferenceOne.Loaded())
+	assert.True(t, engine.Loaded(rows[0].ReferenceOne))
 	assert.Len(t, rows, 6)
 	assert.Equal(t, uint(2), rows[0].ID)
 	assert.Equal(t, uint(7), rows[5].ID)

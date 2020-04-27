@@ -210,7 +210,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 				}
 				deleteBinds[t][currentID] = dbData
 			} else {
-				if !entity.Loaded() {
+				if !engine.Loaded(entity) {
 					return fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getElem().Type().String(), currentID)
 				}
 				fields := make([]string, bindLength)

@@ -114,10 +114,10 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, edited2.ReferenceOne)
 	assert.NotNil(t, edited2.Date)
 	assert.Equal(t, now.Format("2006-01-02"), edited2.Date.Format("2006-01-02"))
-	assert.False(t, edited1.ReferenceOne.Loaded())
+	assert.False(t, engine.Loaded(edited1.ReferenceOne))
 	err = engine.Load(edited1.ReferenceOne)
 	assert.Nil(t, err)
-	assert.True(t, edited1.ReferenceOne.Loaded())
+	assert.True(t, engine.Loaded(edited1.ReferenceOne))
 	assert.Equal(t, "Name 7", edited1.ReferenceOne.Name)
 
 	toDelete := edited2

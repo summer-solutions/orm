@@ -93,7 +93,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
-	assert.True(t, entity.ReferenceOne.Loaded())
+	assert.True(t, engine.Loaded(entity.ReferenceOne))
 	assert.Equal(t, uint(1), entity.ID)
 	assert.Equal(t, "", entity.Name)
 	assert.Equal(t, "", entity.BigName)
@@ -125,7 +125,7 @@ func TestGetByIDRedis(t *testing.T) {
 	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)
 	assert.True(t, found)
-	assert.True(t, entity.ReferenceOne.Loaded())
+	assert.True(t, engine.Loaded(entity.ReferenceOne))
 
 	engine.Track(&entity)
 	entity.Name = "Test name"

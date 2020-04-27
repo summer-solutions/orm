@@ -62,7 +62,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	totalRows, err := engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
-	assert.True(t, rows[0].Loaded())
+	assert.True(t, engine.Loaded(rows[0]))
 
 	assert.Len(t, rows, 5)
 	assert.Equal(t, uint(1), rows[0].ReferenceOne.ID)
@@ -71,7 +71,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, uint(4), rows[3].ReferenceOne.ID)
 	assert.Equal(t, uint(5), rows[4].ReferenceOne.ID)
 	assert.Equal(t, "", rows[0].ReferenceOne.Name)
-	assert.False(t, rows[0].ReferenceOne.Loaded())
+	assert.False(t, engine.Loaded(rows[0].ReferenceOne))
 
 	DBLogger := memory.New()
 	pool := engine.GetMysql()
@@ -204,6 +204,6 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 15)
 	assert.Equal(t, "Name 1", rows[0].ReferenceOne.Name)
 	assert.Equal(t, "Name 3", rows[1].ReferenceOne.Name)
-	assert.True(t, rows[0].ReferenceOne.Loaded())
-	assert.True(t, rows[1].ReferenceOne.Loaded())
+	assert.True(t, engine.Loaded(rows[0].ReferenceOne))
+	assert.True(t, engine.Loaded(rows[1].ReferenceOne))
 }

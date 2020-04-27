@@ -88,14 +88,14 @@ func TestReferences(t *testing.T) {
 	has, err = engine.LoadByID(1, &root)
 	assert.Nil(t, err)
 	assert.True(t, has)
-	assert.False(t, root.ReferenceOne.Loaded())
+	assert.False(t, engine.Loaded(root.ReferenceOne))
 	err = engine.Load(root.ReferenceOne)
 	assert.Nil(t, err)
-	assert.True(t, root.ReferenceOne.Loaded())
+	assert.True(t, engine.Loaded(root.ReferenceOne))
 
 	engine.Track(&root)
 	root.ReferenceFive = &TestEntityReferenceLevel3{ID: 2}
-	assert.False(t, root.ReferenceFive.Loaded())
+	assert.False(t, engine.Loaded(root.ReferenceFive))
 	err = engine.Load(root.ReferenceFive)
 	assert.Nil(t, err)
 

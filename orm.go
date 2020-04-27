@@ -5,7 +5,7 @@ import (
 )
 
 type Entity interface {
-	Loaded() bool
+	isLoaded() bool
 	getDBData() map[string]interface{}
 	getTableSchema() *tableSchema
 	getValue() reflect.Value
@@ -23,7 +23,7 @@ type ORM struct {
 	onDuplicateKeyUpdate *Where
 }
 
-func (orm ORM) Loaded() bool {
+func (orm ORM) isLoaded() bool {
 	return orm.loaded
 }
 
