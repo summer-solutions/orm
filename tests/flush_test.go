@@ -210,4 +210,8 @@ func TestFlushErrors(t *testing.T) {
 	assert.True(t, is)
 	assert.Equal(t, "NameIndex", duplicatedError.Index)
 	assert.Equal(t, "Duplicate entry 'Name' for key 'NameIndex'", duplicatedError.Error())
+
+	engine.ClearTrackedEntities()
+	err = engine.TrackAndFlush(&TestEntityErrors{ID: 1})
+	assert.EqualError(t, err, "unloaded entity tests.TestEntityErrors with ID 1")
 }

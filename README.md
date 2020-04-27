@@ -834,6 +834,8 @@ func main() {
 
 ## Logging
 
+Read more: [APEX Log](https://github.com/apex/log)
+
 ```go
 package main
 
@@ -850,10 +852,5 @@ func main() {
 
     //adding custom logger example:
     engine.AddLogger(json.New(os.Stdout))
-    
-    //read more about log handlers:
-    [APEX Log](https://github.com/apex/log)
-
-    
-
+}    
 ```

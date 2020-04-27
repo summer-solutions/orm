@@ -84,7 +84,11 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		bindLength := len(bind)
 
 		t := value.Type()
+		currentID := value.Field(1).Uint()
 		if len(dbData) == 0 {
+			if currentID > 0 {
+				return fmt.Errorf("unloaded entity %s with ID %d", value.Type().String(), currentID)
+			}
 			values := make([]interface{}, bindLength)
 			valuesKeys := make([]string, bindLength)
 			if insertKeys[t] == nil {
@@ -114,7 +118,6 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			totalInsert[t]++
 		} else {
 			values := make([]interface{}, bindLength+1)
-			currentID := value.Field(1).Uint()
 			if dbData["_delete"] == true {
 				if deleteBinds[t] == nil {
 					deleteBinds[t] = make(map[uint64]map[string]interface{})
