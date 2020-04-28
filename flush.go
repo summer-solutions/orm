@@ -61,7 +61,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		for _, refName := range schema.refOne {
 			refValue := entity.getORM().attributes.elem.FieldByName(refName)
 			ref := refValue.Interface().(Entity)
-			if !refValue.IsNil() && refValue.Elem().Field(1).Uint()  == 0 {
+			if !refValue.IsNil() && refValue.Elem().Field(1).Uint() == 0 {
 				if referencesToFlash == nil {
 					referencesToFlash = make(map[reflect.Value]reflect.Value)
 				}
