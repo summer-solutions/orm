@@ -6,6 +6,7 @@ import (
 
 type Entity interface {
 	getORM() *ORM
+	GetID() uint64
 }
 
 type entityAttributes struct {
@@ -17,11 +18,6 @@ type entityAttributes struct {
 	idElem               reflect.Value
 }
 
-func (a *entityAttributes) getID() uint64 {
-	return a.idElem.Uint()
-}
-
-
 type ORM struct {
 	dBData      map[string]interface{}
 	tableSchema *tableSchema
@@ -29,6 +25,13 @@ type ORM struct {
 	attributes  *entityAttributes
 }
 
-func (orm ORM) getORM() *ORM {
-	return &orm
+func (orm *ORM) getORM() *ORM {
+	return orm
+}
+
+func (orm *ORM) GetID() uint64 {
+	if orm.attributes == nil {
+		return 0
+	}
+	return orm.attributes.idElem.Uint()
 }

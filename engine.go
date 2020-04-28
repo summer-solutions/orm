@@ -245,12 +245,12 @@ func (e *Engine) Load(entity Entity, references ...string) error {
 	if e.Loaded(entity) {
 		if len(references) > 0 {
 			orm := entity.getORM()
-			return warmUpReferences(e, orm.tableSchema, orm.attributes.elem, references, false)
+			return warmUpReferences(e, orm.tableSchema, orm.attributes.value, references, false)
 		}
 		return nil
 	}
 	orm := initEntityIfNeeded(e, entity)
-	id := orm.attributes.elem.Field(1).Uint()
+	id := orm.GetID()
 	if id > 0 {
 		_, err := loadByID(e, id, entity, true, references...)
 		return err

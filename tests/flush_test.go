@@ -126,16 +126,16 @@ func TestFlush(t *testing.T) {
 	engine.MarkToDelete(&toDelete)
 	newEntity := &TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
 	engine.Track(newEntity)
-	assert.True(t, engine.IsDirty(edited1))
+	assert.True(t, engine.IsDirty(&edited1))
 	assert.Nil(t, err)
-	assert.True(t, engine.IsDirty(edited2))
+	assert.True(t, engine.IsDirty(&edited2))
 	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(newEntity))
 
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	assert.False(t, engine.IsDirty(edited1))
+	assert.False(t, engine.IsDirty(&edited1))
 	assert.False(t, engine.IsDirty(newEntity))
 
 	var edited3 TestEntityFlush

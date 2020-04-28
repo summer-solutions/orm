@@ -61,7 +61,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		for _, refName := range schema.refOne {
 			refValue := entity.getORM().attributes.elem.FieldByName(refName)
 			ref := refValue.Interface().(Entity)
-			if !refValue.IsNil() && refValue.Elem().Field(1).Uint() == 0 {
+			if !refValue.IsNil() && refValue.Elem().Field(1).Uint()  == 0 {
 				if referencesToFlash == nil {
 					referencesToFlash = make(map[reflect.Value]reflect.Value)
 				}
@@ -75,7 +75,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		orm := entity.getORM()
 		dbData := orm.dBData
 		value := reflect.Indirect(v)
-		isDirty, bind, err := getDirtyBind(value.Interface().(Entity))
+		isDirty, bind, err := getDirtyBind(v.Interface().(Entity))
 		if err != nil {
 			return err
 		}
@@ -136,10 +136,9 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 						}
 					}
 					if affected > 0 {
-						injectBind(entity.getORM().attributes.elem, bind)
+						injectBind(entity.getORM().attributes.value, bind)
 						entity.getORM().attributes.elem.Field(1).SetUint(uint64(lastID))
-						updateCacheForInserted(entity.getORM().attributes.elem, schema, engine, lazy, uint64(lastID), bind, localCacheSets,
-							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
+						updateCacheForInserted(entity, lazy, uint64(lastID), bind, localCacheSets, localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 						if affected == 2 {
 							_, err = loadByID(engine, uint64(lastID), entity, false)
 							if err != nil {
@@ -243,11 +242,11 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			for k, v := range dbData {
 				old[k] = v
 			}
-			data := injectBind(value, bind)
+			data := injectBind(v, bind)
 			localCache, hasLocalCache := schema.GetLocalCache(engine)
 			redisCache, hasRedis := schema.GetRedisCache(engine)
 			if hasLocalCache {
-				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(value, schema))
+				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(entity))
 				keys := getCacheQueriesKeys(schema, bind, dbData, false)
 				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 				keys = getCacheQueriesKeys(schema, bind, old, false)
@@ -320,11 +319,11 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		}
 		for key, value := range insertReflectValues[typeOf] {
 			elem := value.Elem()
-			entity := value.Interface()
+			entity := value.Interface().(Entity)
 			bind := insertBinds[typeOf][key]
-			injectBind(elem, bind)
+			injectBind(value, bind)
 			elem.Field(1).SetUint(id)
-			updateCacheForInserted(elem, schema, engine, lazy, id, bind, localCacheSets, localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
+			updateCacheForInserted(entity, lazy, id, bind, localCacheSets, localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 			id++
 			afterSaveInterface, is := entity.(AfterSavedInterface)
 			if is {
@@ -900,15 +899,17 @@ func convertToError(err error) error {
 	return err
 }
 
-func updateCacheForInserted(elem reflect.Value, schema *tableSchema, engine *Engine, lazy bool, id uint64,
+func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 	bind map[string]interface{}, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	redisKeysToDelete map[string]map[string]bool, dirtyQueues map[string][]*DirtyQueueValue,
 	logQueues map[string][]*LogQueueValue) {
+	schema := entity.getORM().tableSchema
+	engine := entity.getORM().engine
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if hasLocalCache {
 		if !lazy {
-			addLocalCacheSet(localCacheSets, schema.GetMysql(engine).GetPoolCode(), localCache.code, schema.getCacheKey(id), buildLocalCacheValue(elem, schema))
+			addLocalCacheSet(localCacheSets, schema.GetMysql(engine).GetPoolCode(), localCache.code, schema.getCacheKey(id), buildLocalCacheValue(entity))
 		} else {
 			addCacheDeletes(localCacheDeletes, localCache.code, schema.getCacheKey(id))
 		}

@@ -36,9 +36,9 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 			for k, v := range orm.dBData {
 				old[k] = v
 			}
-			injectBind(elem, bind)
+			injectBind(value, bind)
 			entityCacheKey := schema.getCacheKey(id)
-			entityCacheValue := buildRedisValue(elem, schema)
+			entityCacheValue := buildRedisValue(entity.(Entity))
 			if redisValues[cache.code] == nil {
 				redisValues[cache.code] = make([]interface{}, 0)
 			}

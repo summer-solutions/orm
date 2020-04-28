@@ -87,7 +87,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 				if val == nilValue {
 					toSet = "nil"
 				} else {
-					toSet = buildLocalCacheValue(val, schema)
+					toSet = buildLocalCacheValue(val.Interface().(Entity))
 				}
 				pairs[i+1] = toSet
 				i += 2
@@ -108,7 +108,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 				if val == nilValue {
 					toSet = "nil"
 				} else {
-					toSet = buildRedisValue(val, schema)
+					toSet = buildRedisValue(val.Interface().(Entity))
 				}
 				pairs[i+1] = toSet
 				i += 2

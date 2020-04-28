@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-func loadByID(engine *Engine, id uint64, entity interface{}, useCache bool, references ...string) (found bool, err error) {
+func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, references ...string) (found bool, err error) {
 	val := reflect.ValueOf(entity)
 	if val.Kind() != reflect.Ptr {
 		panic(fmt.Errorf("entity '%s' is not a poninter", val.Type().String()))
@@ -92,10 +92,10 @@ func loadByID(engine *Engine, id uint64, entity interface{}, useCache bool, refe
 		return false, nil
 	}
 	if localCache != nil && useCache {
-		localCache.Set(cacheKey, buildLocalCacheValue(elem, schema))
+		localCache.Set(cacheKey, buildLocalCacheValue(entity))
 	}
 	if redisCache != nil && useCache {
-		err = redisCache.Set(cacheKey, buildRedisValue(elem, schema), 0)
+		err = redisCache.Set(cacheKey, buildRedisValue(entity), 0)
 		if err != nil {
 			return false, err
 		}
@@ -109,18 +109,18 @@ func loadByID(engine *Engine, id uint64, entity interface{}, useCache bool, refe
 	return true, nil
 }
 
-func buildRedisValue(elem reflect.Value, schema *tableSchema) string {
-	encoded, _ := json.Marshal(buildLocalCacheValue(elem, schema))
+func buildRedisValue(entity Entity) string {
+	encoded, _ := json.Marshal(buildLocalCacheValue(entity))
 	return string(encoded)
 }
 
-func buildLocalCacheValue(elem reflect.Value, schema *tableSchema) []string {
-	bind := elem.Interface().(Entity).getORM().dBData
-	length := len(schema.columnNames)
+func buildLocalCacheValue(entity Entity) []string {
+	bind := entity.getORM().dBData
+	length := len(entity.getORM().tableSchema.columnNames)
 	value := make([]string, length-1)
 	j := 0
 	for i := 1; i < length; i++ { //skip id
-		v := bind[schema.columnNames[i]]
+		v := bind[entity.getORM().tableSchema.columnNames[i]]
 		if v == nil {
 			v = ""
 		}
