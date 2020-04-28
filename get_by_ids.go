@@ -68,9 +68,8 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 			return nil, err
 		}
 		for i := 0; i < entities.Len(); i++ {
-			e := entities.Index(i)
-			id := e.Elem().Field(1).Uint()
-			results[schema.getCacheKey(id)] = e.Interface().(Entity)
+			e := entities.Index(i).Interface().(Entity)
+			results[schema.getCacheKey(e.GetID())] = e
 		}
 	}
 	if hasLocalCache {
@@ -216,8 +215,8 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			if ref.IsZero() {
 				continue
 			}
-			ref = ref.Elem()
-			refID := ref.Field(1).Uint()
+			refEntity := ref.Interface().(Entity)
+			refID := refEntity.GetID()
 			ids := make([]uint64, 0)
 			if refID != 0 {
 				ids = append(ids, refID)
@@ -227,7 +226,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 				if warmUpRefs[parentType][refID] == nil {
 					warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
 				}
-				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
+				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], refEntity.getORM().attributes.elem)
 			}
 			if len(ids) == 0 {
 				continue
@@ -253,12 +252,12 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 		}
 		subLen := sub.Len()
 		for i := 0; i < subLen; i++ {
-			v := sub.Index(i)
-			id := v.Elem().Field(1).Uint()
+			v := sub.Index(i).Interface().(Entity)
+			id := v.GetID()
 			refs, has := warmUpRefs[t][id]
 			if has {
 				for _, ref := range refs {
-					ref.Set(v.Elem())
+					ref.Set(v.getORM().attributes.elem)
 				}
 			}
 		}
