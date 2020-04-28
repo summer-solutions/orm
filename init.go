@@ -9,7 +9,7 @@ func initEntityIfNeeded(engine *Engine, entity Entity) *ORM {
 	if entity.getORM().tableSchema == nil {
 		return initIfNeeded(engine, reflect.ValueOf(entity))
 	}
-	return initIfNeeded(engine, entity.getORM().value)
+	return initIfNeeded(engine, entity.getORM().attributes.value)
 }
 
 func initIfNeeded(engine *Engine, value reflect.Value) *ORM {
@@ -22,11 +22,9 @@ func initIfNeeded(engine *Engine, value reflect.Value) *ORM {
 			panic(fmt.Errorf("entity '%s' is registered", value.Type().String()))
 		}
 		orm.engine = engine
-		orm.dBData = make(map[string]interface{})
-		orm.elem = elem
-		orm.value = value
 		orm.tableSchema = tableSchema
-		orm.attributes = &entityAttributes{}
+		orm.dBData = make(map[string]interface{})
+		orm.attributes = &entityAttributes{nil, false,false, value, elem}
 		defaultInterface, is := value.Interface().(DefaultValuesInterface)
 		if is {
 			defaultInterface.SetDefaults()

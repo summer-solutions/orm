@@ -59,13 +59,13 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		}
 		schema := entity.getORM().tableSchema
 		for _, refName := range schema.refOne {
-			refValue := entity.getORM().elem.FieldByName(refName)
+			refValue := entity.getORM().attributes.elem.FieldByName(refName)
 			ref := refValue.Interface().(Entity)
 			if !refValue.IsNil() && refValue.Elem().Field(1).Uint() == 0 {
 				if referencesToFlash == nil {
 					referencesToFlash = make(map[reflect.Value]reflect.Value)
 				}
-				referencesToFlash[ref.getORM().value] = ref.getORM().value
+				referencesToFlash[ref.getORM().attributes.value] = ref.getORM().attributes.value
 			}
 		}
 		if referencesToFlash != nil {
@@ -136,9 +136,9 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 						}
 					}
 					if affected > 0 {
-						injectBind(entity.getORM().elem, bind)
-						entity.getORM().elem.Field(1).SetUint(uint64(lastID))
-						updateCacheForInserted(entity.getORM().elem, schema, engine, lazy, uint64(lastID), bind, localCacheSets,
+						injectBind(entity.getORM().attributes.elem, bind)
+						entity.getORM().attributes.elem.Field(1).SetUint(uint64(lastID))
+						updateCacheForInserted(entity.getORM().attributes.elem, schema, engine, lazy, uint64(lastID), bind, localCacheSets,
 							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 						if affected == 2 {
 							_, err = loadByID(engine, uint64(lastID), entity, false)
@@ -211,7 +211,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		} else {
 			values := make([]interface{}, bindLength+1)
 			if !engine.Loaded(entity) {
-				return fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().elem.Type().String(), currentID)
+				return fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().attributes.elem.Type().String(), currentID)
 			}
 			fields := make([]string, bindLength)
 			i := 0

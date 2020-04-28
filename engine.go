@@ -109,7 +109,7 @@ func (e *Engine) MarkToDelete(entity ...Entity) {
 		e.Track(row)
 		orm := initEntityIfNeeded(e, row)
 		if orm.tableSchema.hasFakeDelete {
-			orm.elem.FieldByName("FakeDelete").SetBool(true)
+			orm.attributes.elem.FieldByName("FakeDelete").SetBool(true)
 			continue
 		}
 		orm.attributes.delete = true
@@ -134,7 +134,7 @@ func (e *Engine) IsDirty(entity Entity) bool {
 		return true
 	}
 	orm := initEntityIfNeeded(e, entity)
-	is, _, _ := getDirtyBind(orm.elem)
+	is, _, _ := getDirtyBind(orm.attributes.elem)
 	return is
 }
 
@@ -245,12 +245,12 @@ func (e *Engine) Load(entity Entity, references ...string) error {
 	if e.Loaded(entity) {
 		if len(references) > 0 {
 			orm := entity.getORM()
-			return warmUpReferences(e, orm.tableSchema, orm.elem, references, false)
+			return warmUpReferences(e, orm.tableSchema, orm.attributes.elem, references, false)
 		}
 		return nil
 	}
 	orm := initEntityIfNeeded(e, entity)
-	id := orm.elem.Field(1).Uint()
+	id := orm.attributes.elem.Field(1).Uint()
 	if id > 0 {
 		_, err := loadByID(e, id, entity, true, references...)
 		return err

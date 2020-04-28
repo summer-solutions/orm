@@ -12,12 +12,12 @@ type entityAttributes struct {
 	onDuplicateKeyUpdate *Where
 	loaded               bool
 	delete               bool
+	value       reflect.Value
+	elem        reflect.Value
 }
 
 type ORM struct {
 	dBData      map[string]interface{}
-	value       reflect.Value
-	elem        reflect.Value
 	tableSchema *tableSchema
 	engine      *Engine
 	attributes  *entityAttributes

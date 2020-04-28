@@ -59,8 +59,8 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 		return true, err
 	}
 	ormFieldCache := entityElem.Field(0).Addr().Interface().(*ORM)
-	ormFieldCache.value = entityValue
-	ormFieldCache.elem = entityElem
+	ormFieldCache.attributes.value = entityValue
+	ormFieldCache.attributes.elem = entityElem
 	ormFieldDB := initIfNeeded(r.engine, entityDBValue)
 	newData := make(map[string]interface{}, len(ormFieldCache.dBData))
 	for k, v := range ormFieldCache.dBData {
