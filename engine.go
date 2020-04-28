@@ -61,8 +61,8 @@ func (e *Engine) Track(entity ...Entity) {
 		initIfNeeded(e, entity)
 		e.trackedEntities = append(e.trackedEntities, entity)
 		e.trackedEntitiesCounter++
-		if e.trackedEntitiesCounter == 100000 {
-			panic(fmt.Errorf("track limit 100000 excedded"))
+		if e.trackedEntitiesCounter == 10000 {
+			panic(fmt.Errorf("track limit 10000 excedded"))
 		}
 	}
 }
@@ -202,7 +202,7 @@ func (e *Engine) SearchIDsWithCount(where *Where, pager *Pager, entity interface
 	return searchIDsWithCount(true, e, where, pager, reflect.TypeOf(entity))
 }
 
-func (e *Engine) SearchIDs(where *Where, pager *Pager, entity interface{}) ([]uint64, error) {
+func (e *Engine) SearchIDs(where *Where, pager *Pager, entity Entity) ([]uint64, error) {
 	results, _, err := searchIDs(true, e, where, pager, false, reflect.TypeOf(entity))
 	return results, err
 }
@@ -244,7 +244,7 @@ func (e *Engine) Load(entity Entity, references ...string) error {
 	if e.Loaded(entity) {
 		if len(references) > 0 {
 			orm := entity.getORM()
-			return warmUpReferences(e, orm.tableSchema, orm.attributes.value, references, false)
+			return warmUpReferences(e, orm.tableSchema, orm.attributes.elem, references, false)
 		}
 		return nil
 	}

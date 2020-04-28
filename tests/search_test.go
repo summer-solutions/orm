@@ -80,14 +80,14 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, uint(7), rows[5].ID)
 
 	pager = &orm.Pager{CurrentPage: 1, PageSize: 3}
-	ids, err := engine.SearchIDs(where, pager, entity)
+	ids, err := engine.SearchIDs(where, pager, &entity)
 	assert.Nil(t, err)
 	assert.Len(t, ids, 3)
 	assert.Equal(t, uint64(2), ids[0])
 
 	pager.IncrementPage()
 	assert.Equal(t, 2, pager.CurrentPage)
-	ids, err = engine.SearchIDs(where, pager, entity)
+	ids, err = engine.SearchIDs(where, pager, &entity)
 	assert.Nil(t, err)
 	assert.Len(t, ids, 3)
 	assert.Equal(t, uint64(5), ids[0])
