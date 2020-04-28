@@ -132,7 +132,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 					}
 					if affected > 0 {
 						injectBind(entity, bind)
-						entity.getORM().attributes.elem.Field(1).SetUint(uint64(lastID))
+						entity.getORM().attributes.idElem.SetUint(uint64(lastID))
 						updateCacheForInserted(entity, lazy, uint64(lastID), bind, localCacheSets, localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 						if affected == 2 {
 							_, err = loadByID(engine, uint64(lastID), entity, false)

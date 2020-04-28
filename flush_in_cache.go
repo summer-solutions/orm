@@ -2,7 +2,6 @@ package orm
 
 import (
 	"fmt"
-	"reflect"
 )
 
 func flushInCache(engine *Engine, entities ...Entity) error {
@@ -11,15 +10,10 @@ func flushInCache(engine *Engine, entities ...Entity) error {
 	redisValues := make(map[string][]interface{})
 
 	for _, entity := range entities {
-		value := reflect.ValueOf(entity)
-		elem := value.Elem()
 		orm := initIfNeeded(engine, entity)
-		orm.attributes.value = value
-		orm.attributes.elem = elem
-		t := elem.Type()
 
-		id := elem.Field(1).Uint()
-		entityName := t.String()
+		id := entity.GetID()
+		entityName := orm.tableSchema.t.String()
 		schema := orm.tableSchema
 		cache, hasRedis := schema.GetRedisCache(engine)
 		if !hasRedis || id == 0 {
