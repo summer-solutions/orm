@@ -243,6 +243,10 @@ func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found
 
 func (e *Engine) Load(entity Entity, references ...string) error {
 	if e.Loaded(entity) {
+		if len(references) > 0 {
+			orm := entity.getORM()
+			return warmUpReferences(e, orm.tableSchema, orm.elem, references, false)
+		}
 		return nil
 	}
 	orm := initEntityIfNeeded(e, entity)
