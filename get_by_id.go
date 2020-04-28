@@ -75,7 +75,7 @@ func loadByID(engine *Engine, id uint64, entity interface{}, useCache bool, refe
 			return true, err
 		}
 	}
-	found, err = searchRow(false, engine, NewWhere("`ID` = ?", id), val)
+	found, err = searchRow(false, engine, NewWhere("`ID` = ?", id), val, nil)
 	if err != nil {
 		return false, err
 	}

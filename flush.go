@@ -112,7 +112,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 				sql += " ON DUPLICATE KEY UPDATE "
 				subSQL := onUpdate.String()
 				if subSQL == "" {
-					subSQL = "1"
+					subSQL = "`Id` = `Id`"
 				}
 				sql += subSQL
 				bindRow = append(bindRow, onUpdate.GetParameters()...)

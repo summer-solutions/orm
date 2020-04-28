@@ -13,8 +13,9 @@ func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager
 	return searchIDs(skipFakeDelete, engine, where, pager, true, entityType)
 }
 
-func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.Value) (bool, error) {
-	entityType := value.Elem().Type()
+func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.Value, references []string) (bool, error) {
+	elem := value.Elem()
+	entityType := elem.Type()
 	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
 		return false, EntityNotRegisteredError{Name: entityType.String()}
@@ -67,6 +68,12 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.
 	err = fillFromDBRow(id, engine, values[1:], value, entityType)
 	if err != nil {
 		return false, err
+	}
+	if len(references) > 0 {
+		err = warmUpReferences(engine, schema, elem, references, false)
+		if err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }
@@ -147,9 +154,9 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	return totalRows, nil
 }
 
-func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity interface{}) (bool, error) {
+func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity interface{}, references []string) (bool, error) {
 	value := reflect.ValueOf(entity)
-	has, err := searchRow(skipFakeDelete, engine, where, value)
+	has, err := searchRow(skipFakeDelete, engine, where, value, references)
 	if err != nil {
 		return false, err
 	}

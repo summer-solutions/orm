@@ -54,7 +54,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 		return true, err
 	}
 	entityDBValue := reflect.New(schema.t)
-	found, err := searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue)
+	found, err := searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue, nil)
 	if err != nil || !found {
 		return true, err
 	}

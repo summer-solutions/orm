@@ -104,4 +104,10 @@ func TestSearch(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 4, total)
 	assert.Equal(t, []uint64{5, 6, 7, 8}, res)
+
+	has, err := engine.SearchOne(orm.NewWhere("`ID` = 1"), &entity, "ReferenceOne")
+	assert.Nil(t, err)
+	assert.True(t, has)
+	assert.NotNil(t, entity.ReferenceOne)
+	assert.Equal(t, "Name 1", entity.ReferenceOne.Name)
 }

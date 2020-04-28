@@ -208,8 +208,8 @@ func (e *Engine) SearchIDs(where *Where, pager *Pager, entity interface{}) ([]ui
 	return results, err
 }
 
-func (e *Engine) SearchOne(where *Where, entity interface{}) (bool, error) {
-	return searchOne(true, e, where, entity)
+func (e *Engine) SearchOne(where *Where, entity interface{}, references ...string) (bool, error) {
+	return searchOne(true, e, where, entity, references)
 }
 
 func (e *Engine) CachedSearchOne(entity Entity, indexName string, arguments ...interface{}) (has bool, err error) {

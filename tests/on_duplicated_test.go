@@ -48,4 +48,11 @@ func TestFlushOnDuplicated(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, uint16(1), entity.ID)
 	assert.Equal(t, 7, entity.Counter)
+
+	entity = TestEntityOnDuplicated{Name: "test"}
+	engine.SetOnDuplicateKeyUpdate(orm.NewWhere(""), &entity)
+	err = engine.TrackAndFlush(&entity)
+	assert.Nil(t, err)
+	assert.Equal(t, uint16(1), entity.ID)
+	assert.Equal(t, 7, entity.Counter)
 }

@@ -311,9 +311,17 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    //create engine
+     /* adding */
 
     entity := TestEntity{Name: "Name 1"}
+    err := engine.TrackAndFlush(&entity)
+
+    entity2 := TestEntity{Name: "Name 1"}
+    engine.SetOnDuplicateKeyUpdate(orm.NewWhere("`counter` = `counter` + 1"))
+    err := engine.TrackAndFlush(&entity)
+
+    entity2 = TestEntity{Name: "Name 1"}
+    engine.SetOnDuplicateKeyUpdate(orm.NewWhere("")) //it will chnage nothing un row
     err := engine.TrackAndFlush(&entity)
 
     /*if you need to add more than one entity*/
@@ -341,7 +349,6 @@ func main() {
     orm.DuplicatedKeyError{} //when unique index is broken
     orm.ForeignKeyError{} //when foreign key is broken
 }
-
 ```
 
 ## Transactions
