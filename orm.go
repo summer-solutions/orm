@@ -12,9 +12,15 @@ type entityAttributes struct {
 	onDuplicateKeyUpdate *Where
 	loaded               bool
 	delete               bool
-	value       reflect.Value
-	elem        reflect.Value
+	value                reflect.Value
+	elem                 reflect.Value
+	idElem               reflect.Value
 }
+
+func (a *entityAttributes) getID() uint64 {
+	return a.idElem.Uint()
+}
+
 
 type ORM struct {
 	dBData      map[string]interface{}

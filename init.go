@@ -24,7 +24,7 @@ func initIfNeeded(engine *Engine, value reflect.Value) *ORM {
 		orm.engine = engine
 		orm.tableSchema = tableSchema
 		orm.dBData = make(map[string]interface{})
-		orm.attributes = &entityAttributes{nil, false,false, value, elem}
+		orm.attributes = &entityAttributes{nil, false, false, value, elem, elem.Field(1)}
 		defaultInterface, is := value.Interface().(DefaultValuesInterface)
 		if is {
 			defaultInterface.SetDefaults()

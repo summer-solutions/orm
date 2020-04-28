@@ -75,7 +75,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		orm := entity.getORM()
 		dbData := orm.dBData
 		value := reflect.Indirect(v)
-		isDirty, bind, err := getDirtyBind(value)
+		isDirty, bind, err := getDirtyBind(value.Interface().(Entity))
 		if err != nil {
 			return err
 		}

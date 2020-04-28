@@ -133,8 +133,8 @@ func (e *Engine) IsDirty(entity Entity) bool {
 	if !e.Loaded(entity) {
 		return true
 	}
-	orm := initEntityIfNeeded(e, entity)
-	is, _, _ := getDirtyBind(orm.attributes.elem)
+	initEntityIfNeeded(e, entity)
+	is, _, _ := getDirtyBind(entity)
 	return is
 }
 
