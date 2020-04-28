@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-var nilValue = reflect.Value{}
-
 func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64, err error) {
 	originalIDs := ids
 	lenIDs := len(ids)
@@ -26,7 +24,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	var localCacheKeys []string
 	var redisCacheKeys []string
-	results := make(map[string]reflect.Value, lenIDs)
+	results := make(map[string]Entity, lenIDs)
 	keysMapping := make(map[string]uint64, lenIDs)
 	keysReversed := make(map[uint64]string, lenIDs)
 	cacheKeys := make([]string, lenIDs)
@@ -35,7 +33,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 		cacheKeys[index] = cacheKey
 		keysMapping[cacheKey] = id
 		keysReversed[id] = cacheKey
-		results[cacheKey] = nilValue
+		results[cacheKey] = nil
 	}
 
 	if hasLocalCache || hasRedis {
@@ -72,7 +70,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 		for i := 0; i < entities.Len(); i++ {
 			e := entities.Index(i)
 			id := e.Elem().Field(1).Uint()
-			results[schema.getCacheKey(id)] = e
+			results[schema.getCacheKey(id)] = e.Interface().(Entity)
 		}
 	}
 	if hasLocalCache {
@@ -84,10 +82,10 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 				pairs[i] = key
 				val := results[key]
 				var toSet interface{}
-				if val == nilValue {
+				if val == nil {
 					toSet = "nil"
 				} else {
-					toSet = buildLocalCacheValue(val.Interface().(Entity))
+					toSet = buildLocalCacheValue(val)
 				}
 				pairs[i+1] = toSet
 				i += 2
@@ -105,10 +103,10 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 				pairs[i] = key
 				val := results[key]
 				var toSet interface{}
-				if val == nilValue {
+				if val == nil {
 					toSet = "nil"
 				} else {
-					toSet = buildRedisValue(val.Interface().(Entity))
+					toSet = buildRedisValue(val)
 				}
 				pairs[i+1] = toSet
 				i += 2
@@ -127,10 +125,10 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	v := valOrigin
 	for _, id := range originalIDs {
 		val := results[keysReversed[id]]
-		if val == nilValue {
+		if val == nil {
 			missing = append(missing, id)
 		} else {
-			v = reflect.Append(v, val)
+			v = reflect.Append(v, reflect.ValueOf(val))
 		}
 	}
 	valOrigin.Set(v)
@@ -144,33 +142,33 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 }
 
 func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]interface{}, keysMapping map[string]uint64,
-	results map[string]reflect.Value, fromRedis bool) ([]string, error) {
+	results map[string]Entity, fromRedis bool) ([]string, error) {
 	keys := make([]string, 0)
 	for k, v := range rows {
 		if v == nil {
 			keys = append(keys, k)
 		} else {
 			if v == "nil" {
-				results[k] = nilValue
+				results[k] = nil
 			} else if fromRedis {
-				value := reflect.New(entityType)
+				entity := reflect.New(entityType).Interface().(Entity)
 				var decoded []string
 				err := json.Unmarshal([]byte(v.(string)), &decoded)
 				if err != nil {
 					return nil, err
 				}
-				err = fillFromDBRow(keysMapping[k], engine, decoded, value, entityType)
+				err = fillFromDBRow(keysMapping[k], engine, decoded, entity)
 				if err != nil {
 					return nil, err
 				}
-				results[k] = value
+				results[k] = entity
 			} else {
-				value := reflect.New(entityType)
-				err := fillFromDBRow(keysMapping[k], engine, v.([]string), value, entityType)
+				entity := reflect.New(entityType).Interface().(Entity)
+				err := fillFromDBRow(keysMapping[k], engine, v.([]string), entity)
 				if err != nil {
 					return nil, err
 				}
-				results[k] = value
+				results[k] = entity
 			}
 		}
 	}

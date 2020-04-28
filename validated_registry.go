@@ -48,7 +48,7 @@ type validatedRegistry struct {
 func (r *validatedRegistry) CreateEngine() *Engine {
 	e := &Engine{registry: r}
 	e.dbs = make(map[string]*DB)
-	e.trackedEntities = make([]reflect.Value, 0)
+	e.trackedEntities = make([]Entity, 0)
 	e.log = r.log
 	e.logHandler = multi.New()
 	if r.logHandler != nil {

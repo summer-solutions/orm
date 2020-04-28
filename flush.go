@@ -32,12 +32,12 @@ func (err *ForeignKeyError) Error() string {
 	return err.Message
 }
 
-func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Value) error {
+func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) error {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
 	insertBinds := make(map[reflect.Type][]map[string]interface{})
-	insertReflectValues := make(map[reflect.Type][]reflect.Value)
+	insertReflectValues := make(map[reflect.Type][]Entity)
 	deleteBinds := make(map[reflect.Type]map[uint64]map[string]interface{})
 	totalInsert := make(map[reflect.Type]int)
 	localCacheSets := make(map[string]map[string][]interface{})
@@ -47,25 +47,21 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 	logQueues := make(map[string][]*LogQueueValue)
 	lazyMap := make(map[string]interface{})
 
-	var referencesToFlash map[reflect.Value]reflect.Value
+	var referencesToFlash map[Entity]Entity
 
-	for _, v := range entities {
-		if !v.IsValid() {
-			return fmt.Errorf("unregistered struct '%s'. run engine.RegisterEntity(entity) before entity.Flush()", v.Kind().String())
-		}
-		entity, ok := v.Interface().(Entity)
-		if !ok {
-			return fmt.Errorf("invalid entity '%s'", v.Type().String())
-		}
+	for _, entity := range entities {
 		schema := entity.getORM().tableSchema
 		for _, refName := range schema.refOne {
 			refValue := entity.getORM().attributes.elem.FieldByName(refName)
-			ref := refValue.Interface().(Entity)
-			if !refValue.IsNil() && refValue.Elem().Field(1).Uint() == 0 {
-				if referencesToFlash == nil {
-					referencesToFlash = make(map[reflect.Value]reflect.Value)
+			if !refValue.IsNil() {
+				refEntity := refValue.Interface().(Entity)
+				initEntityIfNeeded(engine, refEntity)
+				if refEntity.GetID() == 0 {
+					if referencesToFlash == nil {
+						referencesToFlash = make(map[Entity]Entity)
+					}
+					referencesToFlash[refEntity] = refEntity
 				}
-				referencesToFlash[ref.getORM().attributes.value] = ref.getORM().attributes.value
 			}
 		}
 		if referencesToFlash != nil {
@@ -74,8 +70,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 
 		orm := entity.getORM()
 		dbData := orm.dBData
-		value := reflect.Indirect(v)
-		isDirty, bind, err := getDirtyBind(v.Interface().(Entity))
+		isDirty, bind, err := getDirtyBind(entity)
 		if err != nil {
 			return err
 		}
@@ -84,8 +79,8 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		}
 		bindLength := len(bind)
 
-		t := value.Type()
-		currentID := value.Field(1).Uint()
+		t := orm.tableSchema.t
+		currentID := entity.GetID()
 		if orm.attributes.delete {
 			if deleteBinds[t] == nil {
 				deleteBinds[t] = make(map[uint64]map[string]interface{})
@@ -93,7 +88,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			deleteBinds[t][currentID] = dbData
 		} else if len(dbData) == 0 {
 			if currentID > 0 {
-				return fmt.Errorf("unloaded entity %s with ID %d", value.Type().String(), currentID)
+				return fmt.Errorf("unloaded entity %s with ID %d", t.String(), currentID)
 			}
 			onUpdate := entity.getORM().attributes.onDuplicateKeyUpdate
 			if onUpdate != nil {
@@ -136,7 +131,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 						}
 					}
 					if affected > 0 {
-						injectBind(entity.getORM().attributes.value, bind)
+						injectBind(entity, bind)
 						entity.getORM().attributes.elem.Field(1).SetUint(uint64(lastID))
 						updateCacheForInserted(entity, lazy, uint64(lastID), bind, localCacheSets, localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 						if affected == 2 {
@@ -199,12 +194,12 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			_, has := insertArguments[t]
 			if !has {
 				insertArguments[t] = make([]interface{}, 0)
-				insertReflectValues[t] = make([]reflect.Value, 0)
+				insertReflectValues[t] = make([]Entity, 0)
 				insertBinds[t] = make([]map[string]interface{}, 0)
 				insertValues[t] = fmt.Sprintf("(%s)", strings.Join(valuesKeys, ","))
 			}
 			insertArguments[t] = append(insertArguments[t], values...)
-			insertReflectValues[t] = append(insertReflectValues[t], v)
+			insertReflectValues[t] = append(insertReflectValues[t], entity)
 			insertBinds[t] = append(insertBinds[t], bind)
 			totalInsert[t]++
 		} else {
@@ -230,7 +225,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 				if err != nil {
 					return convertToError(err)
 				}
-				afterSaved, is := v.Interface().(AfterSavedInterface)
+				afterSaved, is := entity.(AfterSavedInterface)
 				if is {
 					err := afterSaved.AfterSaved(engine)
 					if err != nil {
@@ -242,7 +237,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			for k, v := range dbData {
 				old[k] = v
 			}
-			data := injectBind(v, bind)
+			data := injectBind(entity, bind)
 			localCache, hasLocalCache := schema.GetLocalCache(engine)
 			redisCache, hasRedis := schema.GetRedisCache(engine)
 			if hasLocalCache {
@@ -268,7 +263,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		if lazy {
 			return fmt.Errorf("lazy flush not supported for unsaved regerences")
 		}
-		toFlush := make([]reflect.Value, len(referencesToFlash))
+		toFlush := make([]Entity, len(referencesToFlash))
 		i := 0
 		for _, v := range referencesToFlash {
 			toFlush[i] = v
@@ -278,14 +273,14 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 		if err != nil {
 			return err
 		}
-		rest := make([]reflect.Value, 0)
+		rest := make([]Entity, 0)
 		for _, v := range entities {
 			_, has := referencesToFlash[v]
 			if !has {
 				rest = append(rest, v)
 			}
 		}
-		err = flush(engine, transaction, false, rest...)
+		err = flush(engine, transaction, transaction, rest...)
 		if err != nil {
 			return err
 		}
@@ -317,12 +312,10 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 			}
 			id = uint64(insertID)
 		}
-		for key, value := range insertReflectValues[typeOf] {
-			elem := value.Elem()
-			entity := value.Interface().(Entity)
+		for key, entity := range insertReflectValues[typeOf] {
 			bind := insertBinds[typeOf][key]
-			injectBind(value, bind)
-			elem.Field(1).SetUint(id)
+			injectBind(entity, bind)
+			entity.getORM().attributes.idElem.SetUint(id)
 			updateCacheForInserted(entity, lazy, id, bind, localCacheSets, localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 			id++
 			afterSaveInterface, is := entity.(AfterSavedInterface)
@@ -373,10 +366,10 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...reflect.Valu
 								if total == 0 {
 									break
 								}
-								toDeleteAll := make([]reflect.Value, total)
+								toDeleteAll := make([]Entity, total)
 								for i := 0; i < total; i++ {
-									toDeleteValue := subElem.Index(i)
-									engine.MarkToDelete(toDeleteValue.Interface().(Entity))
+									toDeleteValue := subElem.Index(i).Interface().(Entity)
+									engine.MarkToDelete(toDeleteValue)
 									toDeleteAll[i] = toDeleteValue
 								}
 								err = flush(engine, transaction, lazy, toDeleteAll...)
@@ -546,8 +539,8 @@ func serializeForLazyQueue(lazyMap map[string]interface{}) (string, error) {
 	return string(encoded), nil
 }
 
-func injectBind(value reflect.Value, bind map[string]interface{}) map[string]interface{} {
-	orm := value.Interface().(Entity).getORM()
+func injectBind(entity Entity, bind map[string]interface{}) map[string]interface{} {
+	orm := entity.getORM()
 	for key, value := range bind {
 		orm.dBData[key] = value
 	}

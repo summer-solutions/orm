@@ -3,32 +3,11 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 )
 
 func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, references ...string) (found bool, err error) {
-	val := reflect.ValueOf(entity)
-	if val.Kind() != reflect.Ptr {
-		panic(fmt.Errorf("entity '%s' is not a poninter", val.Type().String()))
-	}
-	elem := val.Elem()
-	if !elem.IsValid() {
-		panic(fmt.Errorf("entity '%s' is not a addressable", val.Type().String()))
-	}
-	entityType := elem.Type()
-	for {
-		if entityType.Kind() == reflect.Ptr {
-			entityType = entityType.Elem()
-			val = val.Elem()
-			elem = val.Elem()
-		} else {
-			break
-		}
-	}
-	schema := getTableSchema(engine.registry, entityType)
-	if schema == nil {
-		return false, EntityNotRegisteredError{Name: entityType.String()}
-	}
+	orm := initEntityIfNeeded(engine, entity)
+	schema := orm.tableSchema
 	var cacheKey string
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 
@@ -39,12 +18,12 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			if e == "nil" {
 				return false, nil
 			}
-			err = fillFromDBRow(id, engine, e.([]string), val, entityType)
+			err = fillFromDBRow(id, engine, e.([]string), entity)
 			if err != nil {
 				return false, err
 			}
 			if len(references) > 0 {
-				err = warmUpReferences(engine, schema, elem, references, false)
+				err = warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 			}
 			return true, err
 		}
@@ -65,17 +44,17 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			if err != nil {
 				return true, err
 			}
-			err = fillFromDBRow(id, engine, decoded, val, entityType)
+			err = fillFromDBRow(id, engine, decoded, entity)
 			if err != nil {
 				return false, err
 			}
 			if len(references) > 0 {
-				err = warmUpReferences(engine, schema, elem, references, false)
+				err = warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 			}
 			return true, err
 		}
 	}
-	found, err = searchRow(false, engine, NewWhere("`ID` = ?", id), val, nil)
+	found, err = searchRow(false, engine, NewWhere("`ID` = ?", id), entity, nil)
 	if err != nil {
 		return false, err
 	}
@@ -101,7 +80,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 		}
 	}
 	if len(references) > 0 {
-		err = warmUpReferences(engine, schema, elem, references, false)
+		err = warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 		if err != nil {
 			return true, err
 		}

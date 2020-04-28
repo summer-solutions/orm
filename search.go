@@ -13,14 +13,10 @@ func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager
 	return searchIDs(skipFakeDelete, engine, where, pager, true, entityType)
 }
 
-func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.Value, references []string) (bool, error) {
-	elem := value.Elem()
-	entityType := elem.Type()
-	schema := getTableSchema(engine.registry, entityType)
-	if schema == nil {
-		return false, EntityNotRegisteredError{Name: entityType.String()}
-	}
-	fieldsList, err := buildFieldList(engine.registry, schema, entityType, "")
+func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) (bool, error) {
+	orm := initEntityIfNeeded(engine, entity)
+	schema := orm.tableSchema
+	fieldsList, err := buildFieldList(engine.registry, schema, schema.t, "")
 	if err != nil {
 		return false, err
 	}
@@ -65,12 +61,12 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.
 		return false, err
 	}
 	id, _ := strconv.ParseUint(values[0], 10, 64)
-	err = fillFromDBRow(id, engine, values[1:], value, entityType)
+	err = fillFromDBRow(id, engine, values[1:], entity)
 	if err != nil {
 		return false, err
 	}
 	if len(references) > 0 {
-		err = warmUpReferences(engine, schema, elem, references, false)
+		err = warmUpReferences(engine, schema, entity.getORM().attributes.elem, references, false)
 		if err != nil {
 			return false, err
 		}
@@ -128,7 +124,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		}
 		value := reflect.New(entityType)
 		id, _ := strconv.ParseUint(values[0], 10, 64)
-		err = fillFromDBRow(id, engine, values[1:], value, entityType)
+		err = fillFromDBRow(id, engine, values[1:], value.Interface().(Entity))
 		if err != nil {
 			return 0, err
 		}
@@ -154,9 +150,8 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	return totalRows, nil
 }
 
-func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity interface{}, references []string) (bool, error) {
-	value := reflect.ValueOf(entity)
-	has, err := searchRow(skipFakeDelete, engine, where, value, references)
+func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) (bool, error) {
+	has, err := searchRow(skipFakeDelete, engine, where, entity, references)
 	if err != nil {
 		return false, err
 	}
@@ -223,11 +218,11 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 	return totalRows, nil
 }
 
-func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
-	orm := initIfNeeded(engine, value)
-	elem := value.Elem()
+func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) error {
+	orm := initIfNeeded(engine, entity)
+	elem := orm.attributes.elem
 	elem.Field(1).SetUint(id)
-	_, err := fillStruct(engine, orm.tableSchema, 0, data, entityType, elem, "")
+	_, err := fillStruct(engine, orm.tableSchema, 0, data, orm.tableSchema.t, elem, "")
 	if err != nil {
 		return err
 	}
@@ -370,7 +365,7 @@ func fillStruct(engine *Engine, schema *tableSchema, index uint16, data []string
 				integer, _ := strconv.ParseUint(data[index], 10, 64)
 				if integer > 0 {
 					n := reflect.New(field.Type().Elem())
-					initIfNeeded(engine, n)
+					initIfNeeded(engine, n.Interface().(Entity))
 					n.Elem().Field(1).SetUint(integer)
 					field.Set(n)
 				} else {

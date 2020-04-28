@@ -18,7 +18,7 @@ type Engine struct {
 	redis                        map[string]*RedisCache
 	locks                        map[string]*Locker
 	logMetaData                  map[string]interface{}
-	trackedEntities              []reflect.Value
+	trackedEntities              []Entity
 	trackedEntitiesCounter       int
 	log                          *log.Entry
 	logHandler                   *multi.Handler
@@ -57,10 +57,9 @@ func (e *Engine) SetLogMetaData(key string, value interface{}) {
 }
 
 func (e *Engine) Track(entity ...Entity) {
-	for _, element := range entity {
-		value := e.getValue(element)
-		initIfNeeded(e, value)
-		e.trackedEntities = append(e.trackedEntities, value)
+	for _, entity := range entity {
+		initIfNeeded(e, entity)
+		e.trackedEntities = append(e.trackedEntities, entity)
 		e.trackedEntitiesCounter++
 		if e.trackedEntitiesCounter == 100000 {
 			panic(fmt.Errorf("track limit 100000 excedded"))
@@ -94,7 +93,7 @@ func (e *Engine) FlushInTransactionWithLock(lockerPool string, lockName string, 
 }
 
 func (e *Engine) ClearTrackedEntities() {
-	e.trackedEntities = make([]reflect.Value, 0)
+	e.trackedEntities = make([]Entity, 0)
 }
 
 func (e *Engine) SetOnDuplicateKeyUpdate(update *Where, entity ...Entity) {
@@ -208,7 +207,7 @@ func (e *Engine) SearchIDs(where *Where, pager *Pager, entity interface{}) ([]ui
 	return results, err
 }
 
-func (e *Engine) SearchOne(where *Where, entity interface{}, references ...string) (bool, error) {
+func (e *Engine) SearchOne(where *Where, entity Entity, references ...string) (bool, error) {
 	return searchOne(true, e, where, entity, references)
 }
 
@@ -233,7 +232,7 @@ func (e *Engine) ClearByIDs(entity Entity, ids ...uint64) error {
 	return clearByIDs(e, entity, ids...)
 }
 
-func (e *Engine) FlushInCache(entities ...interface{}) error {
+func (e *Engine) FlushInCache(entities ...Entity) error {
 	return flushInCache(e, entities...)
 }
 
@@ -270,15 +269,6 @@ func (e *Engine) getRedisForQueue(code string) *RedisCache {
 	return e.GetRedis(code + "_queue")
 }
 
-func (e *Engine) getValue(entity Entity) reflect.Value {
-	value := reflect.ValueOf(entity)
-	if value.Kind() != reflect.Ptr {
-		panic(fmt.Errorf("registered entity '%s' is not a poninter", value.Type().String()))
-	}
-	initIfNeeded(e, value)
-	return value
-}
-
 func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 	if e.trackedEntitiesCounter == 0 {
 		return nil
@@ -287,7 +277,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 	if transaction {
 		dbPools = make(map[string]*DB)
 		for _, entity := range e.trackedEntities {
-			db := entity.Interface().(Entity).getORM().tableSchema.GetMysql(e)
+			db := entity.getORM().tableSchema.GetMysql(e)
 			dbPools[db.code] = db
 		}
 		for _, db := range dbPools {
@@ -315,7 +305,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 			}
 		}
 	}
-	e.trackedEntities = make([]reflect.Value, 0)
+	e.trackedEntities = make([]Entity, 0)
 	e.trackedEntitiesCounter = 0
 	return nil
 }

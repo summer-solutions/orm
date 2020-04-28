@@ -5,15 +5,15 @@ import (
 	"reflect"
 )
 
-func flushInCache(engine *Engine, entities ...interface{}) error {
-	invalidEntities := make([]reflect.Value, 0)
+func flushInCache(engine *Engine, entities ...Entity) error {
+	invalidEntities := make([]Entity, 0)
 	validEntities := make([]interface{}, 0)
 	redisValues := make(map[string][]interface{})
 
 	for _, entity := range entities {
 		value := reflect.ValueOf(entity)
 		elem := value.Elem()
-		orm := initIfNeeded(engine, value)
+		orm := initIfNeeded(engine, entity)
 		orm.attributes.value = value
 		orm.attributes.elem = elem
 		t := elem.Type()
@@ -23,7 +23,7 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 		schema := orm.tableSchema
 		cache, hasRedis := schema.GetRedisCache(engine)
 		if !hasRedis || id == 0 {
-			invalidEntities = append(invalidEntities, value)
+			invalidEntities = append(invalidEntities, entity)
 		} else {
 			isDirty, bind, err := getDirtyBind(entity.(Entity))
 			if err != nil {
@@ -36,7 +36,7 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 			for k, v := range orm.dBData {
 				old[k] = v
 			}
-			injectBind(value, bind)
+			injectBind(entity, bind)
 			entityCacheKey := schema.getCacheKey(id)
 			entityCacheValue := buildRedisValue(entity.(Entity))
 			if redisValues[cache.code] == nil {

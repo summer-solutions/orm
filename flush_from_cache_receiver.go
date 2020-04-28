@@ -44,32 +44,28 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 		return true, nil
 	}
 	entityValue := reflect.New(schema.t)
-	entityElem := entityValue.Elem()
+	entity := entityValue.Interface().(Entity)
 
 	var decoded []string
 	_ = json.Unmarshal([]byte(inCache), &decoded)
 
-	err = fillFromDBRow(id, r.engine, decoded, entityValue, schema.t)
+	err = fillFromDBRow(id, r.engine, decoded, entity)
 	if err != nil {
 		return true, err
 	}
-	entityDBValue := reflect.New(schema.t)
+	entityDBValue := reflect.New(schema.t).Interface().(Entity)
 	found, err := searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue, nil)
 	if err != nil || !found {
 		return true, err
 	}
-	ormFieldCache := entityElem.Field(0).Addr().Interface().(*ORM)
-	ormFieldCache.attributes.value = entityValue
-	ormFieldCache.attributes.elem = entityElem
-	ormFieldDB := initIfNeeded(r.engine, entityDBValue)
-	newData := make(map[string]interface{}, len(ormFieldCache.dBData))
-	for k, v := range ormFieldCache.dBData {
+	newData := make(map[string]interface{}, len(entity.getORM().dBData))
+	for k, v := range entity.getORM().dBData {
 		newData[k] = v
 	}
-	for k, v := range ormFieldDB.dBData {
-		ormFieldCache.dBData[k] = v
+	for k, v := range entityDBValue.getORM().dBData {
+		entity.getORM().dBData[k] = v
 	}
-	is, bind, err := getDirtyBind(entityValue.Interface().(Entity))
+	is, bind, err := getDirtyBind(entity)
 	if err != nil || !is {
 		return true, err
 	}
@@ -92,7 +88,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	if err != nil {
 		return true, err
 	}
-	cacheKeys := getCacheQueriesKeys(schema, bind, ormFieldCache.dBData, false)
+	cacheKeys := getCacheQueriesKeys(schema, bind, entity.getORM().dBData, false)
 
 	keys := getCacheQueriesKeys(schema, bind, newData, false)
 	cacheKeys = append(cacheKeys, keys...)
