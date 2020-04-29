@@ -203,7 +203,7 @@ func (e *Engine) SearchIDsWithCount(where *Where, pager *Pager, entity interface
 }
 
 func (e *Engine) SearchIDs(where *Where, pager *Pager, entity Entity) ([]uint64, error) {
-	results, _, err := searchIDs(true, e, where, pager, false, reflect.TypeOf(entity))
+	results, _, err := searchIDs(true, e, where, pager, false, reflect.TypeOf(entity).Elem())
 	return results, err
 }
 
