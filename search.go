@@ -61,6 +61,7 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	if err != nil {
 		return false, err
 	}
+	def()
 	id, _ := strconv.ParseUint(values[0], 10, 64)
 	err = fillFromDBRow(id, engine, values[1:], entity)
 	if err != nil {
@@ -136,7 +137,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	if err != nil {
 		return 0, err
 	}
-
+	def()
 	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, i)
 	if err != nil {
 		return 0, err
@@ -191,6 +192,7 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 	if err != nil {
 		return nil, 0, err
 	}
+	def()
 	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, len(result))
 	if err != nil {
 		return nil, 0, err

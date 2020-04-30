@@ -289,6 +289,7 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 	if err != nil {
 		return false, nil, err
 	}
+	def()
 	var indexesDB = make(map[string]*index)
 	for _, value := range rows {
 		current, has := indexesDB[value.KeyName]
@@ -555,6 +556,7 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 	if err != nil {
 		return nil, err
 	}
+	def()
 	var foreignKeysDB = make(map[string]*foreignIndex)
 	for _, value := range rows2 {
 		foreignKey := &foreignIndex{ParentDatabase: value.ReferencedTableSchema, Table: value.ReferencedTableName,
