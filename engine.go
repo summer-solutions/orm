@@ -11,6 +11,15 @@ import (
 	"github.com/apex/log/handlers/text"
 )
 
+var panicF func(err error)
+
+func panicAndStop(err error) {
+	if panicF == nil {
+		panic(err)
+	}
+	panicF(err)
+}
+
 type Engine struct {
 	registry                     *validatedRegistry
 	dbs                          map[string]*DB
@@ -24,7 +33,6 @@ type Engine struct {
 	logHandler                   *multi.Handler
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
-	panicF                       func(err error)
 }
 
 func (e *Engine) AddLogger(handler log.Handler) {
@@ -34,6 +42,7 @@ func (e *Engine) AddLogger(handler log.Handler) {
 func (e *Engine) SetLogLevel(level log.Level) {
 	logger := log.Logger{Handler: e.logHandler, Level: level}
 	e.log = logger.WithField("source", "orm")
+	e.log.Level = level
 	for _, db := range e.dbs {
 		db.log = e.log
 	}
@@ -66,7 +75,7 @@ func (e *Engine) Track(entity ...Entity) {
 		e.trackedEntities = append(e.trackedEntities, entity)
 		e.trackedEntitiesCounter++
 		if e.trackedEntitiesCounter == 10000 {
-			e.panic(fmt.Errorf("track limit 10000 exceeded"))
+			panicAndStop(fmt.Errorf("track limit 10000 exceeded"))
 		}
 	}
 }
@@ -152,7 +161,7 @@ func (e *Engine) GetMysql(code ...string) *DB {
 	}
 	db, has := e.dbs[dbCode]
 	if !has {
-		e.panic(fmt.Errorf("unregistered mysql pool '%s'", dbCode))
+		panicAndStop(fmt.Errorf("unregistered mysql pool '%s'", dbCode))
 	}
 	return db
 }
@@ -164,7 +173,7 @@ func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 	}
 	cache, has := e.localCache[dbCode]
 	if !has {
-		e.panic(fmt.Errorf("unregistered local cache pool '%s'", dbCode))
+		panicAndStop(fmt.Errorf("unregistered local cache pool '%s'", dbCode))
 	}
 	return cache
 }
@@ -176,7 +185,7 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	}
 	cache, has := e.redis[dbCode]
 	if !has {
-		e.panic(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
+		panicAndStop(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
 	}
 	return cache
 }
@@ -188,7 +197,7 @@ func (e *Engine) GetLocker(code ...string) *Locker {
 	}
 	locker, has := e.locks[dbCode]
 	if !has {
-		e.panic(fmt.Errorf("unregistered locker pool '%s'", dbCode))
+		panicAndStop(fmt.Errorf("unregistered locker pool '%s'", dbCode))
 	}
 	return locker
 }
@@ -325,11 +334,4 @@ func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName str
 	}
 	defer lock.Release()
 	return e.flushTrackedEntities(false, transaction)
-}
-
-func (e *Engine) panic(err error) {
-	if e.panicF == nil {
-		panic(err)
-	}
-	e.panicF(err)
 }

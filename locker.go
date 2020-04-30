@@ -26,6 +26,7 @@ func (l *Locker) AddLogger(handler log.Handler) {
 func (l *Locker) SetLogLevel(level log.Level) {
 	logger := log.Logger{Handler: l.logHandler, Level: level}
 	l.log = logger.WithField("source", "orm")
+	l.log.Level = level
 }
 
 func (l *Locker) EnableDebug() {

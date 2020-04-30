@@ -28,6 +28,9 @@ type ValidatedRegistry interface {
 	GetDirtyQueueCodes() []string
 	GetLogQueueCodes() []string
 	GetLazyQueueCodes() []string
+	AddLogger(handler log.Handler)
+	SetLogLevel(level log.Level)
+	EnableDebug()
 }
 
 type validatedRegistry struct {
@@ -105,6 +108,7 @@ func (r *validatedRegistry) AddLogger(handler log.Handler) {
 func (r *validatedRegistry) SetLogLevel(level log.Level) {
 	logger := log.Logger{Handler: r.logHandler, Level: level}
 	r.log = logger.WithField("source", "orm")
+	r.log.Level = level
 }
 
 func (r *validatedRegistry) EnableDebug() {
@@ -127,7 +131,7 @@ func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) TableSchema {
 	}
 	tableSchema := getTableSchema(r, t)
 	if tableSchema == nil {
-		panic(EntityNotRegisteredError{Name: t.String()})
+		panicAndStop(EntityNotRegisteredError{Name: t.String()})
 	}
 	return tableSchema
 }

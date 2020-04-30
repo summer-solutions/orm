@@ -176,6 +176,7 @@ func (c *LocalCache) AddLogger(handler log.Handler) {
 func (c *LocalCache) SetLogLevel(level log.Level) {
 	logger := log.Logger{Handler: c.logHandler, Level: level}
 	c.log = logger.WithField("source", "orm")
+	c.log.Level = level
 }
 
 func (c *LocalCache) EnableDebug() {

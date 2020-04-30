@@ -25,7 +25,7 @@ func TestEngine(t *testing.T) {
 	assert.Equal(t, log.DebugLevel, engine.log.Level)
 	engine.log = nil
 
-	engine.panicF = func(err error) {
+	panicF = func(err error) {
 		assert.EqualError(t, err, "track limit 10000 exceeded")
 	}
 	for i := 0; i < 10001; i++ {
@@ -34,19 +34,19 @@ func TestEngine(t *testing.T) {
 	engine.ClearTrackedEntities()
 	assert.Len(t, engine.trackedEntities, 0)
 
-	engine.panicF = func(err error) {
+	panicF = func(err error) {
 		assert.EqualError(t, err, "unregistered mysql pool 'test'")
 	}
 	engine.GetMysql("test")
-	engine.panicF = func(err error) {
+	panicF = func(err error) {
 		assert.EqualError(t, err, "unregistered local cache pool 'test'")
 	}
 	engine.GetLocalCache("test")
-	engine.panicF = func(err error) {
+	panicF = func(err error) {
 		assert.EqualError(t, err, "unregistered redis cache pool 'test'")
 	}
 	engine.GetRedis("test")
-	engine.panicF = func(err error) {
+	panicF = func(err error) {
 		assert.EqualError(t, err, "unregistered locker pool 'test'")
 	}
 	engine.GetLocker("test")

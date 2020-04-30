@@ -24,6 +24,9 @@ func TestLog(t *testing.T) {
 	assert.Nil(t, err)
 	receiver := NewLogReceiver(engine, &RedisQueueSenderReceiver{PoolName: "default_log"})
 
+	codes := engine.GetRegistry().GetLogQueueCodes()
+	assert.Equal(t, []string{"log"}, codes)
+
 	engine.Track(entity)
 	entity.Name = "Hello"
 	err = engine.Flush()

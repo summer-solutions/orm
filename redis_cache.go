@@ -29,6 +29,7 @@ func (r *RedisCache) AddLogger(handler log.Handler) {
 func (r *RedisCache) SetLogLevel(level log.Level) {
 	logger := log.Logger{Handler: r.logHandler, Level: level}
 	r.log = logger.WithField("source", "orm")
+	r.log.Level = level
 }
 
 func (r *RedisCache) EnableDebug() {

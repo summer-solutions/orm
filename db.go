@@ -109,6 +109,7 @@ func (db *DB) AddLogger(handler log.Handler) {
 func (db *DB) SetLogLevel(level log.Level) {
 	logger := log.Logger{Handler: db.logHandler, Level: level}
 	db.log = logger.WithField("source", "orm")
+	db.log.Level = level
 }
 
 func (db *DB) EnableDebug() {
