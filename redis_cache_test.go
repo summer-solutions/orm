@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRedisEnableDEbug(t *testing.T) {
+func TestRedisEnableDebug(t *testing.T) {
 	r := prepareRedis(t)
 	r.EnableDebug()
 	assert.NotNil(t, r.log)

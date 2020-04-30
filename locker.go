@@ -71,12 +71,9 @@ func (l *Lock) Release() {
 		return
 	}
 	start := time.Now()
-	err := l.lock.Release()
+	_ = l.lock.Release()
 	if l.locker.log != nil {
 		l.locker.fillLogFields(start, l.key, "release").Info("[ORM][LOCKER][RELEASE]")
-	}
-	if err != nil {
-		panic(err)
 	}
 	l.has = false
 }

@@ -4,10 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLock(t *testing.T) {
+func TestLocker(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRedis("localhost:6379", 5)
 	registry.RegisterLocker("default", "default")
@@ -15,6 +18,11 @@ func TestLock(t *testing.T) {
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
 	locker := engine.GetLocker()
+
+	testLogger := memory.New()
+	locker.AddLogger(testLogger)
+	locker.SetLogLevel(log.InfoLevel)
+	assert.Equal(t, log.InfoLevel, locker.log.Level)
 
 	lock, has, err := locker.Obtain("test", 10*time.Second, 0*time.Second)
 	assert.Nil(t, err)
@@ -36,4 +44,7 @@ func TestLock(t *testing.T) {
 	assert.False(t, has)
 	assert.NotNil(t, err)
 	assert.EqualError(t, err, "ttl must be greater than zero")
+
+	locker.EnableDebug()
+	locker.SetLogLevel(log.DebugLevel)
 }
