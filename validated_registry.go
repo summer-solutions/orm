@@ -87,8 +87,12 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 	e.locks = make(map[string]*Locker)
 	if e.registry.lockServers != nil {
 		for key, val := range e.registry.lockServers {
+			logHandler := multi.New()
+			if r.logHandler != nil {
+				logHandler.Handlers = r.logHandler.Handlers
+			}
 			locker := redislock.New(e.registry.redisServers[val].client)
-			e.locks[key] = &Locker{locker: locker}
+			e.locks[key] = &Locker{locker: locker, code: val, log: r.log, logHandler: logHandler}
 		}
 	}
 	return e

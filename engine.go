@@ -24,6 +24,7 @@ type Engine struct {
 	logHandler                   *multi.Handler
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
+	panicF                       func(err error)
 }
 
 func (e *Engine) AddLogger(handler log.Handler) {
@@ -40,6 +41,9 @@ func (e *Engine) SetLogLevel(level log.Level) {
 		r.log = e.log
 	}
 	for _, l := range e.localCache {
+		l.log = e.log
+	}
+	for _, l := range e.locks {
 		l.log = e.log
 	}
 }
@@ -62,7 +66,7 @@ func (e *Engine) Track(entity ...Entity) {
 		e.trackedEntities = append(e.trackedEntities, entity)
 		e.trackedEntitiesCounter++
 		if e.trackedEntitiesCounter == 10000 {
-			panic(fmt.Errorf("track limit 10000 excedded"))
+			e.panic(fmt.Errorf("track limit 10000 exceeded"))
 		}
 	}
 }
@@ -148,7 +152,7 @@ func (e *Engine) GetMysql(code ...string) *DB {
 	}
 	db, has := e.dbs[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered mysql pool '%s'", dbCode))
+		e.panic(fmt.Errorf("unregistered mysql pool '%s'", dbCode))
 	}
 	return db
 }
@@ -160,7 +164,7 @@ func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 	}
 	cache, has := e.localCache[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered local cache pool '%s'", dbCode))
+		e.panic(fmt.Errorf("unregistered local cache pool '%s'", dbCode))
 	}
 	return cache
 }
@@ -172,7 +176,7 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	}
 	cache, has := e.redis[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
+		e.panic(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
 	}
 	return cache
 }
@@ -184,7 +188,7 @@ func (e *Engine) GetLocker(code ...string) *Locker {
 	}
 	locker, has := e.locks[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered locker pool '%s'", dbCode))
+		e.panic(fmt.Errorf("unregistered locker pool '%s'", dbCode))
 	}
 	return locker
 }
@@ -321,4 +325,11 @@ func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName str
 	}
 	defer lock.Release()
 	return e.flushTrackedEntities(false, transaction)
+}
+
+func (e *Engine) panic(err error) {
+	if e.panicF == nil {
+		panic(err)
+	}
+	e.panicF(err)
 }

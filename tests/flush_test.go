@@ -68,6 +68,7 @@ type TestEntityFlushTransactionRedis struct {
 func TestFlush(t *testing.T) {
 	registry := &orm.Registry{}
 	registry.RegisterEnum("tests.Color", Color)
+	registry.RegisterLocker("default", "default")
 	var entity TestEntityFlush
 	engine := PrepareTables(t, registry, entity)
 
@@ -156,11 +157,27 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, "Name 2.2", edited3.Name)
 	assert.False(t, hasDeleted)
 	assert.Equal(t, "Name 11", new11.Name)
+
+	logger := memory.New()
+	engine.AddLogger(logger)
+	engine.SetLogLevel(log.InfoLevel)
+	for i := 100; i <= 110; i++ {
+		e := TestEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: Color.Red}
+		engine.Track(&e)
+	}
+	logger.Entries = make([]*log.Entry, 0)
+	err = engine.FlushWithLock("default", "test", time.Second, time.Second)
+	assert.Nil(t, err)
+	assert.Len(t, logger.Entries, 3)
+	assert.Equal(t, "[ORM][LOCKER][OBTAIN]", logger.Entries[0].Message)
+	assert.Equal(t, "[ORM][MYSQL][EXEC]", logger.Entries[1].Message)
+	assert.Equal(t, "[ORM][LOCKER][RELEASE]", logger.Entries[2].Message)
 }
 
 func TestFlushInTransaction(t *testing.T) {
 	registry := &orm.Registry{}
 	registry.RegisterEnum("tests.Color", Color)
+	registry.RegisterLocker("default", "default")
 	var entity TestEntityFlushTransactionLocal
 	var entity2 TestEntityFlushTransactionRedis
 	engine := PrepareTables(t, registry, entity, entity2)
@@ -185,6 +202,17 @@ func TestFlushInTransaction(t *testing.T) {
 	assert.Equal(t, "[ORM][MYSQL][COMMIT]", logger.Entries[3].Message)
 	assert.Equal(t, "[ORM][LOCAL][MSET]", logger.Entries[4].Message)
 	assert.Equal(t, "[ORM][REDIS][DEL]", logger.Entries[5].Message)
+
+	for i := 100; i <= 110; i++ {
+		e := TestEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}
+		engine.Track(&e)
+	}
+	logger.Entries = make([]*log.Entry, 0)
+	err = engine.FlushInTransactionWithLock("default", "test", time.Second, time.Second)
+	assert.Nil(t, err)
+	assert.Len(t, logger.Entries, 6)
+	assert.Equal(t, "[ORM][LOCKER][OBTAIN]", logger.Entries[0].Message)
+	assert.Equal(t, "[ORM][LOCKER][RELEASE]", logger.Entries[5].Message)
 }
 
 func TestFlushErrors(t *testing.T) {
