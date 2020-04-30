@@ -1,8 +1,9 @@
 package orm
 
 import (
-	"encoding/json"
 	"fmt"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, references ...string) (found bool, err error) {
@@ -40,7 +41,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 				return false, nil
 			}
 			var decoded []string
-			err = json.Unmarshal([]byte(row), &decoded)
+			err = jsoniter.ConfigFastest.Unmarshal([]byte(row), &decoded)
 			if err != nil {
 				return true, err
 			}
@@ -89,7 +90,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 }
 
 func buildRedisValue(entity Entity) string {
-	encoded, _ := json.Marshal(buildLocalCacheValue(entity))
+	encoded, _ := jsoniter.ConfigFastest.Marshal(buildLocalCacheValue(entity))
 	return string(encoded)
 }
 

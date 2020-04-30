@@ -1,13 +1,14 @@
 package orm
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/juju/errors"
 
@@ -517,7 +518,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		members := make([]string, len(v))
 		for i, val := range v {
 			val.Meta = engine.logMetaData
-			asJSON, err := json.Marshal(val)
+			asJSON, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(val)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -532,7 +533,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 }
 
 func serializeForLazyQueue(lazyMap map[string]interface{}) (string, error) {
-	encoded, err := json.Marshal(lazyMap)
+	encoded, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(lazyMap)
 	if err != nil {
 		return "", err
 	}
@@ -725,7 +726,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			value := field.Interface()
 			var valString string
 			if value != nil && value != "" {
-				encoded, err := json.Marshal(value)
+				encoded, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value)
 				if err != nil {
 					return nil, fmt.Errorf("invalid json to encode: %v", value)
 				}

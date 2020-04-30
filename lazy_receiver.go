@@ -1,8 +1,9 @@
 package orm
 
 import (
-	"encoding/json"
 	"fmt"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 const lazyQueueName = "_lazy_queue"
@@ -29,7 +30,7 @@ func (r *LazyReceiver) Digest() (has bool, err error) {
 		return false, nil
 	}
 	var data interface{}
-	err = json.Unmarshal([]byte(asJSON), &data)
+	err = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(asJSON), &data)
 	if err != nil {
 		return true, err
 	}

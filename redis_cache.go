@@ -1,13 +1,13 @@
 package orm
 
 import (
-	"encoding/json"
 	"os"
 	"time"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
 	"github.com/apex/log/handlers/text"
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/go-redis/redis/v7"
 )
@@ -43,14 +43,14 @@ func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 	}
 	if !has {
 		userVal := provider()
-		encoded, err := json.Marshal(userVal)
+		encoded, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(userVal)
 		if err != nil {
 			return nil, err
 		}
 		return userVal, r.Set(key, string(encoded), ttlSeconds)
 	}
 	var data interface{}
-	err = json.Unmarshal([]byte(val), &data)
+	err = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(val), &data)
 	if err != nil {
 		return nil, err
 	}

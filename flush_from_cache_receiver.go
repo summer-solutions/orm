@@ -1,11 +1,12 @@
 package orm
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 type FlushFromCacheReceiver struct {
@@ -47,7 +48,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	entity := entityValue.Interface().(Entity)
 
 	var decoded []string
-	_ = json.Unmarshal([]byte(inCache), &decoded)
+	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(inCache), &decoded)
 
 	err = fillFromDBRow(id, r.engine, decoded, entity)
 	if err != nil {

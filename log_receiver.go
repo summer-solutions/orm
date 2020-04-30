@@ -1,8 +1,9 @@
 package orm
 
 import (
-	"encoding/json"
 	"fmt"
+
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/juju/errors"
 )
@@ -31,7 +32,7 @@ func (r *LogReceiver) Digest() (has bool, err error) {
 		return false, nil
 	}
 	var value LogQueueValue
-	err = json.Unmarshal([]byte(asJSON), &value)
+	err = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(asJSON), &value)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -41,10 +42,10 @@ func (r *LogReceiver) Digest() (has bool, err error) {
 	query := fmt.Sprintf("INSERT INTO `%s`(`entity_id`, `added_at`, `meta`, `data`) VALUES(?, ?, ?, ?)", value.TableName)
 	var meta, data interface{}
 	if value.Meta != nil {
-		meta, _ = json.Marshal(value.Meta)
+		meta, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value.Meta)
 	}
 	if value.Data != nil {
-		data, _ = json.Marshal(value.Data)
+		data, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value.Data)
 	}
 	_, err = poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, data)
 	if err != nil {
