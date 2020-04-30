@@ -163,6 +163,7 @@ func TestFlush(t *testing.T) {
 	engine.SetLogLevel(log.InfoLevel)
 	for i := 100; i <= 110; i++ {
 		e := TestEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: Color.Red}
+		assert.Equal(t, uint64(0), e.GetID())
 		engine.Track(&e)
 	}
 	logger.Entries = make([]*log.Entry, 0)
