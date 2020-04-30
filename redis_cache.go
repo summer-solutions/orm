@@ -198,7 +198,7 @@ func (r *RedisCache) Ltrim(key string, start, stop int64) error {
 		return err
 	}
 	if r.log != nil {
-		r.fillLogFields(s, "ptrim", -1).
+		r.fillLogFields(s, "ltrim", -1).
 			WithField("Key", key).WithField("start", start).WithField("stop", stop).Info("[ORM][REDIS][LTRIM]")
 	}
 	return nil

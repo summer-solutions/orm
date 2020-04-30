@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"testing"
@@ -10,8 +10,14 @@ import (
 	"github.com/go-redis/redis/v7"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
+
+func TestRedisEnableDEbug(t *testing.T) {
+	r := prepareRedis(t)
+	r.EnableDebug()
+	assert.NotNil(t, r.log)
+	assert.Equal(t, log.DebugLevel, r.log.Level)
+}
 
 func TestGetSetRedis(t *testing.T) {
 	r := prepareRedis(t)
@@ -40,6 +46,7 @@ func TestList(t *testing.T) {
 	r := prepareRedis(t)
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
+	r.SetLogLevel(log.InfoLevel)
 
 	total, err := r.LPush("key", "a", "b", "c")
 	assert.Nil(t, err)
@@ -83,12 +90,23 @@ func TestList(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, found)
 	assert.Equal(t, "", element)
+
+	total, err = r.LPush("key", "a", "b", "c")
+	assert.Nil(t, err)
+	assert.Equal(t, int64(3), total)
+
+	err = r.Ltrim("key", 1, 3)
+	assert.Nil(t, err)
+	elements, err = r.LRange("key", 0, 10)
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"b", "a"}, elements)
 }
 
 func TestHash(t *testing.T) {
 	r := prepareRedis(t)
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
+	r.SetLogLevel(log.InfoLevel)
 
 	err := r.HSet("key", "field_1", "a")
 	assert.Nil(t, err)
@@ -116,6 +134,7 @@ func TestSet(t *testing.T) {
 	r := prepareRedis(t)
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
+	r.SetLogLevel(log.InfoLevel)
 
 	total, err := r.ZAdd("key", &redis.Z{Member: "a", Score: 100})
 	assert.Nil(t, err)
@@ -134,8 +153,8 @@ func TestSet(t *testing.T) {
 	assert.Equal(t, int64(1), total)
 }
 
-func prepareRedis(t *testing.T) *orm.RedisCache {
-	registry := &orm.Registry{}
+func prepareRedis(t *testing.T) *RedisCache {
+	registry := &Registry{}
 	registry.RegisterRedis("localhost:6379", 15)
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
