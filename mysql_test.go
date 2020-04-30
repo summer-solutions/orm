@@ -1,24 +1,23 @@
-package tests
+package orm
 
 import (
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityMySQL struct {
-	orm.ORM
+type testEntityMySQL struct {
+	ORM
 	ID   uint
 	Name string
 }
 
 func TestMySQL(t *testing.T) {
-	var entity TestEntityMySQL
-	engine := PrepareTables(t, &orm.Registry{}, entity, entity)
+	var entity testEntityMySQL
+	engine := PrepareTables(t, &Registry{}, entity, entity)
 	for i := 1; i <= 5; i++ {
-		e := &TestEntityMySQL{Name: "Name " + strconv.Itoa(i)}
+		e := &testEntityMySQL{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(e)
 	}
 	err := engine.Flush()

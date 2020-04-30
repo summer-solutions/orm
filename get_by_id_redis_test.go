@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"testing"
@@ -9,7 +9,6 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
 type AddressByIDRedis struct {
@@ -17,8 +16,8 @@ type AddressByIDRedis struct {
 	Building uint16
 }
 
-type TestEntityByIDRedis struct {
-	orm.ORM              `orm:"redisCache;ttl=10"`
+type testEntityByIDRedis struct {
+	ORM                  `orm:"redisCache;ttl=10"`
 	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`
@@ -44,12 +43,12 @@ type TestEntityByIDRedis struct {
 	DateTime             time.Time `orm:"time=true"`
 	Address              AddressByIDRedis
 	JSON                 interface{}
-	ReferenceOne         *TestEntityByIDRedis
+	ReferenceOne         *testEntityByIDRedis
 }
 
 func TestGetByIDRedis(t *testing.T) {
-	var entity TestEntityByIDRedis
-	engine := PrepareTables(t, &orm.Registry{}, entity)
+	var entity testEntityByIDRedis
+	engine := PrepareTables(t, &Registry{}, entity)
 
 	found, err := engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
@@ -58,27 +57,27 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	entity = TestEntityByIDRedis{}
+	entity = testEntityByIDRedis{}
 	engine.Track(&entity)
 	err = engine.Flush()
 	assert.Nil(t, err)
 	assert.False(t, engine.IsDirty(&entity))
 
-	var entity2 TestEntityByIDRedis
+	var entity2 testEntityByIDRedis
 	has, err := engine.LoadByID(1, &entity2)
 	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity2.ID)
 	assert.Nil(t, entity2.ReferenceOne)
 
-	var entity3 TestEntityByIDRedis
+	var entity3 testEntityByIDRedis
 	has, err = engine.LoadByID(1, &entity3)
 	assert.True(t, has)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity3.ID)
 
 	engine.Track(&entity)
-	entity.ReferenceOne = &TestEntityByIDRedis{ID: 1}
+	entity.ReferenceOne = &testEntityByIDRedis{ID: 1}
 	err = engine.Flush()
 	assert.Nil(t, err)
 	assert.False(t, engine.IsDirty(&entity))
@@ -181,10 +180,10 @@ func TestGetByIDRedis(t *testing.T) {
 }
 
 func BenchmarkLoadByID(b *testing.B) {
-	var entity *TestEntityByIDRedis
-	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
+	var entity *testEntityByIDRedis
+	engine := PrepareTables(&testing.T{}, &Registry{}, entity)
 
-	entity = &TestEntityByIDRedis{}
+	entity = &testEntityByIDRedis{}
 	engine.Track(entity)
 	err := engine.Flush()
 	assert.Nil(b, err)

@@ -1,45 +1,44 @@
-package tests
+package orm
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityInterfaces struct {
-	orm.ORM
+type testEntityInterfaces struct {
+	ORM
 	ID           uint
 	Uint         uint
 	Name         string
-	ReferenceOne *TestEntityInterfacesRef
+	ReferenceOne *testEntityInterfacesRef
 	Calculated   int `orm:"ignore"`
 }
 
-type TestEntityInterfacesRef struct {
-	orm.ORM
+type testEntityInterfacesRef struct {
+	ORM
 	ID uint
 }
 
-func (e *TestEntityInterfaces) SetDefaults() {
+func (e *testEntityInterfaces) SetDefaults() {
 	e.Uint = 3
 	e.Name = "hello"
-	e.ReferenceOne = &TestEntityInterfacesRef{ID: 1}
+	e.ReferenceOne = &testEntityInterfacesRef{ID: 1}
 }
 
-func (e *TestEntityInterfaces) AfterSaved(_ *orm.Engine) error {
+func (e *testEntityInterfaces) AfterSaved(_ *Engine) error {
 	e.Calculated = int(e.Uint) + int(e.ReferenceOne.ID)
 	return nil
 }
 
 func TestInterfaces(t *testing.T) {
-	engine := PrepareTables(t, &orm.Registry{}, TestEntityInterfaces{}, TestEntityInterfacesRef{})
+	engine := PrepareTables(t, &Registry{}, testEntityInterfaces{}, testEntityInterfacesRef{})
 
-	e := &TestEntityInterfacesRef{}
+	e := &testEntityInterfacesRef{}
 	err := engine.TrackAndFlush(e)
 	assert.Nil(t, err)
 
-	entity := &TestEntityInterfaces{}
+	entity := &testEntityInterfaces{}
 	engine.Track(entity)
 	assert.Equal(t, uint(3), entity.Uint)
 	assert.Equal(t, "hello", entity.Name)

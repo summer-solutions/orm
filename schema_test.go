@@ -21,7 +21,7 @@ type fieldsColors struct {
 	Purple string
 }
 
-var color = &fieldsColors{
+var colorEnum = &fieldsColors{
 	Red:    "Red",
 	Green:  "Green",
 	Blue:   "Blue",
@@ -51,9 +51,9 @@ type testEntitySchema struct {
 	Float64              float64
 	Float32Decimal       float32  `orm:"decimal=8,2"`
 	Float64DecimalSigned float64  `orm:"decimal=8,2;unsigned=false"`
-	Enum                 string   `orm:"enum=tests.Color"`
-	EnumNotNull          string   `orm:"enum=tests.Color;required"`
-	Set                  []string `orm:"set=tests.Color"`
+	Enum                 string   `orm:"enum=orm.colorEnum"`
+	EnumNotNull          string   `orm:"enum=orm.colorEnum;required"`
+	Set                  []string `orm:"set=orm.colorEnum"`
 	Year                 uint16   `orm:"year=true"`
 	YearNotNull          uint16   `orm:"year=true;required"`
 	Date                 *time.Time
@@ -94,7 +94,7 @@ func TestSchema(t *testing.T) {
 	var entity testEntitySchema
 	var entityRef testEntitySchemaRef
 	registry.RegisterEntity(entity, entityRef)
-	registry.RegisterEnum("tests.Color", color)
+	registry.RegisterEnum("orm.colorEnum", colorEnum)
 
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)

@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"strconv"
@@ -9,72 +9,55 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type fieldsColors struct {
-	Red    string
-	Green  string
-	Blue   string
-	Yellow string
-	Purple string
-}
-
-var Color = &fieldsColors{
-	Red:    "Red",
-	Green:  "Green",
-	Blue:   "Blue",
-	Yellow: "Yellow",
-	Purple: "Purple",
-}
-
-type TestEntityFlush struct {
-	orm.ORM
+type testEntityFlush struct {
+	ORM
 	ID           uint16
 	Name         string
 	NameNotNull  string `orm:"required"`
 	Blob         []byte
-	Enum         string   `orm:"enum=tests.Color"`
-	EnumNotNull  string   `orm:"enum=tests.Color;required"`
+	Enum         string   `orm:"enum=orm.colorEnum"`
+	EnumNotNull  string   `orm:"enum=orm.colorEnum;required"`
 	Year         uint16   `orm:"year=true"`
 	YearNotNull  uint16   `orm:"year=true;required"`
-	Set          []string `orm:"set=tests.Color;required"`
+	Set          []string `orm:"set=orm.colorEnum;required"`
 	Date         *time.Time
 	DateNotNull  time.Time  `orm:"required"`
 	DateTime     *time.Time `orm:"time"`
-	ReferenceOne *TestEntityFlush
+	ReferenceOne *testEntityFlush
 	Ignored      []time.Time `orm:"ignore"`
 }
 
-type TestEntityErrors struct {
-	orm.ORM
+type testEntityErrors struct {
+	ORM
 	ID           uint16
 	Name         string `orm:"unique=NameIndex"`
-	ReferenceOne *TestEntityErrors
+	ReferenceOne *testEntityErrors
 }
 
-type TestEntityFlushTransactionLocal struct {
-	orm.ORM `orm:"localCache"`
-	ID      uint16
-	Name    string
+type testEntityFlushTransactionLocal struct {
+	ORM  `orm:"localCache"`
+	ID   uint16
+	Name string
 }
 
-type TestEntityFlushTransactionRedis struct {
-	orm.ORM `orm:"redisCache"`
-	ID      uint16
-	Name    string
+type testEntityFlushTransactionRedis struct {
+	ORM  `orm:"redisCache"`
+	ID   uint16
+	Name string
 }
 
 func TestFlush(t *testing.T) {
-	registry := &orm.Registry{}
-	registry.RegisterEnum("tests.Color", Color)
+	registry := &Registry{}
+	registry.RegisterEnum("orm.colorEnum", colorEnum)
 	registry.RegisterLocker("default", "default")
-	var entity TestEntityFlush
+	var entity testEntityFlush
 	engine := PrepareTables(t, registry, entity)
 
-	var entities = make([]*TestEntityFlush, 10)
+	var entities = make([]*testEntityFlush, 10)
 	for i := 1; i <= 10; i++ {
-		e := TestEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: Color.Red, Set: []string{Color.Red, Color.Blue}}
+		e := testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: colorEnum.Red, Set: []string{colorEnum.Red, colorEnum.Blue}}
 		engine.Track(&e)
 		entities[i-1] = &e
 	}
@@ -91,7 +74,7 @@ func TestFlush(t *testing.T) {
 
 	engine.Track(entities[1], entities[7])
 	entities[1].Name = "Name 2.1"
-	entities[1].ReferenceOne = &TestEntityFlush{ID: 7}
+	entities[1].ReferenceOne = &testEntityFlush{ID: 7}
 	entities[7].Name = "Name 8.1"
 	now := time.Now()
 	entities[7].Date = &now
@@ -103,8 +86,8 @@ func TestFlush(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	var edited1 TestEntityFlush
-	var edited2 TestEntityFlush
+	var edited1 testEntityFlush
+	var edited2 testEntityFlush
 	has, err := engine.LoadByID(2, &edited1)
 	assert.True(t, has)
 	assert.Nil(t, err)
@@ -129,7 +112,7 @@ func TestFlush(t *testing.T) {
 	engine.Track(&edited1)
 	edited1.Name = "Name 2.2"
 	engine.MarkToDelete(&toDelete)
-	newEntity := &TestEntityFlush{Name: "Name 11", EnumNotNull: Color.Red}
+	newEntity := &testEntityFlush{Name: "Name 11", EnumNotNull: colorEnum.Red}
 	engine.Track(newEntity)
 	assert.True(t, engine.IsDirty(&edited1))
 	assert.Nil(t, err)
@@ -143,9 +126,9 @@ func TestFlush(t *testing.T) {
 	assert.False(t, engine.IsDirty(&edited1))
 	assert.False(t, engine.IsDirty(newEntity))
 
-	var edited3 TestEntityFlush
-	var deleted TestEntityFlush
-	var new11 TestEntityFlush
+	var edited3 testEntityFlush
+	var deleted testEntityFlush
+	var new11 testEntityFlush
 	has, err = engine.LoadByID(2, &edited3)
 	assert.True(t, has)
 	assert.Nil(t, err)
@@ -162,7 +145,7 @@ func TestFlush(t *testing.T) {
 	engine.AddLogger(logger)
 	engine.SetLogLevel(log.InfoLevel)
 	for i := 100; i <= 110; i++ {
-		e := TestEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: Color.Red}
+		e := testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: colorEnum.Red}
 		assert.Equal(t, uint64(0), e.GetID())
 		engine.Track(&e)
 	}
@@ -176,22 +159,22 @@ func TestFlush(t *testing.T) {
 }
 
 func TestFlushInTransaction(t *testing.T) {
-	registry := &orm.Registry{}
-	registry.RegisterEnum("tests.Color", Color)
+	registry := &Registry{}
+	registry.RegisterEnum("orm.colorEnum", colorEnum)
 	registry.RegisterLocker("default", "default")
-	var entity TestEntityFlushTransactionLocal
-	var entity2 TestEntityFlushTransactionRedis
+	var entity testEntityFlushTransactionLocal
+	var entity2 testEntityFlushTransactionRedis
 	engine := PrepareTables(t, registry, entity, entity2)
 	logger := memory.New()
 	engine.AddLogger(logger)
 	engine.SetLogLevel(log.InfoLevel)
 
 	for i := 1; i <= 10; i++ {
-		e := TestEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}
+		e := testEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(&e)
 	}
 	for i := 1; i <= 10; i++ {
-		e := TestEntityFlushTransactionRedis{Name: "Name " + strconv.Itoa(i)}
+		e := testEntityFlushTransactionRedis{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(&e)
 	}
 	err := engine.FlushInTransaction()
@@ -205,7 +188,7 @@ func TestFlushInTransaction(t *testing.T) {
 	assert.Equal(t, "[ORM][REDIS][DEL]", logger.Entries[5].Message)
 
 	for i := 100; i <= 110; i++ {
-		e := TestEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}
+		e := testEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(&e)
 	}
 	logger.Entries = make([]*log.Entry, 0)
@@ -217,17 +200,17 @@ func TestFlushInTransaction(t *testing.T) {
 }
 
 func TestFlushErrors(t *testing.T) {
-	entity := &TestEntityErrors{Name: "Name"}
-	engine := PrepareTables(t, &orm.Registry{}, entity)
+	entity := &testEntityErrors{Name: "Name"}
+	engine := PrepareTables(t, &Registry{}, entity)
 	engine.Track(entity)
 
-	entity.ReferenceOne = &TestEntityErrors{ID: 2}
+	entity.ReferenceOne = &testEntityErrors{ID: 2}
 	err := engine.Flush()
 	assert.NotNil(t, err)
-	keyError, is := err.(*orm.ForeignKeyError)
+	keyError, is := err.(*ForeignKeyError)
 	assert.True(t, is)
-	assert.Equal(t, "test:TestEntityErrors:ReferenceOne", keyError.Constraint)
-	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`TestEntityErrors`, CONSTRAINT `test:TestEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `TestEntityErrors` (`ID`))", keyError.Error())
+	assert.Equal(t, "test:testEntityErrors:ReferenceOne", keyError.Constraint)
+	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`testEntityErrors`, CONSTRAINT `test:testEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `testEntityErrors` (`ID`))", keyError.Error())
 	engine.ClearTrackedEntities()
 
 	engine.Track(entity)
@@ -235,16 +218,16 @@ func TestFlushErrors(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	entity = &TestEntityErrors{Name: "Name"}
+	entity = &testEntityErrors{Name: "Name"}
 	engine.Track(entity)
 	err = engine.Flush()
 	assert.NotNil(t, err)
-	duplicatedError, is := err.(*orm.DuplicatedKeyError)
+	duplicatedError, is := err.(*DuplicatedKeyError)
 	assert.True(t, is)
 	assert.Equal(t, "NameIndex", duplicatedError.Index)
 	assert.Equal(t, "Duplicate entry 'Name' for key 'NameIndex'", duplicatedError.Error())
 
 	engine.ClearTrackedEntities()
-	err = engine.TrackAndFlush(&TestEntityErrors{ID: 1})
-	assert.EqualError(t, err, "unloaded entity tests.TestEntityErrors with ID 1")
+	err = engine.TrackAndFlush(&testEntityErrors{ID: 1})
+	assert.EqualError(t, err, "unloaded entity orm.testEntityErrors with ID 1")
 }

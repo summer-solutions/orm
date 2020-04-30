@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"strconv"
@@ -8,34 +8,33 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityIndexTestLocalRedis struct {
-	orm.ORM      `orm:"localCache;redisCache"`
+type testEntityIndexTestLocalRedis struct {
+	ORM          `orm:"localCache;redisCache"`
 	ID           uint
 	Name         string `orm:"length=100;index=FirstIndex"`
 	Age          uint16
-	Ignore       uint16           `orm:"ignore"`
-	IndexAge     *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
-	IndexAll     *orm.CachedQuery `query:""`
-	IndexName    *orm.CachedQuery `queryOne:":Name = ?"`
-	ReferenceOne *TestEntityIndexTestLocalRedisRef
+	Ignore       uint16       `orm:"ignore"`
+	IndexAge     *CachedQuery `query:":Age = ? ORDER BY :ID"`
+	IndexAll     *CachedQuery `query:""`
+	IndexName    *CachedQuery `queryOne:":Name = ?"`
+	ReferenceOne *testEntityIndexTestLocalRedisRef
 }
 
-type TestEntityIndexTestLocalRedisRef struct {
-	orm.ORM
+type testEntityIndexTestLocalRedisRef struct {
+	ORM
 	ID   uint
 	Name string
 }
 
 func TestCachedSearchLocalRedis(t *testing.T) {
-	var entity *TestEntityIndexTestLocalRedis
-	var entityRef *TestEntityIndexTestLocalRedisRef
-	engine := PrepareTables(t, &orm.Registry{}, entityRef, entity)
+	var entity *testEntityIndexTestLocalRedis
+	var entityRef *testEntityIndexTestLocalRedisRef
+	engine := PrepareTables(t, &Registry{}, entityRef, entity)
 
 	for i := 1; i <= 5; i++ {
-		e := &TestEntityIndexTestLocalRedisRef{Name: "Name " + strconv.Itoa(i)}
+		e := &testEntityIndexTestLocalRedisRef{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(e)
 	}
 	err := engine.Flush()
@@ -43,22 +42,22 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
-		e := &TestEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
+		e := &testEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
 		engine.Track(e)
-		e.ReferenceOne = &TestEntityIndexTestLocalRedisRef{ID: uint(i)}
+		e.ReferenceOne = &testEntityIndexTestLocalRedisRef{ID: uint(i)}
 		entities[i-1] = e
 	}
 	err = engine.Flush()
 	assert.Nil(t, err)
 	for i := 6; i <= 10; i++ {
-		e := &TestEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
+		e := &testEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		engine.Track(e)
 		entities[i-1] = e
 	}
 	err = engine.Flush()
 	assert.Nil(t, err)
-	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
-	var rows []*TestEntityIndexTestLocalRedis
+	pager := &Pager{CurrentPage: 1, PageSize: 100}
+	var rows []*testEntityIndexTestLocalRedis
 	totalRows, err := engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
@@ -101,7 +100,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, uint(10), rows[4].ID)
 	assert.Len(t, DBLogger.Entries, 1)
 
-	pager = &orm.Pager{CurrentPage: 2, PageSize: 4}
+	pager = &Pager{CurrentPage: 2, PageSize: 4}
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
@@ -109,7 +108,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, uint(10), rows[0].ID)
 	assert.Len(t, DBLogger.Entries, 1)
 
-	pager = &orm.Pager{CurrentPage: 1, PageSize: 5}
+	pager = &Pager{CurrentPage: 1, PageSize: 5}
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, totalRows)
@@ -122,7 +121,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	pager = &orm.Pager{CurrentPage: 1, PageSize: 10}
+	pager = &Pager{CurrentPage: 1, PageSize: 10}
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
 	assert.Equal(t, 6, totalRows)
@@ -161,7 +160,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Len(t, rows, 9)
 	assert.Len(t, DBLogger.Entries, 8)
 
-	entity = &TestEntityIndexTestLocalRedis{Name: "Name 11", Age: uint16(18)}
+	entity = &testEntityIndexTestLocalRedis{Name: "Name 11", Age: uint16(18)}
 	engine.Track(entity)
 	err = engine.Flush()
 	assert.Nil(t, err)
@@ -187,7 +186,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Entries, 12)
 
-	var row TestEntityIndexTestLocalRedis
+	var row testEntityIndexTestLocalRedis
 	has, err := engine.CachedSearchOne(&row, "IndexName", "Name 6")
 	assert.Nil(t, err)
 	assert.True(t, has)

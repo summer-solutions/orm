@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"fmt"
@@ -9,30 +9,29 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityByIDsRedisCache struct {
-	orm.ORM `orm:"redisCache"`
-	ID      uint
-	Name    string
+type testEntityByIDsRedisCache struct {
+	ORM  `orm:"redisCache"`
+	ID   uint
+	Name string
 }
 
-type TestEntityByIDsRedisCacheRef struct {
-	orm.ORM `orm:"redisCache"`
-	ID      uint
-	Name    string
+type testEntityByIDsRedisCacheRef struct {
+	ORM  `orm:"redisCache"`
+	ID   uint
+	Name string
 }
 
 func TestEntityByIDsRedis(t *testing.T) {
-	var entity TestEntityByIDsRedisCache
-	var entityRef TestEntityByIDsRedisCacheRef
-	engine := PrepareTables(t, &orm.Registry{}, entityRef, entity)
+	var entity testEntityByIDsRedisCache
+	var entityRef testEntityByIDsRedisCacheRef
+	engine := PrepareTables(t, &Registry{}, entityRef, entity)
 
 	for i := 1; i <= 10; i++ {
-		e := &TestEntityByIDsRedisCache{Name: "Name " + strconv.Itoa(i)}
+		e := &testEntityByIDsRedisCache{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(e)
-		e2 := &TestEntityByIDsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
+		e2 := &testEntityByIDsRedisCacheRef{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(e2)
 	}
 	err := engine.Flush()
@@ -47,7 +46,7 @@ func TestEntityByIDsRedis(t *testing.T) {
 	cache.AddLogger(CacheLogger)
 	cache.SetLogLevel(log.InfoLevel)
 
-	var found []*TestEntityByIDsRedisCache
+	var found []*testEntityByIDsRedisCache
 	missing, err := engine.LoadByIDs([]uint64{2, 13, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
@@ -94,17 +93,17 @@ func TestEntityByIDsRedis(t *testing.T) {
 }
 
 func BenchmarkGetByIDsRedis(b *testing.B) {
-	var entity TestEntityByIDsRedisCache
-	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
+	var entity testEntityByIDsRedisCache
+	engine := PrepareTables(&testing.T{}, &Registry{}, entity)
 
 	for i := 1; i <= 3; i++ {
-		e := &TestEntityByIDsRedisCache{Name: fmt.Sprintf("Name %d", i)}
+		e := &testEntityByIDsRedisCache{Name: fmt.Sprintf("Name %d", i)}
 		engine.Track(e)
 		err := engine.Flush()
 		assert.Nil(b, err)
 	}
 
-	var found []TestEntityByIDsRedisCache
+	var found []testEntityByIDsRedisCache
 	for n := 0; n < b.N; n++ {
 		_, _ = engine.LoadByIDs([]uint64{1, 2, 3}, &found)
 	}

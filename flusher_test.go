@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"strconv"
@@ -9,18 +9,17 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityFlusherManual struct {
-	orm.ORM
+type testEntityFlusherManual struct {
+	ORM
 	ID   uint
 	Name string
 }
 
 func TestFlusherManual(t *testing.T) {
-	var entity TestEntityFlusherManual
-	engine := PrepareTables(t, &orm.Registry{}, entity)
+	var entity testEntityFlusherManual
+	engine := PrepareTables(t, &Registry{}, entity)
 
 	DBLogger := memory.New()
 	pool := engine.GetMysql()
@@ -28,7 +27,7 @@ func TestFlusherManual(t *testing.T) {
 	pool.SetLogLevel(log.InfoLevel)
 
 	for i := 1; i <= 3; i++ {
-		e := TestEntityFlusherManual{Name: "Name " + strconv.Itoa(i)}
+		e := testEntityFlusherManual{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(&e)
 	}
 	assert.Len(t, DBLogger.Entries, 0)

@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"testing"
@@ -8,24 +8,23 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityByIDsLocal struct {
-	orm.ORM `orm:"localCache"`
-	ID      uint
-	Name    string
+type testEntityByIDsLocal struct {
+	ORM  `orm:"localCache"`
+	ID   uint
+	Name string
 }
 
 func TestGetByIDsLocal(t *testing.T) {
-	var entity TestEntityByIDsLocal
-	engine := PrepareTables(t, &orm.Registry{}, entity)
+	var entity testEntityByIDsLocal
+	engine := PrepareTables(t, &Registry{}, entity)
 
-	e := &TestEntityByIDsLocal{Name: "Hi"}
+	e := &testEntityByIDsLocal{Name: "Hi"}
 	engine.Track(e)
 	err := engine.Flush()
 	assert.Nil(t, err)
-	e = &TestEntityByIDsLocal{Name: "Hello"}
+	e = &testEntityByIDsLocal{Name: "Hello"}
 	engine.Track(e)
 	err = engine.Flush()
 	assert.Nil(t, err)
@@ -38,7 +37,7 @@ func TestGetByIDsLocal(t *testing.T) {
 	engine.GetLocalCache().AddLogger(CacheLogger)
 	engine.GetLocalCache().SetLogLevel(log.InfoLevel)
 
-	var found []*TestEntityByIDsLocal
+	var found []*testEntityByIDsLocal
 	missing, err := engine.LoadByIDs([]uint64{2, 3, 1}, &found)
 	assert.Nil(t, err)
 	assert.Len(t, found, 2)
@@ -67,19 +66,19 @@ func TestGetByIDsLocal(t *testing.T) {
 }
 
 func BenchmarkGetByIDsLocal(b *testing.B) {
-	var entity TestEntityByIDsLocal
-	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
+	var entity testEntityByIDsLocal
+	engine := PrepareTables(&testing.T{}, &Registry{}, entity)
 
-	e := &TestEntityByIDsLocal{Name: "Hi 1"}
+	e := &testEntityByIDsLocal{Name: "Hi 1"}
 	engine.Track(e)
 	err := engine.Flush()
 	assert.Nil(b, err)
-	e = &TestEntityByIDsLocal{Name: "Hi 3"}
+	e = &testEntityByIDsLocal{Name: "Hi 3"}
 	engine.Track(e)
 	err = engine.Flush()
 	assert.Nil(b, err)
 
-	var found []*TestEntityByIDsLocal
+	var found []*testEntityByIDsLocal
 	for n := 0; n < b.N; n++ {
 		_, _ = engine.LoadByIDs([]uint64{1, 2, 3}, &found)
 	}

@@ -1,51 +1,49 @@
-package tests
+package orm
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityReferenceLevel1 struct {
-	orm.ORM        `orm:"localCache"`
+type testEntityReferenceLevel1 struct {
+	ORM            `orm:"localCache"`
 	ID             uint
-	ReferenceOne   *TestEntityReferenceLevel2 `orm:"required"`
-	ReferenceFive  *TestEntityReferenceLevel3
-	ReferenceSix   *TestEntityReferenceLevel3
-	ReferenceSeven *TestEntityReferenceLevel4
+	ReferenceOne   *testEntityReferenceLevel2 `orm:"required"`
+	ReferenceFive  *testEntityReferenceLevel3
+	ReferenceSix   *testEntityReferenceLevel3
+	ReferenceSeven *testEntityReferenceLevel4
 }
 
-type TestEntityReferenceLevel2 struct {
-	orm.ORM      `orm:"localCache"`
+type testEntityReferenceLevel2 struct {
+	ORM          `orm:"localCache"`
 	ID           uint
 	Name         string
-	ReferenceTwo *TestEntityReferenceLevel3 `orm:"required"`
+	ReferenceTwo *testEntityReferenceLevel3 `orm:"required"`
 }
 
-type TestEntityReferenceLevel3 struct {
-	orm.ORM        `orm:"localCache"`
+type testEntityReferenceLevel3 struct {
+	ORM            `orm:"localCache"`
 	ID             uint
 	Name           string
-	ReferenceThree *TestEntityReferenceLevel4 `orm:"required"`
+	ReferenceThree *testEntityReferenceLevel4 `orm:"required"`
 }
 
-type TestEntityReferenceLevel4 struct {
-	orm.ORM `orm:"localCache"`
-	ID      uint
-	Name    string
+type testEntityReferenceLevel4 struct {
+	ORM  `orm:"localCache"`
+	ID   uint
+	Name string
 }
 
 func TestReferences(t *testing.T) {
-	ref1 := TestEntityReferenceLevel1{}
-	ref2 := TestEntityReferenceLevel2{Name: "name 2"}
-	ref3 := TestEntityReferenceLevel3{Name: "name 3"}
-	ref3b := TestEntityReferenceLevel3{Name: "name 3b"}
-	ref4 := TestEntityReferenceLevel4{Name: "name 4"}
-	ref4b := TestEntityReferenceLevel4{Name: "name 4b"}
+	ref1 := testEntityReferenceLevel1{}
+	ref2 := testEntityReferenceLevel2{Name: "name 2"}
+	ref3 := testEntityReferenceLevel3{Name: "name 3"}
+	ref3b := testEntityReferenceLevel3{Name: "name 3b"}
+	ref4 := testEntityReferenceLevel4{Name: "name 4"}
+	ref4b := testEntityReferenceLevel4{Name: "name 4b"}
 
-	engine := PrepareTables(t, &orm.Registry{}, ref1, ref2, ref3, ref4)
+	engine := PrepareTables(t, &Registry{}, ref1, ref2, ref3, ref4)
 	engine.Track(&ref1, &ref2, &ref3, &ref4, &ref3b, &ref4b)
 	ref1.ReferenceOne = &ref2
 	ref1.ReferenceSix = &ref3b
@@ -73,7 +71,7 @@ func TestReferences(t *testing.T) {
 	assert.Equal(t, "name 4", ref1.ReferenceOne.ReferenceTwo.ReferenceThree.Name)
 	assert.Equal(t, "name 4", ref3b.ReferenceThree.Name)
 
-	var root TestEntityReferenceLevel1
+	var root testEntityReferenceLevel1
 	has, err := engine.LoadByID(1, &root, "ReferenceOne/ReferenceTwo/ReferenceThree", "ReferenceFive", "ReferenceSix/*")
 	assert.Nil(t, err)
 	assert.True(t, has)
@@ -94,7 +92,7 @@ func TestReferences(t *testing.T) {
 	assert.True(t, engine.Loaded(root.ReferenceOne))
 
 	engine.Track(&root)
-	root.ReferenceFive = &TestEntityReferenceLevel3{ID: 2}
+	root.ReferenceFive = &testEntityReferenceLevel3{ID: 2}
 	assert.False(t, engine.Loaded(root.ReferenceFive))
 	err = engine.Load(root.ReferenceFive)
 	assert.Nil(t, err)

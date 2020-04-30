@@ -1,15 +1,14 @@
-package tests
+package orm
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
 func TestLock(t *testing.T) {
-	registry := &orm.Registry{}
+	registry := &Registry{}
 	registry.RegisterRedis("localhost:6379", 5)
 	registry.RegisterLocker("default", "default")
 	validatedRegistry, err := registry.Validate()

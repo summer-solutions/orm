@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"testing"
@@ -9,7 +9,6 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
 type AddressByIDLocal struct {
@@ -17,8 +16,8 @@ type AddressByIDLocal struct {
 	Building uint16
 }
 
-type TestEntityByIDLocal struct {
-	orm.ORM              `orm:"localCache"`
+type testEntityByIDLocal struct {
+	ORM                  `orm:"localCache"`
 	ID                   uint
 	Name                 string `orm:"length=100;index=FirstIndex"`
 	BigName              string `orm:"length=max"`
@@ -46,12 +45,12 @@ type TestEntityByIDLocal struct {
 	JSON                 interface{}
 	Uint8Slice           []uint8
 	Ignored              []time.Time `orm:"ignore"`
-	ReferenceOne         *TestEntityByIDLocal
+	ReferenceOne         *testEntityByIDLocal
 }
 
 func TestGetByIDLocal(t *testing.T) {
-	var entity TestEntityByIDLocal
-	engine := PrepareTables(t, &orm.Registry{}, entity)
+	var entity testEntityByIDLocal
+	engine := PrepareTables(t, &Registry{}, entity)
 
 	found, err := engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
@@ -60,7 +59,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, found)
 
-	entity = TestEntityByIDLocal{}
+	entity = testEntityByIDLocal{}
 	engine.Track(&entity)
 	err = engine.Flush()
 	assert.Nil(t, err)
@@ -73,7 +72,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Equal(t, uint(1), entity.ID)
 
 	engine.Track(&entity)
-	entity.ReferenceOne = &TestEntityByIDLocal{ID: 1}
+	entity.ReferenceOne = &testEntityByIDLocal{ID: 1}
 	err = engine.Flush()
 	assert.Nil(t, err)
 	assert.False(t, engine.IsDirty(&entity))
@@ -146,7 +145,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Entries, 1)
 
-	var entity2 TestEntityByIDLocal
+	var entity2 testEntityByIDLocal
 	found, err = engine.LoadByID(1, &entity2)
 	assert.Nil(t, err)
 	assert.True(t, found)
@@ -171,10 +170,10 @@ func TestGetByIDLocal(t *testing.T) {
 }
 
 func BenchmarkGetByIDLocal(b *testing.B) {
-	var entity TestEntityByIDLocal
-	engine := PrepareTables(&testing.T{}, &orm.Registry{}, entity)
+	var entity testEntityByIDLocal
+	engine := PrepareTables(&testing.T{}, &Registry{}, entity)
 
-	entity = TestEntityByIDLocal{}
+	entity = testEntityByIDLocal{}
 	engine.Track(&entity)
 	err := engine.Flush()
 	assert.Nil(b, err)

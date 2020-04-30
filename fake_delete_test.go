@@ -1,38 +1,37 @@
-package tests
+package orm
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityFakeDelete struct {
-	orm.ORM    `orm:"localCache"`
+type testEntityFakeDelete struct {
+	ORM        `orm:"localCache"`
 	ID         uint16
 	Name       string
 	FakeDelete bool
 	Uint       uint
-	IndexAll   *orm.CachedQuery `query:""`
-	IndexName  *orm.CachedQuery `query:":Name = ?"`
+	IndexAll   *CachedQuery `query:""`
+	IndexName  *CachedQuery `query:":Name = ?"`
 }
 
 func TestFakeDelete(t *testing.T) {
-	registry := &orm.Registry{}
-	engine := PrepareTables(t, registry, TestEntityFakeDelete{})
+	registry := &Registry{}
+	engine := PrepareTables(t, registry, testEntityFakeDelete{})
 
-	entity := &TestEntityFakeDelete{}
+	entity := &testEntityFakeDelete{}
 	engine.Track(entity)
 	entity.Name = "one"
 	err := engine.Flush()
 	assert.Nil(t, err)
-	entity2 := &TestEntityFakeDelete{}
+	entity2 := &testEntityFakeDelete{}
 	engine.Track(entity2)
 	entity2.Name = "two"
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	var rows []*TestEntityFakeDelete
+	var rows []*testEntityFakeDelete
 	total, err := engine.CachedSearch(&rows, "IndexAll", nil)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, total)
@@ -47,7 +46,7 @@ func TestFakeDelete(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, engine.IsDirty(entity2))
 
-	total, err = engine.SearchWithCount(orm.NewWhere("1"), nil, &rows)
+	total, err = engine.SearchWithCount(NewWhere("1"), nil, &rows)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, total)
 	assert.Equal(t, "one", rows[0].Name)
@@ -81,7 +80,7 @@ func TestFakeDelete(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	has, err = engine.SearchOne(orm.NewWhere("1"), entity)
+	has, err = engine.SearchOne(NewWhere("1"), entity)
 	assert.False(t, has)
 	assert.Nil(t, err)
 }

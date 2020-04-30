@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"testing"
@@ -8,33 +8,32 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityFlusherInCacheRedis struct {
-	orm.ORM  `orm:"redisCache"`
+type testEntityFlusherInCacheRedis struct {
+	ORM      `orm:"redisCache"`
 	ID       uint
 	Name     string
 	Age      uint16
-	IndexAge *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
+	IndexAge *CachedQuery `query:":Age = ? ORDER BY :ID"`
 }
 
-type TestEntityFlusherInCacheLocal struct {
-	orm.ORM
+type testEntityFlusherInCacheLocal struct {
+	ORM
 	ID uint
 }
 
 func TestFlushInCache(t *testing.T) {
-	entityRedis := &TestEntityFlusherInCacheRedis{Name: "Name", Age: 18}
-	entityLocal := &TestEntityFlusherInCacheLocal{}
-	engine := PrepareTables(t, &orm.Registry{}, entityRedis, entityLocal)
+	entityRedis := &testEntityFlusherInCacheRedis{Name: "Name", Age: 18}
+	entityLocal := &testEntityFlusherInCacheLocal{}
+	engine := PrepareTables(t, &Registry{}, entityRedis, entityLocal)
 
 	engine.Track(entityRedis)
 	err := engine.Flush()
 	assert.Nil(t, err)
 
-	pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
-	var rows []*TestEntityFlusherInCacheRedis
+	pager := &Pager{CurrentPage: 1, PageSize: 100}
+	var rows []*testEntityFlusherInCacheRedis
 	totalRows, err := engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, totalRows)
@@ -69,7 +68,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, LoggerRedisQueue.Entries, 1)
 	assert.Equal(t, "[ORM][REDIS][SADD]", LoggerRedisQueue.Entries[0].Message)
 
-	var loadedEntity TestEntityFlusherInCacheRedis
+	var loadedEntity testEntityFlusherInCacheRedis
 	has, err := engine.LoadByID(1, &loadedEntity)
 	assert.True(t, has)
 	assert.Nil(t, err)
@@ -77,7 +76,7 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, LoggerRedisCache.Entries, 2)
 	assert.Equal(t, "[ORM][REDIS][GET]", LoggerRedisCache.Entries[1].Message)
 
-	receiver := orm.NewFlushFromCacheReceiver(engine, "default")
+	receiver := NewFlushFromCacheReceiver(engine, "default")
 	size, err := receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)
@@ -92,8 +91,8 @@ func TestFlushInCache(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)
 
-	var inDB TestEntityFlusherInCacheRedis
-	_, err = engine.SearchOne(orm.NewWhere("`ID` = ?", 1), &inDB)
+	var inDB testEntityFlusherInCacheRedis
+	_, err = engine.SearchOne(NewWhere("`ID` = ?", 1), &inDB)
 	assert.Nil(t, err)
 	assert.Equal(t, "Name 2", inDB.Name)
 

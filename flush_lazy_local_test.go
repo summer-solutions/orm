@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"strconv"
@@ -8,18 +8,17 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityFlushLazyLocal struct {
-	orm.ORM `orm:"localCache"`
-	ID      uint
-	Name    string
+type testEntityFlushLazyLocal struct {
+	ORM  `orm:"localCache"`
+	ID   uint
+	Name string
 }
 
 func TestFlushLazyLocal(t *testing.T) {
-	var entity TestEntityFlushLazyLocal
-	engine := PrepareTables(t, &orm.Registry{}, entity)
+	var entity testEntityFlushLazyLocal
+	engine := PrepareTables(t, &Registry{}, entity)
 
 	DBLogger := memory.New()
 	pool := engine.GetMysql()
@@ -32,7 +31,7 @@ func TestFlushLazyLocal(t *testing.T) {
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {
-		e := &TestEntityFlushLazyLocal{Name: "Name " + strconv.Itoa(i)}
+		e := &testEntityFlushLazyLocal{Name: "Name " + strconv.Itoa(i)}
 		entities[i-1] = e
 		engine.Track(e)
 	}
@@ -42,7 +41,7 @@ func TestFlushLazyLocal(t *testing.T) {
 	assert.Len(t, LoggerQueue.Entries, 1)
 	assert.Equal(t, "[ORM][REDIS][LPUSH]", LoggerQueue.Entries[0].Message)
 
-	LazyReceiver := orm.NewLazyReceiver(engine, &orm.RedisQueueSenderReceiver{PoolName: "default_queue"})
+	LazyReceiver := NewLazyReceiver(engine, &RedisQueueSenderReceiver{PoolName: "default_queue"})
 	size, err := LazyReceiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), size)

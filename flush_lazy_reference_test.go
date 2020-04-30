@@ -1,30 +1,29 @@
-package tests
+package orm
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-type TestEntityFlushLazyReference struct {
-	orm.ORM
+type testEntityFlushLazyReference struct {
+	ORM
 	ID           uint
 	Name         string
-	ReferenceOne *TestEntityFlushLazyReference
+	ReferenceOne *testEntityFlushLazyReference
 }
 
 func TestFlushLazyReference(t *testing.T) {
-	var entity TestEntityFlushLazyReference
-	engine := PrepareTables(t, &orm.Registry{}, entity)
+	var entity testEntityFlushLazyReference
+	engine := PrepareTables(t, &Registry{}, entity)
 
-	entity1 := &TestEntityFlushLazyReference{Name: "Name 1"}
+	entity1 := &testEntityFlushLazyReference{Name: "Name 1"}
 	engine.Track(entity1)
-	entity2 := &TestEntityFlushLazyReference{Name: "Name 2"}
+	entity2 := &testEntityFlushLazyReference{Name: "Name 2"}
 	engine.Track(entity2)
-	entity3 := &TestEntityFlushLazyReference{Name: "Name 3"}
+	entity3 := &testEntityFlushLazyReference{Name: "Name 3"}
 	engine.Track(entity3)
-	entity4 := &TestEntityFlushLazyReference{Name: "Name 4"}
+	entity4 := &testEntityFlushLazyReference{Name: "Name 4"}
 	engine.Track(entity4)
 
 	entity1.ReferenceOne = entity2

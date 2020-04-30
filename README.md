@@ -7,7 +7,7 @@
 
 ## Configuration
 
-First you need to define orm.Registry object and register all connection pools to MySQL, Redis and local cache.
+First you need to define Registry object and register all connection pools to MySQL, Redis and local cache.
 Also use this object to register queues, and entities. You should create this object once when application
 starts.
 
@@ -18,7 +18,7 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    registry := &orm.Registry{}
+    registry := &Registry{}
 
     /*MySQL */
     registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
@@ -75,14 +75,14 @@ import (
 
 func main() {
 
-    yamlFileData, err := ioutil.ReadFile("./orm.yaml")
+    yamlFileData, err := ioutil.ReadFile("./yaml")
     if err != nil {
         //...
     }
     
     var parsedYaml map[string]interface{}
     err = yaml.Unmarshal(yamlFileData, &parsedYaml)
-    registry, err := orm.InitByYaml(parsedYaml)
+    registry, err := InitByYaml(parsedYaml)
 }
 
 ```
@@ -104,7 +104,7 @@ func main() {
         Building uint16
     }
     
-    type fieldsColors struct {
+    type fieldscolors struct {
         Red    string
         Green  string
         Blue   string
@@ -112,7 +112,7 @@ func main() {
         Purple string
     }
     
-    var Color = &fieldsColors{
+    var color = &fieldscolors{
         Red:    "Red",
         Green:  "Green",
         Blue:   "Blue",
@@ -120,8 +120,8 @@ func main() {
         Purple: "Purple",
     }
     
-    type TestEntitySchema struct {
-        orm.ORM
+    type testEntitySchema struct {
+        ORM
         ID                   uint
         Name                 string `orm:"length=100;index=FirstIndex"`
         NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
@@ -141,9 +141,9 @@ func main() {
         Float64              float64
         Float32Decimal       float32  `orm:"decimal=8,2"`
         Float64DecimalSigned float64  `orm:"decimal=8,2;unsigned=false"`
-        Enum                 string   `orm:"enum=tests.Color"`
-        EnumNotNull          string   `orm:"enum=tests.Color;required"`
-        Set                  []string `orm:"set=tests.Color"`
+        Enum                 string   `orm:"enum=orm.colorEnum"`
+        EnumNotNull          string   `orm:"enum=orm.colorEnum;required"`
+        Set                  []string `orm:"set=orm.colorEnum"`
         Year                 uint16   `orm:"year=true"`
         YearNotNull          uint16   `orm:"year=true;required"`
         Date                 *time.Time
@@ -152,35 +152,35 @@ func main() {
         DateTimeNotNull      time.Time  `orm:"time=true"`
         Address              AddressSchema
         Json                 interface{}
-        ReferenceOne         *TestEntitySchemaRef
-        ReferenceOneCascade  *TestEntitySchemaRef `orm:"cascade"`
+        ReferenceOne         *testEntitySchemaRef
+        ReferenceOneCascade  *testEntitySchemaRef `orm:"cascade"`
         IgnoreField          []time.Time       `orm:"ignore"`
         Blob                 []byte
     }
     
-    type TestEntitySchemaRef struct {
-        orm.ORM
+    type testEntitySchemaRef struct {
+        ORM
         ID   uint
         Name string
     }
-    type TestEntitySecondPool struct {
-    	orm.ORM `orm:"mysql=second_pool"`
+    type testEntitySecondPool struct {
+    	ORM `orm:"mysql=second_pool"`
     	ID                   uint
     }
 
-    registry := &orm.Registry{}
-    var testEntitySchema TestEntitySchema
-    var testEntitySchemaRef TestEntitySchemaRef
-    var testEntitySecondPool TestEntitySecondPool
+    registry := &Registry{}
+    var testEntitySchema testEntitySchema
+    var testEntitySchemaRef testEntitySchemaRef
+    var testEntitySecondPool testEntitySecondPool
     registry.RegisterEntity(testEntitySchema, testEntitySchemaRef, testEntitySecondPool)
-    registry.RegisterEnum("Color", Color)
+    registry.RegisterEnum("color", color)
 
 }
 ```
 
 There are only two golden rules you need to remember defining entity struct: 
 
- * first field must be type of "orm.ORM"
+ * first field must be type of "ORM"
  * second argument must have name "ID" and must be type of one of uint, uint16, uint32, uint24, uint64, rune
  
  
@@ -197,28 +197,28 @@ There are only two golden rules you need to remember defining entity struct:
  
  func main() {
  
-     type TestEntityLocalCache struct {
-     	orm.ORM `orm:"localCache"` //default pool
+     type testEntityLocalCache struct {
+     	ORM `orm:"localCache"` //default pool
         //...
      }
     
-    type TestEntityLocalCacheSecondPool struct {
-     	orm.ORM `orm:"localCache=second_pool"`
+    type testEntityLocalCacheSecondPool struct {
+     	ORM `orm:"localCache=second_pool"`
         //...
      }
     
-    type TestEntityRedisCache struct {
-     	orm.ORM `orm:"redisCache"` //default pool
+    type testEntityRedisCache struct {
+     	ORM `orm:"redisCache"` //default pool
         //...
      }
     
-    type TestEntityRedisCacheSecondPool struct {
-     	orm.ORM `orm:"redisCache=second_pool"`
+    type testEntityRedisCacheSecondPool struct {
+     	ORM `orm:"redisCache=second_pool"`
         //...
      }
 
-    type TestEntityLocalAndRedisCache struct {
-     	orm.ORM `orm:"localCache;redisCache"`
+    type testEntityLocalAndRedisCache struct {
+     	ORM `orm:"localCache;redisCache"`
         //...
      }
  }
@@ -235,7 +235,7 @@ You should also run it once when your application starts.
  import "github.com/summer-solutions/orm"
  
  func main() {
-    registry := &orm.Registry{}
+    registry := &Registry{}
     //register pools and entities
     validatedRegistry, err := registry.Validate()
  }
@@ -253,7 +253,7 @@ You should also run it once when your application starts.
   import "github.com/summer-solutions/orm"
   
   func main() {
-     registry := &orm.Registry{}
+     registry := &Registry{}
      //register pools and entities
      validatedRegistry, err := registry.Validate()
      engine := validatedRegistry.CreateEngine()
@@ -272,7 +272,7 @@ You should also run it once when your application starts.
  
  func main() {
     
-    registry := &orm.Registry{}
+    registry := &Registry{}
     // register
     validatedRegistry, err := registry.Validate() 
     engine := validatatedRegistry.CreateEngine()
@@ -313,20 +313,20 @@ func main() {
 
      /* adding */
 
-    entity := TestEntity{Name: "Name 1"}
+    entity := testEntity{Name: "Name 1"}
     err := engine.TrackAndFlush(&entity)
 
-    entity2 := TestEntity{Name: "Name 1"}
-    engine.SetOnDuplicateKeyUpdate(orm.NewWhere("`counter` = `counter` + 1"))
+    entity2 := testEntity{Name: "Name 1"}
+    engine.SetOnDuplicateKeyUpdate(NewWhere("`counter` = `counter` + 1"))
     err := engine.TrackAndFlush(&entity)
 
-    entity2 = TestEntity{Name: "Name 1"}
-    engine.SetOnDuplicateKeyUpdate(orm.NewWhere("")) //it will chnage nothing un row
+    entity2 = testEntity{Name: "Name 1"}
+    engine.SetOnDuplicateKeyUpdate(NewWhere("")) //it will chnage nothing un row
     err := engine.TrackAndFlush(&entity)
 
     /*if you need to add more than one entity*/
-    entity = TestEntity{Name: "Name 2"}
-    entity2 := TestEntity{Name: "Name 3"}
+    entity = testEntity{Name: "Name 2"}
+    entity2 := testEntity{Name: "Name 3"}
     engine.Track(&entity, &entity2) //it will also automatically run RegisterEntity()
     //it will execute only one query in MySQL adding two rows at once (atomic)
     err = engine.Flush()
@@ -346,8 +346,8 @@ func main() {
     err = engine.Flush()
 
     /* flush can return 2 special errors */
-    orm.DuplicatedKeyError{} //when unique index is broken
-    orm.ForeignKeyError{} //when foreign key is broken
+    DuplicatedKeyError{} //when unique index is broken
+    ForeignKeyError{} //when foreign key is broken
 }
 ```
 
@@ -360,8 +360,8 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 	
-    entity = TestEntity{Name: "Name 2"}
-    entity2 := TestEntity{Name: "Name 3"}
+    entity = testEntity{Name: "Name 2"}
+    entity2 := testEntity{Name: "Name 3"}
     engine.Track(&entity, &entity2)
 
     // DB transcation
@@ -388,10 +388,10 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    var entity TestEntity
+    var entity testEntity
     has, err := engine.LoadByID(1, &entity)
 
-    var entities []*TestEntity
+    var entities []*testEntity
     missing, err := engine.LoadByIDs([]uint64{1, 3, 4}, &entities) //missing contains IDs that are missing in database
 
 }
@@ -407,17 +407,17 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    var entities []*TestEntity
-    pager := orm.Pager{CurrentPage: 1, PageSize: 100}
-    where := orm.NewWhere("`ID` > ? AND `ID` < ?", 1, 8)
+    var entities []*testEntity
+    pager := Pager{CurrentPage: 1, PageSize: 100}
+    where := NewWhere("`ID` > ? AND `ID` < ?", 1, 8)
     err := engine.Search(where, pager, &entities)
     
     //or if you need number of total rows
     totalRows, err := engine.SearchWithCount(where, pager, &entities)
     
     //or if you need only one row
-    where := orm.NewWhere("`Name` = ?", "Hello")
-    var entity TestEntity
+    where := NewWhere("`Name` = ?", "Hello")
+    var entity testEntity
     found, err := engine.SearchOne(where, &entity)
     
     //or if you need only primary keys
@@ -439,7 +439,7 @@ import "github.com/summer-solutions/orm"
 func main() {
 
     type UserEntity struct {
-        orm.ORM
+        ORM
         ID                   uint64
         Name                 string
         School               *SchoolEntity `orm:"required"` // key is "on delete restrict" by default not not nullable
@@ -447,13 +447,13 @@ func main() {
     }
     
     type SchoolEntity struct {
-        orm.ORM
+        ORM
         ID                   uint64
         Name                 string
     }
 
     type UserHouse struct {
-        orm.ORM
+        ORM
         ID                   uint64
         User                 *UserEntity  `orm:"cascade;required"` // on delete cascade and is not nullable
     }
@@ -516,16 +516,16 @@ func main() {
     //Fields that needs to be tracked for changes should start with ":"
 
     type UserEntity struct {
-        orm.ORM
+        ORM
         ID                   uint64
         Name                 string
         Age                  uint16
-        IndexAge             *orm.CachedQuery `query:":Age = ? ORDER BY :ID"`
-        IndexAll             *orm.CachedQuery `query:""` //cache all rows
-        IndexName            *orm.CachedQuery `queryOne:":Name = ?" orm:"max=100"` // be default cached query can cache max 50 000 rows
+        IndexAge             *CachedQuery `query:":Age = ? ORDER BY :ID"`
+        IndexAll             *CachedQuery `query:""` //cache all rows
+        IndexName            *CachedQuery `queryOne:":Name = ?" orm:"max=100"` // be default cached query can cache max 50 000 rows
     }
 
-    pager := &orm.Pager{CurrentPage: 1, PageSize: 100}
+    pager := &Pager{CurrentPage: 1, PageSize: 100}
     var users []*UserEntity
     var user  UserEntity
     totalRows, err := engine.CachedSearch(&users, "IndexAge", pager, 18)
@@ -551,7 +551,7 @@ func main() {
     // You need to register queue sender receiver that will send data to queue.
     // Here we used RedisQueueSenderReceiver. If you want to use other queue service simply implement QueueSenderReceiver
     registry.RegisterRedis("localhost:6379", 1, "queue_code")
-    queueSenderReceiver := &orm.RedisQueueSenderReceiver{PoolName: "queue_code"}
+    queueSenderReceiver := &RedisQueueSenderReceiver{PoolName: "queue_code"}
     registry.RegisterLazyQueue(queueSenderReceiver) 
     
     // now in code you can use FlushLazy() methods instead of Flush().
@@ -559,7 +559,7 @@ func main() {
     user.FlushLazy()
     
     //You need to run code that will read data from queue and execute changes
-    lazyReceiver := orm.NewLazyReceiver(engine, queueSenderReceiver)
+    lazyReceiver := NewLazyReceiver(engine, queueSenderReceiver)
     for {
         has, err = lazyReceiver.Digest()
         if err != nil {
@@ -588,7 +588,7 @@ func main() {
 
     // You need to register queue sender receiver that will send  data to queue.
     registry.RegisterRedis("localhost:6379", 1, "queue_code")
-    queueSenderReceiver := &orm.RedisQueueSenderReceiver{PoolName: "queue_code"}
+    queueSenderReceiver := &RedisQueueSenderReceiver{PoolName: "queue_code"}
     registry.RegisterLogQueue("log_db_pool", queueSenderReceiver)  //all changes that will be stored in "log_db_pool" database
 
     //next you need to define in Entity that you want to log changes. Just add "log" tag
@@ -607,7 +607,7 @@ func main() {
     
     
     //You need to run code that will read data from queue and store logs
-    lazyReceiver := orm.NewLogReceiver(engine, queueSenderReceiver)
+    lazyReceiver := NewLogReceiver(engine, queueSenderReceiver)
     for {
         has, err = lazyReceiver.Digest()
         if err != nil {
@@ -623,13 +623,13 @@ func main() {
 
 ## Set defaults
 
-If you need to define default values for entity simply extend orm.DefaultValuesInterface.
+If you need to define default values for entity simply extend DefaultValuesInterface.
 
 ```go
 func main() {
 
     type UserEntity struct {
-        orm.ORM
+        ORM
         ID                   uint64
         Name                 string
     }
@@ -652,7 +652,7 @@ field bool with name "FakeDelete".
 func main() {
 
     type UserEntity struct {
-        orm.ORM
+        ORM
         ID                   uint64
         Name                 string
         FakeDelete           bool
@@ -666,7 +666,7 @@ func main() {
     engine.Flush(user) //it will save entity id in Column `FakeDelete`.
 
     //will return all rows where `FakeDelete` = 0
-    total, err = engine.SearchWithCount(orm.NewWhere("1"), nil, &rows)
+    total, err = engine.SearchWithCount(NewWhere("1"), nil, &rows)
 
     //To force delete (remove row from DB):
     engine.ForceMarkToDelete(user)
@@ -678,19 +678,19 @@ func main() {
 
 ## After saved
 
-If you need to execute code after entity is added or updated simply extend orm.AfterSavedInterface.
+If you need to execute code after entity is added or updated simply extend AfterSavedInterface.
 
 ```go
 func main() {
 
     type UserEntity struct {
-        orm.ORM
+        ORM
         ID                   uint64
         Value                int
         Calculated           string `orm:"ignore"`
     }
 
-    func (e *UserEntity) AfterSaved(engine *orm.Engine) error {
+    func (e *UserEntity) AfterSaved(engine *Engine) error {
         e.Calculated = e.Value + 1
         return nil
     }
