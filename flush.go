@@ -10,8 +10,6 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 
-	"github.com/juju/errors"
-
 	"github.com/go-sql-driver/mysql"
 )
 
@@ -475,53 +473,28 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		}
 	}
 	if len(lazyMap) > 0 {
-		v, err := serializeForLazyQueue(lazyMap)
-		if err != nil {
-			return err
-		}
+		v := serializeForLazyQueue(lazyMap)
 		code := "default"
-		if engine.registry.lazyQueues == nil {
-			return fmt.Errorf("unregistered lazy queue")
-		}
-		queue, has := engine.registry.lazyQueues[code]
-		if !has {
-			return fmt.Errorf("unregistered log queu")
-		}
-		err = queue.Send(engine, lazyQueueName, []string{v})
+		queue := engine.registry.lazyQueues[code]
+		err := queue.Send(engine, lazyQueueName, []string{v})
 		if err != nil {
 			return err
 		}
 	}
-
 	for k, v := range dirtyQueues {
-		if engine.registry.dirtyQueues == nil {
-			return fmt.Errorf("unregistered lazy queue %s", k)
-		}
-		queue, has := engine.registry.dirtyQueues[k]
-		if !has {
-			return fmt.Errorf("unregistered lazy queue %s", k)
-		}
+		queue := engine.registry.dirtyQueues[k]
 		err := queue.Send(engine, k, v)
 		if err != nil {
 			return err
 		}
 	}
 	for k, v := range logQueues {
-		if engine.registry.logQueues == nil {
-			return fmt.Errorf("unregistered log queue %s", k)
-		}
-		queue, has := engine.registry.logQueues[k]
-		if !has {
-			return fmt.Errorf("unregistered log queue %s", k)
-		}
+		queue := engine.registry.logQueues[k]
 
 		members := make([]string, len(v))
 		for i, val := range v {
 			val.Meta = engine.logMetaData
-			asJSON, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(val)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			asJSON, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(val)
 			members[i] = string(asJSON)
 		}
 		err := queue.Send(engine, logQueueName, members)
@@ -532,12 +505,9 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 	return nil
 }
 
-func serializeForLazyQueue(lazyMap map[string]interface{}) (string, error) {
-	encoded, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(lazyMap)
-	if err != nil {
-		return "", err
-	}
-	return string(encoded), nil
+func serializeForLazyQueue(lazyMap map[string]interface{}) string {
+	encoded, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(lazyMap)
+	return string(encoded)
 }
 
 func injectBind(entity Entity, bind map[string]interface{}) map[string]interface{} {
@@ -726,10 +696,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			value := field.Interface()
 			var valString string
 			if value != nil && value != "" {
-				encoded, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value)
-				if err != nil {
-					return nil, fmt.Errorf("invalid json to encode: %v", value)
-				}
+				encoded, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value)
 				asString := string(encoded)
 				if asString != "" {
 					valString = asString
