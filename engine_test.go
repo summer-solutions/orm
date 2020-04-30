@@ -12,6 +12,11 @@ type testEntityEngine struct {
 	ID uint
 }
 
+type testEntityEngineUnregistered struct {
+	ORM
+	ID uint
+}
+
 func TestEngine(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterEntity(testEntityEngine{})
@@ -50,4 +55,9 @@ func TestEngine(t *testing.T) {
 		assert.EqualError(t, err, "unregistered locker pool 'test'")
 	}
 	engine.GetLocker("test")
+
+	panicF = func(err error) {
+		assert.EqualError(t, err, "entity 'orm.testEntityEngineUnregistered' is registered")
+	}
+	engine.Track(&testEntityEngineUnregistered{})
 }

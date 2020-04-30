@@ -7,7 +7,7 @@ import (
 )
 
 func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, references ...string) (found bool, err error) {
-	orm := initEntityIfNeeded(engine, entity)
+	orm := initIfNeeded(engine, entity)
 	schema := orm.tableSchema
 	var cacheKey string
 	localCache, hasLocalCache := schema.GetLocalCache(engine)

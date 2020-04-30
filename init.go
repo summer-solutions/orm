@@ -5,10 +5,6 @@ import (
 	"reflect"
 )
 
-func initEntityIfNeeded(engine *Engine, entity Entity) *ORM {
-	return initIfNeeded(engine, entity)
-}
-
 func initIfNeeded(engine *Engine, entity Entity) *ORM {
 	orm := entity.getORM()
 	if orm.dBData == nil {
@@ -17,7 +13,7 @@ func initIfNeeded(engine *Engine, entity Entity) *ORM {
 		t := elem.Type()
 		tableSchema := getTableSchema(engine.registry, t)
 		if tableSchema == nil {
-			panic(fmt.Errorf("entity '%s' is registered", t.String()))
+			panicAndStop(fmt.Errorf("entity '%s' is registered", t.String()))
 		}
 		orm.engine = engine
 		orm.tableSchema = tableSchema

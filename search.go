@@ -15,7 +15,7 @@ func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager
 }
 
 func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) (bool, error) {
-	orm := initEntityIfNeeded(engine, entity)
+	orm := initIfNeeded(engine, entity)
 	schema := orm.tableSchema
 	fieldsList, err := buildFieldList(engine.registry, schema, schema.t, "")
 	if err != nil {

@@ -54,7 +54,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			refValue := entity.getORM().attributes.elem.FieldByName(refName)
 			if !refValue.IsNil() {
 				refEntity := refValue.Interface().(Entity)
-				initEntityIfNeeded(engine, refEntity)
+				initIfNeeded(engine, refEntity)
 				if refEntity.GetID() == 0 {
 					if referencesToFlash == nil {
 						referencesToFlash = make(map[Entity]Entity)
