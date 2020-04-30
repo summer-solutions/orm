@@ -1,16 +1,13 @@
 package orm
 
-func getDirtyBind(entity Entity) (is bool, bind map[string]interface{}, err error) {
+func getDirtyBind(entity Entity) (is bool, bind map[string]interface{}) {
 	orm := entity.getORM()
 	if orm.attributes.delete {
-		return true, nil, nil
+		return true, nil
 	}
 	id := orm.GetID()
 	t := orm.attributes.elem.Type()
-	bind, err = createBind(id, orm.tableSchema, t, orm.attributes.elem, orm.dBData, "")
-	if err != nil {
-		return false, nil, err
-	}
+	bind = createBind(id, orm.tableSchema, t, orm.attributes.elem, orm.dBData, "")
 	is = id == 0 || len(bind) > 0
-	return is, bind, nil
+	return is, bind
 }

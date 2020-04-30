@@ -146,7 +146,7 @@ func (e *Engine) IsDirty(entity Entity) bool {
 		return true
 	}
 	initEntityIfNeeded(e, entity)
-	is, _, _ := getDirtyBind(entity)
+	is, _ := getDirtyBind(entity)
 	return is
 }
 

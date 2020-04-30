@@ -69,10 +69,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 
 		orm := entity.getORM()
 		dbData := orm.dBData
-		isDirty, bind, err := getDirtyBind(entity)
-		if err != nil {
-			return err
-		}
+		isDirty, bind := getDirtyBind(entity)
 		if !isDirty {
 			continue
 		}
@@ -520,7 +517,7 @@ func injectBind(entity Entity, bind map[string]interface{}) map[string]interface
 }
 
 func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value reflect.Value,
-	oldData map[string]interface{}, prefix string) (bind map[string]interface{}, err error) {
+	oldData map[string]interface{}, prefix string) (bind map[string]interface{}) {
 	bind = make(map[string]interface{})
 	var hasOld = len(oldData) > 0
 	for i := 0; i < t.NumField(); i++ {
@@ -593,9 +590,6 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			if name == "FakeDelete" {
 				value := "0"
 				if field.Bool() {
-					if id == 0 {
-						return nil, fmt.Errorf("fake delete not allowed for new row")
-					}
 					value = strconv.FormatUint(id, 10)
 				}
 				if hasOld && old == value {
@@ -623,10 +617,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			fieldAttributes := tableSchema.tags[name]
 			precisionAttribute, has := fieldAttributes["precision"]
 			if has {
-				userPrecision, err := strconv.Atoi(precisionAttribute)
-				if err != nil {
-					return nil, err
-				}
+				userPrecision, _ := strconv.Atoi(precisionAttribute)
 				precision = userPrecision
 			}
 			valString := strconv.FormatFloat(val, 'g', precision, bitSize)
@@ -709,10 +700,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		default:
 			k := field.Kind().String()
 			if k == "struct" {
-				subBind, err := createBind(0, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
-				if err != nil {
-					return nil, err
-				}
+				subBind := createBind(0, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
 				for key, value := range subBind {
 					bind[key] = value
 				}
@@ -732,7 +720,6 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				}
 				continue
 			}
-			return nil, fmt.Errorf("unsupported field type: %s", field.Type().String())
 		}
 	}
 	return

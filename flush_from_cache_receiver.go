@@ -66,8 +66,8 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	for k, v := range entityDBValue.getORM().dBData {
 		entity.getORM().dBData[k] = v
 	}
-	is, bind, err := getDirtyBind(entity)
-	if err != nil || !is {
+	is, bind := getDirtyBind(entity)
+	if !is {
 		return true, err
 	}
 
