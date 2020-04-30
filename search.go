@@ -225,7 +225,7 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) erro
 	orm := initIfNeeded(engine, entity)
 	elem := orm.attributes.elem
 	orm.attributes.idElem.SetUint(id)
-	_, err := fillStruct(engine, orm.tableSchema, 0, data, orm.tableSchema.t, elem, "")
+	_, err := fillStruct(engine, orm.tableSchema, 0, data, orm.tableSchema.fields, elem, "")
 	if err != nil {
 		return err
 	}
@@ -238,20 +238,19 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) erro
 }
 
 func fillStruct(engine *Engine, schema *tableSchema, index uint16, data []string,
-	t reflect.Type, value reflect.Value, prefix string) (uint16, error) {
-	for i := 0; i < t.NumField(); i++ {
+	fields []reflect.StructField, value reflect.Value, prefix string) (uint16, error) {
+	for i, tField := range fields {
 		if index == 0 && i <= 1 { //skip id and orm
 			continue
 		}
-
-		field := value.Field(i)
-		name := prefix + t.Field(i).Name
-
+		name := prefix + tField.Name
 		tags := schema.tags[name]
 		_, has := tags["ignore"]
 		if has {
 			continue
 		}
+
+		field := value.Field(i)
 
 		fieldType := field.Type().String()
 		switch fieldType {
@@ -357,7 +356,12 @@ func fillStruct(engine *Engine, schema *tableSchema, index uint16, data []string
 			if k == "struct" {
 				newVal := reflect.New(field.Type())
 				value := newVal.Elem()
-				newIndex, err := fillStruct(engine, schema, index, data, field.Type(), value, name)
+				t := field.Type()
+				fields := make([]reflect.StructField, t.NumField())
+				for i := 0; i < t.NumField(); i++ {
+					fields[i] = t.Field(i)
+				}
+				newIndex, err := fillStruct(engine, schema, index, data, fields, value, name)
 				if err != nil {
 					return 0, err
 				}

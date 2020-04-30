@@ -57,7 +57,7 @@ func TestEngine(t *testing.T) {
 	engine.GetLocker("test")
 
 	panicF = func(err error) {
-		assert.EqualError(t, err, "entity 'orm.testEntityEngineUnregistered' is registered")
+		assert.EqualError(t, err, "entity 'orm.testEntityEngineUnregistered' is not registered")
 	}
 	engine.Track(&testEntityEngineUnregistered{})
 }

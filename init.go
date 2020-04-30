@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"fmt"
 	"reflect"
 )
 
@@ -13,11 +12,12 @@ func initIfNeeded(engine *Engine, entity Entity) *ORM {
 		t := elem.Type()
 		tableSchema := getTableSchema(engine.registry, t)
 		if tableSchema == nil {
-			panicAndStop(fmt.Errorf("entity '%s' is registered", t.String()))
+			panicAndStop(EntityNotRegisteredError{Name: t.String()})
+			return nil
 		}
 		orm.engine = engine
 		orm.tableSchema = tableSchema
-		orm.dBData = make(map[string]interface{})
+		orm.dBData = make(map[string]interface{}, len(tableSchema.columnNames))
 		orm.attributes = &entityAttributes{nil, false, false, value, elem, elem.Field(1)}
 		defaultInterface, is := entity.(DefaultValuesInterface)
 		if is {

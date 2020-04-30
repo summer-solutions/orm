@@ -38,6 +38,7 @@ type tableSchema struct {
 	tableName        string
 	mysqlPoolName    string
 	t                reflect.Type
+	fields           []reflect.StructField
 	tags             map[string]map[string]string
 	cachedIndexes    map[string]*cachedQueryDefinition
 	cachedIndexesOne map[string]*cachedQueryDefinition
@@ -292,9 +293,15 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 			}
 		}
 	}
+	fields := make([]reflect.StructField, entityType.NumField())
+	for i := 0; i < entityType.NumField(); i++ {
+		fields[i] = entityType.Field(i)
+	}
+
 	tableSchema := &tableSchema{tableName: table,
 		mysqlPoolName:    mysql,
 		t:                entityType,
+		fields:           fields,
 		tags:             tags,
 		columnNames:      columnNames,
 		columnPathMap:    columnPathMap,
@@ -407,5 +414,5 @@ func extractTag(registry *Registry, field reflect.StructField) (map[string]map[s
 }
 
 func (tableSchema *tableSchema) getCacheKey(id uint64) string {
-	return fmt.Sprintf("%s%s:%d", tableSchema.cachePrefix, tableSchema.columnsStamp, id)
+	return tableSchema.cachePrefix + tableSchema.cachePrefix + strconv.FormatUint(id, 10)
 }
