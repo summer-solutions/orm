@@ -6,7 +6,11 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/segmentio/fasthash/fnv1a"
 )
+
+const idsOnCachePage = 1000
 
 func cachedSearch(engine *Engine, entities interface{}, indexName string, pager *Pager,
 	arguments []interface{}, references []string) (totalRows int, err error) {
@@ -34,8 +38,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	if !hasLocalCache && !hasRedis {
 		return 0, fmt.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
 	}
-	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
-	const idsOnCachePage = 1000
+	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
 
 	minCachePage := float64((pager.GetCurrentPage() - 1) * pager.GetPageSize() / idsOnCachePage)
 	minCachePageCeil := minCachePage
@@ -208,7 +211,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	if !hasLocalCache && !hasRedis {
 		return false, fmt.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
 	}
-	cacheKey := schema.getCacheKeySearch(indexName, Where.GetParameters()...)
+	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
 	var fromCache map[string]interface{}
 	if hasLocalCache {
 		fromCache = localCache.HMget(cacheKey, "1")
@@ -251,4 +254,9 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 		return engine.LoadByID(id, entity, references...)
 	}
 	return false, nil
+}
+
+func getCacheKeySearch(tableSchema *tableSchema, indexName string, parameters ...interface{}) string {
+	hash := fnv1a.HashString32(fmt.Sprintf("%v", parameters))
+	return fmt.Sprintf("%s_%s_%d", tableSchema.cachePrefix, indexName, hash)
 }

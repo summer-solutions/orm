@@ -409,8 +409,3 @@ func extractTag(registry *Registry, field reflect.StructField) (map[string]map[s
 func (tableSchema *tableSchema) getCacheKey(id uint64) string {
 	return fmt.Sprintf("%s%s:%d", tableSchema.cachePrefix, tableSchema.columnsStamp, id)
 }
-
-func (tableSchema *tableSchema) getCacheKeySearch(indexName string, parameters ...interface{}) string {
-	hash := fnv1a.HashString32(fmt.Sprintf("%v", parameters))
-	return fmt.Sprintf("%s_%s_%d", tableSchema.cachePrefix, indexName, hash)
-}
