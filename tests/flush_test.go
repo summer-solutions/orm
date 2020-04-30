@@ -40,7 +40,8 @@ type TestEntityFlush struct {
 	YearNotNull  uint16   `orm:"year=true;required"`
 	Set          []string `orm:"set=tests.Color;required"`
 	Date         *time.Time
-	DateNotNull  time.Time `orm:"required"`
+	DateNotNull  time.Time  `orm:"required"`
+	DateTime     *time.Time `orm:"time"`
 	ReferenceOne *TestEntityFlush
 	Ignored      []time.Time `orm:"ignore"`
 }
@@ -93,6 +94,7 @@ func TestFlush(t *testing.T) {
 	entities[7].Name = "Name 8.1"
 	now := time.Now()
 	entities[7].Date = &now
+	entities[7].DateTime = &now
 
 	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(entities[1]))
@@ -114,6 +116,8 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, edited2.ReferenceOne)
 	assert.NotNil(t, edited2.Date)
 	assert.Equal(t, now.Format("2006-01-02"), edited2.Date.Format("2006-01-02"))
+	assert.NotNil(t, edited2.DateTime)
+	assert.Equal(t, now.Format("2006-01-02 15:04:05"), edited2.DateTime.Format("2006-01-02 15:04:05"))
 	assert.False(t, engine.Loaded(edited1.ReferenceOne))
 	err = engine.Load(edited1.ReferenceOne)
 	assert.Nil(t, err)
