@@ -34,6 +34,9 @@ func TestGetByIDsLocal(t *testing.T) {
 	pool := engine.GetMysql()
 	pool.AddLogger(DBLogger)
 	pool.SetLogLevel(log.InfoLevel)
+	CacheLogger := memory.New()
+	engine.GetLocalCache().AddLogger(CacheLogger)
+	engine.GetLocalCache().SetLogLevel(log.InfoLevel)
 
 	var found []*TestEntityByIDsLocal
 	missing, err := engine.LoadByIDs([]uint64{2, 3, 1}, &found)

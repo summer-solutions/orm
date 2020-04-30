@@ -1,4 +1,4 @@
-package tests
+package orm
 
 import (
 	"testing"
@@ -8,11 +8,10 @@ import (
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/summer-solutions/orm"
 )
 
-func TestGetSetLocal(t *testing.T) {
-	registry := &orm.Registry{}
+func TestLocalCache(t *testing.T) {
+	registry := &Registry{}
 	registry.RegisterLocalCache(10)
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
@@ -43,4 +42,23 @@ func TestGetSetLocal(t *testing.T) {
 	assert.Len(t, fields, 2)
 	assert.Equal(t, "b", fields["a"])
 	assert.Equal(t, "d", fields["c"])
+
+	cache.Clear()
+	fields = cache.HMget("test2", "a", "c")
+	assert.Len(t, fields, 2)
+	assert.Nil(t, fields["a"])
+	assert.Nil(t, fields["c"])
+
+	cache.Set("test", "hello")
+	cache.Set("test2", "hello2")
+	cache.Set("test3", "hello3")
+	cache.Remove("test", "test3")
+	res := cache.MGet("test", "test2", "test3")
+	assert.Len(t, res, 3)
+	assert.Nil(t, res["test"])
+	assert.Equal(t, "hello2", res["test2"])
+	assert.Nil(t, res["test3"])
+
+	cache.EnableDebug()
+	cache.SetLogLevel(log.DebugLevel)
 }
