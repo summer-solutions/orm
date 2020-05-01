@@ -186,7 +186,7 @@ func TestSchema(t *testing.T) {
 
 	columns := tableSchema.GetColumns()
 	assert.Len(t, columns, 34)
-	assert.Equal(t, map[string]string{"Address.Building": "AddressBuilding", "Address.Street": "AddressStreet", "BigName": "BigName", "Blob": "Blob", "Bool": "Bool", "Date": "Date", "DateNotNull": "DateNotNull", "DateTime": "DateTime", "Enum": "Enum", "EnumNotNull": "EnumNotNull", "Float32": "Float32", "Float32Decimal": "Float32Decimal", "Float64": "Float64", "Float64DecimalSigned": "Float64DecimalSigned", "ID": "ID", "Int": "Int", "Int16": "Int16", "Int32": "Int32", "Int32Medium": "Int32Medium", "Int64": "Int64", "Int8": "Int8", "JSON": "JSON", "Name": "Name", "NameNotNull": "NameNotNull", "ReferenceOne.ID": "ReferenceOne", "ReferenceOneCascade.ID": "ReferenceOneCascade", "Rune": "Rune", "Set": "Set", "Uint24": "Uint24", "Uint32": "Uint32", "Uint64": "Uint64", "Uint8": "Uint8", "Year": "Year", "YearNotNull": "YearNotNull"}, columns)
+	assert.Equal(t, []string([]string{"ID", "Uint8", "Uint24", "Uint32", "Uint64", "Year", "YearNotNull", "Int8", "Int16", "Int32", "Int32Medium", "Int64", "Rune", "Int", "Name", "NameNotNull", "BigName", "Enum", "EnumNotNull", "Set", "Blob", "Bool", "Float32", "Float64", "Float32Decimal", "Float64DecimalSigned", "Date", "DateTime", "DateNotNull", "JSON", "ReferenceOne", "ReferenceOneCascade", "AddressBuilding", "AddressStreet"}), columns)
 
 	_, err = tableSchema.GetMysql(engine).Exec("ALTER TABLE `testEntitySchema` ADD COLUMN `ToDrop` int(8)")
 	assert.Nil(t, err)

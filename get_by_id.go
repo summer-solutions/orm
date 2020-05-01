@@ -96,11 +96,12 @@ func buildRedisValue(entity Entity) string {
 
 func buildLocalCacheValue(entity Entity) []string {
 	bind := entity.getORM().dBData
-	length := len(entity.getORM().tableSchema.columnNames)
+	columns := entity.getORM().tableSchema.columnNames
+	length := len(columns)
 	value := make([]string, length-1)
 	j := 0
 	for i := 1; i < length; i++ { //skip id
-		v := bind[entity.getORM().tableSchema.columnNames[i]]
+		v := bind[columns[i]]
 		if v == nil {
 			v = ""
 		}

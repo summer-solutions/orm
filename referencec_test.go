@@ -44,6 +44,7 @@ func TestReferences(t *testing.T) {
 	ref4b := testEntityReferenceLevel4{Name: "name 4b"}
 
 	engine := PrepareTables(t, &Registry{}, ref1, ref2, ref3, ref4)
+
 	engine.Track(&ref1, &ref2, &ref3, &ref4, &ref3b, &ref4b)
 	ref1.ReferenceOne = &ref2
 	ref1.ReferenceSix = &ref3b

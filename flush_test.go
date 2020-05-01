@@ -89,8 +89,8 @@ func TestFlush(t *testing.T) {
 	var edited1 testEntityFlush
 	var edited2 testEntityFlush
 	has, err := engine.LoadByID(2, &edited1)
-	assert.True(t, has)
 	assert.Nil(t, err)
+	assert.True(t, has)
 	has, err = engine.LoadByID(8, &edited2)
 	assert.True(t, has)
 	assert.Nil(t, err)
