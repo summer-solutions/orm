@@ -352,7 +352,6 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 							sub := subValue.Interface()
 							pager := &Pager{CurrentPage: 1, PageSize: 1000}
 							where := NewWhere(fmt.Sprintf("`%s` IN ?", refColumn), ids)
-							max := 10
 							for {
 								err := engine.Search(where, pager, sub)
 								if err != nil {
@@ -371,10 +370,6 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 								err = flush(engine, transaction, lazy, toDeleteAll...)
 								if err != nil {
 									return err
-								}
-								max--
-								if max == 0 {
-									return fmt.Errorf("cascade limit exceeded")
 								}
 							}
 						}

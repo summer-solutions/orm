@@ -39,15 +39,11 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 		return false, nil
 	}
 
-	columns, err := results.Columns()
-	if err != nil {
-		return false, err
-	}
-	count := len(columns)
+	count := len(schema.columnNames)
 
 	values := make([]sql.NullString, count)
 	valuePointers := make([]interface{}, count)
-	for i := range columns {
+	for i := 0; i < count; i++ {
 		valuePointers[i] = &values[i]
 	}
 	err = results.Scan(valuePointers...)
@@ -105,22 +101,18 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	}
 	defer def()
 
-	columns, err := results.Columns()
-	if err != nil {
-		return 0, err
-	}
-	count := len(columns)
+	count := len(schema.columnNames)
 
 	values := make([]string, count)
 	valuePointers := make([]interface{}, count)
+	for i := 0; i < count; i++ {
+		valuePointers[i] = &values[i]
+	}
 
 	valOrigin := entities
 	val := valOrigin
 	i := 0
 	for results.Next() {
-		for i := range columns {
-			valuePointers[i] = &values[i]
-		}
 		err = results.Scan(valuePointers...)
 		if err != nil {
 			return 0, err
