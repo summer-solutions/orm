@@ -61,7 +61,7 @@ type testEntitySchema struct {
 	DateTime             *time.Time `orm:"time=true"`
 	Address              addressSchema
 	JSON                 interface{}
-	ReferenceOne         *testEntitySchemaRef
+	ReferenceOne         *testEntitySchemaRef `orm:"index=myRefIndex"`
 	ReferenceOneCascade  *testEntitySchemaRef `orm:"cascade"`
 	IgnoreField          []time.Time          `orm:"ignore"`
 	Blob                 []byte
@@ -129,7 +129,7 @@ func TestSchema(t *testing.T) {
 
 	assert.Equal(t, "CREATE TABLE `test_schema`.`testEntitySchemaRef` (\n  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,\n  `Name` varchar(255) DEFAULT NULL,\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;", alters[0].SQL)
 	assert.Equal(t, "CREATE TABLE `test_log`.`_log_schema_testEntitySchema` (\n  `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,\n  `entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `data` json DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;", alters[1].SQL)
-	assert.Equal(t, "CREATE TABLE `test_schema`.`testEntitySchema` (\n  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,\n  `Name` varchar(100) DEFAULT NULL,\n  `NameNotNull` varchar(100) NOT NULL DEFAULT '',\n  `BigName` mediumtext,\n  `Uint8` tinyint(3) unsigned NOT NULL DEFAULT '0',\n  `Uint24` mediumint(8) unsigned NOT NULL DEFAULT '0',\n  `Uint32` int(10) unsigned NOT NULL DEFAULT '0',\n  `Uint64` bigint(20) unsigned NOT NULL DEFAULT '0',\n  `Int8` tinyint(4) NOT NULL DEFAULT '0',\n  `Int16` smallint(6) NOT NULL DEFAULT '0',\n  `Int32` int(11) NOT NULL DEFAULT '0',\n  `Int32Medium` mediumint(9) NOT NULL DEFAULT '0',\n  `Int64` bigint(20) NOT NULL DEFAULT '0',\n  `Rune` int(11) NOT NULL DEFAULT '0',\n  `Int` int(11) NOT NULL DEFAULT '0',\n  `Bool` tinyint(1) NOT NULL DEFAULT '0',\n  `Float32` float unsigned NOT NULL DEFAULT '0',\n  `Float64` double unsigned NOT NULL DEFAULT '0',\n  `Float32Decimal` decimal(8,2) unsigned NOT NULL DEFAULT '0.00',\n  `Float64DecimalSigned` decimal(8,2) NOT NULL DEFAULT '0.00',\n  `Enum` enum('Red','Green','Blue','Yellow','Purple') DEFAULT NULL,\n  `EnumNotNull` enum('Red','Green','Blue','Yellow','Purple') NOT NULL DEFAULT 'Red',\n  `Set` set('Red','Green','Blue','Yellow','Purple') DEFAULT NULL,\n  `Year` year(4) DEFAULT NULL,\n  `YearNotNull` year(4) NOT NULL DEFAULT '0000',\n  `Date` date DEFAULT NULL,\n  `DateNotNull` date NOT NULL DEFAULT '0001-01-01',\n  `DateTime` datetime DEFAULT NULL,\n  `AddressStreet` varchar(255) DEFAULT NULL,\n  `AddressBuilding` smallint(5) unsigned NOT NULL DEFAULT '0',\n  `JSON` mediumtext,\n  `ReferenceOne` int(10) unsigned DEFAULT NULL,\n  `ReferenceOneCascade` int(10) unsigned DEFAULT NULL,\n  `Blob` blob,\n  INDEX `FirstIndex` (`NameNotNull`),\n  INDEX `ReferenceOneCascade` (`ReferenceOneCascade`),\n  INDEX `ReferenceOne` (`ReferenceOne`),\n  UNIQUE INDEX `SecondIndex` (`Uint64`,`Uint8`),\n  UNIQUE INDEX `ThirdIndex` (`Uint8`),\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;", alters[2].SQL)
+	assert.Equal(t, "CREATE TABLE `test_schema`.`testEntitySchema` (\n  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,\n  `Name` varchar(100) DEFAULT NULL,\n  `NameNotNull` varchar(100) NOT NULL DEFAULT '',\n  `BigName` mediumtext,\n  `Uint8` tinyint(3) unsigned NOT NULL DEFAULT '0',\n  `Uint24` mediumint(8) unsigned NOT NULL DEFAULT '0',\n  `Uint32` int(10) unsigned NOT NULL DEFAULT '0',\n  `Uint64` bigint(20) unsigned NOT NULL DEFAULT '0',\n  `Int8` tinyint(4) NOT NULL DEFAULT '0',\n  `Int16` smallint(6) NOT NULL DEFAULT '0',\n  `Int32` int(11) NOT NULL DEFAULT '0',\n  `Int32Medium` mediumint(9) NOT NULL DEFAULT '0',\n  `Int64` bigint(20) NOT NULL DEFAULT '0',\n  `Rune` int(11) NOT NULL DEFAULT '0',\n  `Int` int(11) NOT NULL DEFAULT '0',\n  `Bool` tinyint(1) NOT NULL DEFAULT '0',\n  `Float32` float unsigned NOT NULL DEFAULT '0',\n  `Float64` double unsigned NOT NULL DEFAULT '0',\n  `Float32Decimal` decimal(8,2) unsigned NOT NULL DEFAULT '0.00',\n  `Float64DecimalSigned` decimal(8,2) NOT NULL DEFAULT '0.00',\n  `Enum` enum('Red','Green','Blue','Yellow','Purple') DEFAULT NULL,\n  `EnumNotNull` enum('Red','Green','Blue','Yellow','Purple') NOT NULL DEFAULT 'Red',\n  `Set` set('Red','Green','Blue','Yellow','Purple') DEFAULT NULL,\n  `Year` year(4) DEFAULT NULL,\n  `YearNotNull` year(4) NOT NULL DEFAULT '0000',\n  `Date` date DEFAULT NULL,\n  `DateNotNull` date NOT NULL DEFAULT '0001-01-01',\n  `DateTime` datetime DEFAULT NULL,\n  `AddressStreet` varchar(255) DEFAULT NULL,\n  `AddressBuilding` smallint(5) unsigned NOT NULL DEFAULT '0',\n  `JSON` mediumtext,\n  `ReferenceOne` int(10) unsigned DEFAULT NULL,\n  `ReferenceOneCascade` int(10) unsigned DEFAULT NULL,\n  `Blob` blob,\n  INDEX `FirstIndex` (`NameNotNull`),\n  INDEX `ReferenceOneCascade` (`ReferenceOneCascade`),\n  INDEX `myRefIndex` (`ReferenceOne`),\n  UNIQUE INDEX `SecondIndex` (`Uint64`,`Uint8`),\n  UNIQUE INDEX `ThirdIndex` (`Uint8`),\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;", alters[2].SQL)
 	assert.Equal(t, "ALTER TABLE `test_schema`.`testEntitySchema`\n  ADD CONSTRAINT `test_schema:testEntitySchema:ReferenceOneCascade` FOREIGN KEY (`ReferenceOneCascade`) REFERENCES `test_schema`.`testEntitySchemaRef` (`ID`) ON DELETE CASCADE,\n  ADD CONSTRAINT `test_schema:testEntitySchema:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `test_schema`.`testEntitySchemaRef` (`ID`) ON DELETE RESTRICT;", alters[3].SQL)
 
 	for _, alter := range alters {
@@ -296,9 +296,14 @@ func TestSchema(t *testing.T) {
 	testDB.QueryRowMock = func(db sqlDB, counter int, query string, args ...interface{}) SQLRow {
 		return db.QueryRow(query, args...)
 	}
-	//alters, err = engine.GetAlters()
-	//assert.Nil(t, alters)
-	//assert.EqualError(t, err, "db error")
+
+	_, err = engine.GetMysql("log").Exec("ALTER TABLE `_log_schema_testEntitySchema` DROP COLUMN `added_at`")
+	assert.Nil(t, err)
+	alters, err = engine.GetAlters()
+	assert.Nil(t, err)
+	assert.Len(t, alters, 2)
+	assert.Equal(t, "DROP TABLE `test_log`.`_log_schema_testEntitySchema`;", alters[0].SQL)
+	assert.Equal(t, "CREATE TABLE `test_log`.`_log_schema_testEntitySchema` (\n  `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,\n  `entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `data` json DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;", alters[1].SQL)
 }
 
 func TestSchemaWrongIndexPosition(t *testing.T) {
