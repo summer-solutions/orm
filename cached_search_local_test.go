@@ -189,6 +189,13 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.True(t, has)
 	assert.Equal(t, uint(6), row.ID)
 
+	has, err = engine.CachedSearchOneWithReferences(&row, "IndexName", []interface{}{"Name 4"}, []string{"ReferenceOne"})
+	assert.Nil(t, err)
+	assert.True(t, has)
+	assert.Equal(t, uint(4), row.ID)
+	assert.NotNil(t, row.ReferenceOne)
+	assert.Equal(t, "Name 4", row.ReferenceOne.Name)
+
 	has, err = engine.CachedSearchOne(&row, "IndexName", "Name 99")
 	assert.Nil(t, err)
 	assert.False(t, has)
