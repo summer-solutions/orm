@@ -50,10 +50,7 @@ func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
 	var decoded []string
 	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(inCache), &decoded)
 
-	err = fillFromDBRow(id, r.engine, decoded, entity)
-	if err != nil {
-		return true, err
-	}
+	fillFromDBRow(id, r.engine, decoded, entity)
 	entityDBValue := reflect.New(schema.t).Interface().(Entity)
 	found, err := searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue, nil)
 	if err != nil || !found {

@@ -157,17 +157,11 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 				if err != nil {
 					return nil, err
 				}
-				err = fillFromDBRow(keysMapping[k], engine, decoded, entity)
-				if err != nil {
-					return nil, err
-				}
+				fillFromDBRow(keysMapping[k], engine, decoded, entity)
 				results[k] = entity
 			} else {
 				entity := reflect.New(entityType).Interface().(Entity)
-				err := fillFromDBRow(keysMapping[k], engine, v.([]string), entity)
-				if err != nil {
-					return nil, err
-				}
+				fillFromDBRow(keysMapping[k], engine, v.([]string), entity)
 				results[k] = entity
 			}
 		}

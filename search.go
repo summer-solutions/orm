@@ -64,10 +64,7 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	for i, v := range values {
 		finalValues[i] = v.String
 	}
-	err = fillFromDBRow(id, engine, finalValues[1:], entity)
-	if err != nil {
-		return false, err
-	}
+	fillFromDBRow(id, engine, finalValues[1:], entity)
 	if len(references) > 0 {
 		err = warmUpReferences(engine, schema, entity.getORM().attributes.elem, references, false)
 		if err != nil {
@@ -119,10 +116,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		}
 		value := reflect.New(entityType)
 		id, _ := strconv.ParseUint(values[0], 10, 64)
-		err = fillFromDBRow(id, engine, values[1:], value.Interface().(Entity))
-		if err != nil {
-			return 0, err
-		}
+		fillFromDBRow(id, engine, values[1:], value.Interface().(Entity))
 		val = reflect.Append(val, value)
 		i++
 	}
@@ -214,20 +208,16 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 	return totalRows, nil
 }
 
-func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) error {
+func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) {
 	orm := initIfNeeded(engine, entity)
 	elem := orm.attributes.elem
 	orm.attributes.idElem.SetUint(id)
-	_, err := fillStruct(engine, 0, data, orm.tableSchema.fields, elem)
-	if err != nil {
-		return err
-	}
+	_ = fillStruct(engine, 0, data, orm.tableSchema.fields, elem)
 	orm.dBData["ID"] = id
 	orm.attributes.loaded = true
 	for key, column := range orm.tableSchema.columnNames[1:] {
 		orm.dBData[column] = data[key]
 	}
-	return nil
 }
 
 func convertStringToUint(value string) uint64 {
@@ -246,7 +236,7 @@ func convertStringToInt(value string) int64 {
 	return v
 }
 
-func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields, value reflect.Value) (uint16, error) {
+func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields, value reflect.Value) uint16 {
 	skip := 1
 	if fields.prefix != "" {
 		skip = -1
@@ -336,10 +326,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		field := value.Field(i)
 		if data[index] != "" {
 			var f interface{}
-			err := jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(data[index]), &f)
-			if err != nil {
-				return 0, err
-			}
+			_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(data[index]), &f)
 			field.Set(reflect.ValueOf(f))
 		} else {
 			field.Set(reflect.Zero(field.Type()))
@@ -367,14 +354,11 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		field := value.Field(i)
 		newVal := reflect.New(field.Type())
 		value := newVal.Elem()
-		newIndex, err := fillStruct(engine, index, data, subFields, value)
-		if err != nil {
-			return 0, err
-		}
+		newIndex := fillStruct(engine, index, data, subFields, value)
 		field.Set(value)
 		index = newIndex
 	}
-	return index, nil
+	return index
 }
 
 func getEntityTypeForSlice(registry *validatedRegistry, sliceType reflect.Type) (reflect.Type, bool) {

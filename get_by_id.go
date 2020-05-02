@@ -19,10 +19,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			if e == "nil" {
 				return false, nil
 			}
-			err = fillFromDBRow(id, engine, e.([]string), entity)
-			if err != nil {
-				return false, err
-			}
+			fillFromDBRow(id, engine, e.([]string), entity)
 			if len(references) > 0 {
 				err = warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 			}
@@ -45,10 +42,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			if err != nil {
 				return true, err
 			}
-			err = fillFromDBRow(id, engine, decoded, entity)
-			if err != nil {
-				return false, err
-			}
+			fillFromDBRow(id, engine, decoded, entity)
 			if len(references) > 0 {
 				err = warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 			}
