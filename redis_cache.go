@@ -44,17 +44,11 @@ func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 	}
 	if !has {
 		userVal := provider()
-		encoded, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(userVal)
-		if err != nil {
-			return nil, err
-		}
+		encoded, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(userVal)
 		return userVal, r.Set(key, string(encoded), ttlSeconds)
 	}
 	var data interface{}
-	err = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(val), &data)
-	if err != nil {
-		return nil, err
-	}
+	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(val), &data)
 	return data, nil
 }
 

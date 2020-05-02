@@ -32,10 +32,7 @@ func (r *LogReceiver) Digest() (has bool, err error) {
 		return false, nil
 	}
 	var value LogQueueValue
-	err = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(asJSON), &value)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
+	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(asJSON), &value)
 
 	poolDB := r.engine.GetMysql(value.PoolName)
 	/* #nosec */

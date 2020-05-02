@@ -30,10 +30,7 @@ func (r *LazyReceiver) Digest() (has bool, err error) {
 		return false, nil
 	}
 	var data interface{}
-	err = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(asJSON), &data)
-	if err != nil {
-		return true, err
-	}
+	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(asJSON), &data)
 	validMap := data.(map[string]interface{})
 	err = r.handleQueries(r.engine, validMap)
 	if err != nil {
