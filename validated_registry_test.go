@@ -3,6 +3,8 @@ package orm
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
 
@@ -33,11 +35,9 @@ func TestValidatedRegistry(t *testing.T) {
 	assert.Equal(t, log.WarnLevel, vrFull.log.Level)
 	vr.EnableDebug()
 	assert.Equal(t, log.DebugLevel, vrFull.log.Level)
-
-	panicF = func(err error) {
-		assert.EqualError(t, err, "entity 'orm.testEntityValidatedRegistryUnregistered' is not registered")
-	}
-	vr.GetTableSchemaForEntity(&testEntityValidatedRegistryUnregistered{})
+	require.PanicsWithError(t, "entity 'orm.testEntityValidatedRegistryUnregistered' is not registered", func() {
+		vr.GetTableSchemaForEntity(&testEntityValidatedRegistryUnregistered{})
+	})
 	schema := vr.GetTableSchemaForEntity(&testEntityValidatedRegistry{})
 	assert.NotNil(t, schema)
 }

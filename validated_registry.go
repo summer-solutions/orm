@@ -131,7 +131,7 @@ func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) TableSchema {
 	}
 	tableSchema := getTableSchema(r, t)
 	if tableSchema == nil {
-		panicAndStop(EntityNotRegisteredError{Name: t.String()})
+		panic(EntityNotRegisteredError{Name: t.String()})
 	}
 	return tableSchema
 }

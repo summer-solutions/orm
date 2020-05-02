@@ -11,15 +11,6 @@ import (
 	"github.com/apex/log/handlers/text"
 )
 
-var panicF func(err error)
-
-func panicAndStop(err error) {
-	if panicF == nil {
-		panic(err)
-	}
-	panicF(err)
-}
-
 type Engine struct {
 	registry                     *validatedRegistry
 	dbs                          map[string]*DB
@@ -75,7 +66,7 @@ func (e *Engine) Track(entity ...Entity) {
 		e.trackedEntities = append(e.trackedEntities, entity)
 		e.trackedEntitiesCounter++
 		if e.trackedEntitiesCounter == 10000 {
-			panicAndStop(fmt.Errorf("track limit 10000 exceeded"))
+			panic(fmt.Errorf("track limit 10000 exceeded"))
 		}
 	}
 }
@@ -161,7 +152,7 @@ func (e *Engine) GetMysql(code ...string) *DB {
 	}
 	db, has := e.dbs[dbCode]
 	if !has {
-		panicAndStop(fmt.Errorf("unregistered mysql pool '%s'", dbCode))
+		panic(fmt.Errorf("unregistered mysql pool '%s'", dbCode))
 	}
 	return db
 }
@@ -173,7 +164,7 @@ func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 	}
 	cache, has := e.localCache[dbCode]
 	if !has {
-		panicAndStop(fmt.Errorf("unregistered local cache pool '%s'", dbCode))
+		panic(fmt.Errorf("unregistered local cache pool '%s'", dbCode))
 	}
 	return cache
 }
@@ -185,7 +176,7 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	}
 	cache, has := e.redis[dbCode]
 	if !has {
-		panicAndStop(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
+		panic(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
 	}
 	return cache
 }
@@ -197,7 +188,7 @@ func (e *Engine) GetLocker(code ...string) *Locker {
 	}
 	locker, has := e.locks[dbCode]
 	if !has {
-		panicAndStop(fmt.Errorf("unregistered locker pool '%s'", dbCode))
+		panic(fmt.Errorf("unregistered locker pool '%s'", dbCode))
 	}
 	return locker
 }
