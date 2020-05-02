@@ -91,6 +91,10 @@ func TestReferences(t *testing.T) {
 	err = engine.Load(root.ReferenceOne)
 	assert.Nil(t, err)
 	assert.True(t, engine.Loaded(root.ReferenceOne))
+	err = engine.Load(root.ReferenceOne, "ReferenceTwo")
+	assert.Nil(t, err)
+	assert.NotNil(t, root.ReferenceOne.ReferenceTwo)
+	assert.Equal(t, "name 3", root.ReferenceOne.ReferenceTwo.Name)
 
 	engine.Track(&root)
 	root.ReferenceFive = &testEntityReferenceLevel3{ID: 2}
