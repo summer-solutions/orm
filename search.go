@@ -59,7 +59,11 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 		return false, err
 	}
 	def()
-	id, _ := strconv.ParseUint(values[0].String, 10, 64)
+	id := uint64(0)
+	if values[0].Valid {
+		id, _ = strconv.ParseUint(values[0].String, 10, 64)
+	}
+
 	finalValues := make([]string, count)
 	for i, v := range values {
 		finalValues[i] = v.String
@@ -234,6 +238,22 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) erro
 	return nil
 }
 
+func convertStringToUint(value string) uint64 {
+	if value == "" {
+		return 0
+	}
+	v, _ := strconv.ParseUint(value, 10, 64)
+	return v
+}
+
+func convertStringToInt(value string) int64 {
+	if value == "" {
+		return 0
+	}
+	v, _ := strconv.ParseInt(value, 10, 64)
+	return v
+}
+
 func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields, value reflect.Value) (uint16, error) {
 	skip := 1
 	if fields.prefix != "" {
@@ -243,13 +263,11 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		if i == skip {
 			continue
 		}
-		integer, _ := strconv.ParseUint(data[index], 10, 64)
-		value.Field(i).SetUint(integer)
+		value.Field(i).SetUint(convertStringToUint(data[index]))
 		index++
 	}
 	for _, i := range fields.integers {
-		integer, _ := strconv.ParseInt(data[index], 10, 64)
-		value.Field(i).SetInt(integer)
+		value.Field(i).SetInt(convertStringToInt(data[index]))
 		index++
 	}
 	for _, i := range fields.strings {
@@ -338,7 +356,10 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	}
 	for k, i := range fields.refs {
 		field := value.Field(i)
-		integer, _ := strconv.ParseUint(data[index], 10, 64)
+		integer := uint64(0)
+		if data[index] != "" {
+			integer, _ = strconv.ParseUint(data[index], 10, 64)
+		}
 		refType := fields.refsTypes[k]
 		if integer > 0 {
 			n := reflect.New(refType.Elem())
