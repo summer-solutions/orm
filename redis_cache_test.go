@@ -3,13 +3,13 @@ package orm
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/apex/log"
 
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/go-redis/redis/v7"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRedisEnableDebug(t *testing.T) {

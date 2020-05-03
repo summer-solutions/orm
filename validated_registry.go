@@ -84,7 +84,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 			if r.logHandler != nil {
 				logHandler.Handlers = r.logHandler.Handlers
 			}
-			e.redis[key] = &RedisCache{engine: e, code: val.code, client: val.client, log: r.log, logHandler: logHandler}
+			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{val.client}, log: r.log, logHandler: logHandler}
 		}
 	}
 	e.locks = make(map[string]*Locker)
