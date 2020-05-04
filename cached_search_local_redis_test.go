@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -24,8 +25,14 @@ type testEntityIndexTestLocalRedis struct {
 
 type testEntityIndexTestLocalRedisRef struct {
 	ORM
-	ID   uint
-	Name string
+	ID       uint
+	Name     string
+	IndexAll *CachedQuery `query:""`
+}
+
+type testEntityIndexTestLocalRedisUnregistered struct {
+	ORM
+	ID uint
 }
 
 func TestCachedSearchLocalRedis(t *testing.T) {
@@ -205,4 +212,34 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, "Name 3", rows[1].ReferenceOne.Name)
 	assert.True(t, engine.Loaded(rows[0].ReferenceOne))
 	assert.True(t, engine.Loaded(rows[1].ReferenceOne))
+
+	var rows2 []*testEntityIndexTestLocalRedisUnregistered
+	_, err = engine.CachedSearch(&rows2, "IndexAll", pager)
+	assert.EqualError(t, err, "entity 'orm.testEntityIndexTestLocalRedisUnregistered' is not registered")
+
+	_, err = engine.CachedSearch(&rows, "IndexAll2", pager)
+	assert.EqualError(t, err, "unknown index IndexAll2")
+
+	var rows3 []*testEntityIndexTestLocalRedisRef
+	_, err = engine.CachedSearch(&rows3, "IndexAll", pager)
+	assert.EqualError(t, err, "cache search not allowed for entity without cache: 'orm.testEntityIndexTestLocalRedisRef'")
+
+	engine.GetLocalCache().Clear()
+	r := engine.GetRedis()
+	_ = r.FlushDB()
+	mockClient := &mockRedisClient{client: r.client}
+	r.client = mockClient
+	mockClient.HMGetMock = func(key string, fields ...string) ([]interface{}, error) {
+		return nil, fmt.Errorf("redis error")
+	}
+	_, err = engine.CachedSearch(&rows, "IndexAll", pager)
+	assert.EqualError(t, err, "redis error")
+
+	mockClient.HMGetMock = nil
+	_ = r.FlushDB()
+	mockClient.HMSetMock = func(key string, fields map[string]interface{}) (bool, error) {
+		return false, fmt.Errorf("redis error")
+	}
+	_, err = engine.CachedSearch(&rows, "IndexAll", pager)
+	assert.EqualError(t, err, "redis error")
 }

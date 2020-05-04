@@ -17,12 +17,12 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	value := reflect.ValueOf(entities)
 	entityType, has := getEntityTypeForSlice(engine.registry, value.Type())
 	if !has {
-		return 0, EntityNotRegisteredError{Name: entityType.String()}
+		return 0, EntityNotRegisteredError{Name: value.Type().String()}
 	}
 	schema := getTableSchema(engine.registry, entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
-		return 0, fmt.Errorf("uknown index %s", indexName)
+		return 0, fmt.Errorf("unknown index %s", indexName)
 	}
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: definition.Max}
@@ -175,23 +175,8 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 			nonZero = append(nonZero, id)
 		}
 	}
-	missing, err := engine.LoadByIDs(nonZero, entities, references...)
-	if err != nil {
-		return 0, err
-	}
-	if len(missing) > 0 {
-		if hasLocalCache {
-			localCache.Remove(cacheKey)
-		}
-		if hasRedis {
-			err = redisCache.Del(cacheKey)
-			if err != nil {
-				return 0, err
-			}
-		}
-		return cachedSearch(engine, entities, indexName, pager, arguments, references)
-	}
-	return
+	_, err = engine.LoadByIDs(nonZero, entities, references...)
+	return totalRows, err
 }
 
 func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments []interface{}, references []string) (has bool, err error) {
