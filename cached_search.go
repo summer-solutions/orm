@@ -188,7 +188,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	}
 	definition, has := schema.cachedIndexesOne[indexName]
 	if !has {
-		return false, fmt.Errorf("uknown index %s", indexName)
+		return false, fmt.Errorf("unknown index %s", indexName)
 	}
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)

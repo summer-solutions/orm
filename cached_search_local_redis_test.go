@@ -28,6 +28,7 @@ type testEntityIndexTestLocalRedisRef struct {
 	ID       uint
 	Name     string
 	IndexAll *CachedQuery `query:""`
+	IndexOne *CachedQuery `queryOne:""`
 }
 
 type testEntityIndexTestLocalRedisUnregistered struct {
@@ -217,11 +218,22 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	_, err = engine.CachedSearch(&rows2, "IndexAll", pager)
 	assert.EqualError(t, err, "entity 'orm.testEntityIndexTestLocalRedisUnregistered' is not registered")
 
+	var row2 testEntityIndexTestLocalRedisUnregistered
+	_, err = engine.CachedSearchOne(&row2, "IndexAll")
+	assert.EqualError(t, err, "entity 'orm.testEntityIndexTestLocalRedisUnregistered' is not registered")
+
 	_, err = engine.CachedSearch(&rows, "IndexAll2", pager)
+	assert.EqualError(t, err, "unknown index IndexAll2")
+
+	_, err = engine.CachedSearchOne(&row, "IndexAll2", pager)
 	assert.EqualError(t, err, "unknown index IndexAll2")
 
 	var rows3 []*testEntityIndexTestLocalRedisRef
 	_, err = engine.CachedSearch(&rows3, "IndexAll", pager)
+	assert.EqualError(t, err, "cache search not allowed for entity without cache: 'orm.testEntityIndexTestLocalRedisRef'")
+
+	row3 := &testEntityIndexTestLocalRedisRef{}
+	_, err = engine.CachedSearchOne(row3, "IndexOne")
 	assert.EqualError(t, err, "cache search not allowed for entity without cache: 'orm.testEntityIndexTestLocalRedisRef'")
 
 	engine.GetLocalCache().Clear()
