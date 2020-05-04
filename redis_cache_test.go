@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,6 +41,18 @@ func TestGetSetRedis(t *testing.T) {
 	assert.Equal(t, "hello", val)
 	assert.Len(t, testLogger.Entries, 3)
 	assert.Equal(t, "[ORM][REDIS][GET]", testLogger.Entries[2].Message)
+
+	mockClient := &mockRedisClient{client: r.client}
+	r.client = mockClient
+
+	mockClient.GetMock = func(key string) (string, error) {
+		return "", fmt.Errorf("redis error")
+	}
+	val, err = r.GetSet("test", 1, func() interface{} {
+		return "hello"
+	})
+	assert.EqualError(t, err, "redis error")
+	assert.Nil(t, val)
 }
 
 func TestList(t *testing.T) {
