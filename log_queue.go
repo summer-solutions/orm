@@ -9,6 +9,7 @@ type LogQueueValue struct {
 	TableName string
 	ID        uint64
 	Meta      map[string]interface{}
-	Data      map[string]interface{}
+	Before    map[string]interface{}
+	Changes   map[string]interface{}
 	Updated   time.Time
 }

@@ -233,7 +233,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			for k, v := range dbData {
 				old[k] = v
 			}
-			data := injectBind(entity, bind)
+			injectBind(entity, bind)
 			localCache, hasLocalCache := schema.GetLocalCache(engine)
 			redisCache, hasRedis := schema.GetRedisCache(engine)
 			if hasLocalCache {
@@ -251,7 +251,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 			}
 			addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
-			addToLogQueue(logQueues, schema, currentID, data)
+			addToLogQueue(logQueues, schema, currentID, old, bind)
 		}
 	}
 
@@ -400,7 +400,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		}
 		for id, bind := range deleteBinds {
 			addDirtyQueues(dirtyQueues, bind, schema, id, "d")
-			addToLogQueue(logQueues, schema, id, nil)
+			addToLogQueue(logQueues, schema, id, bind, nil)
 		}
 	}
 	for _, values := range localCacheSets {
@@ -796,7 +796,7 @@ func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interfac
 	}
 }
 
-func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, id uint64, data map[string]interface{}) {
+func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, id uint64, before map[string]interface{}, changes map[string]interface{}) {
 	if !tableSchema.hasLog {
 		return
 	}
@@ -805,7 +805,7 @@ func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, i
 		keys[key] = make([]*LogQueueValue, 0)
 	}
 	val := &LogQueueValue{TableName: tableSchema.logTableName, ID: id,
-		PoolName: tableSchema.logPoolName, Data: data, Updated: time.Now()}
+		PoolName: tableSchema.logPoolName, Before: before, Changes: changes, Updated: time.Now()}
 	keys[key] = append(keys[key], val)
 }
 
@@ -865,5 +865,5 @@ func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 	}
 	addDirtyQueues(dirtyQueues, bind, schema, id, "i")
-	addToLogQueue(logQueues, schema, id, bind)
+	addToLogQueue(logQueues, schema, id, nil, bind)
 }

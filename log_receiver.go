@@ -13,6 +13,7 @@ const logQueueName = "_log_queue"
 type LogReceiver struct {
 	engine              *Engine
 	queueSenderReceiver QueueSenderReceiver
+	Logger              func(log *LogQueueValue) error
 }
 
 func NewLogReceiver(engine *Engine, queueSenderReceiver QueueSenderReceiver) *LogReceiver {
@@ -36,17 +37,26 @@ func (r *LogReceiver) Digest() (has bool, err error) {
 
 	poolDB := r.engine.GetMysql(value.PoolName)
 	/* #nosec */
-	query := fmt.Sprintf("INSERT INTO `%s`(`entity_id`, `added_at`, `meta`, `data`) VALUES(?, ?, ?, ?)", value.TableName)
-	var meta, data interface{}
+	query := fmt.Sprintf("INSERT INTO `%s`(`entity_id`, `added_at`, `meta`, `before`, `changes`) VALUES(?, ?, ?, ?, ?)", value.TableName)
+	var meta, before, changes interface{}
 	if value.Meta != nil {
 		meta, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value.Meta)
 	}
-	if value.Data != nil {
-		data, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value.Data)
+	if value.Before != nil {
+		before, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value.Before)
 	}
-	_, err = poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, data)
+	if value.Changes != nil {
+		changes, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value.Changes)
+	}
+	if r.Logger != nil {
+		err = r.Logger(&value)
+		if err != nil {
+			return true, errors.Trace(err)
+		}
+	}
+	_, err = poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
 	if err != nil {
-		return false, errors.Annotatef(err, "error during log insert query %s", err.Error())
+		return false, errors.Trace(err)
 	}
 	return true, r.queueSenderReceiver.Flush(r.engine, logQueueName)
 }
