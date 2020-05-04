@@ -100,7 +100,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 
 	count := len(schema.columnNames)
 
-	values := make([]string, count)
+	values := make([]sql.NullString, count)
 	valuePointers := make([]interface{}, count)
 	for i := 0; i < count; i++ {
 		valuePointers[i] = &values[i]
@@ -114,9 +114,13 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		if err != nil {
 			return 0, err
 		}
+		finalValues := make([]string, count)
+		for i, v := range values {
+			finalValues[i] = v.String
+		}
 		value := reflect.New(entityType)
-		id, _ := strconv.ParseUint(values[0], 10, 64)
-		fillFromDBRow(id, engine, values[1:], value.Interface().(Entity))
+		id, _ := strconv.ParseUint(finalValues[0], 10, 64)
+		fillFromDBRow(id, engine, finalValues[1:], value.Interface().(Entity))
 		val = reflect.Append(val, value)
 		i++
 	}
