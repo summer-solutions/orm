@@ -107,6 +107,16 @@ func (e *Engine) SetOnDuplicateKeyUpdate(update *Where, entity ...Entity) {
 	}
 }
 
+func (e *Engine) SetEntityLogMeta(key string, value interface{}, entity ...Entity) {
+	for _, row := range entity {
+		orm := initIfNeeded(e, row)
+		if orm.attributes.logMeta == nil {
+			orm.attributes.logMeta = make(map[string]interface{})
+		}
+		orm.attributes.logMeta[key] = value
+	}
+}
+
 func (e *Engine) MarkToDelete(entity ...Entity) {
 	for _, row := range entity {
 		e.Track(row)

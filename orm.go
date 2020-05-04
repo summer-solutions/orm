@@ -16,6 +16,7 @@ type entityAttributes struct {
 	value                reflect.Value
 	elem                 reflect.Value
 	idElem               reflect.Value
+	logMeta              map[string]interface{}
 }
 
 type ORM struct {

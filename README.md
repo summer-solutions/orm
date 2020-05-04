@@ -604,6 +604,8 @@ func main() {
     // You can add extra data to log, simply use this methods before Flush():
     engine.SetLogMetaData("logged_user_id", 12) 
     engine.SetLogMetaData("ip", request.GetUserIP())
+    // you can set meta only in specific entity
+    engine.SetEntityLogMeta("user_name", "john", entity)
     
     
     //You need to run code that will read data from queue and store logs

@@ -83,6 +83,7 @@ func TestLog(t *testing.T) {
 
 	engine.Track(entity)
 	entity.Age = 12
+	engine.SetEntityLogMeta("user_name", "john", entity)
 	engine.SetLogMetaData("user_id", "7")
 	err = engine.Flush()
 	assert.Nil(t, err)
@@ -93,7 +94,7 @@ func TestLog(t *testing.T) {
 	assert.Len(t, logs, 2)
 
 	assert.Equal(t, uint64(1), logs[1].EntityID)
-	assert.Equal(t, "{\"user_id\": \"7\"}", string(logs[1].Meta.([]uint8)))
+	assert.Equal(t, "{\"user_id\": \"7\", \"user_name\": \"john\"}", string(logs[1].Meta.([]uint8)))
 	assert.Equal(t, "{\"Age\": \"0\", \"Name\": \"Hello\"}", string(logs[1].Before.([]uint8)))
 	assert.Equal(t, "{\"Age\": \"12\"}", string(logs[1].Changes.([]uint8)))
 

@@ -251,7 +251,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 			}
 			addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
-			addToLogQueue(logQueues, schema, currentID, old, bind)
+			addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().attributes.logMeta)
 		}
 	}
 
@@ -400,7 +400,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		}
 		for id, bind := range deleteBinds {
 			addDirtyQueues(dirtyQueues, bind, schema, id, "d")
-			addToLogQueue(logQueues, schema, id, bind, nil)
+			addToLogQueue(logQueues, schema, id, bind, nil, nil)
 		}
 	}
 	for _, values := range localCacheSets {
@@ -485,7 +485,13 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 
 		members := make([]string, len(v))
 		for i, val := range v {
-			val.Meta = engine.logMetaData
+			if val.Meta == nil {
+				val.Meta = engine.logMetaData
+			} else {
+				for k, v := range engine.logMetaData {
+					val.Meta[k] = v
+				}
+			}
 			asJSON, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(val)
 			members[i] = string(asJSON)
 		}
@@ -796,7 +802,8 @@ func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interfac
 	}
 }
 
-func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, id uint64, before map[string]interface{}, changes map[string]interface{}) {
+func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, id uint64,
+	before map[string]interface{}, changes map[string]interface{}, entityMeta map[string]interface{}) {
 	if !tableSchema.hasLog {
 		return
 	}
@@ -805,7 +812,8 @@ func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, i
 		keys[key] = make([]*LogQueueValue, 0)
 	}
 	val := &LogQueueValue{TableName: tableSchema.logTableName, ID: id,
-		PoolName: tableSchema.logPoolName, Before: before, Changes: changes, Updated: time.Now()}
+		PoolName: tableSchema.logPoolName, Before: before,
+		Changes: changes, Updated: time.Now(), Meta: entityMeta}
 	keys[key] = append(keys[key], val)
 }
 
@@ -865,5 +873,5 @@ func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 	}
 	addDirtyQueues(dirtyQueues, bind, schema, id, "i")
-	addToLogQueue(logQueues, schema, id, nil, bind)
+	addToLogQueue(logQueues, schema, id, nil, bind, entity.getORM().attributes.logMeta)
 }
