@@ -87,20 +87,51 @@ func TestList(t *testing.T) {
 	total, err = r.RPush("key", "d")
 	assert.Nil(t, err)
 	assert.Equal(t, int64(4), total)
+	mockClient.RPushMock = func(key string, values ...interface{}) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	total, err = r.RPush("key", "d")
+	assert.EqualError(t, err, "redis error")
+	assert.Equal(t, int64(0), total)
+	mockClient.RPushMock = nil
 
 	elements, err := r.LRange("key", 0, 1)
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"c", "b"}, elements)
+	mockClient.LRangeMock = func(key string, start, stop int64) ([]string, error) {
+		return nil, fmt.Errorf("redis error")
+	}
+	_, err = r.LRange("key", 0, 1)
+	assert.EqualError(t, err, "redis error")
+	mockClient.LRangeMock = nil
 
 	err = r.LSet("key", 1, "f")
 	assert.Nil(t, err)
+	mockClient.LSetMock = func(key string, index int64, value interface{}) (string, error) {
+		return "", fmt.Errorf("redis error")
+	}
+	err = r.LSet("key", 0, 1)
+	assert.EqualError(t, err, "redis error")
+	mockClient.LSetMock = nil
 
 	elements, err = r.LRange("key", 0, 1)
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"c", "f"}, elements)
+	mockClient.LRangeMock = func(key string, start, stop int64) ([]string, error) {
+		return nil, fmt.Errorf("redis error")
+	}
+	_, err = r.LRange("key", 0, 1)
+	assert.EqualError(t, err, "redis error")
+	mockClient.LRangeMock = nil
 
 	err = r.LRem("key", 1, "c")
 	assert.Nil(t, err)
+	mockClient.LRemMock = func(key string, count int64, value interface{}) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	err = r.LRem("key", 1, "c")
+	assert.EqualError(t, err, "redis error")
+	mockClient.LRemMock = nil
 
 	elements, err = r.LRange("key", 0, 5)
 	assert.Nil(t, err)
@@ -110,9 +141,21 @@ func TestList(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.Equal(t, "d", element)
+	mockClient.RPopMock = func(key string) (string, error) {
+		return "", fmt.Errorf("redis error")
+	}
+	_, _, err = r.RPop("key")
+	assert.EqualError(t, err, "redis error")
+	mockClient.RPopMock = nil
 
 	err = r.Del("key")
 	assert.Nil(t, err)
+	mockClient.DelMock = func(keys ...string) error {
+		return fmt.Errorf("redis error")
+	}
+	err = r.Del("key")
+	assert.EqualError(t, err, "redis error")
+	mockClient.DelMock = nil
 
 	element, found, err = r.RPop("key")
 	assert.Nil(t, err)
@@ -122,9 +165,21 @@ func TestList(t *testing.T) {
 	total, err = r.LPush("key", "a", "b", "c")
 	assert.Nil(t, err)
 	assert.Equal(t, int64(3), total)
+	mockClient.LPushMock = func(key string, values ...interface{}) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	_, err = r.LPush("key", "a", "b", "c")
+	assert.EqualError(t, err, "redis error")
+	mockClient.LPushMock = nil
 
 	err = r.Ltrim("key", 1, 3)
 	assert.Nil(t, err)
+	mockClient.LTrimMock = func(key string, start, stop int64) (string, error) {
+		return "", fmt.Errorf("redis error")
+	}
+	err = r.Ltrim("key", 1, 3)
+	assert.EqualError(t, err, "redis error")
+
 	elements, err = r.LRange("key", 0, 10)
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"b", "a"}, elements)
