@@ -116,6 +116,7 @@ type mockRedisClient struct {
 	LRangeMock  func(key string, start, stop int64) ([]string, error)
 	HMGetMock   func(key string, fields ...string) ([]interface{}, error)
 	HGetAllMock func(key string) (map[string]string, error)
+	LPushMock   func(key string, values ...interface{}) (int64, error)
 }
 
 func (c *mockRedisClient) Get(key string) (string, error) {
@@ -147,6 +148,9 @@ func (c *mockRedisClient) HGetAll(key string) (map[string]string, error) {
 }
 
 func (c *mockRedisClient) LPush(key string, values ...interface{}) (int64, error) {
+	if c.LPushMock != nil {
+		return c.LPushMock(key, values...)
+	}
 	return c.client.LPush(key, values...)
 }
 

@@ -25,6 +25,8 @@ func TestGetSetRedis(t *testing.T) {
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
+	mockClient := &mockRedisClient{client: r.client}
+	r.client = mockClient
 
 	val, err := r.GetSet("test", 1, func() interface{} {
 		return "hello"
@@ -42,9 +44,6 @@ func TestGetSetRedis(t *testing.T) {
 	assert.Len(t, testLogger.Entries, 3)
 	assert.Equal(t, "[ORM][REDIS][GET]", testLogger.Entries[2].Message)
 
-	mockClient := &mockRedisClient{client: r.client}
-	r.client = mockClient
-
 	mockClient.GetMock = func(key string) (string, error) {
 		return "", fmt.Errorf("redis error")
 	}
@@ -60,10 +59,19 @@ func TestList(t *testing.T) {
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
+	mockClient := &mockRedisClient{client: r.client}
+	r.client = mockClient
 
 	total, err := r.LPush("key", "a", "b", "c")
 	assert.Nil(t, err)
 	assert.Equal(t, int64(3), total)
+	mockClient.LPushMock = func(key string, values ...interface{}) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	total, err = r.LPush("key", "a", "b", "c")
+	assert.EqualError(t, err, "redis error")
+	assert.Equal(t, int64(0), total)
+	mockClient.LPushMock = nil
 
 	total, err = r.LLen("key")
 	assert.Nil(t, err)
