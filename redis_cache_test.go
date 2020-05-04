@@ -76,6 +76,13 @@ func TestList(t *testing.T) {
 	total, err = r.LLen("key")
 	assert.Nil(t, err)
 	assert.Equal(t, int64(3), total)
+	mockClient.LLenMock = func(key string) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	total, err = r.LLen("key")
+	assert.EqualError(t, err, "redis error")
+	assert.Equal(t, int64(0), total)
+	mockClient.LLenMock = nil
 
 	total, err = r.RPush("key", "d")
 	assert.Nil(t, err)
