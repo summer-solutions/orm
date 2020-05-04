@@ -3,6 +3,7 @@ package orm
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -20,7 +21,7 @@ func TestRedisEnableDebug(t *testing.T) {
 	assert.Equal(t, log.DebugLevel, r.log.Level)
 }
 
-func TestGetSetRedis(t *testing.T) {
+func TestBasicRedis(t *testing.T) {
 	r := prepareRedis(t)
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
@@ -52,6 +53,38 @@ func TestGetSetRedis(t *testing.T) {
 	})
 	assert.EqualError(t, err, "redis error")
 	assert.Nil(t, val)
+	mockClient.GetMock = nil
+
+	mockClient.SetMock = func(key string, value interface{}, expiration time.Duration) error {
+		return fmt.Errorf("redis error")
+	}
+	val, err = r.GetSet("test2", 1, func() interface{} {
+		return "hello"
+	})
+	assert.EqualError(t, err, "redis error")
+	assert.Nil(t, val)
+	mockClient.SetMock = nil
+
+	err = r.MSet("a", "a1", "b", "b1")
+	assert.NoError(t, err)
+	mockClient.MSetMock = func(pairs ...interface{}) error {
+		return fmt.Errorf("redis error")
+	}
+	err = r.MSet("a", "a1", "b", "b1")
+	assert.EqualError(t, err, "redis error")
+	mockClient.MSetMock = nil
+
+	values, err := r.MGet("a", "b", "c")
+	assert.NoError(t, err)
+	assert.Len(t, values, 3)
+	assert.Equal(t, "a1", values["a"])
+	assert.Equal(t, "b1", values["b"])
+	assert.Nil(t, values["c"])
+	mockClient.MGetMock = func(keys ...string) ([]interface{}, error) {
+		return nil, fmt.Errorf("redis error")
+	}
+	_, err = r.MGet("a", "b", "c")
+	assert.EqualError(t, err, "redis error")
 }
 
 func TestList(t *testing.T) {
@@ -236,9 +269,55 @@ func TestHash(t *testing.T) {
 	}
 	_, err = r.HGetAll("key")
 	assert.EqualError(t, err, "redis error")
+	mockClient.HGetAllMock = nil
 }
 
 func TestSet(t *testing.T) {
+	r := prepareRedis(t)
+	mockClient := &mockRedisClient{client: r.client}
+	r.client = mockClient
+
+	total, err := r.SAdd("key", "a", "b", "c")
+	assert.Nil(t, err)
+	assert.Equal(t, int64(3), total)
+	mockClient.SAddMock = func(key string, members ...interface{}) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	_, err = r.SAdd("key", "a", "b", "c")
+	assert.EqualError(t, err, "redis error")
+	mockClient.SAddMock = nil
+
+	total, err = r.SCard("key")
+	assert.Nil(t, err)
+	assert.Equal(t, int64(3), total)
+	mockClient.SCardMock = func(key string) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	_, err = r.SCard("key")
+	assert.EqualError(t, err, "redis error")
+	mockClient.SCardMock = nil
+
+	_, has, err := r.SPop("key")
+	assert.Nil(t, err)
+	assert.True(t, has)
+	mockClient.SPopMock = func(key string) (string, error) {
+		return "", fmt.Errorf("redis error")
+	}
+	_, _, err = r.SPop("key")
+	assert.EqualError(t, err, "redis error")
+	mockClient.SPopMock = nil
+
+	values, err := r.SPopN("key", 2)
+	assert.Nil(t, err)
+	assert.Len(t, values, 2)
+	mockClient.SPopNMock = func(key string, max int64) ([]string, error) {
+		return nil, fmt.Errorf("redis error")
+	}
+	_, err = r.SPopN("key", 2)
+	assert.EqualError(t, err, "redis error")
+}
+
+func TestSortedSet(t *testing.T) {
 	r := prepareRedis(t)
 	testLogger := memory.New()
 	r.AddLogger(testLogger)

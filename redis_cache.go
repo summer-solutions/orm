@@ -177,7 +177,11 @@ func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 	if !has {
 		userVal := provider()
 		encoded, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(userVal)
-		return userVal, r.Set(key, string(encoded), ttlSeconds)
+		err := r.Set(key, string(encoded), ttlSeconds)
+		if err != nil {
+			return nil, err
+		}
+		return userVal, nil
 	}
 	var data interface{}
 	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(val), &data)
