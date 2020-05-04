@@ -190,17 +190,37 @@ func TestHash(t *testing.T) {
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
+	mockClient := &mockRedisClient{client: r.client}
+	r.client = mockClient
 
 	err := r.HSet("key", "field_1", "a")
 	assert.Nil(t, err)
+	mockClient.HSetMock = func(key string, field string, value interface{}) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	err = r.HSet("key", "field_1", "a")
+	assert.EqualError(t, err, "redis error")
+	mockClient.HSetMock = nil
 
 	fields, err := r.HMget("key", "field_1", "field_2")
 	assert.Nil(t, err)
 	assert.Equal(t, fields["field_1"], "a")
 	assert.Nil(t, fields["field_2"])
+	mockClient.HMGetMock = func(key string, fields ...string) ([]interface{}, error) {
+		return nil, fmt.Errorf("redis error")
+	}
+	_, err = r.HMget("key", "field_1", "field_2")
+	assert.EqualError(t, err, "redis error")
+	mockClient.HMGetMock = nil
 
 	err = r.HMset("key", map[string]interface{}{"field_3": "c", "field_4": "d"})
 	assert.Nil(t, err)
+	mockClient.HMSetMock = func(key string, fields map[string]interface{}) (bool, error) {
+		return false, fmt.Errorf("redis error")
+	}
+	err = r.HMset("key", map[string]interface{}{"field_3": "c", "field_4": "d"})
+	assert.EqualError(t, err, "redis error")
+	mockClient.HMSetMock = nil
 
 	fieldsAll, err := r.HGetAll("key")
 	assert.Nil(t, err)
@@ -211,6 +231,11 @@ func TestHash(t *testing.T) {
 	assert.Equal(t, "a", fieldsAll["field_1"], "a")
 	assert.Equal(t, "c", fieldsAll["field_3"])
 	assert.Equal(t, "d", fieldsAll["field_4"])
+	mockClient.HGetAllMock = func(key string) (map[string]string, error) {
+		return nil, fmt.Errorf("redis error")
+	}
+	_, err = r.HGetAll("key")
+	assert.EqualError(t, err, "redis error")
 }
 
 func TestSet(t *testing.T) {
@@ -218,10 +243,18 @@ func TestSet(t *testing.T) {
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
+	mockClient := &mockRedisClient{client: r.client}
+	r.client = mockClient
 
 	total, err := r.ZAdd("key", &redis.Z{Member: "a", Score: 100})
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), total)
+	mockClient.ZAddMock = func(key string, members ...*redis.Z) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	_, err = r.ZAdd("key", &redis.Z{Member: "a", Score: 100})
+	assert.EqualError(t, err, "redis error")
+	mockClient.ZAddMock = nil
 
 	total, err = r.ZAdd("key", &redis.Z{Member: "v", Score: 200})
 	assert.Nil(t, err)
@@ -230,10 +263,21 @@ func TestSet(t *testing.T) {
 	total, err = r.ZCard("key")
 	assert.Nil(t, err)
 	assert.Equal(t, int64(2), total)
+	mockClient.ZCardMock = func(key string) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	_, err = r.ZCard("key")
+	assert.EqualError(t, err, "redis error")
+	mockClient.ZCardMock = nil
 
 	total, err = r.ZCount("key", "100", "150")
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), total)
+	mockClient.ZCountMock = func(key string, min, max string) (int64, error) {
+		return 0, fmt.Errorf("redis error")
+	}
+	_, err = r.ZCount("key", "100", "150")
+	assert.EqualError(t, err, "redis error")
 }
 
 func prepareRedis(t *testing.T) *RedisCache {
@@ -243,7 +287,14 @@ func prepareRedis(t *testing.T) *RedisCache {
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
 	r := engine.GetRedis()
+	mockClient := &mockRedisClient{client: r.client}
+	r.client = mockClient
 	err = r.FlushDB()
 	assert.Nil(t, err)
+	mockClient.FlushDBMock = func() error {
+		return fmt.Errorf("redis error")
+	}
+	err = r.FlushDB()
+	assert.EqualError(t, err, "redis error")
 	return r
 }
