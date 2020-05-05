@@ -622,7 +622,8 @@ func main() {
 
     //optionaly you can define logger:
     lazyReceiver.Logger = func(log *LogQueueValue) error {
-        fmt.Printf("entityID: %v\n", log.ID)
+        fmt.Printf("log ID: %v\n", log.ID)
+        fmt.Printf("entity ID: %v\n", log.EntityID)
         fmt.Printf("log table: %v\n", log.Table)    
         fmt.Printf("before: %v\n", log.Before) //nil for new rows
         fmt.Printf("changes: %v\n", log.Changes) //nil for deleted rows

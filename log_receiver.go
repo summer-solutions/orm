@@ -48,15 +48,20 @@ func (r *LogReceiver) Digest() (has bool, err error) {
 	if value.Changes != nil {
 		changes, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value.Changes)
 	}
+	res, err := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	if r.Logger != nil {
+		id, err := res.LastInsertId()
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		value.ID = uint64(id)
 		err = r.Logger(&value)
 		if err != nil {
 			return true, errors.Trace(err)
 		}
-	}
-	_, err = poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
-	if err != nil {
-		return false, errors.Trace(err)
 	}
 	return true, r.queueSenderReceiver.Flush(r.engine, logQueueName)
 }

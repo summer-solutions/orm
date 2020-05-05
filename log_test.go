@@ -38,7 +38,6 @@ func TestLog(t *testing.T) {
 	assert.Equal(t, int64(1), size)
 	receiver.Logger = func(value *LogQueueValue) error {
 		assert.NotNil(t, value)
-		assert.Equal(t, uint64(1), value.ID)
 		assert.Equal(t, "_log_default_testEntityLog", value.TableName)
 		assert.Equal(t, "log", value.PoolName)
 		return nil
@@ -59,7 +58,7 @@ func TestLog(t *testing.T) {
 		Changes  interface{}
 	}
 	getLogs := func() []*logRow {
-		rows, def, err := logDB.Query("SELECT * FROM `_log_default_testEntityLog`")
+		rows, def, err := logDB.Query("SELECT * FROM `_log_default_testEntityLog` ORDER BY `ID`")
 		if def != nil {
 			defer def()
 		}
@@ -76,7 +75,7 @@ func TestLog(t *testing.T) {
 
 	logs := getLogs()
 	assert.Len(t, logs, 1)
-	assert.Equal(t, uint64(1), logs[0].EntityID)
+	assert.Equal(t, uint64(1), logs[0].ID)
 	assert.Nil(t, logs[0].Meta)
 	assert.Nil(t, logs[0].Before)
 	assert.Equal(t, "{\"Age\": \"0\", \"Name\": \"Hello\"}", string(logs[0].Changes.([]uint8)))
