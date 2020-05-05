@@ -94,7 +94,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 			if r.logHandler != nil {
 				logHandler.Handlers = r.logHandler.Handlers
 			}
-			locker := redislock.New(e.registry.redisServers[val].client)
+			locker := &standardLockerClient{client: redislock.New(e.registry.redisServers[val].client)}
 			e.locks[key] = &Locker{locker: locker, code: val, log: r.log, logHandler: logHandler}
 		}
 	}

@@ -183,4 +183,15 @@ func TestDirtyQueue(t *testing.T) {
 	size, err = receiver.Size()
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), size)
+
+	r := engine.GetRedis("default_queue")
+	mockClient := &mockRedisClient{client: r.client}
+	r.client = mockClient
+	mockClient.SPopNMock = func(key string, max int64) ([]string, error) {
+		return nil, fmt.Errorf("redis error")
+	}
+	_, err = receiver.Digest(100, func(data []DirtyData) (invalid []interface{}, err error) {
+		return nil, nil
+	})
+	assert.EqualError(t, err, "redis error")
 }

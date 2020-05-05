@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bsm/redislock"
+
 	"github.com/go-redis/redis/v7"
 
 	"github.com/stretchr/testify/assert"
@@ -312,4 +314,16 @@ func (c *mockRedisClient) FlushDB() error {
 		return c.FlushDBMock()
 	}
 	return c.client.FlushDB()
+}
+
+type mockLockerClient struct {
+	client     lockerClient
+	ObtainMock func(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error)
+}
+
+func (l *mockLockerClient) Obtain(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error) {
+	if l.ObtainMock != nil {
+		return l.ObtainMock(key, ttl, opt)
+	}
+	return l.client.Obtain(key, ttl, opt)
 }

@@ -46,7 +46,7 @@ func flushInCache(engine *Engine, entities ...Entity) error {
 	}
 	if len(validEntities) > 0 {
 		code := "default"
-		redis := engine.getRedisForQueue(code)
+		redis := engine.GetRedis(code + "_queue")
 		_, err := redis.SAdd("dirty_queue", validEntities...)
 		if err != nil {
 			return err

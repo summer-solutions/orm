@@ -12,9 +12,21 @@ import (
 	"github.com/bsm/redislock"
 )
 
+type lockerClient interface {
+	Obtain(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error)
+}
+
+type standardLockerClient struct {
+	client *redislock.Client
+}
+
+func (l *standardLockerClient) Obtain(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error) {
+	return l.client.Obtain(key, ttl, opt)
+}
+
 type Locker struct {
 	code       string
-	locker     *redislock.Client
+	locker     lockerClient
 	log        *log.Entry
 	logHandler *multi.Handler
 }

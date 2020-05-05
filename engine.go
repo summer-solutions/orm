@@ -279,10 +279,6 @@ func (e *Engine) GetAlters() (alters []Alter, err error) {
 	return getAlters(e)
 }
 
-func (e *Engine) getRedisForQueue(code string) *RedisCache {
-	return e.GetRedis(code + "_queue")
-}
-
 func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 	if e.trackedEntitiesCounter == 0 {
 		return nil
