@@ -68,6 +68,7 @@ type mockSQLClient struct {
 	counter      int
 	QueryMock    func(db sqlClient, counter int, query string, args ...interface{}) (SQLRows, error)
 	QueryRowMock func(db sqlClient, counter int, query string, args ...interface{}) SQLRow
+	ExecMock     func(query string, args ...interface{}) (sql.Result, error)
 }
 
 func (db *mockSQLClient) Begin() error {
@@ -83,6 +84,9 @@ func (db *mockSQLClient) Rollback() (bool, error) {
 }
 
 func (db *mockSQLClient) Exec(query string, args ...interface{}) (sql.Result, error) {
+	if db.ExecMock != nil {
+		return db.ExecMock(query, args...)
+	}
 	return db.client.Exec(query, args...)
 }
 
@@ -100,6 +104,25 @@ func (db *mockSQLClient) Query(query string, args ...interface{}) (SQLRows, erro
 		return db.QueryMock(db.client, db.counter, query, args...)
 	}
 	return db.client.Query(query, args...)
+}
+
+type mockSQLResults struct {
+	LastInsertIDMock func() (int64, error)
+	RowsAffectedMock func() (int64, error)
+}
+
+func (r *mockSQLResults) LastInsertId() (int64, error) {
+	if r.LastInsertIDMock != nil {
+		return r.LastInsertIDMock()
+	}
+	return 0, nil
+}
+
+func (r *mockSQLResults) RowsAffected() (int64, error) {
+	if r.RowsAffectedMock != nil {
+		return r.RowsAffectedMock()
+	}
+	return 0, nil
 }
 
 type mockRedisClient struct {

@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"database/sql"
 	"fmt"
 	"testing"
 
@@ -131,11 +132,37 @@ func TestLog(t *testing.T) {
 	assert.EqualError(t, err, "test error")
 
 	receiver.Logger = nil
-	mockClient := &mockRedisClient{client: queueRedis.client}
-	queueRedis.client = mockClient
-	mockClient.RPopMock = func(key string) (string, error) {
+	mockClientRedis := &mockRedisClient{client: queueRedis.client}
+	queueRedis.client = mockClientRedis
+	mockClientRedis.RPopMock = func(key string) (string, error) {
 		return "", fmt.Errorf("test error")
 	}
+	_, err = receiver.Digest()
+	assert.EqualError(t, err, "test error")
+	mockClientRedis.RPopMock = nil
+
+	mockClientDB := &mockSQLClient{client: logDB.client}
+	logDB.client = mockClientDB
+	mockClientDB.ExecMock = func(query string, args ...interface{}) (sql.Result, error) {
+		return nil, fmt.Errorf("test error")
+	}
+	entity = &testEntityLog{}
+	_ = engine.TrackAndFlush(entity)
+	_, err = receiver.Digest()
+	assert.EqualError(t, err, "test error")
+
+	mockClientDB.ExecMock = func(query string, args ...interface{}) (sql.Result, error) {
+		result := &mockSQLResults{}
+		result.LastInsertIDMock = func() (int64, error) {
+			return 0, fmt.Errorf("test error")
+		}
+		return result, nil
+	}
+	receiver.Logger = func(value *LogQueueValue) error {
+		return nil
+	}
+	entity = &testEntityLog{}
+	_ = engine.TrackAndFlush(entity)
 	_, err = receiver.Digest()
 	assert.EqualError(t, err, "test error")
 }
