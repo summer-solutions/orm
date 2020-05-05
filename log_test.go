@@ -24,7 +24,7 @@ func TestLog(t *testing.T) {
 	logDB := engine.GetMysql("log")
 	_, err = logDB.Exec("TRUNCATE TABLE `_log_default_testEntityLog`")
 	assert.Nil(t, err)
-	receiver := NewLogReceiver(engine, &RedisQueueSenderReceiver{PoolName: "default_log"})
+	receiver := NewLogReceiver(engine)
 
 	codes := engine.GetRegistry().GetLogQueueCodes()
 	assert.Equal(t, []string{"log"}, codes)
@@ -34,21 +34,18 @@ func TestLog(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	size, err := receiver.Size()
-	assert.Nil(t, err)
-	assert.Equal(t, int64(1), size)
 	receiver.Logger = func(value *LogQueueValue) error {
 		assert.NotNil(t, value)
 		assert.Equal(t, "_log_default_testEntityLog", value.TableName)
 		assert.Equal(t, "log", value.PoolName)
 		return nil
 	}
-	has, err := receiver.Digest()
+	val, found, err := engine.GetRedis("default_queue").RPop("default_queue")
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.NotNil(t, val)
+	err = receiver.Digest([]byte(val))
 	assert.Nil(t, err)
-	assert.True(t, has)
-	has, err = receiver.Digest()
-	assert.Nil(t, err)
-	assert.False(t, has)
 
 	type logRow struct {
 		ID       uint64
@@ -87,9 +84,12 @@ func TestLog(t *testing.T) {
 	engine.SetLogMetaData("user_id", "7")
 	err = engine.Flush()
 	assert.Nil(t, err)
-	has, err = receiver.Digest()
+	val, found, err = engine.GetRedis("default_queue").RPop("default_queue")
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.NotNil(t, val)
+	err = receiver.Digest([]byte(val))
 	assert.Nil(t, err)
-	assert.True(t, has)
 	logs = getLogs()
 	assert.Len(t, logs, 2)
 
@@ -102,16 +102,22 @@ func TestLog(t *testing.T) {
 	engine.Track(entity)
 	err = engine.Flush()
 	assert.Nil(t, err)
-	has, err = receiver.Digest()
+	val, found, err = engine.GetRedis("default_queue").RPop("default_queue")
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.NotNil(t, val)
+	err = receiver.Digest([]byte(val))
 	assert.Nil(t, err)
-	assert.False(t, has)
 
 	engine.MarkToDelete(entity)
 	err = engine.Flush()
 	assert.Nil(t, err)
-	has, err = receiver.Digest()
+	val, found, err = engine.GetRedis("default_queue").RPop("default_queue")
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.NotNil(t, val)
+	err = receiver.Digest([]byte(val))
 	assert.Nil(t, err)
-	assert.True(t, has)
 	logs = getLogs()
 	assert.Len(t, logs, 3)
 	assert.Equal(t, uint64(1), logs[2].EntityID)
@@ -127,8 +133,7 @@ func TestLog(t *testing.T) {
 	receiver.Logger = func(value *LogQueueValue) error {
 		return fmt.Errorf("test error")
 	}
-	has, err = receiver.Digest()
-	assert.True(t, has)
+	err = receiver.Digest(nil)
 	assert.EqualError(t, err, "test error")
 
 	receiver.Logger = nil
@@ -137,7 +142,7 @@ func TestLog(t *testing.T) {
 	mockClientRedis.RPopMock = func(key string) (string, error) {
 		return "", fmt.Errorf("test error")
 	}
-	_, err = receiver.Digest()
+	err = receiver.Digest(nil)
 	assert.EqualError(t, err, "test error")
 	mockClientRedis.RPopMock = nil
 
@@ -148,7 +153,7 @@ func TestLog(t *testing.T) {
 	}
 	entity = &testEntityLog{}
 	_ = engine.TrackAndFlush(entity)
-	_, err = receiver.Digest()
+	err = receiver.Digest(nil)
 	assert.EqualError(t, err, "test error")
 
 	mockClientDB.ExecMock = func(query string, args ...interface{}) (sql.Result, error) {
@@ -163,6 +168,6 @@ func TestLog(t *testing.T) {
 	}
 	entity = &testEntityLog{}
 	_ = engine.TrackAndFlush(entity)
-	_, err = receiver.Digest()
+	err = receiver.Digest(nil)
 	assert.EqualError(t, err, "test error")
 }

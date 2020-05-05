@@ -19,8 +19,8 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *E
 	registry.RegisterRedis("localhost:6379", 15)
 	registry.RegisterRedis("localhost:6379", 14, "default_queue")
 	registry.RegisterRedis("localhost:6379", 13, "default_log")
-	registry.RegisterLazyQueue(&RedisQueueSenderReceiver{PoolName: "default_queue"})
-	registry.RegisterLogQueue("log", &RedisQueueSenderReceiver{PoolName: "default_log"})
+	registry.RegisterLazyQueue(&RedisQueueSender{PoolName: "default_queue"})
+	registry.RegisterLogQueue("log", &RedisQueueSender{PoolName: "default_log"})
 
 	registry.RegisterLocalCache(1000)
 

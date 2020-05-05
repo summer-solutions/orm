@@ -25,8 +25,8 @@ type Registry struct {
 	entities             map[string]reflect.Type
 	enums                map[string]reflect.Value
 	dirtyQueues          map[string]DirtyQueueSender
-	logQueues            map[string]QueueSenderReceiver
-	lazyQueues           map[string]QueueSenderReceiver
+	logQueues            map[string]QueueSender
+	lazyQueues           map[string]QueueSender
 	locks                map[string]string
 }
 
@@ -80,13 +80,13 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.dirtyQueues[k] = v
 	}
 	if registry.logQueues == nil {
-		registry.logQueues = make(map[string]QueueSenderReceiver)
+		registry.logQueues = make(map[string]QueueSender)
 	}
 	for k, v := range r.logQueues {
 		registry.logQueues[k] = v
 	}
 	if registry.lazyQueues == nil {
-		registry.lazyQueues = make(map[string]QueueSenderReceiver)
+		registry.lazyQueues = make(map[string]QueueSender)
 	}
 	for k, v := range r.lazyQueues {
 		registry.lazyQueues[k] = v
@@ -248,16 +248,16 @@ func (r *Registry) RegisterDirtyQueue(code string, sender DirtyQueueSender) {
 	r.dirtyQueues[code] = sender
 }
 
-func (r *Registry) RegisterLogQueue(dbPoolName string, sender QueueSenderReceiver) {
+func (r *Registry) RegisterLogQueue(dbPoolName string, sender QueueSender) {
 	if r.logQueues == nil {
-		r.logQueues = make(map[string]QueueSenderReceiver)
+		r.logQueues = make(map[string]QueueSender)
 	}
 	r.logQueues[dbPoolName] = sender
 }
 
-func (r *Registry) RegisterLazyQueue(sender QueueSenderReceiver) {
+func (r *Registry) RegisterLazyQueue(sender QueueSender) {
 	if r.lazyQueues == nil {
-		r.lazyQueues = make(map[string]QueueSenderReceiver)
+		r.lazyQueues = make(map[string]QueueSender)
 	}
 	r.lazyQueues["default"] = sender
 }

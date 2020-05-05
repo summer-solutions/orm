@@ -1,8 +1,6 @@
 package orm
 
 import (
-	"fmt"
-
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -10,41 +8,25 @@ const lazyQueueName = "_lazy_queue"
 
 type LazyReceiver struct {
 	engine              *Engine
-	queueSenderReceiver QueueSenderReceiver
 }
 
-func NewLazyReceiver(engine *Engine, queueSenderReceiver QueueSenderReceiver) *LazyReceiver {
-	return &LazyReceiver{engine: engine, queueSenderReceiver: queueSenderReceiver}
+func NewLazyReceiver(engine *Engine) *LazyReceiver {
+	return &LazyReceiver{engine: engine}
 }
 
-func (r *LazyReceiver) Size() (int64, error) {
-	return r.queueSenderReceiver.Size(r.engine, lazyQueueName)
-}
-
-func (r *LazyReceiver) Digest() (has bool, err error) {
-	has, asJSON, err := r.queueSenderReceiver.Receive(r.engine, lazyQueueName)
-	if err != nil {
-		return false, fmt.Errorf("%w", err)
-	}
-	if !has {
-		return false, nil
-	}
+func (r *LazyReceiver) Digest(item []byte) error {
 	var data interface{}
-	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(asJSON), &data)
+	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(item, &data)
 	validMap := data.(map[string]interface{})
-	err = r.handleQueries(r.engine, validMap)
+	err := r.handleQueries(r.engine, validMap)
 	if err != nil {
-		return true, err
+		return err
 	}
 	err = r.handleClearCache(validMap, "cl")
 	if err != nil {
-		return true, err
+		return err
 	}
-	err = r.handleClearCache(validMap, "cr")
-	if err != nil {
-		return true, err
-	}
-	return true, nil
+	return r.handleClearCache(validMap, "cr")
 }
 
 func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interface{}) error {

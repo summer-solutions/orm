@@ -468,7 +468,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		v := serializeForLazyQueue(lazyMap)
 		code := "default"
 		queue := engine.registry.lazyQueues[code]
-		err := queue.Send(engine, lazyQueueName, []string{v})
+		err := queue.Send(engine, lazyQueueName, [][]byte{v})
 		if err != nil {
 			return err
 		}
@@ -483,7 +483,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 	for k, v := range logQueues {
 		queue := engine.registry.logQueues[k]
 
-		members := make([]string, len(v))
+		members := make([][]byte, len(v))
 		for i, val := range v {
 			if val.Meta == nil {
 				val.Meta = engine.logMetaData
@@ -493,7 +493,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 				}
 			}
 			asJSON, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(val)
-			members[i] = string(asJSON)
+			members[i] = asJSON
 		}
 		err := queue.Send(engine, logQueueName, members)
 		if err != nil {
@@ -503,9 +503,9 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 	return nil
 }
 
-func serializeForLazyQueue(lazyMap map[string]interface{}) string {
+func serializeForLazyQueue(lazyMap map[string]interface{}) []byte {
 	encoded, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(lazyMap)
-	return string(encoded)
+	return encoded
 }
 
 func injectBind(entity Entity, bind map[string]interface{}) map[string]interface{} {

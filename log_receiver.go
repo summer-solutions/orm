@@ -12,28 +12,16 @@ const logQueueName = "_log_queue"
 
 type LogReceiver struct {
 	engine              *Engine
-	queueSenderReceiver QueueSenderReceiver
 	Logger              func(log *LogQueueValue) error
 }
 
-func NewLogReceiver(engine *Engine, queueSenderReceiver QueueSenderReceiver) *LogReceiver {
-	return &LogReceiver{engine: engine, queueSenderReceiver: queueSenderReceiver}
+func NewLogReceiver(engine *Engine) *LogReceiver {
+	return &LogReceiver{engine: engine}
 }
 
-func (r *LogReceiver) Size() (int64, error) {
-	return r.queueSenderReceiver.Size(r.engine, logQueueName)
-}
-
-func (r *LogReceiver) Digest() (has bool, err error) {
-	has, asJSON, err := r.queueSenderReceiver.Receive(r.engine, logQueueName)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	if !has {
-		return false, nil
-	}
+func (r *LogReceiver) Digest(item []byte) error {
 	var value LogQueueValue
-	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(asJSON), &value)
+	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(item), &value)
 
 	poolDB := r.engine.GetMysql(value.PoolName)
 	/* #nosec */
@@ -50,18 +38,15 @@ func (r *LogReceiver) Digest() (has bool, err error) {
 	}
 	res, err := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
 	if err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if r.Logger != nil {
 		id, err := res.LastInsertId()
 		if err != nil {
-			return false, errors.Trace(err)
+			return errors.Trace(err)
 		}
 		value.ID = uint64(id)
-		err = r.Logger(&value)
-		if err != nil {
-			return true, errors.Trace(err)
-		}
+		return r.Logger(&value)
 	}
-	return true, r.queueSenderReceiver.Flush(r.engine, logQueueName)
+	return nil
 }

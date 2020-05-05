@@ -38,8 +38,8 @@ type validatedRegistry struct {
 	entities             map[string]reflect.Type
 	sqlClients           map[string]*DBConfig
 	dirtyQueues          map[string]DirtyQueueSender
-	logQueues            map[string]QueueSenderReceiver
-	lazyQueues           map[string]QueueSenderReceiver
+	logQueues            map[string]QueueSender
+	lazyQueues           map[string]QueueSender
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
 	rabbitMQServers      map[string]*rabbitMQConnection
