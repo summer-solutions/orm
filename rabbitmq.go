@@ -51,15 +51,21 @@ func (c *rabbitMQChannel) Close() bool {
 	return true
 }
 
-func (c *rabbitMQChannel) Publish(body []byte, mandatory, immediate bool) error {
+func (c *rabbitMQChannel) publish(exchange string, mandatory, immediate bool, msg amqp.Publishing) error {
 	err := c.initChannel()
 	if err != nil {
 		return err
 	}
-	return c.channel.Publish("", c.q.Name, mandatory, immediate, amqp.Publishing{
-		ContentType: "text/plain",
-		Body:        body,
-	})
+	return c.channel.Publish(exchange, c.q.Name, mandatory, immediate, msg)
+}
+
+func (c *rabbitMQChannel) consume(consumer string, autoAck, exclusive, noLocal,
+	noWait bool, args map[string]interface{}) (<-chan amqp.Delivery, error) {
+	err := c.initChannel()
+	if err != nil {
+		return nil, err
+	}
+	return c.channel.Consume(c.q.Name, consumer, autoAck, exclusive, noLocal, noWait, args)
 }
 
 func (c *rabbitMQChannel) registerQueue() error {
@@ -91,17 +97,33 @@ type RabbitMQ struct {
 	logHandler *multi.Handler
 }
 
-func (r *RabbitMQ) Publish(body []byte, mandatory, immediate bool) error {
+func (r *RabbitMQ) Publish(exchange string, mandatory, immediate bool, msg amqp.Publishing) error {
 	start := time.Now()
-	err := r.channel.Publish(body, mandatory, immediate)
+	err := r.channel.publish(exchange, mandatory, immediate, msg)
 	if err != nil {
 		return err
 	}
 	if r.log != nil {
 		r.fillLogFields(start, "publish").WithField("mandatory", mandatory).
-			WithField("immediate", immediate).Info("[ORM][RABBIT_MQ][PUBLISH]")
+			WithField("immediate", immediate).WithField("exchange", exchange).
+			Info("[ORM][RABBIT_MQ][PUBLISH]")
 	}
 	return nil
+}
+
+func (r *RabbitMQ) Consume(consumer string, autoAck, exclusive, noLocal, noWait bool, args map[string]interface{}) (<-chan amqp.Delivery, error) {
+	start := time.Now()
+	delivery, err := r.channel.consume(consumer, autoAck, exclusive, noLocal, noWait, args)
+	if err != nil {
+		return nil, err
+	}
+	if r.log != nil {
+		r.fillLogFields(start, "consume").WithField("autoAck", autoAck).
+			WithField("exclusive", exclusive).WithField("noLocal", noLocal).
+			WithField("noWait", noWait).WithField("consumer", consumer).WithField("args", args).
+			Info("[ORM][RABBIT_MQ][CONSUME]")
+	}
+	return delivery, nil
 }
 
 func (r *RabbitMQ) Close() {

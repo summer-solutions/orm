@@ -3,6 +3,8 @@ package orm
 import (
 	"testing"
 
+	"github.com/streadway/amqp"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,12 +15,23 @@ func TestRabbitMQ(t *testing.T) {
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
+	defer engine.Defer()
 
-	engine.EnableDebug()
+	//engine.EnableDebug()
 
+	msg := amqp.Publishing{
+		ContentType: "text/plain",
+		Body:        []byte("hello"),
+	}
 	r := engine.GetRabbitMQChannel("test_channel")
 	assert.NotNil(t, r)
-	defer r.Close()
-	err = r.Publish([]byte("Hello"), false, false)
+	err = r.Publish("", false, false, msg)
 	assert.NoError(t, err)
+
+	items, err := r.Consume("test consumer", true, false, false, false, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, items)
+	item := <-items
+	assert.NotNil(t, item)
+	assert.Equal(t, []byte("hello"), item.Body)
 }
