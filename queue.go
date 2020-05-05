@@ -16,4 +16,3 @@ func (r *RedisQueueSender) Send(engine *Engine, queueCode string, values [][]byt
 	_, err := engine.GetRedis(r.PoolName).LPush(queueCode, members...)
 	return err
 }
-

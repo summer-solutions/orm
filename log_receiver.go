@@ -11,8 +11,8 @@ import (
 const logQueueName = "_log_queue"
 
 type LogReceiver struct {
-	engine              *Engine
-	Logger              func(log *LogQueueValue) error
+	engine *Engine
+	Logger func(log *LogQueueValue) error
 }
 
 func NewLogReceiver(engine *Engine) *LogReceiver {
