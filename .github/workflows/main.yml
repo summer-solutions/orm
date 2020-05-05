@@ -46,8 +46,8 @@ jobs:
         ports:
           - 5672:5672
         env:
-          - RABBITMQ_DEFAULT_USER=rabbitmq_user
-          - RABBITMQ_DEFAULT_PASS=rabbitmq_password
+          RABBITMQ_DEFAULT_USER: rabbitmq_user
+          RABBITMQ_DEFAULT_PASS: rabbitmq_password
 
     steps:
       - name: Set up Go
