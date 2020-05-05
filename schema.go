@@ -55,7 +55,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 			poolName := pool.code
 			tablesInDB[poolName] = make(map[string]bool)
 			pool := engine.GetMysql(poolName)
-			tables, err := getAllTables(pool.db)
+			tables, err := getAllTables(pool.client)
 			if err != nil {
 				return nil, err
 			}
@@ -177,10 +177,10 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 }
 
 func isTableEmptyInPool(engine *Engine, poolName string, tableName string) (bool, error) {
-	return isTableEmpty(engine.GetMysql(poolName).db, tableName)
+	return isTableEmpty(engine.GetMysql(poolName).client, tableName)
 }
 
-func getAllTables(db sqlDB) ([]string, error) {
+func getAllTables(db sqlClient) ([]string, error) {
 	tables := make([]string, 0)
 	results, err := db.Query("SHOW TABLES")
 	if err != nil {
@@ -502,7 +502,7 @@ OUTER:
 			safe = true
 		} else {
 			db := tableSchema.GetMysql(engine)
-			isEmpty, err := isTableEmpty(db.db, tableSchema.tableName)
+			isEmpty, err := isTableEmpty(db.client, tableSchema.tableName)
 			if err != nil {
 				return false, nil, errors.Trace(err)
 			}
@@ -591,7 +591,7 @@ func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) 
 	return alter, nil
 }
 
-func isTableEmpty(db sqlDB, tableName string) (bool, error) {
+func isTableEmpty(db sqlClient, tableName string) (bool, error) {
 	var lastID uint64
 	/* #nosec */
 	err := db.QueryRow(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableName)).Scan(&lastID)

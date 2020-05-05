@@ -64,7 +64,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 				logHandler.Handlers = r.logHandler.Handlers
 			}
 			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName,
-				db: &sqlDBStandard{db: val.db}, log: r.log, logHandler: logHandler}
+				client: &standardSQLClient{db: val.db}, log: r.log, logHandler: logHandler}
 		}
 	}
 	e.localCache = make(map[string]*LocalCache)

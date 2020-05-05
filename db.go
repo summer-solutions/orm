@@ -13,7 +13,7 @@ import (
 	"github.com/apex/log/handlers/text"
 )
 
-type sqlDB interface {
+type sqlClient interface {
 	Begin() error
 	Commit() error
 	Rollback() (bool, error)
@@ -22,12 +22,12 @@ type sqlDB interface {
 	Query(query string, args ...interface{}) (SQLRows, error)
 }
 
-type sqlDBStandard struct {
+type standardSQLClient struct {
 	db *sql.DB
 	tx *sql.Tx
 }
 
-func (db *sqlDBStandard) Begin() error {
+func (db *standardSQLClient) Begin() error {
 	if db.tx != nil {
 		return fmt.Errorf("transaction already started")
 	}
@@ -36,7 +36,7 @@ func (db *sqlDBStandard) Begin() error {
 	return err
 }
 
-func (db *sqlDBStandard) Commit() error {
+func (db *standardSQLClient) Commit() error {
 	if db.tx == nil {
 		return fmt.Errorf("transaction not started")
 	}
@@ -48,7 +48,7 @@ func (db *sqlDBStandard) Commit() error {
 	return nil
 }
 
-func (db *sqlDBStandard) Rollback() (bool, error) {
+func (db *standardSQLClient) Rollback() (bool, error) {
 	if db.tx == nil {
 		return false, nil
 	}
@@ -60,21 +60,21 @@ func (db *sqlDBStandard) Rollback() (bool, error) {
 	return true, nil
 }
 
-func (db *sqlDBStandard) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (db *standardSQLClient) Exec(query string, args ...interface{}) (sql.Result, error) {
 	if db.tx != nil {
 		return db.tx.Exec(query, args...)
 	}
 	return db.db.Exec(query, args...)
 }
 
-func (db *sqlDBStandard) QueryRow(query string, args ...interface{}) SQLRow {
+func (db *standardSQLClient) QueryRow(query string, args ...interface{}) SQLRow {
 	if db.tx != nil {
 		return db.tx.QueryRow(query, args...)
 	}
 	return db.db.QueryRow(query, args...)
 }
 
-func (db *sqlDBStandard) Query(query string, args ...interface{}) (SQLRows, error) {
+func (db *standardSQLClient) Query(query string, args ...interface{}) (SQLRows, error) {
 	if db.tx != nil {
 		return db.tx.Query(query, args...)
 	}
@@ -95,7 +95,7 @@ type SQLRow interface {
 
 type DB struct {
 	engine       *Engine
-	db           sqlDB
+	client       sqlClient
 	code         string
 	databaseName string
 	log          *log.Entry
@@ -127,7 +127,7 @@ func (db *DB) GetPoolCode() string {
 
 func (db *DB) Begin() error {
 	start := time.Now()
-	err := db.db.Begin()
+	err := db.client.Begin()
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (db *DB) Begin() error {
 
 func (db *DB) Commit() error {
 	start := time.Now()
-	err := db.db.Commit()
+	err := db.client.Commit()
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (db *DB) Commit() error {
 
 func (db *DB) Rollback() {
 	start := time.Now()
-	has, err := db.db.Rollback()
+	has, err := db.client.Rollback()
 	if err != nil {
 		panic(errors.Annotate(err, "rollback failed"))
 	}
@@ -181,7 +181,7 @@ func (db *DB) Rollback() {
 
 func (db *DB) Exec(query string, args ...interface{}) (rows sql.Result, err error) {
 	start := time.Now()
-	rows, err = db.db.Exec(query, args...)
+	rows, err = db.client.Exec(query, args...)
 	if db.log != nil {
 		db.fillLogFields(start, "exec", query, args).Info("[ORM][MYSQL][EXEC]")
 	}
@@ -190,7 +190,7 @@ func (db *DB) Exec(query string, args ...interface{}) (rows sql.Result, err erro
 
 func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
 	start := time.Now()
-	row := db.db.QueryRow(query, args...)
+	row := db.client.QueryRow(query, args...)
 	if db.log != nil {
 		db.fillLogFields(start, "select", query, args).Info("[ORM][MYSQL][SELECT]")
 	}
@@ -199,7 +199,7 @@ func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
 
 func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF func(), err error) {
 	start := time.Now()
-	rows, err = db.db.Query(query, args...)
+	rows, err = db.client.Query(query, args...)
 	if db.log != nil {
 		db.fillLogFields(start, "select", query, args).Info("[ORM][MYSQL][SELECT]")
 	}

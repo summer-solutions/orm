@@ -13,55 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type testQueryFunc func(db sqlDB, counter int, query string, args ...interface{}) (SQLRows, error)
-type testQueryRowFunc func(db sqlDB, counter int, query string, args ...interface{}) SQLRow
-
-type testSQLDB struct {
-	db           sqlDB
-	counter      int
-	QueryMock    testQueryFunc
-	QueryRowMock testQueryRowFunc
-}
-
-func (db *testSQLDB) Begin() error {
-	return nil
-}
-
-func (db *testSQLDB) Commit() error {
-	return nil
-}
-
-func (db *testSQLDB) Rollback() (bool, error) {
-	return false, nil
-}
-
-func (db *testSQLDB) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return db.db.Exec(query, args...)
-}
-
-func (db *testSQLDB) QueryRow(query string, args ...interface{}) SQLRow {
-	db.counter++
-	if db.QueryRowMock != nil {
-		return db.QueryRowMock(db.db, db.counter, query, args...)
-	}
-	return db.db.QueryRow(query, args...)
-}
-
-func (db *testSQLDB) Query(query string, args ...interface{}) (SQLRows, error) {
-	db.counter++
-	if db.QueryMock != nil {
-		return db.QueryMock(db.db, db.counter, query, args...)
-	}
-	return db.db.Query(query, args...)
-}
-
-func mockDB(engine *Engine, poolCode string) *testSQLDB {
-	db := engine.dbs[poolCode]
-	testDB := &testSQLDB{db: db.db}
-	db.db = testDB
-	return testDB
-}
-
 func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *Engine {
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test")
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_log", "log")
@@ -110,6 +61,45 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *E
 		}
 	}
 	return engine
+}
+
+type mockSQLClient struct {
+	client       sqlClient
+	counter      int
+	QueryMock    func(db sqlClient, counter int, query string, args ...interface{}) (SQLRows, error)
+	QueryRowMock func(db sqlClient, counter int, query string, args ...interface{}) SQLRow
+}
+
+func (db *mockSQLClient) Begin() error {
+	return nil
+}
+
+func (db *mockSQLClient) Commit() error {
+	return nil
+}
+
+func (db *mockSQLClient) Rollback() (bool, error) {
+	return false, nil
+}
+
+func (db *mockSQLClient) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return db.client.Exec(query, args...)
+}
+
+func (db *mockSQLClient) QueryRow(query string, args ...interface{}) SQLRow {
+	db.counter++
+	if db.QueryRowMock != nil {
+		return db.QueryRowMock(db.client, db.counter, query, args...)
+	}
+	return db.client.QueryRow(query, args...)
+}
+
+func (db *mockSQLClient) Query(query string, args ...interface{}) (SQLRows, error) {
+	db.counter++
+	if db.QueryMock != nil {
+		return db.QueryMock(db.client, db.counter, query, args...)
+	}
+	return db.client.Query(query, args...)
 }
 
 type mockRedisClient struct {

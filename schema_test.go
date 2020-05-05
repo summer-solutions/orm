@@ -271,8 +271,9 @@ func TestSchema(t *testing.T) {
 	err = tableSchema.UpdateSchema(engine)
 	assert.Nil(t, err)
 
-	testDB := mockDB(engine, "schema")
-	testDB.QueryMock = func(db sqlDB, counter int, query string, args ...interface{}) (SQLRows, error) {
+	mockClient := &mockSQLClient{client: engine.GetMysql("schema").client}
+	engine.GetMysql("schema").client = mockClient
+	mockClient.QueryMock = func(db sqlClient, counter int, query string, args ...interface{}) (SQLRows, error) {
 		if query == "SHOW TABLES" {
 			return nil, errors.New("db error")
 		}
@@ -282,7 +283,7 @@ func TestSchema(t *testing.T) {
 	assert.Nil(t, alters)
 	assert.EqualError(t, err, "db error")
 
-	testDB.QueryMock = func(db sqlDB, counter int, query string, args ...interface{}) (SQLRows, error) {
+	mockClient.QueryMock = func(db sqlClient, counter int, query string, args ...interface{}) (SQLRows, error) {
 		if query == "SHOW INDEXES FROM `testEntitySchema`" {
 			return nil, errors.New("db error")
 		}
@@ -292,8 +293,8 @@ func TestSchema(t *testing.T) {
 	assert.Nil(t, alters)
 	assert.EqualError(t, err, "db error")
 
-	testDB.QueryMock = nil
-	testDB.QueryRowMock = func(db sqlDB, counter int, query string, args ...interface{}) SQLRow {
+	mockClient.QueryMock = nil
+	mockClient.QueryRowMock = func(db sqlClient, counter int, query string, args ...interface{}) SQLRow {
 		return db.QueryRow(query, args...)
 	}
 
