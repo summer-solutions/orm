@@ -3,6 +3,9 @@ package orm
 import (
 	"testing"
 
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/streadway/amqp"
 
 	"github.com/stretchr/testify/assert"
@@ -17,13 +20,16 @@ func TestRabbitMQ(t *testing.T) {
 	engine := validatedRegistry.CreateEngine()
 	defer engine.Defer()
 
-	//engine.EnableDebug()
+	r := engine.GetRabbitMQChannel("test_channel")
+	testLogger := memory.New()
+	r.AddLogger(testLogger)
+	r.SetLogLevel(log.InfoLevel)
 
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        []byte("hello"),
 	}
-	r := engine.GetRabbitMQChannel("test_channel")
+
 	assert.NotNil(t, r)
 	err = r.Publish("", false, false, msg)
 	assert.NoError(t, err)
