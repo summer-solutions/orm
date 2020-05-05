@@ -17,6 +17,7 @@ type Engine struct {
 	localCache                   map[string]*LocalCache
 	redis                        map[string]*RedisCache
 	locks                        map[string]*Locker
+	rabbitMQChannels             map[string]*RabbitMQ
 	logMetaData                  map[string]interface{}
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
@@ -44,6 +45,9 @@ func (e *Engine) SetLogLevel(level log.Level) {
 		l.log = e.log
 	}
 	for _, l := range e.locks {
+		l.log = e.log
+	}
+	for _, l := range e.rabbitMQChannels {
 		l.log = e.log
 	}
 }
@@ -189,6 +193,14 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 		panic(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
 	}
 	return cache
+}
+
+func (e *Engine) GetRabbitMQChannel(code string) *RabbitMQ {
+	channel, has := e.rabbitMQChannels[code]
+	if !has {
+		panic(fmt.Errorf("unregistered rabbitMQ channel '%s'", code))
+	}
+	return channel
 }
 
 func (e *Engine) GetLocker(code ...string) *Locker {

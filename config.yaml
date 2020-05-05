@@ -1,6 +1,21 @@
 default:
   mysql: root:root@tcp(localhost:3308)/test
   redis: localhost:6379:0
+  rabbitMQ:
+    server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
+    channels:
+      - name: test
+        passive: false
+        durrable: false
+        exclusive: false
+        autodelete: false
+        nowait: false
+      - name: test2
+        passive: false
+        durrable: false
+        exclusive: false
+        autodelete: false
+        nowait: false
   localCache: 1000
   lazyQueue: default_queue
   dirtyQueue: default_queue

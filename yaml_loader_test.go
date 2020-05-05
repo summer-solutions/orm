@@ -18,7 +18,7 @@ func TestYamlLoader(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, registry)
 	validatedRegistry, err := registry.Validate()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, validatedRegistry)
 
 	codes := validatedRegistry.GetLazyQueueCodes()

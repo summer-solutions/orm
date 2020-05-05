@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/streadway/amqp"
+
 	"github.com/apex/log/handlers/multi"
 
 	"github.com/go-redis/redis/v7"
@@ -18,6 +20,8 @@ type Registry struct {
 	sqlClients           map[string]*DBConfig
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
+	rabbitMQServers      map[string]*rabbitMQConfig
+	rabbitMQChannels     map[string][]*RabbitMQChannelConfig
 	entities             map[string]reflect.Type
 	enums                map[string]reflect.Value
 	dirtyQueues          map[string]DirtyQueueSender
@@ -107,6 +111,39 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.redisServers {
 		registry.redisServers[k] = v
 	}
+	if registry.rabbitMQServers == nil {
+		registry.rabbitMQServers = make(map[string]*rabbitMQConnection)
+	}
+	for k, v := range r.rabbitMQServers {
+		conn, err := amqp.Dial(v.address)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		registry.rabbitMQServers[k] = &rabbitMQConnection{config: v, client: conn}
+	}
+
+	if registry.rabbitMQChannels == nil {
+		registry.rabbitMQChannels = make(map[string]*rabbitMQChannel)
+	}
+	for connectionCode, channels := range r.rabbitMQChannels {
+		connection, has := registry.rabbitMQServers[connectionCode]
+		if !has {
+			return nil, errors.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
+		}
+		for _, def := range channels {
+			_, has := registry.rabbitMQChannels[def.Name]
+			if has {
+				return nil, errors.Errorf("rabbitMQ channel name '%s' already exists", def.Name)
+			}
+			channel := &rabbitMQChannel{connection: connection, config: def}
+			registry.rabbitMQChannels[def.Name] = channel
+			err := channel.registerQueue()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	if registry.enums == nil {
 		registry.enums = make(map[string]reflect.Value)
 	}
@@ -180,6 +217,28 @@ func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 		r.redisServers = make(map[string]*RedisCacheConfig)
 	}
 	r.redisServers[dbCode] = redisCache
+}
+
+func (r *Registry) RegisterRabbitMQServer(address string, code ...string) {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	rabbitMQ := &rabbitMQConfig{code: dbCode, address: address}
+	if r.rabbitMQServers == nil {
+		r.rabbitMQServers = make(map[string]*rabbitMQConfig)
+	}
+	r.rabbitMQServers[dbCode] = rabbitMQ
+}
+
+func (r *Registry) RegisterRabbitMQChannel(serverPool string, config *RabbitMQChannelConfig) {
+	if r.rabbitMQChannels == nil {
+		r.rabbitMQChannels = make(map[string][]*RabbitMQChannelConfig)
+	}
+	if r.rabbitMQChannels[serverPool] == nil {
+		r.rabbitMQChannels[serverPool] = make([]*RabbitMQChannelConfig, 0)
+	}
+	r.rabbitMQChannels[serverPool] = append(r.rabbitMQChannels[serverPool], config)
 }
 
 func (r *Registry) RegisterDirtyQueue(code string, sender DirtyQueueSender) {

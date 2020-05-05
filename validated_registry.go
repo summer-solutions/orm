@@ -42,6 +42,8 @@ type validatedRegistry struct {
 	lazyQueues           map[string]QueueSenderReceiver
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
+	rabbitMQServers      map[string]*rabbitMQConnection
+	rabbitMQChannels     map[string]*rabbitMQChannel
 	lockServers          map[string]string
 	enums                map[string]reflect.Value
 	log                  *log.Entry
@@ -87,6 +89,18 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{val.client}, log: r.log, logHandler: logHandler}
 		}
 	}
+
+	e.rabbitMQChannels = make(map[string]*RabbitMQ)
+	if e.registry.rabbitMQChannels != nil {
+		for key, val := range e.registry.rabbitMQChannels {
+			logHandler := multi.New()
+			if r.logHandler != nil {
+				logHandler.Handlers = r.logHandler.Handlers
+			}
+			e.rabbitMQChannels[key] = &RabbitMQ{engine: e, channel: val, log: r.log, logHandler: logHandler}
+		}
+	}
+
 	e.locks = make(map[string]*Locker)
 	if e.registry.lockServers != nil {
 		for key, val := range e.registry.lockServers {
