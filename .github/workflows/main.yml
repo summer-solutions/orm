@@ -45,7 +45,7 @@ jobs:
         image: rabbitmq:management
         ports:
           - 5672:5672
-        environment:
+        env:
           - RABBITMQ_DEFAULT_USER=rabbitmq_user
           - RABBITMQ_DEFAULT_PASS=rabbitmq_password
 
