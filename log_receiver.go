@@ -11,17 +11,22 @@ import (
 const logQueueName = "_log_queue"
 
 type LogReceiver struct {
-	engine *Engine
-	Logger func(log *LogQueueValue) error
+	engine    *Engine
+	queueName string
+	Logger    func(log *LogQueueValue) error
 }
 
 func NewLogReceiver(engine *Engine) *LogReceiver {
-	return &LogReceiver{engine: engine}
+	return &LogReceiver{engine: engine, queueName: logQueueName}
+}
+
+func (r *LogReceiver) QueueName() string {
+	return r.queueName
 }
 
 func (r *LogReceiver) Digest(item []byte) error {
 	var value LogQueueValue
-	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(item), &value)
+	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(item, &value)
 
 	poolDB := r.engine.GetMysql(value.PoolName)
 	/* #nosec */

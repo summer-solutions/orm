@@ -40,7 +40,7 @@ func TestLog(t *testing.T) {
 		assert.Equal(t, "log", value.PoolName)
 		return nil
 	}
-	val, found, err := engine.GetRedis("default_queue").RPop("default_queue")
+	val, found, err := engine.GetRedis("default_log").RPop(receiver.QueueName())
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, val)
@@ -84,7 +84,7 @@ func TestLog(t *testing.T) {
 	engine.SetLogMetaData("user_id", "7")
 	err = engine.Flush()
 	assert.Nil(t, err)
-	val, found, err = engine.GetRedis("default_queue").RPop("default_queue")
+	val, found, err = engine.GetRedis("default_log").RPop(receiver.QueueName())
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, val)
@@ -102,17 +102,14 @@ func TestLog(t *testing.T) {
 	engine.Track(entity)
 	err = engine.Flush()
 	assert.Nil(t, err)
-	val, found, err = engine.GetRedis("default_queue").RPop("default_queue")
+	_, found, err = engine.GetRedis("default_log").RPop(receiver.QueueName())
 	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = receiver.Digest([]byte(val))
-	assert.Nil(t, err)
+	assert.False(t, found)
 
 	engine.MarkToDelete(entity)
 	err = engine.Flush()
 	assert.Nil(t, err)
-	val, found, err = engine.GetRedis("default_queue").RPop("default_queue")
+	val, found, err = engine.GetRedis("default_log").RPop(receiver.QueueName())
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, val)
@@ -133,18 +130,9 @@ func TestLog(t *testing.T) {
 	receiver.Logger = func(value *LogQueueValue) error {
 		return fmt.Errorf("test error")
 	}
-	err = receiver.Digest(nil)
+	err = receiver.Digest([]byte(val))
 	assert.EqualError(t, err, "test error")
-
 	receiver.Logger = nil
-	mockClientRedis := &mockRedisClient{client: queueRedis.client}
-	queueRedis.client = mockClientRedis
-	mockClientRedis.RPopMock = func(key string) (string, error) {
-		return "", fmt.Errorf("test error")
-	}
-	err = receiver.Digest(nil)
-	assert.EqualError(t, err, "test error")
-	mockClientRedis.RPopMock = nil
 
 	mockClientDB := &mockSQLClient{client: logDB.client}
 	logDB.client = mockClientDB
@@ -153,7 +141,7 @@ func TestLog(t *testing.T) {
 	}
 	entity = &testEntityLog{}
 	_ = engine.TrackAndFlush(entity)
-	err = receiver.Digest(nil)
+	err = receiver.Digest([]byte(val))
 	assert.EqualError(t, err, "test error")
 
 	mockClientDB.ExecMock = func(query string, args ...interface{}) (sql.Result, error) {
@@ -168,6 +156,6 @@ func TestLog(t *testing.T) {
 	}
 	entity = &testEntityLog{}
 	_ = engine.TrackAndFlush(entity)
-	err = receiver.Digest(nil)
+	err = receiver.Digest([]byte(val))
 	assert.EqualError(t, err, "test error")
 }
