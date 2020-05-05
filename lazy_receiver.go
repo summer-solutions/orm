@@ -7,11 +7,16 @@ import (
 const lazyQueueName = "_lazy_queue"
 
 type LazyReceiver struct {
-	engine              *Engine
+	engine    *Engine
+	queueName string
 }
 
 func NewLazyReceiver(engine *Engine) *LazyReceiver {
-	return &LazyReceiver{engine: engine}
+	return &LazyReceiver{engine: engine, queueName: lazyQueueName}
+}
+
+func (r *LazyReceiver) QueueName() string {
+	return r.queueName
 }
 
 func (r *LazyReceiver) Digest(item []byte) error {
