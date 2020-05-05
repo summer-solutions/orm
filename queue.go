@@ -39,6 +39,6 @@ func (r *RedisQueueSenderReceiver) Receive(engine *Engine, queueCode string) (ha
 	return true, element, nil
 }
 
-func (r *RedisQueueSenderReceiver) Flush(engine *Engine, queueCode string) error {
+func (r *RedisQueueSenderReceiver) Flush(_ *Engine, _ string) error {
 	return nil
 }

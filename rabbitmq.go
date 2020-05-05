@@ -30,13 +30,15 @@ type rabbitMQChannel struct {
 }
 
 type RabbitMQChannelConfig struct {
-	Name       string
-	Passive    bool
-	Durable    bool
-	Exclusive  bool
-	AutoDelete bool
-	NoWait     bool
-	Arguments  map[string]interface{}
+	Name          string
+	Passive       bool
+	Durable       bool
+	Exclusive     bool
+	AutoDelete    bool
+	NoWait        bool
+	PrefetchCount int
+	PrefetchSize  int
+	Arguments     map[string]interface{}
 }
 
 func (c *rabbitMQChannel) Close() bool {
@@ -76,7 +78,10 @@ func (c *rabbitMQChannel) registerQueue() error {
 	defer c.Close()
 	config := c.config
 	c.q, err = c.channel.QueueDeclare(config.Name, config.Durable, config.AutoDelete, config.Exclusive, config.NoWait, config.Arguments)
-	return err
+	if err != nil {
+		return err
+	}
+	return c.channel.Qos(config.PrefetchCount, config.PrefetchSize, false)
 }
 
 func (c *rabbitMQChannel) initChannel() error {

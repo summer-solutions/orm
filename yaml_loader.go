@@ -133,7 +133,10 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 		exclusive := asMap["exclusive"] == true
 		autodelete := asMap["autodelete"] == true
 		nowait := asMap["nowait"] == true
-		config := &RabbitMQChannelConfig{asString, passive, durrable, exclusive, autodelete, nowait, nil}
+		prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
+		prefetchSize, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchSize"]), 10, 64)
+		config := &RabbitMQChannelConfig{asString, passive, durrable,
+			exclusive, autodelete, nowait, int(prefetchCount), int(prefetchSize), nil}
 		registry.RegisterRabbitMQChannel(key, config)
 	}
 	return nil

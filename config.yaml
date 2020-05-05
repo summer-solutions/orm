@@ -10,12 +10,16 @@ default:
         exclusive: false
         autodelete: false
         nowait: false
+        prefetchCount: 1
+        prefetchSize: 0
       - name: test2
         passive: false
         durrable: false
         exclusive: false
         autodelete: false
         nowait: false
+        prefetchCount: 1
+        prefetchSize: 0
   localCache: 1000
   lazyQueue: default_queue
   dirtyQueue: default_queue
