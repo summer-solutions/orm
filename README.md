@@ -8,7 +8,7 @@
 ## Configuration
 
 First you need to define Registry object and register all connection pools to MySQL, Redis and local cache.
-Also use this object to register queues, and entities. You should create this object once when application
+Use this object to register queues, and entities. You should create this object once when application
 starts.
 
 ```go
