@@ -149,6 +149,24 @@ func (r *RabbitMQChannel) NewConsumer(name string) (RabbitMQReceiver, error) {
 	return receiver, nil
 }
 
+func (r *RabbitMQChannel) Delete(ifUnused, ifEmpty, noWait bool) (int, error) {
+	err := r.initChannelSender()
+	if err != nil {
+		return 0, err
+	}
+	start := time.Now()
+	removed, err := r.channelSender.QueueDelete(r.q.Name, ifUnused, ifEmpty, noWait)
+	if err != nil {
+		return 0, err
+	}
+	if r.log != nil {
+		r.fillLogFields(start, "remove queue").WithField("Queue", r.q.Name).
+			WithField("ifUnused", ifUnused).WithField("ifEmpty", ifEmpty).WithField("noWait", noWait).
+			Info("[ORM][RABBIT_MQ][REMOVE QUEUE]")
+	}
+	return removed, nil
+}
+
 func (r *RabbitMQChannel) initChannel(name string) (*amqp.Channel, *amqp.Queue, error) {
 	start := time.Now()
 	channel, err := r.connection.client.Channel()

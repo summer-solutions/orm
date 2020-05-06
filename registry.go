@@ -140,6 +140,9 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			registry.rabbitMQChannelsToQueue[def.Name] = channel
 		}
 	}
+	if registry.rabbitMQChannelsToExchange == nil {
+		registry.rabbitMQChannelsToExchange = make(map[string]*rabbitMQChannelToExchange)
+	}
 	for connectionCode, exchanges := range r.rabbitMQExchanges {
 		connection, has := registry.rabbitMQServers[connectionCode]
 		if !has {

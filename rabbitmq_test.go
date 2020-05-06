@@ -24,7 +24,7 @@ func TestRabbitMQ(t *testing.T) {
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
-	engine.EnableDebug()
+	//engine.EnableDebug()
 
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
@@ -43,4 +43,7 @@ func TestRabbitMQ(t *testing.T) {
 	item := <-items
 	assert.NotNil(t, item)
 	assert.Equal(t, []byte("hello"), item.Body)
+
+	_, err = r.Delete(false, false, false)
+	assert.NoError(t, err)
 }
