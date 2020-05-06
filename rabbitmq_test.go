@@ -14,13 +14,13 @@ import (
 func TestRabbitMQ(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-	registry.RegisterRabbitMQChannel("default", &RabbitMQChannelConfig{Name: "test_channel"})
+	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
 	defer engine.Defer()
 
-	r := engine.GetRabbitMQChannel("test_channel")
+	r := engine.GetRabbitMQChannel("test_queue")
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
@@ -31,7 +31,7 @@ func TestRabbitMQ(t *testing.T) {
 	}
 
 	assert.NotNil(t, r)
-	err = r.Publish("", false, false, msg)
+	err = r.Publish(false, false, msg)
 	assert.NoError(t, err)
 
 	items, err := r.Consume("test consumer", true, false, false, false, nil)

@@ -17,7 +17,7 @@ type Engine struct {
 	localCache                   map[string]*LocalCache
 	redis                        map[string]*RedisCache
 	locks                        map[string]*Locker
-	rabbitMQChannels             map[string]*RabbitMQ
+	rabbitMQChannels             map[string]*RabbitMQChannel
 	logMetaData                  map[string]interface{}
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
@@ -201,7 +201,7 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	return cache
 }
 
-func (e *Engine) GetRabbitMQChannel(code string) *RabbitMQ {
+func (e *Engine) GetRabbitMQChannel(code string) *RabbitMQChannel {
 	channel, has := e.rabbitMQChannels[code]
 	if !has {
 		panic(fmt.Errorf("unregistered rabbitMQ channel '%s'", code))

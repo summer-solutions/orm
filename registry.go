@@ -21,7 +21,8 @@ type Registry struct {
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
 	rabbitMQServers      map[string]*rabbitMQConfig
-	rabbitMQChannels     map[string][]*RabbitMQChannelConfig
+	rabbitMQQueues       map[string][]*RabbitMQQueueConfig
+	rabbitMQExchanges    map[string][]*RabbitMQExchangeConfig
 	entities             map[string]reflect.Type
 	enums                map[string]reflect.Value
 	dirtyQueues          map[string]DirtyQueueSender
@@ -122,25 +123,35 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.rabbitMQServers[k] = &rabbitMQConnection{config: v, client: conn}
 	}
 
-	if registry.rabbitMQChannels == nil {
-		registry.rabbitMQChannels = make(map[string]*rabbitMQChannel)
+	if registry.rabbitMQChannelsToQueue == nil {
+		registry.rabbitMQChannelsToQueue = make(map[string]*rabbitMQChannelToQueue)
 	}
-	for connectionCode, channels := range r.rabbitMQChannels {
+	for connectionCode, queues := range r.rabbitMQQueues {
 		connection, has := registry.rabbitMQServers[connectionCode]
 		if !has {
 			return nil, errors.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
 		}
-		for _, def := range channels {
-			_, has := registry.rabbitMQChannels[def.Name]
+		for _, def := range queues {
+			_, has := registry.rabbitMQChannelsToQueue[def.Name]
 			if has {
 				return nil, errors.Errorf("rabbitMQ channel name '%s' already exists", def.Name)
 			}
-			channel := &rabbitMQChannel{connection: connection, config: def}
-			registry.rabbitMQChannels[def.Name] = channel
-			err := channel.registerQueue()
-			if err != nil {
-				return nil, err
+			channel := &rabbitMQChannelToQueue{connection: connection, config: def}
+			registry.rabbitMQChannelsToQueue[def.Name] = channel
+		}
+	}
+	for connectionCode, exchanges := range r.rabbitMQExchanges {
+		connection, has := registry.rabbitMQServers[connectionCode]
+		if !has {
+			return nil, errors.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
+		}
+		for _, def := range exchanges {
+			_, has := registry.rabbitMQChannelsToExchange[def.Name]
+			if has {
+				return nil, errors.Errorf("rabbitMQ exchange name '%s' already exists", def.Name)
 			}
+			exchange := &rabbitMQChannelToExchange{connection: connection, config: def}
+			registry.rabbitMQChannelsToExchange[def.Name] = exchange
 		}
 	}
 
@@ -231,14 +242,24 @@ func (r *Registry) RegisterRabbitMQServer(address string, code ...string) {
 	r.rabbitMQServers[dbCode] = rabbitMQ
 }
 
-func (r *Registry) RegisterRabbitMQChannel(serverPool string, config *RabbitMQChannelConfig) {
-	if r.rabbitMQChannels == nil {
-		r.rabbitMQChannels = make(map[string][]*RabbitMQChannelConfig)
+func (r *Registry) RegisterRabbitMQQueue(serverPool string, config *RabbitMQQueueConfig) {
+	if r.rabbitMQQueues == nil {
+		r.rabbitMQQueues = make(map[string][]*RabbitMQQueueConfig)
 	}
-	if r.rabbitMQChannels[serverPool] == nil {
-		r.rabbitMQChannels[serverPool] = make([]*RabbitMQChannelConfig, 0)
+	if r.rabbitMQQueues[serverPool] == nil {
+		r.rabbitMQQueues[serverPool] = make([]*RabbitMQQueueConfig, 0)
 	}
-	r.rabbitMQChannels[serverPool] = append(r.rabbitMQChannels[serverPool], config)
+	r.rabbitMQQueues[serverPool] = append(r.rabbitMQQueues[serverPool], config)
+}
+
+func (r *Registry) RegisterRabbitMQExchange(serverPool string, config *RabbitMQExchangeConfig) {
+	if r.rabbitMQExchanges == nil {
+		r.rabbitMQExchanges = make(map[string][]*RabbitMQExchangeConfig)
+	}
+	if r.rabbitMQExchanges[serverPool] == nil {
+		r.rabbitMQExchanges[serverPool] = make([]*RabbitMQExchangeConfig, 0)
+	}
+	r.rabbitMQExchanges[serverPool] = append(r.rabbitMQExchanges[serverPool], config)
 }
 
 func (r *Registry) RegisterDirtyQueue(code string, sender DirtyQueueSender) {

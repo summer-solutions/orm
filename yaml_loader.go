@@ -107,37 +107,73 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 		return fmt.Errorf("invalid rabbitMQ server definition: %s", key)
 	}
 	registry.RegisterRabbitMQServer(poolName, key)
-	value, has = def["channels"]
-	if !has {
-		return nil
-	}
-	asSlice, ok := value.([]interface{})
-	if !ok {
-		return fmt.Errorf("invalid rabbitMQ channels definition: %s", key)
-	}
-	for _, channel := range asSlice {
-		asMap, ok := channel.(map[interface{}]interface{})
+	value, has = def["queues"]
+	if has {
+		asSlice, ok := value.([]interface{})
 		if !ok {
-			return fmt.Errorf("invalid rabbitMQ channels definition: %s", key)
+			return fmt.Errorf("invalid rabbitMQ queues definition: %s", key)
 		}
-		name, has := asMap["name"]
-		if !has {
-			return fmt.Errorf("missing rabbitMQ channel name: %s", key)
+		for _, channel := range asSlice {
+			asMap, ok := channel.(map[interface{}]interface{})
+			if !ok {
+				return fmt.Errorf("invalid rabbitMQ queues definition: %s", key)
+			}
+			name, has := asMap["name"]
+			if !has {
+				return fmt.Errorf("missing rabbitMQ channel name: %s", key)
+			}
+			asString, ok := name.(string)
+			if !ok {
+				return fmt.Errorf("invalid rabbitMQ channel name: %s", key)
+			}
+			passive := asMap["passive"] == true
+			durrable := asMap["durrable"] == true
+			exclusive := asMap["exclusive"] == true
+			autodelete := asMap["autodelete"] == true
+			nowait := asMap["nowait"] == true
+			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
+			prefetchSize, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchSize"]), 10, 64)
+			config := &RabbitMQQueueConfig{asString, passive, durrable,
+				exclusive, autodelete, nowait, int(prefetchCount),
+				int(prefetchSize), nil}
+			registry.RegisterRabbitMQQueue(key, config)
 		}
-		asString, ok := name.(string)
+	}
+	value, has = def["exchanges"]
+	if has {
+		asSlice, ok := value.([]interface{})
 		if !ok {
-			return fmt.Errorf("invalid rabbitMQ channel name: %s", key)
+			return fmt.Errorf("invalid rabbitMQ exchanges definition: %s", key)
 		}
-		passive := asMap["passive"] == true
-		durrable := asMap["durrable"] == true
-		exclusive := asMap["exclusive"] == true
-		autodelete := asMap["autodelete"] == true
-		nowait := asMap["nowait"] == true
-		prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
-		prefetchSize, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchSize"]), 10, 64)
-		config := &RabbitMQChannelConfig{asString, passive, durrable,
-			exclusive, autodelete, nowait, int(prefetchCount), int(prefetchSize), nil}
-		registry.RegisterRabbitMQChannel(key, config)
+		for _, exchange := range asSlice {
+			asMap, ok := exchange.(map[interface{}]interface{})
+			if !ok {
+				return fmt.Errorf("invalid rabbitMQ exchange definition: %s", key)
+			}
+			value, has := asMap["name"]
+			if !has {
+				return fmt.Errorf("missing rabbitMQ exchange name: %s", key)
+			}
+			nameAsString, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("invalid rabbitMQ exchange name: %s", key)
+			}
+			value, has = asMap["type"]
+			if !has {
+				return fmt.Errorf("missing rabbitMQ exchange type: %s", key)
+			}
+			typeAsString, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("invalid rabbitMQ exchange type: %s", key)
+			}
+			durrable := asMap["durrable"] == true
+			autodelete := asMap["autodelete"] == true
+			internal := asMap["internal"] == true
+			nowait := asMap["nowait"] == true
+			config := &RabbitMQExchangeConfig{nameAsString, typeAsString, durrable,
+				autodelete, internal, nowait, nil}
+			registry.RegisterRabbitMQExchange(key, config)
+		}
 	}
 	return nil
 }

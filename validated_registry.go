@@ -34,20 +34,21 @@ type ValidatedRegistry interface {
 }
 
 type validatedRegistry struct {
-	tableSchemas         map[reflect.Type]*tableSchema
-	entities             map[string]reflect.Type
-	sqlClients           map[string]*DBConfig
-	dirtyQueues          map[string]DirtyQueueSender
-	logQueues            map[string]QueueSender
-	lazyQueues           map[string]QueueSender
-	localCacheContainers map[string]*LocalCacheConfig
-	redisServers         map[string]*RedisCacheConfig
-	rabbitMQServers      map[string]*rabbitMQConnection
-	rabbitMQChannels     map[string]*rabbitMQChannel
-	lockServers          map[string]string
-	enums                map[string]reflect.Value
-	log                  *log.Entry
-	logHandler           *multi.Handler
+	tableSchemas               map[reflect.Type]*tableSchema
+	entities                   map[string]reflect.Type
+	sqlClients                 map[string]*DBConfig
+	dirtyQueues                map[string]DirtyQueueSender
+	logQueues                  map[string]QueueSender
+	lazyQueues                 map[string]QueueSender
+	localCacheContainers       map[string]*LocalCacheConfig
+	redisServers               map[string]*RedisCacheConfig
+	rabbitMQServers            map[string]*rabbitMQConnection
+	rabbitMQChannelsToQueue    map[string]*rabbitMQChannelToQueue
+	rabbitMQChannelsToExchange map[string]*rabbitMQChannelToExchange
+	lockServers                map[string]string
+	enums                      map[string]reflect.Value
+	log                        *log.Entry
+	logHandler                 *multi.Handler
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {
@@ -90,14 +91,14 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 		}
 	}
 
-	e.rabbitMQChannels = make(map[string]*RabbitMQ)
-	if e.registry.rabbitMQChannels != nil {
-		for key, val := range e.registry.rabbitMQChannels {
+	e.rabbitMQChannels = make(map[string]*RabbitMQChannel)
+	if e.registry.rabbitMQChannelsToQueue != nil {
+		for key, val := range e.registry.rabbitMQChannelsToQueue {
 			logHandler := multi.New()
 			if r.logHandler != nil {
 				logHandler.Handlers = r.logHandler.Handlers
 			}
-			e.rabbitMQChannels[key] = &RabbitMQ{engine: e, channel: val, log: r.log, logHandler: logHandler}
+			e.rabbitMQChannels[key] = &RabbitMQChannel{engine: e, channel: val, log: r.log, logHandler: logHandler}
 		}
 	}
 

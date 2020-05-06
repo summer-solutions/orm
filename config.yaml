@@ -3,7 +3,7 @@ default:
   redis: localhost:6379:0
   rabbitMQ:
     server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
-    channels:
+    queues:
       - name: test
         passive: false
         durrable: false
@@ -20,6 +20,13 @@ default:
         nowait: false
         prefetchCount: 1
         prefetchSize: 0
+    exchanges:
+      - name: test
+        type: fanout
+        durable: false
+        autodelete: false
+        internal: false
+        nowait: false
   localCache: 1000
   lazyQueue: default_queue
   dirtyQueue: default_queue
