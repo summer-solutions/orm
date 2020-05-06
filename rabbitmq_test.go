@@ -40,6 +40,7 @@ func TestRabbitMQQueue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, items)
 	item := <-items
+	item.Ack(false)
 	assert.NotNil(t, item)
 	assert.Equal(t, []byte("hello"), item.Body)
 }

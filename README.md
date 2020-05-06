@@ -51,17 +51,44 @@ func main() {
 
 ```.yaml
 default:
-   mysql: root:root@tcp(localhost:3310)/db
-   redis: localhost:6379:0
-   redisQueues: localhost:6379:1
-   lazyQueue: redisQueues
-   locker: default
-   dirtyQueue: redisQueues
-   logQueue: redisQueues
-   localCache: 1000
+    mysql: root:root@tcp(localhost:3310)/db
+    redis: localhost:6379:0
+    redisQueues: localhost:6379:1
+    lazyQueue: redisQueues
+    locker: default
+    dirtyQueue: redisQueues
+    logQueue: redisQueues
+    localCache: 1000
+    rabbitMQ:
+    server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
+    queues:
+        - name: test
+            passive: false
+            durrable: false
+            exclusive: false
+            autodelete: false
+            nowait: false
+            prefetchCount: 1
+            prefetchSize: 0
+        - name: test2
+            passive: false
+            durrable: false
+            exclusive: false
+            autodelete: false
+            nowait: false
+            prefetchCount: 1
+            prefetchSize: 0
+            exchage: test
+    exchanges:
+        - name: test
+            type: fanout
+            durable: false
+            autodelete: false
+            internal: false
+            nowait: false    
 second_pool:
-   mysql: root:root@tcp(localhost:3311)/db2
-   redis: localhost:6380:1 
+    mysql: root:root@tcp(localhost:3311)/db2
+    redis: localhost:6380:1 
 ```
 
 ```go
@@ -850,6 +877,58 @@ func main() {
 }
 
 ```
+
+## Working with RabbitMQ
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    // register rabbitMQ servers, queues and exchanges
+    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange", Exchange: "test_exchange"})
+    registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange", Type: "fanout"})
+    
+    //create engine:
+    validatedRegistry, err := registry.Validate()
+    engine := validatedRegistry.CreateEngine()
+    defer engine.Defer() //it will close all opened channels
+
+    //publish to queue
+    channel := engine.GetRabbitMQChannel("test_queue") //provide Queue name
+    defer channel.Close()
+    msg := amqp.Publishing{
+        ContentType: "text/plain",
+        Body:        []byte("hello"),
+    }
+    err = channel.Publish(false, false, msg)
+
+    //start consumer (you can add as many you want)
+    consumer, err := r.NewConsumer("test consumer")
+    items, err := consumer.Consume(true, false) //items is a channel
+    
+    //publish to exchange
+    channel = engine.GetRabbitMQChannel("test_queue_exchange") 
+    defer channel.Close()
+    msg = amqp.Publishing{
+        ContentType: "text/plain",
+        Body:        []byte("hello"),
+    }
+    err = channel.Publish(false, false, msg)
+
+    //start consumers
+    consumer1, err := channel.NewConsumer("test consumer")
+    consumer2, err := channel.NewConsumer("test consumer")
+    items, err := consumer.Consume(true, false)
+    items2, err := consumer.Consume(true, false)
+}
+
+```
+
 
 ## Logging
 

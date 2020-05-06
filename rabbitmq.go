@@ -142,11 +142,11 @@ func (r *RabbitMQChannel) NewConsumer(name string) (RabbitMQReceiver, error) {
 	if r.channelReceivers == nil {
 		r.channelReceivers = make(map[string]RabbitMQReceiver)
 	}
-	channelName := r.config.Name
+	queueName := r.config.Name
 	if r.config.Exchange != "" {
-		channelName = fmt.Sprintf("%s:%s", channelName, shortuuid.New())
+		queueName = fmt.Sprintf("%s:%s", queueName, shortuuid.New())
 	}
-	channel, q, err := r.initChannel(channelName, false)
+	channel, q, err := r.initChannel(queueName, false)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (r *RabbitMQChannel) NewConsumer(name string) (RabbitMQReceiver, error) {
 	return receiver, nil
 }
 
-func (r *RabbitMQChannel) initChannel(name string, sender bool) (*amqp.Channel, *amqp.Queue, error) {
+func (r *RabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Channel, *amqp.Queue, error) {
 	start := time.Now()
 	channel, err := r.connection.client.Channel()
 	if err != nil {
@@ -184,7 +184,7 @@ func (r *RabbitMQChannel) initChannel(name string, sender bool) (*amqp.Channel, 
 		}
 	}
 	start = time.Now()
-	q, err := r.registerQueue(channel, name)
+	q, err := r.registerQueue(channel, queueName)
 	if err != nil {
 		return nil, nil, err
 	}
