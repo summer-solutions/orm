@@ -98,7 +98,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 			if r.logHandler != nil {
 				logHandler.Handlers = r.logHandler.Handlers
 			}
-			e.rabbitMQChannels[key] = &RabbitMQChannel{engine: e, channel: val, log: r.log, logHandler: logHandler}
+			e.rabbitMQChannels[key] = &RabbitMQChannel{engine: e, connection: val.connection, config: val.config, log: r.log, logHandler: logHandler}
 		}
 	}
 

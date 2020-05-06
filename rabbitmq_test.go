@@ -24,6 +24,7 @@ func TestRabbitMQ(t *testing.T) {
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
+	engine.EnableDebug()
 
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
@@ -34,7 +35,9 @@ func TestRabbitMQ(t *testing.T) {
 	err = r.Publish(false, false, msg)
 	assert.NoError(t, err)
 
-	items, err := r.Consume("test consumer", true, false, false, false, nil)
+	consumer, err := r.NewConsumer("test consumer")
+	assert.NoError(t, err)
+	items, err := consumer.Consume(true, false)
 	assert.NoError(t, err)
 	assert.NotNil(t, items)
 	item := <-items
