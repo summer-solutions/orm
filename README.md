@@ -32,8 +32,16 @@ func main() {
 
     /* Redis used to handle queues (explained later) */
     registry.RegisterRedis("localhost:6379", 3, "queues_pool")
-    registry.RegisterLazyQueue("default", "queues_pool")
-    registry.RegisterLogQueue("default", "queues_pool")
+    registry.RegisterLazyQueue("default", &RedisQueueSender{PoolName: "queues_pool"})
+    registry.RegisterLogQueue("default", &RedisQueueSender{PoolName: "queues_pool"})
+
+    /* RabbitMQ */
+    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
+    
+    /* RabbitMQ used to handle queues (explained later) */
+    registry.RegisterLazyQueue("default", &RabbitMQQueueSender{PoolName: "queues_pool"})
+    registry.RegisterLogQueue("default", &RabbitMQQueueSender{PoolName: "queues_pool"})
 
     /* Local cache (in memory) */
     registry.RegisterLocalCache(1000) //you need to define cache size
@@ -580,23 +588,33 @@ func main() {
     // You need to register queue sender receiver that will send data to queue.
     // Here we used RedisQueueSenderReceiver. If you want to use other queue service simply implement QueueSenderReceiver
     registry.RegisterRedis("localhost:6379", 1, "queue_code")
-    queueSenderReceiver := &RedisQueueSenderReceiver{PoolName: "queue_code"}
-    registry.RegisterLazyQueue(queueSenderReceiver) 
+    registry.RegisterLazyQueue(&RedisQueueSender{PoolName: "queue_code"}) 
+    //Or using RabbitMQ (recommended)
+    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
     
     // now in code you can use FlushLazy() methods instead of Flush().
     // it will send changes to queue (database and cached is not updated yet)
     user.FlushLazy()
     
     //You need to run code that will read data from queue and execute changes
-    lazyReceiver := NewLazyReceiver(engine, queueSenderReceiver)
+    
+    lazyReceiver := NewLazyReceiver(engine)
+    //Redis
     for {
-        has, err = lazyReceiver.Digest()
-        if err != nil {
-           ///...
-        }
-        if !has {
+        val, found, err := engine.GetRedis("queue_code").RPop(lazyReceiver.QueueName())
+        if found {
+            err = lazyReceiver.Digest(val)
+        } else {
             //sleep x seconds
-        }   
+        }
+    }
+    //RabbitMQ
+    chanel := engine.GetRabbitMQChannel("test_queue")
+    items := channel.Consume(false, false)
+    for item := range items {
+        //item.RoutingKey == lazyReceiver.QueueName()
+        err := lazyReceiver.Digest(item.Body)
     }
 }
 
@@ -617,8 +635,10 @@ func main() {
 
     // You need to register queue sender receiver that will send  data to queue.
     registry.RegisterRedis("localhost:6379", 1, "queue_code")
-    queueSenderReceiver := &RedisQueueSenderReceiver{PoolName: "queue_code"}
-    registry.RegisterLogQueue("log_db_pool", queueSenderReceiver)  //all changes that will be stored in "log_db_pool" database
+    registry.RegisterLogQueue("log_db_pool", &RedisQueueSender{PoolName: "queue_code"})  //all changes that will be stored in "log_db_pool" database
+    //Or using RabbitMQ (recommended)
+    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
 
     //next you need to define in Entity that you want to log changes. Just add "log" tag
     type User struct {
@@ -638,25 +658,22 @@ func main() {
     
     
     //You need to run code that will read data from queue and store logs
-    lazyReceiver := NewLogReceiver(engine, queueSenderReceiver)
+    logReceiver := NewLogReceiver(engine)
+    //Redis
     for {
-        has, err = lazyReceiver.Digest()
-        if err != nil {
-           ///...
-        }
-        if !has {
+        val, found, err := engine.GetRedis("queue_code").RPop(logReceiver.QueueName())
+        if found {
+            err = logReceiver.Digest(val)
+        } else {
             //sleep x seconds
-        }   
+        }
     }
-
-    //optionaly you can define logger:
-    lazyReceiver.Logger = func(log *LogQueueValue) error {
-        fmt.Printf("log ID: %v\n", log.ID)
-        fmt.Printf("entity ID: %v\n", log.EntityID)
-        fmt.Printf("log table: %v\n", log.Table)    
-        fmt.Printf("before: %v\n", log.Before) //nil for new rows
-        fmt.Printf("changes: %v\n", log.Changes) //nil for deleted rows
-        return nil
+    //RabbitMQ
+    chanel := engine.GetRabbitMQChannel("test_queue")
+    items := channel.Consume(false, false)
+    for item := range items {
+        //item.RoutingKey == logReceiver.QueueName()
+        err := logReceiver.Digest(item.Body)
     }
 }
 
