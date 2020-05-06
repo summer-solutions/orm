@@ -60,7 +60,7 @@ func TestYamlLoader(t *testing.T) {
 	assert.EqualError(t, err, "invalid redis DB id: test:ss:dd")
 
 	invalidLazyQueue := make(map[string]interface{})
-	invalidLazyQueue["default"] = map[interface{}]interface{}{"lazyQueue": 12}
+	invalidLazyQueue["default"] = map[interface{}]interface{}{"lazyQueueRedis": 12}
 	registry, err = InitByYaml(invalidLazyQueue)
 	assert.Nil(t, registry)
 	assert.EqualError(t, err, "invalid orm value for default: 12")
@@ -72,7 +72,7 @@ func TestYamlLoader(t *testing.T) {
 	assert.EqualError(t, err, "invalid orm value for default: 12")
 
 	invalidDirtyQueue := make(map[string]interface{})
-	invalidDirtyQueue["default"] = map[interface{}]interface{}{"dirtyQueue": 12}
+	invalidDirtyQueue["default"] = map[interface{}]interface{}{"dirtyQueueRedis": 12}
 	registry, err = InitByYaml(invalidDirtyQueue)
 	assert.Nil(t, registry)
 	assert.EqualError(t, err, "invalid orm value for default: 12")
@@ -84,7 +84,7 @@ func TestYamlLoader(t *testing.T) {
 	assert.EqualError(t, err, "invalid orm value for default: test")
 
 	invalidLogQueueCache := make(map[string]interface{})
-	invalidLogQueueCache["default"] = map[interface{}]interface{}{"logQueue": 1}
+	invalidLogQueueCache["default"] = map[interface{}]interface{}{"logQueueRedis": 1}
 	registry, err = InitByYaml(invalidLogQueueCache)
 	assert.Nil(t, registry)
 	assert.EqualError(t, err, "invalid orm value for default: 1")

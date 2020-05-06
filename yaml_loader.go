@@ -30,30 +30,48 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 				if err != nil {
 					return nil, err
 				}
-			case "lazyQueue":
+			case "lazyQueueRedis":
 				valAsString, err := validateOrmString(value, key)
 				if err != nil {
 					return nil, err
 				}
 				registry.RegisterLazyQueue(&RedisQueueSender{PoolName: valAsString})
+			case "lazyQueueRabbitMQ":
+				valAsString, err := validateOrmString(value, key)
+				if err != nil {
+					return nil, err
+				}
+				registry.RegisterLazyQueue(&RabbitMQQueueSender{QueueName: valAsString})
 			case "locker":
 				valAsString, err := validateOrmString(value, key)
 				if err != nil {
 					return nil, err
 				}
 				registry.RegisterLocker(key, valAsString)
-			case "dirtyQueue":
+			case "dirtyQueueRedis":
 				valAsString, err := validateOrmString(value, key)
 				if err != nil {
 					return nil, err
 				}
-				registry.RegisterDirtyQueue(key, &RedisDirtyQueueSender{PoolName: valAsString})
-			case "logQueue":
+				registry.RegisterDirtyQueue(key, &RedisQueueSender{PoolName: valAsString})
+			case "dirtyQueueRabbitMQ":
+				valAsString, err := validateOrmString(value, key)
+				if err != nil {
+					return nil, err
+				}
+				registry.RegisterDirtyQueue(key, &RabbitMQQueueSender{QueueName: valAsString})
+			case "logQueueRedis":
 				valAsString, err := validateOrmString(value, key)
 				if err != nil {
 					return nil, err
 				}
 				registry.RegisterLogQueue(key, &RedisQueueSender{PoolName: valAsString})
+			case "logQueueRabbitMQ":
+				valAsString, err := validateOrmString(value, key)
+				if err != nil {
+					return nil, err
+				}
+				registry.RegisterLogQueue(key, &RabbitMQQueueSender{QueueName: valAsString})
 			case "localCache":
 				number, err := validateOrmInt(value, key)
 				if err != nil {

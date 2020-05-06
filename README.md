@@ -56,8 +56,10 @@ default:
     redisQueues: localhost:6379:1
     lazyQueue: redisQueues
     locker: default
-    dirtyQueue: redisQueues
-    logQueue: redisQueues
+    dirtyQueueRedis: redisQueues
+    lazyQueueRedis: redisQueues
+    lazyQueueRabbitMQ: test2
+    dirtyQueueabbitMQ: test2    
     localCache: 1000
     rabbitMQ:
     server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
@@ -905,7 +907,7 @@ func main() {
         ContentType: "text/plain",
         Body:        []byte("hello"),
     }
-    err = channel.Publish(false, false, msg)
+    err = channel.Publish(false, false, "", msg)
 
     //start consumer (you can add as many you want)
     consumer, err := r.NewConsumer("test consumer")
@@ -918,7 +920,7 @@ func main() {
         ContentType: "text/plain",
         Body:        []byte("hello"),
     }
-    err = channel.Publish(false, false, msg)
+    err = channel.Publish(false, false, "", msg)
 
     //start consumers
     consumer1, err := channel.NewConsumer("test consumer")

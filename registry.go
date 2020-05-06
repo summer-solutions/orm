@@ -25,7 +25,7 @@ type Registry struct {
 	rabbitMQExchanges    map[string][]*RabbitMQExchangeConfig
 	entities             map[string]reflect.Type
 	enums                map[string]reflect.Value
-	dirtyQueues          map[string]DirtyQueueSender
+	dirtyQueues          map[string]QueueSender
 	logQueues            map[string]QueueSender
 	lazyQueues           map[string]QueueSender
 	locks                map[string]string
@@ -75,7 +75,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.sqlClients[k] = v
 	}
 	if registry.dirtyQueues == nil {
-		registry.dirtyQueues = make(map[string]DirtyQueueSender)
+		registry.dirtyQueues = make(map[string]QueueSender)
 	}
 	for k, v := range r.dirtyQueues {
 		registry.dirtyQueues[k] = v
@@ -271,9 +271,9 @@ func (r *Registry) RegisterRabbitMQExchange(serverPool string, config *RabbitMQE
 	r.rabbitMQExchanges[serverPool] = append(r.rabbitMQExchanges[serverPool], config)
 }
 
-func (r *Registry) RegisterDirtyQueue(code string, sender DirtyQueueSender) {
+func (r *Registry) RegisterDirtyQueue(code string, sender QueueSender) {
 	if r.dirtyQueues == nil {
-		r.dirtyQueues = make(map[string]DirtyQueueSender)
+		r.dirtyQueues = make(map[string]QueueSender)
 	}
 	r.dirtyQueues[code] = sender
 }

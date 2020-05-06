@@ -217,13 +217,13 @@ func (r *RabbitMQChannel) initChannelSender() error {
 	return nil
 }
 
-func (r *RabbitMQChannel) Publish(mandatory, immediate bool, msg amqp.Publishing) error {
+func (r *RabbitMQChannel) Publish(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
 	err := r.initChannelSender()
 	if err != nil {
 		return err
 	}
 	start := time.Now()
-	err = r.channelSender.Publish(r.config.Exchange, "", mandatory, immediate, msg)
+	err = r.channelSender.Publish(r.config.Exchange, routingKey, mandatory, immediate, msg)
 	if err != nil {
 		return err
 	}

@@ -475,7 +475,12 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 	}
 	for k, v := range dirtyQueues {
 		queue := engine.registry.dirtyQueues[k]
-		err := queue.Send(engine, k, v)
+		asJsons := make([][]byte, len(v))
+		for i, k := range v {
+			asJSON, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(k)
+			asJsons[i] = asJSON
+		}
+		err := queue.Send(engine, k, asJsons)
 		if err != nil {
 			return err
 		}

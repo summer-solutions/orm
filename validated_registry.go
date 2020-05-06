@@ -26,6 +26,7 @@ type ValidatedRegistry interface {
 	GetTableSchema(entityName string) TableSchema
 	GetTableSchemaForEntity(entity Entity) TableSchema
 	GetDirtyQueueCodes() []string
+	GetEntitiesForDirtyQueue(queueCode string) []string
 	GetLogQueueCodes() []string
 	GetLazyQueueCodes() []string
 	AddLogger(handler log.Handler)
@@ -37,7 +38,7 @@ type validatedRegistry struct {
 	tableSchemas            map[reflect.Type]*tableSchema
 	entities                map[string]reflect.Type
 	sqlClients              map[string]*DBConfig
-	dirtyQueues             map[string]DirtyQueueSender
+	dirtyQueues             map[string]QueueSender
 	logQueues               map[string]QueueSender
 	lazyQueues              map[string]QueueSender
 	localCacheContainers    map[string]*LocalCacheConfig
@@ -159,6 +160,29 @@ func (r *validatedRegistry) GetDirtyQueueCodes() []string {
 		i++
 	}
 	return codes
+}
+
+func (r *validatedRegistry) GetEntitiesForDirtyQueue(queueCode string) []string {
+	results := make([]string, 0)
+	if r.entities != nil {
+	Exit:
+		for name, t := range r.entities {
+			schema := getTableSchema(r, t)
+			for _, tags := range schema.tags {
+				queues, has := tags["dirty"]
+				if has {
+					queueNames := strings.Split(queues, ",")
+					for _, queueName := range queueNames {
+						if queueCode == queueName {
+							results = append(results, name)
+							continue Exit
+						}
+					}
+				}
+			}
+		}
+	}
+	return results
 }
 
 func (r *validatedRegistry) GetLogQueueCodes() []string {

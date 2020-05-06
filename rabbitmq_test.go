@@ -31,7 +31,7 @@ func TestRabbitMQQueue(t *testing.T) {
 	}
 
 	assert.NotNil(t, r)
-	err = r.Publish(false, false, msg)
+	err = r.Publish(false, false, "", msg)
 	assert.NoError(t, err)
 
 	consumer, err := r.NewConsumer("test consumer")
@@ -78,7 +78,7 @@ func TestRabbitMQQueueExchange(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, items)
 
-	err = r.Publish(false, false, msg)
+	err = r.Publish(false, false, "", msg)
 	assert.NoError(t, err)
 
 	//item := <-items
