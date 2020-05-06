@@ -24,7 +24,6 @@ func TestRabbitMQQueue(t *testing.T) {
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
-	//engine.EnableDebug()
 
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
@@ -59,7 +58,6 @@ func TestRabbitMQQueueExchange(t *testing.T) {
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
-	engine.EnableDebug()
 
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
