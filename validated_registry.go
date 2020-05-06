@@ -34,21 +34,21 @@ type ValidatedRegistry interface {
 }
 
 type validatedRegistry struct {
-	tableSchemas               map[reflect.Type]*tableSchema
-	entities                   map[string]reflect.Type
-	sqlClients                 map[string]*DBConfig
-	dirtyQueues                map[string]DirtyQueueSender
-	logQueues                  map[string]QueueSender
-	lazyQueues                 map[string]QueueSender
-	localCacheContainers       map[string]*LocalCacheConfig
-	redisServers               map[string]*RedisCacheConfig
-	rabbitMQServers            map[string]*rabbitMQConnection
-	rabbitMQChannelsToQueue    map[string]*rabbitMQChannelToQueue
-	rabbitMQChannelsToExchange map[string]*rabbitMQChannelToExchange
-	lockServers                map[string]string
-	enums                      map[string]reflect.Value
-	log                        *log.Entry
-	logHandler                 *multi.Handler
+	tableSchemas            map[reflect.Type]*tableSchema
+	entities                map[string]reflect.Type
+	sqlClients              map[string]*DBConfig
+	dirtyQueues             map[string]DirtyQueueSender
+	logQueues               map[string]QueueSender
+	lazyQueues              map[string]QueueSender
+	localCacheContainers    map[string]*LocalCacheConfig
+	redisServers            map[string]*RedisCacheConfig
+	rabbitMQServers         map[string]*rabbitMQConnection
+	rabbitMQChannelsToQueue map[string]*rabbitMQChannelToQueue
+	rabbitMQExchangeConfigs map[string]*RabbitMQExchangeConfig
+	lockServers             map[string]string
+	enums                   map[string]reflect.Value
+	log                     *log.Entry
+	logHandler              *multi.Handler
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {

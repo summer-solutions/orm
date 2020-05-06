@@ -131,11 +131,20 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			exclusive := asMap["exclusive"] == true
 			autodelete := asMap["autodelete"] == true
 			nowait := asMap["nowait"] == true
+			exchange := ""
+			exchangeVal, has := asMap["exchange"]
+			if has {
+				asString, ok := exchangeVal.(string)
+				if !ok {
+					return fmt.Errorf("invalid rabbitMQ exchange name: %s", key)
+				}
+				exchange = asString
+			}
 			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
 			prefetchSize, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchSize"]), 10, 64)
 			config := &RabbitMQQueueConfig{asString, passive, durrable,
 				exclusive, autodelete, nowait, int(prefetchCount),
-				int(prefetchSize), nil}
+				int(prefetchSize), exchange, nil}
 			registry.RegisterRabbitMQQueue(key, config)
 		}
 	}

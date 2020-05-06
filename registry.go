@@ -123,6 +123,23 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.rabbitMQServers[k] = &rabbitMQConnection{config: v, client: conn}
 	}
 
+	if registry.rabbitMQExchangeConfigs == nil {
+		registry.rabbitMQExchangeConfigs = make(map[string]*RabbitMQExchangeConfig)
+	}
+	for connectionCode, exchanges := range r.rabbitMQExchanges {
+		_, has := registry.rabbitMQServers[connectionCode]
+		if !has {
+			return nil, errors.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
+		}
+		for _, def := range exchanges {
+			_, has := registry.rabbitMQExchangeConfigs[def.Name]
+			if has {
+				return nil, errors.Errorf("rabbitMQ exchange name '%s' already exists", def.Name)
+			}
+			registry.rabbitMQExchangeConfigs[def.Name] = def
+		}
+	}
+
 	if registry.rabbitMQChannelsToQueue == nil {
 		registry.rabbitMQChannelsToQueue = make(map[string]*rabbitMQChannelToQueue)
 	}
@@ -136,25 +153,14 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			if has {
 				return nil, errors.Errorf("rabbitMQ channel name '%s' already exists", def.Name)
 			}
+			if def.Exchange != "" {
+				_, has := registry.rabbitMQExchangeConfigs[def.Exchange]
+				if !has {
+					return nil, errors.Errorf("rabbitMQ exchange name '%s' is not registered", def.Exchange)
+				}
+			}
 			channel := &rabbitMQChannelToQueue{connection: connection, config: def}
 			registry.rabbitMQChannelsToQueue[def.Name] = channel
-		}
-	}
-	if registry.rabbitMQChannelsToExchange == nil {
-		registry.rabbitMQChannelsToExchange = make(map[string]*rabbitMQChannelToExchange)
-	}
-	for connectionCode, exchanges := range r.rabbitMQExchanges {
-		connection, has := registry.rabbitMQServers[connectionCode]
-		if !has {
-			return nil, errors.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
-		}
-		for _, def := range exchanges {
-			_, has := registry.rabbitMQChannelsToExchange[def.Name]
-			if has {
-				return nil, errors.Errorf("rabbitMQ exchange name '%s' already exists", def.Name)
-			}
-			exchange := &rabbitMQChannelToExchange{connection: connection, config: def}
-			registry.rabbitMQChannelsToExchange[def.Name] = exchange
 		}
 	}
 
