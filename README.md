@@ -910,7 +910,10 @@ func main() {
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
     registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
     registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange", Exchange: "test_exchange"})
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange_keys", 
+        Exchange: "test_exchange_topic", ExchangeKeys: []string{"aa", "bb"}})
     registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange", Type: "fanout"})
+    registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange_topic", Type: "topic"})
     
     //create engine:
     validatedRegistry, err := registry.Validate()

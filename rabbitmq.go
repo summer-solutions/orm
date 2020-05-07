@@ -77,6 +77,7 @@ type RabbitMQQueueConfig struct {
 	PrefetchCount int
 	PrefetchSize  int
 	Exchange      string
+	ExchangeKeys  []string
 	Arguments     map[string]interface{}
 }
 
@@ -192,14 +193,21 @@ func (r *RabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		r.fillLogFields(start, "register queue").WithField("Queue", q.Name).Info("[ORM][RABBIT_MQ][REGISTER QUEUE]")
 	}
 	if r.config.Exchange != "" {
-		start = time.Now()
-		err = channel.QueueBind(q.Name, "", r.config.Exchange, r.config.NoWait, nil)
-		if err != nil {
-			return nil, nil, err
+		keys := r.config.ExchangeKeys
+		if len(keys) == 0 {
+			keys = append(keys, "")
 		}
-		if r.log != nil {
-			r.fillLogFields(start, "queue bind").WithField("Queue", q.Name).WithField("Exchange", r.config.Exchange).
-				Info("[ORM][RABBIT_MQ][QUEUE BIND]")
+		for _, key := range keys {
+			start = time.Now()
+			err = channel.QueueBind(q.Name, key, r.config.Exchange, r.config.NoWait, nil)
+			if err != nil {
+				return nil, nil, err
+			}
+			if r.log != nil {
+				r.fillLogFields(start, "queue bind").WithField("Queue", q.Name).
+					WithField("Exchange", r.config.Exchange).WithField("key", key).
+					Info("[ORM][RABBIT_MQ][QUEUE BIND]")
+			}
 		}
 	}
 	return channel, q, nil
