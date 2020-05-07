@@ -21,8 +21,8 @@ func TestYamlLoader(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, validatedRegistry)
 
-	codes := validatedRegistry.GetDirtyQueueCodes()
-	assert.Equal(t, []string{"default"}, codes)
+	codes := validatedRegistry.GetDirtyQueueSenders()
+	assert.Len(t, codes, 1)
 
 	schema := validatedRegistry.GetTableSchema("test")
 	assert.Nil(t, schema)

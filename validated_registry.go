@@ -25,9 +25,8 @@ type ValidatedRegistry interface {
 	CreateEngine() *Engine
 	GetTableSchema(entityName string) TableSchema
 	GetTableSchemaForEntity(entity Entity) TableSchema
-	GetDirtyQueueCodes() []string
-	GetEntitiesForDirtyQueue(queueCode string) []string
-	GetLazQueueSender() QueueSender
+	GetDirtyQueueSenders() map[string]QueueSender
+	GetLazyQueueSender() QueueSender
 	GetLogQueueSenders() map[string]QueueSender
 	AddLogger(handler log.Handler)
 	SetLogLevel(level log.Level)
@@ -152,41 +151,12 @@ func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) TableSchema {
 	return tableSchema
 }
 
-func (r *validatedRegistry) GetLazQueueSender() QueueSender {
+func (r *validatedRegistry) GetLazyQueueSender() QueueSender {
 	return r.lazyQueue
 }
 
-func (r *validatedRegistry) GetDirtyQueueCodes() []string {
-	codes := make([]string, len(r.dirtyQueues))
-	i := 0
-	for code := range r.dirtyQueues {
-		codes[i] = code
-		i++
-	}
-	return codes
-}
-
-func (r *validatedRegistry) GetEntitiesForDirtyQueue(queueCode string) []string {
-	results := make([]string, 0)
-	if r.entities != nil {
-	Exit:
-		for name, t := range r.entities {
-			schema := getTableSchema(r, t)
-			for _, tags := range schema.tags {
-				queues, has := tags["dirty"]
-				if has {
-					queueNames := strings.Split(queues, ",")
-					for _, queueName := range queueNames {
-						if queueCode == queueName {
-							results = append(results, name)
-							continue Exit
-						}
-					}
-				}
-			}
-		}
-	}
-	return results
+func (r *validatedRegistry) GetDirtyQueueSenders() map[string]QueueSender {
+	return r.dirtyQueues
 }
 
 func (r *validatedRegistry) GetLogQueueSenders() map[string]QueueSender {

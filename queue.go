@@ -30,7 +30,7 @@ func (r *RabbitMQQueueSender) Send(engine *Engine, queueCode string, values [][]
 			ContentType: "text/plain",
 			Body:        value,
 		}
-		err := channel.Publish(false, false, queueCode, msg)
+		err := channel.PublishToExchange(false, false, queueCode, msg)
 		if err != nil {
 			return err
 		}

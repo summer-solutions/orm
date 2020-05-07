@@ -166,7 +166,8 @@ func (r *RabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	if r.log != nil {
 		r.fillLogFields(start, "create channel").Info("[ORM][RABBIT_MQ][CREATE CHANNEL]")
 	}
-	if r.config.Exchange != "" {
+	hasExchange := r.config.Exchange != ""
+	if hasExchange {
 		configExchange := r.engine.registry.rabbitMQExchangeConfigs[r.config.Exchange]
 		typeValue := configExchange.Type
 		var args amqp.Table
@@ -199,7 +200,7 @@ func (r *RabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	if r.log != nil {
 		r.fillLogFields(start, "register queue").WithField("Queue", q.Name).Info("[ORM][RABBIT_MQ][REGISTER QUEUE]")
 	}
-	if r.config.Exchange != "" {
+	if hasExchange {
 		keys := r.config.ExchangeKeys
 		if len(keys) == 0 {
 			keys = append(keys, "")
@@ -232,7 +233,21 @@ func (r *RabbitMQChannel) initChannelSender() error {
 	return nil
 }
 
-func (r *RabbitMQChannel) Publish(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
+func (r *RabbitMQChannel) PublishToQueue(mandatory, immediate bool, msg amqp.Publishing) error {
+	if r.config.Exchange != "" {
+		return fmt.Errorf("channel is pointing to exchange")
+	}
+	return r.publish(mandatory, immediate, r.config.Name, msg)
+}
+
+func (r *RabbitMQChannel) PublishToExchange(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
+	if r.config.Exchange == "" {
+		return fmt.Errorf("channel is not pointing to exchange")
+	}
+	return r.publish(mandatory, immediate, routingKey, msg)
+}
+
+func (r *RabbitMQChannel) publish(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
 	err := r.initChannelSender()
 	if err != nil {
 		return err
@@ -245,10 +260,10 @@ func (r *RabbitMQChannel) Publish(mandatory, immediate bool, routingKey string, 
 	if r.log != nil {
 		if r.config.Exchange != "" {
 			r.fillLogFields(start, "publish").WithField("Exchange", r.config.Exchange).WithField("mandatory", mandatory).
-				WithField("immediate", immediate).Info("[ORM][RABBIT_MQ][PUBLISH]")
+				WithField("immediate", immediate).WithField("key", routingKey).Info("[ORM][RABBIT_MQ][PUBLISH]")
 		} else {
 			r.fillLogFields(start, "publish").WithField("Queue", r.q.Name).WithField("mandatory", mandatory).
-				WithField("immediate", immediate).Info("[ORM][RABBIT_MQ][PUBLISH]")
+				WithField("immediate", immediate).WithField("key", routingKey).Info("[ORM][RABBIT_MQ][PUBLISH]")
 		}
 	}
 	return nil

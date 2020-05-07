@@ -14,7 +14,7 @@ import (
 func TestRabbitMQQueue(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
+	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue", AutoDelete: true})
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
@@ -24,6 +24,7 @@ func TestRabbitMQQueue(t *testing.T) {
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)
+	engine.EnableDebug()
 
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
@@ -31,7 +32,7 @@ func TestRabbitMQQueue(t *testing.T) {
 	}
 
 	assert.NotNil(t, r)
-	err = r.Publish(false, false, "", msg)
+	err = r.PublishToQueue(false, false, msg)
 	assert.NoError(t, err)
 
 	consumer, err := r.NewConsumer("test consumer")
@@ -39,17 +40,17 @@ func TestRabbitMQQueue(t *testing.T) {
 	items, err := consumer.Consume(true, false)
 	assert.NoError(t, err)
 	assert.NotNil(t, items)
-	//item := <-items
-	//assert.NotNil(t, item)
-	//assert.Equal(t, []byte("hello"), item.Body)
+	item := <-items
+	assert.NotNil(t, item)
+	assert.Equal(t, []byte("hello"), item.Body)
 }
 
 func TestRabbitMQQueueExchange(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange",
+	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange", AutoDelete: true,
 		Exchange: "test_exchange_topic", ExchangeKeys: []string{"aa", "bb"}})
-	registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange_topic", Type: "topic"})
+	registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange_topic", Type: "topic", AutoDelete: true})
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
@@ -79,7 +80,7 @@ func TestRabbitMQQueueExchange(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, items)
 
-	err = r.Publish(false, false, "", msg)
+	err = r.PublishToExchange(false, false, "", msg)
 	assert.NoError(t, err)
 
 	//item := <-items

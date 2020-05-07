@@ -165,7 +165,7 @@ func main() {
     }
     
     type testEntitySchema struct {
-        ORM
+        orm.ORM
         ID                   uint
         Name                 string `orm:"length=100;index=FirstIndex"`
         NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
@@ -203,12 +203,12 @@ func main() {
     }
     
     type testEntitySchemaRef struct {
-        ORM
+        orm.ORM
         ID   uint
         Name string
     }
     type testEntitySecondPool struct {
-    	ORM `orm:"mysql=second_pool"`
+    	orm.ORM `orm:"mysql=second_pool"`
     	ID                   uint
     }
 
@@ -242,27 +242,27 @@ There are only two golden rules you need to remember defining entity struct:
  func main() {
  
      type testEntityLocalCache struct {
-     	ORM `orm:"localCache"` //default pool
+     	orm.ORM `orm:"localCache"` //default pool
         //...
      }
     
     type testEntityLocalCacheSecondPool struct {
-     	ORM `orm:"localCache=second_pool"`
+     	orm.ORM `orm:"localCache=second_pool"`
         //...
      }
     
     type testEntityRedisCache struct {
-     	ORM `orm:"redisCache"` //default pool
+     	orm.ORM `orm:"redisCache"` //default pool
         //...
      }
     
     type testEntityRedisCacheSecondPool struct {
-     	ORM `orm:"redisCache=second_pool"`
+     	orm.ORM `orm:"redisCache=second_pool"`
         //...
      }
 
     type testEntityLocalAndRedisCache struct {
-     	ORM `orm:"localCache;redisCache"`
+     	orm.ORM `orm:"localCache;redisCache"`
         //...
      }
  }
@@ -608,8 +608,9 @@ func main() {
     
     lazyReceiver := NewLazyReceiver(engine)
     //Redis
+    r := engine.GetRedis(engine.GetRegistry().GetLazQueueSender().(*orm.RedisQueueSender).PoolName)
     for {
-        val, found, err := engine.GetRedis("queue_code").RPop(lazyReceiver.QueueName())
+        val, found, err := r.RPop(lazyReceiver.QueueName())
         if found {
             err = lazyReceiver.Digest(val)
         } else {
@@ -617,11 +618,12 @@ func main() {
         }
     }
     //RabbitMQ
-    chanel := engine.GetRabbitMQChannel("test_queue")
+    channel := engine.GetRabbitMQChannel(engine.GetRegistry().GetLazQueueSender().(*orm.RabbitMQQueueSender).QueueName)
     items := channel.Consume(false, false)
     for item := range items {
         //item.RoutingKey == lazyReceiver.QueueName()
         err := lazyReceiver.Digest(item.Body)
+        item.Ack(false)
     }
 }
 
@@ -667,8 +669,10 @@ func main() {
     //You need to run code that will read data from queue and store logs
     logReceiver := NewLogReceiver(engine)
     //Redis
+    sender := engine.GetRegistry().GetLogQueueSenders()["log_db_pool"]
+    r := engine.GetRedis(sender.(*orm.RedisQueueSender).PoolName)
     for {
-        val, found, err := engine.GetRedis("queue_code").RPop(logReceiver.QueueName())
+        val, found, err :=r.RPop(logReceiver.QueueName())
         if found {
             err = logReceiver.Digest(val)
         } else {
@@ -676,7 +680,8 @@ func main() {
         }
     }
     //RabbitMQ
-    chanel := engine.GetRabbitMQChannel("test_queue")
+    sender := engine.GetRegistry().GetLogQueueSenders()["log_db_pool"]
+    channel := engine.GetRabbitMQChannel(sender.(*orm.RabbitMQQueueSender).QueueName)
     items := channel.Consume(false, false)
     for item := range items {
         //item.RoutingKey == logReceiver.QueueName()
@@ -984,7 +989,7 @@ func main() {
         ContentType: "text/plain",
         Body:        []byte("hello"),
     }
-    err = channel.Publish(false, false, "", msg)
+    err = channel.PublishToQueue(false, false, msg)
 
     //start consumer (you can add as many you want)
     consumer, err := r.NewConsumer("test consumer")
@@ -997,7 +1002,7 @@ func main() {
         ContentType: "text/plain",
         Body:        []byte("hello"),
     }
-    err = channel.Publish(false, false, "", msg)
+    err = channel.PublishToExchange(false, false, "router.key", msg)
 
     //start consumers
     consumer1, err := channel.NewConsumer("test consumer")
