@@ -212,8 +212,9 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			autodelete := asMap["autodelete"] == true
 			internal := asMap["internal"] == true
 			nowait := asMap["nowait"] == true
+			delayed := asMap["delayed"] == true
 			config := &RabbitMQExchangeConfig{nameAsString, typeAsString, durrable,
-				autodelete, internal, nowait, nil}
+				autodelete, internal, nowait, delayed, nil}
 			registry.RegisterRabbitMQExchange(key, config)
 		}
 	}

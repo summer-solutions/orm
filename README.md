@@ -95,7 +95,14 @@ default:
             durable: false
             autodelete: false
             internal: false
-            nowait: false    
+            nowait: false   
+        - name: test_delayed
+            type: direct
+            durable: false
+            autodelete: false
+            internal: false
+            nowait: false   
+            delayed: true 
 second_pool:
     mysql: root:root@tcp(localhost:3311)/db2
     redis: localhost:6380:1 

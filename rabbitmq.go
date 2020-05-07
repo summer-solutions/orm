@@ -88,6 +88,7 @@ type RabbitMQExchangeConfig struct {
 	AutoDelete bool
 	Internal   bool
 	NoWait     bool
+	Delayed    bool
 	Arguments  map[string]interface{}
 }
 
@@ -167,9 +168,15 @@ func (r *RabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	}
 	if r.config.Exchange != "" {
 		configExchange := r.engine.registry.rabbitMQExchangeConfigs[r.config.Exchange]
+		typeValue := configExchange.Type
+		var args amqp.Table
+		if configExchange.Delayed {
+			args = amqp.Table{"x-delayed-type": configExchange.Type}
+			typeValue = "x-delayed-message"
+		}
 		start = time.Now()
-		err := channel.ExchangeDeclare(configExchange.Name, configExchange.Type, configExchange.Durable, configExchange.AutoDelete,
-			configExchange.Internal, configExchange.NoWait, nil)
+		err := channel.ExchangeDeclare(configExchange.Name, typeValue, configExchange.Durable, configExchange.AutoDelete,
+			configExchange.Internal, configExchange.NoWait, args)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -178,7 +185,7 @@ func (r *RabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 				WithField("Name", configExchange.Name).WithField("type", configExchange.Type).
 				WithField("durable", configExchange.Durable).WithField("autodelete", configExchange.AutoDelete).
 				WithField("internal", configExchange.Internal).WithField("nowait", configExchange.NoWait).
-				Info("[ORM][RABBIT_MQ][REGISTER EXCHANGE]")
+				WithField("args", args).Info("[ORM][RABBIT_MQ][REGISTER EXCHANGE]")
 		}
 		if sender {
 			return channel, nil, nil
