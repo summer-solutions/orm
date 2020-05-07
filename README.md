@@ -71,38 +71,38 @@ default:
     localCache: 1000
     rabbitMQ:
     server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
-    queues:
-        - name: test
-            passive: false
-            durrable: false
-            exclusive: false
-            autodelete: false
-            nowait: false
-            prefetchCount: 1
-            prefetchSize: 0
-        - name: test2
-            passive: false
-            durrable: false
-            exclusive: false
-            autodelete: false
-            nowait: false
-            prefetchCount: 1
-            prefetchSize: 0
-            exchage: test
-    exchanges:
-        - name: test
-            type: fanout
-            durable: false
-            autodelete: false
-            internal: false
-            nowait: false   
-        - name: test_delayed
-            type: direct
-            durable: false
-            autodelete: false
-            internal: false
-            nowait: false   
-            delayed: true 
+        queues:
+            - name: test
+                passive: false
+                durrable: false
+                exclusive: false
+                autodelete: false
+                nowait: false
+                prefetchCount: 1
+                prefetchSize: 0
+            - name: test2
+                passive: false
+                durrable: false
+                exclusive: false
+                autodelete: false
+                nowait: false
+                prefetchCount: 1
+                prefetchSize: 0
+                exchage: test
+        exchanges:
+            - name: test
+                type: fanout
+                durable: false
+                autodelete: false
+                internal: false
+                nowait: false   
+            - name: test_delayed
+                type: direct
+                durable: false
+                autodelete: false
+                internal: false
+                nowait: false   
+                delayed: true 
 second_pool:
     mysql: root:root@tcp(localhost:3311)/db2
     redis: localhost:6380:1 
