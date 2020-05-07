@@ -679,6 +679,56 @@ func main() {
 
 ```
 
+## Dirty queues
+
+You can send event to queue if any specific data in entity was changed.
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "user_changes"})
+    // register dirty queue
+    registry.RegisterDirtyQueue("user_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
+    registry.RegisterDirtyQueue("age_name_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
+    registry.RegisterDirtyQueue("age_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
+
+    // next you need to define in Entity that you want to log changes. Just add "log" tag
+    type User struct {
+        orm.ORM  `orm:"dirty=user_changed"` //define dirty here to track all changes
+        ID       uint
+        Name     string `orm:"dirty=age_name_changed"` //event will be send to age_name_changed if Name or Age changed
+        Age      int `orm:"dirty=age_name_changed,age_changed"` //event will be send to age_changed if Age changed
+    }
+
+    // now just use Flush and events will be send to queue
+
+    // receiving events
+    receiver := NewDirtyReceiver(engine)
+    channel = engine.GetRabbitMQChannel("user_changes") 
+    defer channel.Close()
+    consumer, err := channel.NewConsumer("test consumer")
+    items, err := consumer.Consume(true, false)
+    for item := range items {
+        // item.RoutingKey contains queue name, for example "user_changed"
+    	err = receiver.Digest(item.Body, func(data *DirtyData) error {
+            // data.TableSchema is TableSchema of entity
+            // data.ID has entity ID
+            // data.Added is true if entity was added
+            // data.Updated is true if entity was updated
+            // data.Deleted is true if entity was deleted
+            item.Ack(false)
+    	    return nil
+    	})
+    }
+}
+
+```
+
 ## Set defaults
 
 If you need to define default values for entity simply extend DefaultValuesInterface.
@@ -810,7 +860,7 @@ func main() {
     engine.GetLocalCache().MSet("key1", "value1", "key2", "value2" /*...*/)
     
     //getting values from hash set (like redis HMGET)
-    values := engine.GetLocalCache().HMget("key")
+    values = engine.GetLocalCache().HMget("key")
     
     //setting values in hash set
     engine.GetLocalCache().HMset("key", map[string]interface{}{"key1" : "value1", "key2": "value 2"})

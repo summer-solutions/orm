@@ -22,7 +22,7 @@ type testEntityDirtyQueueAge struct {
 	Age  uint16 `orm:"dirty=test"`
 }
 
-func TestDirtyQueue(t *testing.T) {
+func TestDirtyReceiver(t *testing.T) {
 	entityAll := &testEntityDirtyQueueAll{Name: "Name"}
 	entityAge := &testEntityDirtyQueueAge{Name: "Name", Age: 18}
 	registry := &Registry{}
@@ -49,7 +49,7 @@ func TestDirtyQueue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, val)
-	err = receiver.Digest(queueName, []byte(val), func(data *DirtyData, queueName string) error {
+	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
 		assert.Equal(t, uint64(1), data.ID)
 		assert.True(t, data.Added)
 		assert.False(t, data.Updated)
@@ -61,7 +61,7 @@ func TestDirtyQueue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, val)
-	err = receiver.Digest(queueName, []byte(val), func(data *DirtyData, queueName string) error {
+	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
 		assert.Equal(t, uint64(1), data.ID)
 		assert.True(t, data.Added)
 		assert.False(t, data.Updated)
@@ -79,7 +79,7 @@ func TestDirtyQueue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, val)
-	err = receiver.Digest(queueName, []byte(val), func(data *DirtyData, queueName string) error {
+	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
 		assert.Equal(t, "testEntityDirtyQueueAll", data.TableSchema.GetTableName())
 		assert.Equal(t, uint64(1), data.ID)
 		assert.False(t, data.Added)
@@ -98,7 +98,7 @@ func TestDirtyQueue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, val)
-	err = receiver.Digest(queueName, []byte(val), func(data *DirtyData, queueName string) error {
+	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
 		assert.Equal(t, "testEntityDirtyQueueAge", data.TableSchema.GetTableName())
 		assert.Equal(t, uint64(1), data.ID)
 		assert.False(t, data.Added)
@@ -116,7 +116,7 @@ func TestDirtyQueue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.NotNil(t, val)
-	err = receiver.Digest(queueName, []byte(val), func(data *DirtyData, queueName string) error {
+	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
 		assert.Equal(t, "testEntityDirtyQueueAge", data.TableSchema.GetTableName())
 		assert.Equal(t, uint64(1), data.ID)
 		assert.False(t, data.Added)

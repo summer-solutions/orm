@@ -8,6 +8,14 @@ type DirtyReceiver struct {
 	engine *Engine
 }
 
+type DirtyQueueValue struct {
+	EntityName string
+	ID         uint64
+	Added      bool
+	Updated    bool
+	Deleted    bool
+}
+
 type DirtyData struct {
 	TableSchema *tableSchema
 	ID          uint64
@@ -20,9 +28,9 @@ func NewDirtyReceiver(engine *Engine) *DirtyReceiver {
 	return &DirtyReceiver{engine: engine}
 }
 
-type DirtyHandler func(data *DirtyData, queueName string) error
+type DirtyHandler func(data *DirtyData) error
 
-func (r *DirtyReceiver) Digest(queueName string, item []byte, handler DirtyHandler) error {
+func (r *DirtyReceiver) Digest(item []byte, handler DirtyHandler) error {
 	var value DirtyQueueValue
 	err := jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(item, &value)
 	if err != nil {
@@ -40,5 +48,5 @@ func (r *DirtyReceiver) Digest(queueName string, item []byte, handler DirtyHandl
 		Updated:     value.Updated,
 		Deleted:     value.Deleted,
 	}
-	return handler(data, queueName)
+	return handler(data)
 }
