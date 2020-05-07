@@ -28,7 +28,6 @@ type ValidatedRegistry interface {
 	GetDirtyQueueCodes() []string
 	GetEntitiesForDirtyQueue(queueCode string) []string
 	GetLogQueueCodes() []string
-	GetLazyQueueCodes() []string
 	AddLogger(handler log.Handler)
 	SetLogLevel(level log.Level)
 	EnableDebug()
@@ -40,7 +39,7 @@ type validatedRegistry struct {
 	sqlClients              map[string]*DBConfig
 	dirtyQueues             map[string]QueueSender
 	logQueues               map[string]QueueSender
-	lazyQueues              map[string]QueueSender
+	lazyQueue               QueueSender
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
 	rabbitMQServers         map[string]*rabbitMQConnection
@@ -189,16 +188,6 @@ func (r *validatedRegistry) GetLogQueueCodes() []string {
 	codes := make([]string, len(r.logQueues))
 	i := 0
 	for code := range r.logQueues {
-		codes[i] = code
-		i++
-	}
-	return codes
-}
-
-func (r *validatedRegistry) GetLazyQueueCodes() []string {
-	codes := make([]string, len(r.lazyQueues))
-	i := 0
-	for code := range r.lazyQueues {
 		codes[i] = code
 		i++
 	}

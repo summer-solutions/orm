@@ -466,8 +466,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 	}
 	if len(lazyMap) > 0 {
 		v := serializeForLazyQueue(lazyMap)
-		code := "default"
-		queue := engine.registry.lazyQueues[code]
+		queue := engine.registry.lazyQueue
 		err := queue.Send(engine, lazyQueueName, [][]byte{v})
 		if err != nil {
 			return err
