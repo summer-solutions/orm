@@ -27,7 +27,8 @@ type ValidatedRegistry interface {
 	GetTableSchemaForEntity(entity Entity) TableSchema
 	GetDirtyQueueCodes() []string
 	GetEntitiesForDirtyQueue(queueCode string) []string
-	GetLogQueueCodes() []string
+	GetLazQueueSender() QueueSender
+	GetLogQueueSenders() map[string]QueueSender
 	AddLogger(handler log.Handler)
 	SetLogLevel(level log.Level)
 	EnableDebug()
@@ -151,6 +152,10 @@ func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) TableSchema {
 	return tableSchema
 }
 
+func (r *validatedRegistry) GetLazQueueSender() QueueSender {
+	return r.lazyQueue
+}
+
 func (r *validatedRegistry) GetDirtyQueueCodes() []string {
 	codes := make([]string, len(r.dirtyQueues))
 	i := 0
@@ -184,12 +189,6 @@ func (r *validatedRegistry) GetEntitiesForDirtyQueue(queueCode string) []string 
 	return results
 }
 
-func (r *validatedRegistry) GetLogQueueCodes() []string {
-	codes := make([]string, len(r.logQueues))
-	i := 0
-	for code := range r.logQueues {
-		codes[i] = code
-		i++
-	}
-	return codes
+func (r *validatedRegistry) GetLogQueueSenders() map[string]QueueSender {
+	return r.logQueues
 }

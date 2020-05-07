@@ -26,8 +26,8 @@ func TestLog(t *testing.T) {
 	assert.Nil(t, err)
 	receiver := NewLogReceiver(engine)
 
-	codes := engine.GetRegistry().GetLogQueueCodes()
-	assert.Equal(t, []string{"log"}, codes)
+	codes := engine.GetRegistry().GetLogQueueSenders()
+	assert.Len(t, codes, 1)
 
 	engine.Track(entity)
 	entity.Name = "Hello"
