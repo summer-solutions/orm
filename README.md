@@ -89,6 +89,9 @@ default:
                     prefetchCount: 1
                     prefetchSize: 0
                     exchage: test
+                    exchange_keys:
+                        - aa
+                        - bb
             exchanges:
                 - name: test
                     type: fanout
