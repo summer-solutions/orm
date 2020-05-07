@@ -995,7 +995,7 @@ func main() {
     err = channel.PublishToQueue(false, false, msg)
 
     //start consumer (you can add as many you want)
-    consumer, err := r.NewConsumer("test consumer")
+    consumer, err := channel.NewConsumer("test consumer")
     items, err := consumer.Consume(true, false) //items is a channel
     
     //publish to exchange
