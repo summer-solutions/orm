@@ -835,12 +835,15 @@ func handleSetEnum(registry *validatedRegistry, fieldType string, attribute stri
 	if !has {
 		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
 	}
-	values := make([]string, 0)
-	for i := 0; i < enum.Type().NumField(); i++ {
-		values = append(values, enum.Field(i).String())
-	}
 
 	var definition = fieldType + "("
+	i := 0
+	values := make([]string, len(enum))
+	for key := range enum {
+		values[i] = key
+		i++
+	}
+	sort.Strings(values)
 	for key, value := range values {
 		if key > 0 {
 			definition += ","

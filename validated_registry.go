@@ -46,7 +46,7 @@ type validatedRegistry struct {
 	rabbitMQChannelsToQueue map[string]*rabbitMQChannelToQueue
 	rabbitMQExchangeConfigs map[string]*RabbitMQExchangeConfig
 	lockServers             map[string]string
-	enums                   map[string]reflect.Value
+	enums                   map[string]Enum
 	log                     *log.Entry
 	logHandler              *multi.Handler
 }

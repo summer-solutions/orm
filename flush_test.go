@@ -57,7 +57,7 @@ func TestFlush(t *testing.T) {
 
 	var entities = make([]*testEntityFlush, 10)
 	for i := 1; i <= 10; i++ {
-		e := testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: colorEnum.Red, Set: []string{colorEnum.Red, colorEnum.Blue}}
+		e := testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: "Red", Set: []string{"Red", "Blue"}}
 		engine.Track(&e)
 		entities[i-1] = &e
 	}
@@ -112,7 +112,7 @@ func TestFlush(t *testing.T) {
 	engine.Track(&edited1)
 	edited1.Name = "Name 2.2"
 	engine.MarkToDelete(&toDelete)
-	newEntity := &testEntityFlush{Name: "Name 11", EnumNotNull: colorEnum.Red}
+	newEntity := &testEntityFlush{Name: "Name 11", EnumNotNull: "Red"}
 	engine.Track(newEntity)
 	assert.True(t, engine.IsDirty(&edited1))
 	assert.Nil(t, err)
@@ -145,7 +145,7 @@ func TestFlush(t *testing.T) {
 	engine.AddLogger(logger)
 	engine.SetLogLevel(log.InfoLevel)
 	for i := 100; i <= 110; i++ {
-		e := testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: colorEnum.Red}
+		e := testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: "Red"}
 		assert.Equal(t, uint64(0), e.GetID())
 		engine.Track(&e)
 	}

@@ -18,6 +18,8 @@ type cachedQueryDefinition struct {
 	Fields []string
 }
 
+type Enum map[string]string
+
 type TableSchema interface {
 	GetTableName() string
 	GetType() reflect.Type

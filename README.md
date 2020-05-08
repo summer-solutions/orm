@@ -140,20 +140,12 @@ func main() {
         Building uint16
     }
     
-    type fieldscolors struct {
-        Red    string
-        Green  string
-        Blue   string
-        Yellow string
-        Purple string
-    }
-    
-    var color = &fieldscolors{
-        Red:    "Red",
-        Green:  "Green",
-        Blue:   "Blue",
-        Yellow: "Yellow",
-        Purple: "Purple",
+    var color = orm.Enum{
+        "red":    "Red",
+        "green":  "Green",
+        "blue":   "Blue",
+        "yellow": "Yellow",
+        "purple": "Purple",
     }
     
     type testEntitySchema struct {

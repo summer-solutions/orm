@@ -24,7 +24,7 @@ type Registry struct {
 	rabbitMQQueues       map[string][]*RabbitMQQueueConfig
 	rabbitMQExchanges    map[string][]*RabbitMQExchangeConfig
 	entities             map[string]reflect.Type
-	enums                map[string]reflect.Value
+	enums                map[string]Enum
 	dirtyQueues          map[string]QueueSender
 	logQueues            map[string]QueueSender
 	lazyQueue            QueueSender
@@ -160,7 +160,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	}
 
 	if registry.enums == nil {
-		registry.enums = make(map[string]reflect.Value)
+		registry.enums = make(map[string]Enum)
 	}
 	for k, v := range r.enums {
 		registry.enums[k] = v
@@ -196,11 +196,11 @@ func (r *Registry) RegisterEntity(entity ...interface{}) {
 	}
 }
 
-func (r *Registry) RegisterEnum(name string, enum interface{}) {
+func (r *Registry) RegisterEnum(code string, enum Enum) {
 	if r.enums == nil {
-		r.enums = make(map[string]reflect.Value)
+		r.enums = make(map[string]Enum)
 	}
-	r.enums[name] = reflect.Indirect(reflect.ValueOf(enum))
+	r.enums[code] = enum
 }
 
 func (r *Registry) RegisterMySQLPool(dataSourceName string, code ...string) {
