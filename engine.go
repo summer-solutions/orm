@@ -17,7 +17,10 @@ type Engine struct {
 	localCache                   map[string]*LocalCache
 	redis                        map[string]*RedisCache
 	locks                        map[string]*Locker
-	rabbitMQChannels             map[string]*RabbitMQChannel
+	rabbitMQChannels             map[string]*rabbitMQChannel
+	rabbitMQQueues               map[string]*RabbitMQQueue
+	rabbitMQDelayedQueues        map[string]*RabbitMQDelayedQueue
+	rabbitMQRouters              map[string]*RabbitMQRouter
 	logMetaData                  map[string]interface{}
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
@@ -29,7 +32,7 @@ type Engine struct {
 
 func (e *Engine) Defer() {
 	for _, channel := range e.rabbitMQChannels {
-		channel.Close()
+		channel.close()
 	}
 }
 
@@ -201,12 +204,69 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	return cache
 }
 
-func (e *Engine) GetRabbitMQChannel(code string) *RabbitMQChannel {
+func (e *Engine) GetRabbitMQQueue(code string) *RabbitMQQueue {
+	queue, has := e.rabbitMQQueues[code]
+	if has {
+		return queue
+	}
 	channel, has := e.rabbitMQChannels[code]
 	if !has {
-		panic(fmt.Errorf("unregistered rabbitMQ channel '%s'", code))
+		panic(fmt.Errorf("unregistered rabbitMQ queue '%s'", code))
 	}
-	return channel
+	if channel.config.Exchange != "" {
+		panic(fmt.Errorf("rabbitMQ queue '%s' is declared as router", code))
+	}
+	if e.rabbitMQQueues == nil {
+		e.rabbitMQQueues = make(map[string]*RabbitMQQueue)
+	}
+	e.rabbitMQQueues[code] = &RabbitMQQueue{channel}
+	return e.rabbitMQQueues[code]
+}
+
+func (e *Engine) GetRabbitMQDelayedQueue(code string) *RabbitMQDelayedQueue {
+	queue, has := e.rabbitMQDelayedQueues[code]
+	if has {
+		return queue
+	}
+	channel, has := e.rabbitMQChannels[code]
+	if !has {
+		panic(fmt.Errorf("unregistered rabbitMQ delayed queue '%s'", code))
+	}
+	if channel.config.Exchange == "" {
+		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", code))
+	}
+	exchangeConfig := e.registry.rabbitMQExchangeConfigs[channel.config.Exchange]
+	if !exchangeConfig.Delayed {
+		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", code))
+	}
+	if e.rabbitMQDelayedQueues == nil {
+		e.rabbitMQDelayedQueues = make(map[string]*RabbitMQDelayedQueue)
+	}
+	e.rabbitMQDelayedQueues[code] = &RabbitMQDelayedQueue{channel}
+	return e.rabbitMQDelayedQueues[code]
+}
+
+func (e *Engine) GetRabbitMQRouter(code string) *RabbitMQRouter {
+	queue, has := e.rabbitMQRouters[code]
+	if has {
+		return queue
+	}
+	channel, has := e.rabbitMQChannels[code]
+	if !has {
+		panic(fmt.Errorf("unregistered rabbitMQ router '%s'", code))
+	}
+	if channel.config.Exchange == "" {
+		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as router", code))
+	}
+	exchangeConfig := e.registry.rabbitMQExchangeConfigs[channel.config.Exchange]
+	if exchangeConfig.Delayed {
+		panic(fmt.Errorf("rabbitMQ queue '%s' is declared as delayed queue", code))
+	}
+	if e.rabbitMQRouters == nil {
+		e.rabbitMQRouters = make(map[string]*RabbitMQRouter)
+	}
+	e.rabbitMQRouters[code] = &RabbitMQRouter{channel}
+	return e.rabbitMQRouters[code]
 }
 
 func (e *Engine) GetLocker(code ...string) *Locker {

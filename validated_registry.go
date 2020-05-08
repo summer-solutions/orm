@@ -91,14 +91,14 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 		}
 	}
 
-	e.rabbitMQChannels = make(map[string]*RabbitMQChannel)
+	e.rabbitMQChannels = make(map[string]*rabbitMQChannel)
 	if e.registry.rabbitMQChannelsToQueue != nil {
 		for key, val := range e.registry.rabbitMQChannelsToQueue {
 			logHandler := multi.New()
 			if r.logHandler != nil {
 				logHandler.Handlers = r.logHandler.Handlers
 			}
-			e.rabbitMQChannels[key] = &RabbitMQChannel{engine: e, connection: val.connection, config: val.config, log: r.log, logHandler: logHandler}
+			e.rabbitMQChannels[key] = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config, log: r.log, logHandler: logHandler}
 		}
 	}
 

@@ -24,13 +24,21 @@ type RabbitMQQueueSender struct {
 }
 
 func (r *RabbitMQQueueSender) Send(engine *Engine, queueCode string, values [][]byte) error {
-	channel := engine.GetRabbitMQChannel(r.QueueName)
+	channel := engine.rabbitMQChannels[r.QueueName]
+	routerKey := queueCode
+	var headers amqp.Table
+	if channel.config.Exchange != "" {
+		routerKey = queueCode
+	} else {
+		headers = amqp.Table{"q-code": queueCode}
+	}
 	for _, value := range values {
 		msg := amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        value,
+			Headers:     headers,
 		}
-		err := channel.PublishToExchange(false, false, queueCode, msg)
+		err := channel.publish(false, false, routerKey, msg)
 		if err != nil {
 			return err
 		}

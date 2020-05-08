@@ -21,7 +21,7 @@ default:
         prefetchCount: 1
         prefetchSize: 0
         exchage: test
-        exchange_keys:
+        router_keys:
           - aa
           - bb
     exchanges:

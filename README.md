@@ -73,39 +73,28 @@ default:
         server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
             queues:
                 - name: test
-                    passive: false
-                    durrable: false
-                    exclusive: false
-                    autodelete: false
-                    nowait: false
-                    prefetchCount: 1
-                    prefetchSize: 0
                 - name: test2
-                    passive: false
-                    durrable: false
-                    exclusive: false
-                    autodelete: false
-                    nowait: false
-                    prefetchCount: 1
-                    prefetchSize: 0
-                    exchage: test
-                    exchange_keys:
-                        - aa
-                        - bb
+                  passive: false // optional, default false
+                  durrable: false // optional, default true
+                  exclusive: false // optional, default false
+                  autodelete: false // optional, default false
+                  nowait: false // optional, default false
+                  prefetchCount: 1 // optional, default 0
+                  prefetchSize: 0 // optional, default 0
+                  exchage: test // optional, default ""
+                  router_keys: // optional, default []string
+                    - aa
+                    - bb
             exchanges:
                 - name: test
-                    type: fanout
-                    durable: false
-                    autodelete: false
-                    internal: false
-                    nowait: false   
+                  type: fanout
                 - name: test_delayed
-                    type: direct
-                    durable: false
-                    autodelete: false
-                    internal: false
-                    nowait: false   
-                    delayed: true 
+                  delayed: true //optional, default false  
+                  type: direct
+                  durable: false // optional, default true
+                  autodelete: false // optional, default false
+                  internal: false // optional, default false
+                  nowait: false   // optional, default false
 second_pool:
     mysql: root:root@tcp(localhost:3311)/db2
     redis: localhost:6380:1 
@@ -621,10 +610,10 @@ func main() {
         }
     }
     //RabbitMQ
-    channel := engine.GetRabbitMQChannel(engine.GetRegistry().GetLazQueueSender().(*orm.RabbitMQQueueSender).QueueName)
-    items := channel.Consume(false, false)
+    channel := engine.GetRabbitMQQueue(engine.GetRegistry().GetLazQueueSender().(*orm.RabbitMQQueueSender).QueueName)
+    items := channel.Consume()
     for item := range items {
-        //item.RoutingKey == lazyReceiver.QueueName()
+        //item.RoutingKey == lazyReceiver.QueueName() if you are using
         err := lazyReceiver.Digest(item.Body)
         item.Ack(false)
     }
@@ -684,8 +673,8 @@ func main() {
     }
     //RabbitMQ
     sender := engine.GetRegistry().GetLogQueueSenders()["log_db_pool"]
-    channel := engine.GetRabbitMQChannel(sender.(*orm.RabbitMQQueueSender).QueueName)
-    items := channel.Consume(false, false)
+    channel := engine.GetRabbitMQQueue(sender.(*orm.RabbitMQQueueSender).QueueName)
+    items := channel.Consume()
     for item := range items {
         //item.RoutingKey == logReceiver.QueueName()
         err := logReceiver.Digest(item.Body)
@@ -704,6 +693,8 @@ package main
 import "github.com/summer-solutions/orm"
 
 func main() {
+    
+    // Using RabbitMQ Queue:
 
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
     registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "user_changes"})
@@ -724,12 +715,12 @@ func main() {
 
     // receiving events
     receiver := NewDirtyReceiver(engine)
-    channel = engine.GetRabbitMQChannel("user_changes") 
+    channel = engine.GetRabbitMQQueue("user_changes") 
     defer channel.Close()
     consumer, err := channel.NewConsumer("test consumer")
-    items, err := consumer.Consume(true, false)
+    items, err := consumer.Consume()
     for item := range items {
-        // item.RoutingKey contains queue name, for example "user_changed"
+        // item.Headers["q-code"] contains queue name, for example "user_changed"
     	err = receiver.Digest(item.Body, func(data *DirtyData) error {
             // data.TableSchema is TableSchema of entity
             // data.ID has entity ID
@@ -741,6 +732,53 @@ func main() {
     	})
     }
 }
+
+    // Using RabbitMQ Router:
+
+    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "user_changes", Exchange: "my_exchange", RouterKeys: []string{"user_changes"}})
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "user_fields_changes", Exchange: "my_exchange", RouterKeys: []string{"age_name_changed","age_changed"}})
+    registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "my_exchange", Type: "fanout"})
+    // register dirty queue
+    registry.RegisterDirtyQueue("user_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
+    registry.RegisterDirtyQueue("age_name_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
+    registry.RegisterDirtyQueue("age_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
+
+    // next you need to define in Entity that you want to log changes. Just add "log" tag
+    type User struct {
+        orm.ORM  `orm:"dirty=user_changed"` //define dirty here to track all changes
+        ID       uint
+        Name     string `orm:"dirty=age_name_changed"` //event will be send to age_name_changed if Name or Age changed
+        Age      int `orm:"dirty=age_name_changed,age_changed"` //event will be send to age_changed if Age changed
+    }
+
+    // now just use Flush and events will be send to queue
+
+    // receiving events
+    receiver := NewDirtyReceiver(engine)
+    channel = engine.GetRabbitMQRouter("user_fields_changes") 
+    defer channel.Close()
+    consumer, err := channel.NewConsumer("test consumer")
+    items, err := consumer.Consume()
+    for item := range items {
+        // item.RouterKey contains queue name: "age_changed" or "age_name_changed"
+    	err = receiver.Digest(item.Body, func(data *DirtyData) error {
+            item.Ack(false)
+    	    return nil
+    	})
+    }
+    channel2 = engine.GetRabbitMQRouter("user_changes") 
+    defer channel2.Close()
+    consumer2, err := channel2.NewConsumer("test consumer")
+    items, err := consumer2.Consume()
+    for item := range items {
+        // item.RouterKey contains queue name: "user_changes"
+    	err = receiver.Digest(item.Body, func(data *DirtyData) error {
+            item.Ack(false)
+    	    return nil
+    	})
+    }
+
 
 ```
 
@@ -975,43 +1013,47 @@ func main() {
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
     registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
     registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange", Exchange: "test_exchange"})
+    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_delayed", Exchange: "test_exchange_delayed"})
     registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange_keys", 
-        Exchange: "test_exchange_topic", ExchangeKeys: []string{"aa", "bb"}})
+        Exchange: "test_exchange_topic", RouteKeys: []string{"aa", "bb"}})
     registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange", Type: "fanout"})
-    registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange_topic", Type: "topic"})
+    registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange_delayed", Type: "direct", Delayed: true})
     
     //create engine:
     validatedRegistry, err := registry.Validate()
     engine := validatedRegistry.CreateEngine()
     defer engine.Defer() //it will close all opened channels
 
-    //publish to queue
-    channel := engine.GetRabbitMQChannel("test_queue") //provide Queue name
+    //Simple queue
+    channel := engine.GetRabbitMQQueue("test_queue") //provide Queue name
     defer channel.Close()
-    msg := amqp.Publishing{
-        ContentType: "text/plain",
-        Body:        []byte("hello"),
-    }
-    err = channel.PublishToQueue(false, false, msg)
+    err = channel.Publish([]byte("hello"))
 
     //start consumer (you can add as many you want)
     consumer, err := channel.NewConsumer("test consumer")
-    items, err := consumer.Consume(true, false) //items is a channel
-    
-    //publish to exchange
-    channel = engine.GetRabbitMQChannel("test_queue_exchange") 
+    items, err := consumer.Consume() //items is a channel
+
+
+    //Delayed queue
+    channel := engine.GetRabbitMQDelayedQueue("test_queue_delayed") //provide Queue name
     defer channel.Close()
-    msg = amqp.Publishing{
-        ContentType: "text/plain",
-        Body:        []byte("hello"),
-    }
-    err = channel.PublishToExchange(false, false, "router.key", msg)
+    err = channel.Publish([]byte("hello"), time.Minute * 10)
+
+    //start consumer (you can add as many you want)
+    consumer, err := channel.NewConsumer("test consumer")
+    items, err := consumer.Consume() //items is a channel
+    
+    // publish to router
+
+    channel = engine.GetRabbitMQRouter("test_queue_exchange") 
+    defer channel.Close()
+    err = channel.PublishToExchange("router.key", []byte("hello"))
 
     //start consumers
     consumer1, err := channel.NewConsumer("test consumer")
     consumer2, err := channel.NewConsumer("test consumer")
-    items, err := consumer.Consume(true, false)
-    items2, err := consumer.Consume(true, false)
+    items, err := consumer.Consume()
+    items2, err := consumer.Consume()
 }
 
 ```

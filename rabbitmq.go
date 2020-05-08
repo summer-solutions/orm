@@ -19,16 +19,16 @@ type rabbitMQConfig struct {
 	address string
 }
 
-type RabbitMQReceiver interface {
+type RabbitMQConsumer interface {
 	Close()
-	Consume(autoAck, noLocal bool) (<-chan amqp.Delivery, error)
+	Consume() (<-chan amqp.Delivery, error)
 }
 
 type rabbitMQReceiver struct {
 	name    string
 	q       *amqp.Queue
 	channel *amqp.Channel
-	parent  *RabbitMQChannel
+	parent  *rabbitMQChannel
 }
 
 func (r *rabbitMQReceiver) Close() {
@@ -43,15 +43,15 @@ func (r *rabbitMQReceiver) consume(autoAck, noLocal bool) (<-chan amqp.Delivery,
 	return r.channel.Consume(r.q.Name, r.name, autoAck, r.parent.config.Exclusive, noLocal, r.parent.config.NoWait, nil)
 }
 
-func (r *rabbitMQReceiver) Consume(autoAck, noLocal bool) (<-chan amqp.Delivery, error) {
+func (r *rabbitMQReceiver) Consume() (<-chan amqp.Delivery, error) {
 	start := time.Now()
-	delivery, err := r.consume(autoAck, noLocal)
+	delivery, err := r.consume(false, false)
 	if err != nil {
 		return nil, err
 	}
 	if r.parent.log != nil {
-		r.parent.fillLogFields(start, "consume").WithField("Queue", r.q.Name).WithField("autoAck", autoAck).
-			WithField("exclusive", r.parent.config.Exclusive).WithField("noLocal", noLocal).
+		r.parent.fillLogFields(start, "consume").WithField("Queue", r.q.Name).WithField("autoAck", false).
+			WithField("exclusive", r.parent.config.Exclusive).WithField("noLocal", false).
 			WithField("noWait", r.parent.config.NoWait).WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][CONSUME]")
 	}
 	return delivery, nil
@@ -77,7 +77,7 @@ type RabbitMQQueueConfig struct {
 	PrefetchCount int
 	PrefetchSize  int
 	Exchange      string
-	ExchangeKeys  []string
+	RouterKeys    []string
 	Arguments     map[string]interface{}
 }
 
@@ -92,7 +92,7 @@ type RabbitMQExchangeConfig struct {
 	Arguments  map[string]interface{}
 }
 
-func (r *RabbitMQChannel) Close() bool {
+func (r *rabbitMQChannel) close() bool {
 	has := false
 	if r.channelSender != nil {
 		start := time.Now()
@@ -106,17 +106,17 @@ func (r *RabbitMQChannel) Close() bool {
 		}
 		has = true
 	}
-	if r.channelReceivers != nil {
-		for _, receiver := range r.channelReceivers {
+	if r.channelConsumers != nil {
+		for _, receiver := range r.channelConsumers {
 			receiver.Close()
 		}
-		r.channelReceivers = nil
+		r.channelConsumers = nil
 		has = true
 	}
 	return has
 }
 
-func (r *RabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*amqp.Queue, error) {
+func (r *rabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*amqp.Queue, error) {
 	config := r.config
 	q, err := channel.QueueDeclare(name, config.Durable, config.AutoDelete, config.Exclusive, config.NoWait, config.Arguments)
 	if err != nil {
@@ -129,20 +129,59 @@ func (r *RabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*am
 	return &q, nil
 }
 
-type RabbitMQChannel struct {
+type RabbitMQQueue struct {
+	*rabbitMQChannel
+}
+
+func (r *RabbitMQQueue) Publish(body []byte) error {
+	msg := amqp.Publishing{
+		ContentType: "text/plain",
+		Body:        body,
+	}
+	return r.publish(false, false, r.config.Name, msg)
+}
+
+type RabbitMQDelayedQueue struct {
+	*rabbitMQChannel
+}
+
+func (r *RabbitMQDelayedQueue) Publish(delayed time.Duration, body []byte) error {
+	msg := amqp.Publishing{
+		DeliveryMode: amqp.Persistent,
+		Timestamp:    time.Now(),
+		Headers:      amqp.Table{"x-delay": delayed.Milliseconds()},
+		ContentType:  "text/plain",
+		Body:         body,
+	}
+	return r.publish(false, false, r.config.Name, msg)
+}
+
+type RabbitMQRouter struct {
+	*rabbitMQChannel
+}
+
+func (r *RabbitMQRouter) Publish(routerKey string, body []byte) error {
+	msg := amqp.Publishing{
+		ContentType: "text/plain",
+		Body:        body,
+	}
+	return r.publish(false, false, routerKey, msg)
+}
+
+type rabbitMQChannel struct {
 	engine           *Engine
 	log              *log.Entry
 	logHandler       *multi.Handler
 	channelSender    *amqp.Channel
 	connection       *rabbitMQConnection
-	channelReceivers map[string]RabbitMQReceiver
+	channelConsumers map[string]RabbitMQConsumer
 	config           *RabbitMQQueueConfig
 	q                *amqp.Queue
 }
 
-func (r *RabbitMQChannel) NewConsumer(name string) (RabbitMQReceiver, error) {
-	if r.channelReceivers == nil {
-		r.channelReceivers = make(map[string]RabbitMQReceiver)
+func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
+	if r.channelConsumers == nil {
+		r.channelConsumers = make(map[string]RabbitMQConsumer)
 	}
 	queueName := r.config.Name
 	if r.config.Exchange != "" {
@@ -153,11 +192,11 @@ func (r *RabbitMQChannel) NewConsumer(name string) (RabbitMQReceiver, error) {
 		return nil, err
 	}
 	receiver := &rabbitMQReceiver{name: name, channel: channel, q: q, parent: r}
-	r.channelReceivers[q.Name] = receiver
+	r.channelConsumers[q.Name] = receiver
 	return receiver, nil
 }
 
-func (r *RabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Channel, *amqp.Queue, error) {
+func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Channel, *amqp.Queue, error) {
 	start := time.Now()
 	channel, err := r.connection.client.Channel()
 	if err != nil {
@@ -201,7 +240,7 @@ func (r *RabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		r.fillLogFields(start, "register queue").WithField("Queue", q.Name).Info("[ORM][RABBIT_MQ][REGISTER QUEUE]")
 	}
 	if hasExchange {
-		keys := r.config.ExchangeKeys
+		keys := r.config.RouterKeys
 		if len(keys) == 0 {
 			keys = append(keys, "")
 		}
@@ -221,7 +260,7 @@ func (r *RabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	return channel, q, nil
 }
 
-func (r *RabbitMQChannel) initChannelSender() error {
+func (r *rabbitMQChannel) initChannelSender() error {
 	if r.channelSender == nil {
 		channel, q, err := r.initChannel(r.config.Name, true)
 		if err != nil {
@@ -233,21 +272,7 @@ func (r *RabbitMQChannel) initChannelSender() error {
 	return nil
 }
 
-func (r *RabbitMQChannel) PublishToQueue(mandatory, immediate bool, msg amqp.Publishing) error {
-	if r.config.Exchange != "" {
-		return fmt.Errorf("channel is pointing to exchange")
-	}
-	return r.publish(mandatory, immediate, r.config.Name, msg)
-}
-
-func (r *RabbitMQChannel) PublishToExchange(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
-	if r.config.Exchange == "" {
-		return fmt.Errorf("channel is not pointing to exchange")
-	}
-	return r.publish(mandatory, immediate, routingKey, msg)
-}
-
-func (r *RabbitMQChannel) publish(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
+func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
 	err := r.initChannelSender()
 	if err != nil {
 		return err
@@ -269,26 +294,22 @@ func (r *RabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 	return nil
 }
 
-func (r *RabbitMQChannel) AddLogger(handler log.Handler) {
+func (r *rabbitMQChannel) AddLogger(handler log.Handler) {
 	r.logHandler.Handlers = append(r.logHandler.Handlers, handler)
 }
 
-func (r *RabbitMQChannel) SetLogLevel(level log.Level) {
+func (r *rabbitMQChannel) SetLogLevel(level log.Level) {
 	logger := log.Logger{Handler: r.logHandler, Level: level}
 	r.log = logger.WithField("source", "orm")
 	r.log.Level = level
 }
 
-func (r *RabbitMQChannel) EnableDebug() {
+func (r *rabbitMQChannel) EnableDebug() {
 	r.AddLogger(text.New(os.Stdout))
 	r.SetLogLevel(log.DebugLevel)
 }
 
-func (r *RabbitMQChannel) Get(key string) (value string, has bool, err error) {
-	return "", true, nil
-}
-
-func (r *RabbitMQChannel) fillLogFields(start time.Time, operation string) *log.Entry {
+func (r *rabbitMQChannel) fillLogFields(start time.Time, operation string) *log.Entry {
 	e := r.log.
 		WithField("microseconds", time.Since(start).Microseconds()).
 		WithField("operation", operation).
