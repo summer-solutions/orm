@@ -25,7 +25,7 @@ type RabbitMQQueueSender struct {
 
 func (r *RabbitMQQueueSender) Send(engine *Engine, queueCode string, values [][]byte) error {
 	channel := engine.rabbitMQChannels[r.QueueName]
-	routerKey := queueCode
+	routerKey := channel.config.Name
 	var headers amqp.Table
 	if channel.config.Exchange != "" {
 		routerKey = queueCode
