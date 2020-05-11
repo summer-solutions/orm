@@ -153,7 +153,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 				return fmt.Errorf("invalid rabbitMQ channel name: %s", key)
 			}
 			delayed := getBoolOptional(asMap, "delayed", false)
-			autoDelete := getBoolOptional(asMap, "autodelete", false)
+			autoDeleted := getBoolOptional(asMap, "autodelete", false)
 			router := ""
 			exchangeVal, has := asMap["exchange"]
 			if has {
@@ -179,7 +179,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 				}
 			}
 			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
-			config := &RabbitMQQueueConfig{asString, int(prefetchCount), delayed, autoDelete, router, routerKeys}
+			config := &RabbitMQQueueConfig{asString, int(prefetchCount), delayed, router, routerKeys, autoDeleted}
 			registry.RegisterRabbitMQQueue(key, config)
 		}
 	}
@@ -210,8 +210,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			if !ok {
 				return fmt.Errorf("invalid rabbitMQ exchange type: %s", key)
 			}
-			autoDelete := getBoolOptional(asMap, "autodelete", false)
-			config := &RabbitMQRouterConfig{nameAsString, typeAsString, autoDelete}
+			config := &RabbitMQRouterConfig{nameAsString, typeAsString}
 			registry.RegisterRabbitMQRouter(key, config)
 		}
 	}

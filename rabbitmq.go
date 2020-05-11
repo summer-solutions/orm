@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
 	"github.com/apex/log/handlers/text"
-	"github.com/lithammer/shortuuid"
 	"github.com/streadway/amqp"
 )
 
@@ -21,18 +19,29 @@ type rabbitMQConfig struct {
 
 type RabbitMQConsumer interface {
 	Close()
-	Consume() (<-chan amqp.Delivery, error)
+	Consume(handler func(items [][]byte) error) error
+	DisableLoop()
 }
 
 type rabbitMQReceiver struct {
-	name    string
-	q       *amqp.Queue
-	channel *amqp.Channel
-	parent  *rabbitMQChannel
+	name        string
+	q           *amqp.Queue
+	channel     *amqp.Channel
+	parent      *rabbitMQChannel
+	disableLoop bool
+}
+
+func (r *rabbitMQReceiver) DisableLoop() {
+	r.disableLoop = true
 }
 
 func (r *rabbitMQReceiver) Close() {
 	start := time.Now()
+	if r.parent.config.Router != "" {
+		for _, key := range r.parent.config.RouterKeys {
+			_ = r.channel.QueueUnbind(r.q.Name, key, r.parent.config.Router, nil) //is that needed
+		}
+	}
 	_ = r.channel.Close()
 	if r.parent.log != nil {
 		r.parent.fillLogFields(start, "close channel").WithField("Queue", r.q.Name).Info("[ORM][RABBIT_MQ][CLOSE CHANNEL]")
@@ -43,17 +52,58 @@ func (r *rabbitMQReceiver) consume() (<-chan amqp.Delivery, error) {
 	return r.channel.Consume(r.q.Name, r.name, false, false, false, false, nil)
 }
 
-func (r *rabbitMQReceiver) Consume() (<-chan amqp.Delivery, error) {
+func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 	start := time.Now()
 	delivery, err := r.consume()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if r.parent.log != nil {
-		r.parent.fillLogFields(start, "consume").WithField("Queue", r.q.Name).WithField("autoAck", false).
+		r.parent.fillLogFields(start, "consume").WithField("Queue", r.q.Name).
 			WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][CONSUME]")
 	}
-	return delivery, nil
+
+	timeOut := false
+	max := r.parent.config.PrefetchCount
+	if max <= 0 {
+		max = 1
+	}
+	counter := 0
+	items := make([][]byte, 0, max)
+	var last *amqp.Delivery
+	for {
+		if counter > 0 && (timeOut || counter == max) {
+			err := handler(items)
+			if err != nil {
+				return err
+			}
+			err = last.Ack(true)
+			if err != nil {
+				return err
+			}
+			if r.parent.log != nil {
+				r.parent.fillLogFields(start, "ack").WithField("Queue", r.q.Name).
+					WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][ACK]")
+			}
+			counter = 0
+			timeOut = false
+			items = items[:0]
+		} else if timeOut && r.disableLoop {
+			return nil
+		}
+		select {
+		case item := <-delivery:
+			counter++
+			last = &item
+			items = append(items, item.Body)
+			if r.parent.log != nil {
+				r.parent.fillLogFields(start, "received").WithField("Queue", r.q.Name).
+					WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][RECEIVED]")
+			}
+		case <-time.After(1 * time.Second):
+			timeOut = true
+		}
+	}
 }
 
 type rabbitMQConnection struct {
@@ -70,15 +120,14 @@ type RabbitMQQueueConfig struct {
 	Name          string
 	PrefetchCount int
 	Delayed       bool
-	AutoDelete    bool
 	Router        string
 	RouterKeys    []string
+	AutoDelete    bool
 }
 
 type RabbitMQRouterConfig struct {
-	Name       string
-	Type       string
-	AutoDelete bool
+	Name string
+	Type string
 }
 
 func (r *rabbitMQChannel) close() bool {
@@ -107,7 +156,7 @@ func (r *rabbitMQChannel) close() bool {
 
 func (r *rabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*amqp.Queue, error) {
 	config := r.config
-	q, err := channel.QueueDeclare(name, true, false, false, false, nil)
+	q, err := channel.QueueDeclare(name, true, config.AutoDelete, false, false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -173,9 +222,6 @@ func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
 		r.channelConsumers = make(map[string]RabbitMQConsumer)
 	}
 	queueName := r.config.Name
-	if r.config.Router != "" {
-		queueName = fmt.Sprintf("%s:%s", queueName, shortuuid.New())
-	}
 	channel, q, err := r.initChannel(queueName, false)
 	if err != nil {
 		return nil, err
@@ -204,7 +250,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			typeValue = "x-delayed-message"
 		}
 		start = time.Now()
-		err := channel.ExchangeDeclare(configRouter.Name, typeValue, true, r.config.AutoDelete,
+		err := channel.ExchangeDeclare(configRouter.Name, typeValue, true, true,
 			false, false, args)
 		if err != nil {
 			return nil, nil, errors.Trace(err)

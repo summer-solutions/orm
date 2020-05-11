@@ -17,7 +17,6 @@ default:
     routers:
       - name: test
         type: fanout
-        autodelete: false
   localCache: 1000
   lazyQueueRedis: default_queue
   lazyQueueRabbitMQ: test2
