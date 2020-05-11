@@ -75,7 +75,6 @@ type RabbitMQQueueConfig struct {
 	AutoDelete    bool
 	NoWait        bool
 	PrefetchCount int
-	PrefetchSize  int
 	Exchange      string
 	RouterKeys    []string
 	Arguments     map[string]interface{}
@@ -122,7 +121,7 @@ func (r *rabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*am
 	if err != nil {
 		return nil, err
 	}
-	err = channel.Qos(config.PrefetchCount, config.PrefetchSize, false)
+	err = channel.Qos(config.PrefetchCount, 0, false)
 	if err != nil {
 		return nil, err
 	}

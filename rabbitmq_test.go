@@ -12,7 +12,7 @@ import (
 func TestRabbitMQQueue(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue", AutoDelete: true})
+	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue", AutoDelete: true, PrefetchCount: 2})
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
@@ -26,15 +26,22 @@ func TestRabbitMQQueue(t *testing.T) {
 	assert.NotNil(t, r)
 	err = r.Publish([]byte("hello"))
 	assert.NoError(t, err)
+	err = r.Publish([]byte("hello2"))
+	assert.NoError(t, err)
 
 	consumer, err := r.NewConsumer("test consumer")
 	assert.NoError(t, err)
 	items, err := consumer.Consume()
 	assert.NoError(t, err)
 	assert.NotNil(t, items)
-	item := <-items
-	assert.NotNil(t, item)
-	assert.Equal(t, []byte("hello"), item.Body)
+	item1 := <-items
+	item2 := <-items
+	assert.NotNil(t, item1)
+	assert.Equal(t, []byte("hello"), item1.Body)
+	assert.NotNil(t, item2)
+	assert.Equal(t, []byte("hello2"), item2.Body)
+	err = item2.Ack(true)
+	assert.NoError(t, err)
 }
 
 func TestRabbitMQQueueExchange(t *testing.T) {

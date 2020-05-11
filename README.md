@@ -80,7 +80,6 @@ default:
                   autodelete: false // optional, default false
                   nowait: false // optional, default false
                   prefetchCount: 1 // optional, default 0
-                  prefetchSize: 0 // optional, default 0
                   exchage: test // optional, default ""
                   router_keys: // optional, default []string
                     - aa
