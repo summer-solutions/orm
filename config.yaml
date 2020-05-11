@@ -22,8 +22,6 @@ default:
   lazyQueueRabbitMQ: test2
   dirtyQueueRedis: default_queue
   dirtyQueueRabbitMQ: test2
-  logQueueRedis: default_queue
-  logQueueRabbitMQ: test2
   locker: default
 default_queue:
   redis: localhost:6379:1

@@ -43,7 +43,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 	localCacheDeletes := make(map[string]map[string]bool)
 	redisKeysToDelete := make(map[string]map[string]bool)
 	dirtyQueues := make(map[string][]*DirtyQueueValue)
-	logQueues := make(map[string][]*LogQueueValue)
+	logQueues := make([]*LogQueueValue, 0)
 	lazyMap := make(map[string]interface{})
 
 	var referencesToFlash map[Entity]Entity
@@ -129,7 +129,8 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 					if affected > 0 {
 						injectBind(entity, bind)
 						entity.getORM().attributes.idElem.SetUint(uint64(lastID))
-						updateCacheForInserted(entity, lazy, uint64(lastID), bind, localCacheSets, localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
+						logQueues = updateCacheForInserted(entity, lazy, uint64(lastID), bind, localCacheSets,
+							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 						if affected == 2 {
 							_, err = loadByID(engine, uint64(lastID), entity, false)
 							if err != nil {
@@ -251,7 +252,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 			}
 			addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
-			addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().attributes.logMeta)
+			logQueues = addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().attributes.logMeta)
 		}
 	}
 
@@ -312,7 +313,8 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			bind := insertBinds[typeOf][key]
 			injectBind(entity, bind)
 			entity.getORM().attributes.idElem.SetUint(id)
-			updateCacheForInserted(entity, lazy, id, bind, localCacheSets, localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
+			logQueues = updateCacheForInserted(entity, lazy, id, bind, localCacheSets, localCacheDeletes,
+				redisKeysToDelete, dirtyQueues, logQueues)
 			id++
 			afterSaveInterface, is := entity.(AfterSavedInterface)
 			if is {
@@ -400,7 +402,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		}
 		for id, bind := range deleteBinds {
 			addDirtyQueues(dirtyQueues, bind, schema, id, "d")
-			addToLogQueue(logQueues, schema, id, bind, nil, nil)
+			logQueues = addToLogQueue(logQueues, schema, id, bind, nil, nil)
 		}
 	}
 	for _, values := range localCacheSets {
@@ -484,22 +486,17 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			return err
 		}
 	}
-	for k, v := range logQueues {
-		queue := engine.registry.logQueues[k]
-
-		members := make([][]byte, len(v))
-		for i, val := range v {
-			if val.Meta == nil {
-				val.Meta = engine.logMetaData
-			} else {
-				for k, v := range engine.logMetaData {
-					val.Meta[k] = v
-				}
+	for _, val := range logQueues {
+		if val.Meta == nil {
+			val.Meta = engine.logMetaData
+		} else {
+			for k, v := range engine.logMetaData {
+				val.Meta[k] = v
 			}
-			asJSON, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(val)
-			members[i] = asJSON
 		}
-		err := queue.Send(engine, logQueueName, members)
+		asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
+		channel := engine.GetRabbitMQQueue(logQueueName)
+		err := channel.Publish(asJSON)
 		if err != nil {
 			return err
 		}
@@ -806,19 +803,16 @@ func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interfac
 	}
 }
 
-func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, id uint64,
-	before map[string]interface{}, changes map[string]interface{}, entityMeta map[string]interface{}) {
+func addToLogQueue(keys []*LogQueueValue, tableSchema *tableSchema, id uint64,
+	before map[string]interface{}, changes map[string]interface{}, entityMeta map[string]interface{}) []*LogQueueValue {
 	if !tableSchema.hasLog {
-		return
-	}
-	key := tableSchema.logPoolName
-	if keys[key] == nil {
-		keys[key] = make([]*LogQueueValue, 0)
+		return keys
 	}
 	val := &LogQueueValue{TableName: tableSchema.logTableName, ID: id,
 		PoolName: tableSchema.logPoolName, Before: before,
 		Changes: changes, Updated: time.Now(), Meta: entityMeta}
-	keys[key] = append(keys[key], val)
+	keys = append(keys, val)
+	return keys
 }
 
 func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, values []interface{}) {
@@ -857,7 +851,7 @@ func convertToError(err error) error {
 func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 	bind map[string]interface{}, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	redisKeysToDelete map[string]map[string]bool, dirtyQueues map[string][]*DirtyQueueValue,
-	logQueues map[string][]*LogQueueValue) {
+	logQueues []*LogQueueValue) []*LogQueueValue {
 	schema := entity.getORM().tableSchema
 	engine := entity.getORM().engine
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
@@ -877,5 +871,6 @@ func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 	}
 	addDirtyQueues(dirtyQueues, bind, schema, id, "i")
-	addToLogQueue(logQueues, schema, id, nil, bind, entity.getORM().attributes.logMeta)
+	logQueues = addToLogQueue(logQueues, schema, id, nil, bind, entity.getORM().attributes.logMeta)
+	return logQueues
 }

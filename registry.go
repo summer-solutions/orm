@@ -2,6 +2,7 @@ package orm
 
 import (
 	"database/sql"
+	"fmt"
 	"math"
 	"reflect"
 	"strings"
@@ -26,7 +27,6 @@ type Registry struct {
 	entities             map[string]reflect.Type
 	enums                map[string]Enum
 	dirtyQueues          map[string]QueueSender
-	logQueues            map[string]QueueSender
 	lazyQueue            QueueSender
 	locks                map[string]string
 }
@@ -79,12 +79,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	}
 	for k, v := range r.dirtyQueues {
 		registry.dirtyQueues[k] = v
-	}
-	if registry.logQueues == nil {
-		registry.logQueues = make(map[string]QueueSender)
-	}
-	for k, v := range r.logQueues {
-		registry.logQueues[k] = v
 	}
 	registry.lazyQueue = r.lazyQueue
 
@@ -164,7 +158,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			registry.rabbitMQChannelsToQueue[def.Name] = channel
 		}
 	}
-
 	if registry.enums == nil {
 		registry.enums = make(map[string]Enum)
 	}
@@ -180,11 +173,23 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.entities[name] = entityType
 	}
 	engine := registry.CreateEngine()
+	hasLog := false
 	for _, schema := range registry.tableSchemas {
 		_, err := checkStruct(schema, engine, schema.t, make(map[string]*index), make(map[string]*foreignIndex), "")
 		if err != nil {
 			return nil, errors.Annotatef(err, "invalid entity struct '%s'", schema.t.String())
 		}
+		if schema.hasLog {
+			hasLog = true
+		}
+	}
+	if hasLog && registry.rabbitMQChannelsToQueue["orm_log"] == nil {
+		connection, has := registry.rabbitMQServers["default"]
+		if !has {
+			return nil, fmt.Errorf("missing default rabbitMQ connection to handle entity change log")
+		}
+		def := &RabbitMQQueueConfig{Name: "orm_log"}
+		registry.rabbitMQChannelsToQueue["orm_log"] = &rabbitMQChannelToQueue{connection: connection, config: def}
 	}
 	return registry, nil
 }
@@ -306,13 +311,6 @@ func (r *Registry) RegisterDirtyQueue(code string, sender QueueSender) {
 		r.dirtyQueues = make(map[string]QueueSender)
 	}
 	r.dirtyQueues[code] = sender
-}
-
-func (r *Registry) RegisterLogQueue(dbPoolName string, sender QueueSender) {
-	if r.logQueues == nil {
-		r.logQueues = make(map[string]QueueSender)
-	}
-	r.logQueues[dbPoolName] = sender
 }
 
 func (r *Registry) RegisterLazyQueue(sender QueueSender) {

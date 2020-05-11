@@ -1,8 +1,6 @@
 package orm
 
 import (
-	"database/sql"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,17 +15,14 @@ type testEntityLog struct {
 
 func TestLog(t *testing.T) {
 	entity := &testEntityLog{}
-	engine := PrepareTables(t, &Registry{}, entity, entity)
-	queueRedis := engine.GetRedis("default_log")
-	err := queueRedis.FlushDB()
-	assert.Nil(t, err)
+	registry := &Registry{}
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
+	engine := PrepareTables(t, registry, entity, entity)
 	logDB := engine.GetMysql("log")
-	_, err = logDB.Exec("TRUNCATE TABLE `_log_default_testEntityLog`")
+	_, err := logDB.Exec("TRUNCATE TABLE `_log_default_testEntityLog`")
 	assert.Nil(t, err)
 	receiver := NewLogReceiver(engine)
-
-	codes := engine.GetRegistry().GetLogQueueSenders()
-	assert.Len(t, codes, 1)
+	receiver.DisableLoop()
 
 	engine.Track(entity)
 	entity.Name = "Hello"
@@ -40,12 +35,9 @@ func TestLog(t *testing.T) {
 		assert.Equal(t, "log", value.PoolName)
 		return nil
 	}
-	val, found, err := engine.GetRedis("default_log").RPop(receiver.QueueName())
+
+	err = receiver.Digest()
 	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = receiver.Digest([]byte(val))
-	assert.Nil(t, err)
 
 	type logRow struct {
 		ID       uint64
@@ -84,11 +76,8 @@ func TestLog(t *testing.T) {
 	engine.SetLogMetaData("user_id", "7")
 	err = engine.Flush()
 	assert.Nil(t, err)
-	val, found, err = engine.GetRedis("default_log").RPop(receiver.QueueName())
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = receiver.Digest([]byte(val))
+
+	err = receiver.Digest()
 	assert.Nil(t, err)
 	logs = getLogs()
 	assert.Len(t, logs, 2)
@@ -102,18 +91,11 @@ func TestLog(t *testing.T) {
 	engine.Track(entity)
 	err = engine.Flush()
 	assert.Nil(t, err)
-	_, found, err = engine.GetRedis("default_log").RPop(receiver.QueueName())
-	assert.NoError(t, err)
-	assert.False(t, found)
 
 	engine.MarkToDelete(entity)
 	err = engine.Flush()
 	assert.Nil(t, err)
-	val, found, err = engine.GetRedis("default_log").RPop(receiver.QueueName())
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = receiver.Digest([]byte(val))
+	err = receiver.Digest()
 	assert.Nil(t, err)
 	logs = getLogs()
 	assert.Len(t, logs, 3)
@@ -121,41 +103,4 @@ func TestLog(t *testing.T) {
 	assert.Equal(t, "{\"source\": \"test\", \"user_id\": \"7\"}", string(logs[2].Meta.([]uint8)))
 	assert.Equal(t, "{\"Age\": \"12\", \"Name\": \"Hello\"}", string(logs[2].Before.([]uint8)))
 	assert.Nil(t, logs[2].Changes)
-
-	entity = &testEntityLog{}
-	engine.Track(entity)
-	entity.Name = "Hello"
-	err = engine.Flush()
-	assert.Nil(t, err)
-	receiver.Logger = func(value *LogQueueValue) error {
-		return fmt.Errorf("test error")
-	}
-	err = receiver.Digest([]byte(val))
-	assert.EqualError(t, err, "test error")
-	receiver.Logger = nil
-
-	mockClientDB := &mockSQLClient{client: logDB.client}
-	logDB.client = mockClientDB
-	mockClientDB.ExecMock = func(query string, args ...interface{}) (sql.Result, error) {
-		return nil, fmt.Errorf("test error")
-	}
-	entity = &testEntityLog{}
-	_ = engine.TrackAndFlush(entity)
-	err = receiver.Digest([]byte(val))
-	assert.EqualError(t, err, "test error")
-
-	mockClientDB.ExecMock = func(query string, args ...interface{}) (sql.Result, error) {
-		result := &mockSQLResults{}
-		result.LastInsertIDMock = func() (int64, error) {
-			return 0, fmt.Errorf("test error")
-		}
-		return result, nil
-	}
-	receiver.Logger = func(value *LogQueueValue) error {
-		return nil
-	}
-	entity = &testEntityLog{}
-	_ = engine.TrackAndFlush(entity)
-	err = receiver.Digest([]byte(val))
-	assert.EqualError(t, err, "test error")
 }

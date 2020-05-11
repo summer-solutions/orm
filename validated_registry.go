@@ -27,7 +27,6 @@ type ValidatedRegistry interface {
 	GetTableSchemaForEntity(entity Entity) TableSchema
 	GetDirtyQueueSenders() map[string]QueueSender
 	GetLazyQueueSender() QueueSender
-	GetLogQueueSenders() map[string]QueueSender
 	AddLogger(handler log.Handler)
 	SetLogLevel(level log.Level)
 	EnableDebug()
@@ -38,7 +37,6 @@ type validatedRegistry struct {
 	entities                map[string]reflect.Type
 	sqlClients              map[string]*DBConfig
 	dirtyQueues             map[string]QueueSender
-	logQueues               map[string]QueueSender
 	lazyQueue               QueueSender
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
@@ -161,8 +159,4 @@ func (r *validatedRegistry) GetLazyQueueSender() QueueSender {
 
 func (r *validatedRegistry) GetDirtyQueueSenders() map[string]QueueSender {
 	return r.dirtyQueues
-}
-
-func (r *validatedRegistry) GetLogQueueSenders() map[string]QueueSender {
-	return r.logQueues
 }

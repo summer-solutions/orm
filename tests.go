@@ -20,7 +20,6 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *E
 	registry.RegisterRedis("localhost:6379", 14, "default_queue")
 	registry.RegisterRedis("localhost:6379", 13, "default_log")
 	registry.RegisterLazyQueue(&RedisQueueSender{PoolName: "default_queue"})
-	registry.RegisterLogQueue("log", &RedisQueueSender{PoolName: "default_log"})
 
 	registry.RegisterLocalCache(1000)
 
@@ -104,25 +103,6 @@ func (db *mockSQLClient) Query(query string, args ...interface{}) (SQLRows, erro
 		return db.QueryMock(db.client, db.counter, query, args...)
 	}
 	return db.client.Query(query, args...)
-}
-
-type mockSQLResults struct {
-	LastInsertIDMock func() (int64, error)
-	RowsAffectedMock func() (int64, error)
-}
-
-func (r *mockSQLResults) LastInsertId() (int64, error) {
-	if r.LastInsertIDMock != nil {
-		return r.LastInsertIDMock()
-	}
-	return 0, nil
-}
-
-func (r *mockSQLResults) RowsAffected() (int64, error) {
-	if r.RowsAffectedMock != nil {
-		return r.RowsAffectedMock()
-	}
-	return 0, nil
 }
 
 type mockRedisClient struct {

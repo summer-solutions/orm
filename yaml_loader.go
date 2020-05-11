@@ -60,18 +60,6 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 					return nil, err
 				}
 				registry.RegisterDirtyQueue(key, &RabbitMQQueueSender{QueueName: valAsString})
-			case "logQueueRedis":
-				valAsString, err := validateOrmString(value, key)
-				if err != nil {
-					return nil, err
-				}
-				registry.RegisterLogQueue(key, &RedisQueueSender{PoolName: valAsString})
-			case "logQueueRabbitMQ":
-				valAsString, err := validateOrmString(value, key)
-				if err != nil {
-					return nil, err
-				}
-				registry.RegisterLogQueue(key, &RabbitMQQueueSender{QueueName: valAsString})
 			case "localCache":
 				number, err := validateOrmInt(value, key)
 				if err != nil {
