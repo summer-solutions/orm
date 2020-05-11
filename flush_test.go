@@ -50,7 +50,7 @@ type testEntityFlushTransactionRedis struct {
 
 func TestFlush(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterEnum("orm.colorEnum", colorEnum)
+	registry.RegisterEnumStruct("orm.colorEnum", colorEnum)
 	registry.RegisterLocker("default", "default")
 	var entity testEntityFlush
 	engine := PrepareTables(t, registry, entity)
@@ -160,7 +160,7 @@ func TestFlush(t *testing.T) {
 
 func TestFlushInTransaction(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterEnum("orm.colorEnum", colorEnum)
+	registry.RegisterEnumStruct("orm.colorEnum", colorEnum)
 	registry.RegisterLocker("default", "default")
 	var entity testEntityFlushTransactionLocal
 	var entity2 testEntityFlushTransactionRedis

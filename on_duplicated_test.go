@@ -15,7 +15,7 @@ type testEntityOnDuplicated struct {
 
 func TestFlushOnDuplicated(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterEnum("orm.colorEnum", colorEnum)
+	registry.RegisterEnumStruct("orm.colorEnum", colorEnum)
 	var entity testEntityOnDuplicated
 	engine := PrepareTables(t, registry, entity)
 

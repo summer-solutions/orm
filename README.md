@@ -208,13 +208,22 @@ func main() {
     var testEntitySchemaRef testEntitySchemaRef
     var testEntitySecondPool testEntitySecondPool
     registry.RegisterEntity(testEntitySchema, testEntitySchemaRef, testEntitySecondPool)
-    registry.RegisterEnum("color", Colors)
+    registry.RegisterEnumStruct("color", Colors)
 
     // now u can use:
     Colors.GetDefault() // "Red" (first field)
     Colors.GetFields() // ["Red", "Blue" ...]
+    Colors.GetMapping() // map[string]string{"Red": "Red", "Blue": "Blue"}
     Colors.Has("Red") //true
     Colors.Has("Orange") //false
+    
+    //or register enum from slice
+    registry.RegisterEnumSlice("color", []string{"Red", "Blue"})
+    validatedRegistry.GetEnum("color").GetFields()
+    validatedRegistry.GetEnum("color").Has("Red")
+    
+    //or register enum from map
+    registry.RegisterEnumMap("color", map[string]string{"red": "Red", "blue": "Blue"}, "red")
 }
 ```
 

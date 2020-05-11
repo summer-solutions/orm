@@ -196,12 +196,40 @@ func (r *Registry) RegisterEntity(entity ...interface{}) {
 	}
 }
 
-func (r *Registry) RegisterEnum(code string, val Enum) {
+func (r *Registry) RegisterEnumStruct(code string, val Enum) {
 	val.init(val)
 	if r.enums == nil {
 		r.enums = make(map[string]Enum)
 	}
 	r.enums[code] = val
+}
+
+func (r *Registry) RegisterEnumSlice(code string, val []string) {
+	e := EnumModel{}
+	e.fields = val
+	e.defaultValue = val[0]
+	e.mapping = make(map[string]string)
+	for _, name := range val {
+		e.mapping[name] = name
+	}
+	if r.enums == nil {
+		r.enums = make(map[string]Enum)
+	}
+	r.enums[code] = &e
+}
+
+func (r *Registry) RegisterEnumMap(code string, val map[string]string, defaultValue string) {
+	e := EnumModel{}
+	e.mapping = val
+	e.defaultValue = defaultValue
+	e.fields = make([]string, 0)
+	for name := range val {
+		e.fields = append(e.fields, name)
+	}
+	if r.enums == nil {
+		r.enums = make(map[string]Enum)
+	}
+	r.enums[code] = &e
 }
 
 func (r *Registry) RegisterMySQLPool(dataSourceName string, code ...string) {

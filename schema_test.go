@@ -95,7 +95,7 @@ func TestSchema(t *testing.T) {
 	var entity testEntitySchema
 	var entityRef testEntitySchemaRef
 	registry.RegisterEntity(entity, entityRef)
-	registry.RegisterEnum("orm.colorEnum", colorEnum)
+	registry.RegisterEnumStruct("orm.colorEnum", colorEnum)
 
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)

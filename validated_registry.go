@@ -151,6 +151,10 @@ func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) TableSchema {
 	return tableSchema
 }
 
+func (r *validatedRegistry) GetEnum(code string) Enum {
+	return r.enums[code]
+}
+
 func (r *validatedRegistry) GetLazyQueueSender() QueueSender {
 	return r.lazyQueue
 }
