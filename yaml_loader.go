@@ -184,7 +184,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
 			config := &RabbitMQQueueConfig{asString, passive, durrable,
 				exclusive, autodelete, nowait, int(prefetchCount),
-				 exchange, exchangeKeys, nil}
+				exchange, exchangeKeys, nil}
 			registry.RegisterRabbitMQQueue(key, config)
 		}
 	}

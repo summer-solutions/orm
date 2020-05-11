@@ -18,7 +18,42 @@ type cachedQueryDefinition struct {
 	Fields []string
 }
 
-type Enum map[string]string
+type Enum interface {
+	GetFields() []string
+	GetDefault() string
+	Has(value string) bool
+	init(ref interface{})
+}
+
+type EnumModel struct {
+	fields       []string
+	mapping      map[string]bool
+	defaultValue string
+}
+
+func (enum *EnumModel) GetFields() []string {
+	return enum.fields
+}
+func (enum *EnumModel) GetDefault() string {
+	return enum.defaultValue
+}
+
+func (enum *EnumModel) Has(value string) bool {
+	_, has := enum.mapping[value]
+	return has
+}
+
+func (enum *EnumModel) init(ref interface{}) {
+	e := reflect.ValueOf(ref).Elem()
+	enum.mapping = make(map[string]bool)
+	enum.fields = make([]string, 0)
+	for i := 1; i < e.Type().NumField(); i++ {
+		name := e.Field(i).String()
+		enum.fields = append(enum.fields, name)
+		enum.mapping[name] = true
+	}
+	enum.defaultValue = enum.fields[0]
+}
 
 type TableSchema interface {
 	GetTableName() string

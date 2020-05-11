@@ -837,14 +837,7 @@ func handleSetEnum(registry *validatedRegistry, fieldType string, attribute stri
 	}
 
 	var definition = fieldType + "("
-	i := 0
-	values := make([]string, len(enum))
-	for key := range enum {
-		values[i] = key
-		i++
-	}
-	sort.Strings(values)
-	for key, value := range values {
+	for key, value := range enum.GetFields() {
 		if key > 0 {
 			definition += ","
 		}
@@ -854,7 +847,7 @@ func handleSetEnum(registry *validatedRegistry, fieldType string, attribute stri
 	required, hasRequired := attributes["required"]
 	defaultValue := "nil"
 	if hasRequired && required == "true" {
-		defaultValue = fmt.Sprintf("'%s'", values[0])
+		defaultValue = fmt.Sprintf("'%s'", enum.GetDefault())
 	}
 	return definition, hasRequired && required == "true", true, defaultValue, nil
 }

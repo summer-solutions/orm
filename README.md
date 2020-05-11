@@ -139,14 +139,22 @@ func main() {
         Building uint16
     }
     
-    var color = orm.Enum{
-        "red":    "Red",
-        "green":  "Green",
-        "blue":   "Blue",
-        "yellow": "Yellow",
-        "purple": "Purple",
+    type colors struct {
+        Red    string
+        Green  string
+        Blue   string
+        Yellow string
+        Purple string
     }
-    
+    var Colors = &colors{
+        orm.EnumModel,
+    	Red:    "Red",
+    	Green:  "Green",
+    	Blue:   "Blue",
+    	Yellow: "Yellow",
+    	Purple: "Purple",
+    }
+
     type testEntitySchema struct {
         orm.ORM
         ID                   uint
@@ -200,8 +208,13 @@ func main() {
     var testEntitySchemaRef testEntitySchemaRef
     var testEntitySecondPool testEntitySecondPool
     registry.RegisterEntity(testEntitySchema, testEntitySchemaRef, testEntitySecondPool)
-    registry.RegisterEnum("color", color)
+    registry.RegisterEnum("color", Colors)
 
+    // now u can use:
+    Colors.GetDefault() // "Red" (first field)
+    Colors.GetFields() // ["Red", "Blue" ...]
+    Colors.Has("Red") //true
+    Colors.Has("Orange") //false
 }
 ```
 

@@ -196,11 +196,12 @@ func (r *Registry) RegisterEntity(entity ...interface{}) {
 	}
 }
 
-func (r *Registry) RegisterEnum(code string, enum Enum) {
+func (r *Registry) RegisterEnum(code string, val Enum) {
+	val.init(val)
 	if r.enums == nil {
 		r.enums = make(map[string]Enum)
 	}
-	r.enums[code] = enum
+	r.enums[code] = val
 }
 
 func (r *Registry) RegisterMySQLPool(dataSourceName string, code ...string) {
