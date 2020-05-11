@@ -1,12 +1,12 @@
 package orm
 
 import (
-	"fmt"
+	"strconv"
 )
 
 func flushInCache(engine *Engine, entities ...Entity) error {
 	invalidEntities := make([]Entity, 0)
-	validEntities := make([]interface{}, 0)
+	validEntities := make([][]byte, 0)
 	redisValues := make(map[string][]interface{})
 
 	for _, entity := range entities {
@@ -45,14 +45,15 @@ func flushInCache(engine *Engine, entities ...Entity) error {
 		}
 	}
 	if len(validEntities) > 0 {
-		code := "default"
-		redis := engine.GetRedis(code + "_queue")
-		_, err := redis.SAdd("dirty_queue", validEntities...)
-		if err != nil {
-			return err
+		channel := engine.GetRabbitMQQueue(flushCacheQueueName)
+		for _, v := range validEntities {
+			err := channel.Publish(v)
+			if err != nil {
+				return err
+			}
 		}
 		for cacheCode, keys := range redisValues {
-			err = engine.GetRedis(cacheCode).MSet(keys...)
+			err := engine.GetRedis(cacheCode).MSet(keys...)
 			if err != nil {
 				return err
 			}
@@ -61,6 +62,6 @@ func flushInCache(engine *Engine, entities ...Entity) error {
 	return nil
 }
 
-func createDirtyQueueMember(entityName string, id uint64) interface{} {
-	return fmt.Sprintf("%s:%d", entityName, id)
+func createDirtyQueueMember(entityName string, id uint64) []byte {
+	return []byte(entityName + ":" + strconv.FormatUint(id, 10))
 }

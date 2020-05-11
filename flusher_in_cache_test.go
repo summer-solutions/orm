@@ -65,8 +65,6 @@ func TestFlushInCache(t *testing.T) {
 	assert.Equal(t, "[ORM][MYSQL][EXEC]", DBLogger.Entries[0].Message)
 	assert.Len(t, LoggerRedisCache.Entries, 1)
 	assert.Equal(t, "[ORM][REDIS][MSET]", LoggerRedisCache.Entries[0].Message)
-	assert.Len(t, LoggerRedisQueue.Entries, 1)
-	assert.Equal(t, "[ORM][REDIS][SADD]", LoggerRedisQueue.Entries[0].Message)
 
 	var loadedEntity testEntityFlusherInCacheRedis
 	has, err := engine.LoadByID(1, &loadedEntity)
@@ -76,20 +74,11 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, LoggerRedisCache.Entries, 2)
 	assert.Equal(t, "[ORM][REDIS][GET]", LoggerRedisCache.Entries[1].Message)
 
-	receiver := NewFlushFromCacheReceiver(engine, "default")
-	size, err := receiver.Size()
-	assert.Nil(t, err)
-	assert.Equal(t, int64(1), size)
+	receiver := NewFlushFromCacheReceiver(engine)
+	receiver.DisableLoop()
 
-	has, err = receiver.Digest()
+	err = receiver.Digest()
 	assert.Nil(t, err)
-	assert.True(t, has)
-	has, err = receiver.Digest()
-	assert.Nil(t, err)
-	assert.False(t, has)
-	size, err = receiver.Size()
-	assert.Nil(t, err)
-	assert.Equal(t, int64(0), size)
 
 	var inDB testEntityFlusherInCacheRedis
 	_, err = engine.SearchOne(NewWhere("`ID` = ?", 1), &inDB)

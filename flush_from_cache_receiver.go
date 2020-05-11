@@ -9,89 +9,103 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
+const flushCacheQueueName = "orm_flush_cache"
+
 type FlushFromCacheReceiver struct {
-	engine    *Engine
-	queueName string
+	engine      *Engine
+	disableLoop bool
 }
 
-func NewFlushFromCacheReceiver(engine *Engine, queueName string) *FlushFromCacheReceiver {
-	return &FlushFromCacheReceiver{engine: engine, queueName: queueName}
+func NewFlushFromCacheReceiver(engine *Engine) *FlushFromCacheReceiver {
+	return &FlushFromCacheReceiver{engine: engine}
 }
 
-func (r *FlushFromCacheReceiver) Size() (int64, error) {
-	name := r.queueName + "_queue"
-	redis := r.engine.GetRedis(name)
-	return redis.SCard("dirty_queue")
+func (r *FlushFromCacheReceiver) DisableLoop() {
+	r.disableLoop = true
 }
 
-func (r *FlushFromCacheReceiver) Digest() (has bool, err error) {
-	name := r.queueName + "_queue"
-	cache := r.engine.GetRedis(name)
-	value, has, err := cache.SPop("dirty_queue")
-	if err != nil || !has {
-		return false, err
-	}
-	val := strings.Split(value, ":")
-	id, _ := strconv.ParseUint(val[1], 10, 64)
-	t, has := r.engine.registry.entities[val[0]]
-	if !has {
-		return true, nil
-	}
-	schema := getTableSchema(r.engine.registry, t)
-	cacheEntity, _ := schema.GetRedisCache(r.engine)
-	cacheKey := schema.getCacheKey(id)
-	inCache, has, _ := cacheEntity.Get(cacheKey)
-	if !has {
-		return true, nil
-	}
-	entityValue := reflect.New(schema.t)
-	entity := entityValue.Interface().(Entity)
-
-	var decoded []string
-	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(inCache), &decoded)
-
-	fillFromDBRow(id, r.engine, decoded, entity)
-	entityDBValue := reflect.New(schema.t).Interface().(Entity)
-	found, err := searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue, nil)
-	if err != nil || !found {
-		return true, err
-	}
-	newData := make(map[string]interface{}, len(entity.getORM().dBData))
-	for k, v := range entity.getORM().dBData {
-		newData[k] = v
-	}
-	for k, v := range entityDBValue.getORM().dBData {
-		entity.getORM().dBData[k] = v
-	}
-	is, bind := getDirtyBind(entity)
-	if !is {
-		return true, err
-	}
-
-	bindLength := len(bind)
-	fields := make([]string, bindLength)
-	attributes := make([]interface{}, bindLength+1)
-	i := 0
-	for key, value := range bind {
-		fields[i] = fmt.Sprintf("`%s` = ?", key)
-		attributes[i] = value
-		i++
-	}
-	attributes[i] = id
-	db := schema.GetMysql(r.engine)
-
-	/* #nosec */
-	sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.tableName, strings.Join(fields, ","))
-	_, err = db.Exec(sql, attributes...)
+func (r *FlushFromCacheReceiver) Digest() error {
+	channel := r.engine.GetRabbitMQQueue(flushCacheQueueName)
+	consumer, err := channel.NewConsumer("default consumer")
 	if err != nil {
-		return true, err
+		return err
 	}
-	cacheKeys := getCacheQueriesKeys(schema, bind, entity.getORM().dBData, false)
+	defer consumer.Close()
+	if r.disableLoop {
+		consumer.DisableLoop()
+	}
+	err = consumer.Consume(func(items [][]byte) error {
+		for _, item := range items {
+			val := strings.Split(string(item), ":")
+			id, _ := strconv.ParseUint(val[1], 10, 64)
+			t, has := r.engine.registry.entities[val[0]]
+			if !has {
+				continue
+			}
+			schema := getTableSchema(r.engine.registry, t)
+			cacheEntity, _ := schema.GetRedisCache(r.engine)
+			cacheKey := schema.getCacheKey(id)
+			inCache, has, _ := cacheEntity.Get(cacheKey)
+			if !has {
+				continue
+			}
+			entityValue := reflect.New(schema.t)
+			entity := entityValue.Interface().(Entity)
 
-	keys := getCacheQueriesKeys(schema, bind, newData, false)
-	cacheKeys = append(cacheKeys, keys...)
-	if len(cacheKeys) > 0 {
-		err = cacheEntity.Del(cacheKeys...)
+			var decoded []string
+			_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(inCache), &decoded)
+
+			fillFromDBRow(id, r.engine, decoded, entity)
+			entityDBValue := reflect.New(schema.t).Interface().(Entity)
+			found, err := searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue, nil)
+			if err != nil || !found {
+				return err
+			}
+			newData := make(map[string]interface{}, len(entity.getORM().dBData))
+			for k, v := range entity.getORM().dBData {
+				newData[k] = v
+			}
+			for k, v := range entityDBValue.getORM().dBData {
+				entity.getORM().dBData[k] = v
+			}
+			is, bind := getDirtyBind(entity)
+			if !is {
+				return err
+			}
+
+			bindLength := len(bind)
+			fields := make([]string, bindLength)
+			attributes := make([]interface{}, bindLength+1)
+			i := 0
+			for key, value := range bind {
+				fields[i] = fmt.Sprintf("`%s` = ?", key)
+				attributes[i] = value
+				i++
+			}
+			attributes[i] = id
+			db := schema.GetMysql(r.engine)
+
+			/* #nosec */
+			sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.tableName, strings.Join(fields, ","))
+			_, err = db.Exec(sql, attributes...)
+			if err != nil {
+				return err
+			}
+			cacheKeys := getCacheQueriesKeys(schema, bind, entity.getORM().dBData, false)
+
+			keys := getCacheQueriesKeys(schema, bind, newData, false)
+			cacheKeys = append(cacheKeys, keys...)
+			if len(cacheKeys) > 0 {
+				err = cacheEntity.Del(cacheKeys...)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
-	return true, err
+	return nil
 }

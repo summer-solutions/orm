@@ -196,6 +196,14 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		def := &RabbitMQQueueConfig{Name: lazyQueueName}
 		registry.rabbitMQChannelsToQueue[lazyQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 	}
+	if registry.rabbitMQChannelsToQueue[flushCacheQueueName] == nil {
+		connection, has := registry.rabbitMQServers["default"]
+		if !has {
+			return nil, fmt.Errorf("missing default rabbitMQ connection to handle flushInCache")
+		}
+		def := &RabbitMQQueueConfig{Name: flushCacheQueueName}
+		registry.rabbitMQChannelsToQueue[flushCacheQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
+	}
 	return registry, nil
 }
 
