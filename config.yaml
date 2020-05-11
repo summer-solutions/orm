@@ -5,31 +5,19 @@ default:
     server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
     queues:
       - name: test
-        passive: false
-        durrable: false
-        exclusive: false
-        autodelete: false
-        nowait: false
         prefetchCount: 1
       - name: test2
-        passive: false
-        durrable: false
-        exclusive: false
-        autodelete: false
-        nowait: false
         prefetchCount: 1
-        exchage: test
+        router: test
+        delayed: false
+        autodelete: false
         router_keys:
           - aa
           - bb
-    exchanges:
+    routers:
       - name: test
         type: fanout
-        durable: false
         autodelete: false
-        internal: false
-        nowait: false
-        delayed: false
   localCache: 1000
   lazyQueueRedis: default_queue
   lazyQueueRabbitMQ: test2

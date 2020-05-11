@@ -44,7 +44,7 @@ type validatedRegistry struct {
 	redisServers            map[string]*RedisCacheConfig
 	rabbitMQServers         map[string]*rabbitMQConnection
 	rabbitMQChannelsToQueue map[string]*rabbitMQChannelToQueue
-	rabbitMQExchangeConfigs map[string]*RabbitMQExchangeConfig
+	rabbitMQRouterConfigs   map[string]*RabbitMQRouterConfig
 	lockServers             map[string]string
 	enums                   map[string]Enum
 	log                     *log.Entry

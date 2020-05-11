@@ -27,7 +27,7 @@ func (r *RabbitMQQueueSender) Send(engine *Engine, queueCode string, values [][]
 	channel := engine.rabbitMQChannels[r.QueueName]
 	routerKey := channel.config.Name
 	var headers amqp.Table
-	if channel.config.Exchange != "" {
+	if channel.config.Router != "" {
 		routerKey = queueCode
 	} else {
 		headers = amqp.Table{"q-code": queueCode}

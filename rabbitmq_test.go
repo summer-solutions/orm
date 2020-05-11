@@ -48,8 +48,8 @@ func TestRabbitMQQueueExchange(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
 	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange", AutoDelete: true,
-		Exchange: "test_exchange_topic", RouterKeys: []string{"aa", "bb"}})
-	registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange_topic", Type: "topic", AutoDelete: true})
+		Router: "test_exchange_topic", RouterKeys: []string{"aa", "bb"}})
+	registry.RegisterRabbitMQRouter("default", &RabbitMQRouterConfig{Name: "test_exchange_topic", Type: "topic", AutoDelete: true})
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()

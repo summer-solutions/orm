@@ -152,21 +152,18 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			if !ok {
 				return fmt.Errorf("invalid rabbitMQ channel name: %s", key)
 			}
-			passive := getBoolOptional(asMap, "passive", false)
-			durrable := getBoolOptional(asMap, "durrable", true)
-			exclusive := getBoolOptional(asMap, "exclusive", false)
-			autodelete := getBoolOptional(asMap, "autodelete", false)
-			nowait := getBoolOptional(asMap, "nowait", false)
-			exchange := ""
+			delayed := getBoolOptional(asMap, "delayed", false)
+			autoDelete := getBoolOptional(asMap, "autodelete", false)
+			router := ""
 			exchangeVal, has := asMap["exchange"]
 			if has {
 				asString, ok := exchangeVal.(string)
 				if !ok {
 					return fmt.Errorf("invalid rabbitMQ exchange name: %s", key)
 				}
-				exchange = asString
+				router = asString
 			}
-			exchangeKeys := make([]string, 0)
+			routerKeys := make([]string, 0)
 			exchangeVal, has = asMap["router_keys"]
 			if has {
 				asSlice, ok := exchangeVal.([]interface{})
@@ -178,13 +175,11 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 					if !ok {
 						return fmt.Errorf("invalid rabbitMQ exchange key: %s", key)
 					}
-					exchangeKeys = append(exchangeKeys, asString)
+					routerKeys = append(routerKeys, asString)
 				}
 			}
 			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
-			config := &RabbitMQQueueConfig{asString, passive, durrable,
-				exclusive, autodelete, nowait, int(prefetchCount),
-				exchange, exchangeKeys, nil}
+			config := &RabbitMQQueueConfig{asString, int(prefetchCount), delayed, autoDelete, router, routerKeys}
 			registry.RegisterRabbitMQQueue(key, config)
 		}
 	}
@@ -215,14 +210,9 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			if !ok {
 				return fmt.Errorf("invalid rabbitMQ exchange type: %s", key)
 			}
-			durrable := getBoolOptional(asMap, "durrable", true)
-			autodelete := getBoolOptional(asMap, "autodelete", false)
-			internal := getBoolOptional(asMap, "internal", false)
-			nowait := getBoolOptional(asMap, "nowait", false)
-			delayed := getBoolOptional(asMap, "delayed", false)
-			config := &RabbitMQExchangeConfig{nameAsString, typeAsString, durrable,
-				autodelete, internal, nowait, delayed, nil}
-			registry.RegisterRabbitMQExchange(key, config)
+			autoDelete := getBoolOptional(asMap, "autodelete", false)
+			config := &RabbitMQRouterConfig{nameAsString, typeAsString, autoDelete}
+			registry.RegisterRabbitMQRouter(key, config)
 		}
 	}
 	return nil

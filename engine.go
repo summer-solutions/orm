@@ -213,7 +213,7 @@ func (e *Engine) GetRabbitMQQueue(code string) *RabbitMQQueue {
 	if !has {
 		panic(fmt.Errorf("unregistered rabbitMQ queue '%s'", code))
 	}
-	if channel.config.Exchange != "" {
+	if channel.config.Router != "" {
 		panic(fmt.Errorf("rabbitMQ queue '%s' is declared as router", code))
 	}
 	if e.rabbitMQQueues == nil {
@@ -232,11 +232,10 @@ func (e *Engine) GetRabbitMQDelayedQueue(code string) *RabbitMQDelayedQueue {
 	if !has {
 		panic(fmt.Errorf("unregistered rabbitMQ delayed queue '%s'", code))
 	}
-	if channel.config.Exchange == "" {
+	if channel.config.Router == "" {
 		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", code))
 	}
-	exchangeConfig := e.registry.rabbitMQExchangeConfigs[channel.config.Exchange]
-	if !exchangeConfig.Delayed {
+	if !channel.config.Delayed {
 		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", code))
 	}
 	if e.rabbitMQDelayedQueues == nil {
@@ -255,11 +254,10 @@ func (e *Engine) GetRabbitMQRouter(code string) *RabbitMQRouter {
 	if !has {
 		panic(fmt.Errorf("unregistered rabbitMQ router '%s'", code))
 	}
-	if channel.config.Exchange == "" {
+	if channel.config.Router == "" {
 		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as router", code))
 	}
-	exchangeConfig := e.registry.rabbitMQExchangeConfigs[channel.config.Exchange]
-	if exchangeConfig.Delayed {
+	if channel.config.Delayed {
 		panic(fmt.Errorf("rabbitMQ queue '%s' is declared as delayed queue", code))
 	}
 	if e.rabbitMQRouters == nil {

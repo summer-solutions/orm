@@ -39,20 +39,19 @@ func (r *rabbitMQReceiver) Close() {
 	}
 }
 
-func (r *rabbitMQReceiver) consume(autoAck, noLocal bool) (<-chan amqp.Delivery, error) {
-	return r.channel.Consume(r.q.Name, r.name, autoAck, r.parent.config.Exclusive, noLocal, r.parent.config.NoWait, nil)
+func (r *rabbitMQReceiver) consume() (<-chan amqp.Delivery, error) {
+	return r.channel.Consume(r.q.Name, r.name, false, false, false, false, nil)
 }
 
 func (r *rabbitMQReceiver) Consume() (<-chan amqp.Delivery, error) {
 	start := time.Now()
-	delivery, err := r.consume(false, false)
+	delivery, err := r.consume()
 	if err != nil {
 		return nil, err
 	}
 	if r.parent.log != nil {
 		r.parent.fillLogFields(start, "consume").WithField("Queue", r.q.Name).WithField("autoAck", false).
-			WithField("exclusive", r.parent.config.Exclusive).WithField("noLocal", false).
-			WithField("noWait", r.parent.config.NoWait).WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][CONSUME]")
+			WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][CONSUME]")
 	}
 	return delivery, nil
 }
@@ -69,26 +68,17 @@ type rabbitMQChannelToQueue struct {
 
 type RabbitMQQueueConfig struct {
 	Name          string
-	Passive       bool
-	Durable       bool
-	Exclusive     bool
-	AutoDelete    bool
-	NoWait        bool
 	PrefetchCount int
-	Exchange      string
+	Delayed       bool
+	AutoDelete    bool
+	Router        string
 	RouterKeys    []string
-	Arguments     map[string]interface{}
 }
 
-type RabbitMQExchangeConfig struct {
+type RabbitMQRouterConfig struct {
 	Name       string
 	Type       string
-	Durable    bool
 	AutoDelete bool
-	Internal   bool
-	NoWait     bool
-	Delayed    bool
-	Arguments  map[string]interface{}
 }
 
 func (r *rabbitMQChannel) close() bool {
@@ -97,10 +87,10 @@ func (r *rabbitMQChannel) close() bool {
 		start := time.Now()
 		_ = r.channelSender.Close()
 		if r.log != nil {
-			if r.config.Exchange == "" {
+			if r.config.Router == "" {
 				r.fillLogFields(start, "close channel").WithField("Queue", r.q.Name).Info("[ORM][RABBIT_MQ][CLOSE CHANNEL]")
 			} else {
-				r.fillLogFields(start, "close channel").WithField("Exchange", r.config.Exchange).Info("[ORM][RABBIT_MQ][CLOSE CHANNEL]")
+				r.fillLogFields(start, "close channel").WithField("Router", r.config.Router).Info("[ORM][RABBIT_MQ][CLOSE CHANNEL]")
 			}
 		}
 		has = true
@@ -117,7 +107,7 @@ func (r *rabbitMQChannel) close() bool {
 
 func (r *rabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*amqp.Queue, error) {
 	config := r.config
-	q, err := channel.QueueDeclare(name, config.Durable, config.AutoDelete, config.Exclusive, config.NoWait, config.Arguments)
+	q, err := channel.QueueDeclare(name, true, false, false, false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +173,7 @@ func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
 		r.channelConsumers = make(map[string]RabbitMQConsumer)
 	}
 	queueName := r.config.Name
-	if r.config.Exchange != "" {
+	if r.config.Router != "" {
 		queueName = fmt.Sprintf("%s:%s", queueName, shortuuid.New())
 	}
 	channel, q, err := r.initChannel(queueName, false)
@@ -204,26 +194,24 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	if r.log != nil {
 		r.fillLogFields(start, "create channel").Info("[ORM][RABBIT_MQ][CREATE CHANNEL]")
 	}
-	hasExchange := r.config.Exchange != ""
-	if hasExchange {
-		configExchange := r.engine.registry.rabbitMQExchangeConfigs[r.config.Exchange]
-		typeValue := configExchange.Type
+	hasRouter := r.config.Router != ""
+	if hasRouter {
+		configRouter := r.engine.registry.rabbitMQRouterConfigs[r.config.Router]
+		typeValue := configRouter.Type
 		var args amqp.Table
-		if configExchange.Delayed {
-			args = amqp.Table{"x-delayed-type": configExchange.Type}
+		if r.config.Delayed {
+			args = amqp.Table{"x-delayed-type": configRouter.Type}
 			typeValue = "x-delayed-message"
 		}
 		start = time.Now()
-		err := channel.ExchangeDeclare(configExchange.Name, typeValue, configExchange.Durable, configExchange.AutoDelete,
-			configExchange.Internal, configExchange.NoWait, args)
+		err := channel.ExchangeDeclare(configRouter.Name, typeValue, true, r.config.AutoDelete,
+			false, false, args)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
 		if r.log != nil {
-			r.fillLogFields(start, "register exchange").WithField("Name", configExchange.Name).
-				WithField("Name", configExchange.Name).WithField("type", configExchange.Type).
-				WithField("durable", configExchange.Durable).WithField("autodelete", configExchange.AutoDelete).
-				WithField("internal", configExchange.Internal).WithField("nowait", configExchange.NoWait).
+			r.fillLogFields(start, "register exchange").WithField("Name", configRouter.Name).
+				WithField("Name", configRouter.Name).WithField("type", configRouter.Type).
 				WithField("args", args).Info("[ORM][RABBIT_MQ][REGISTER EXCHANGE]")
 		}
 		if sender {
@@ -238,20 +226,20 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	if r.log != nil {
 		r.fillLogFields(start, "register queue").WithField("Queue", q.Name).Info("[ORM][RABBIT_MQ][REGISTER QUEUE]")
 	}
-	if hasExchange {
+	if hasRouter {
 		keys := r.config.RouterKeys
 		if len(keys) == 0 {
 			keys = append(keys, "")
 		}
 		for _, key := range keys {
 			start = time.Now()
-			err = channel.QueueBind(q.Name, key, r.config.Exchange, r.config.NoWait, nil)
+			err = channel.QueueBind(q.Name, key, r.config.Router, false, nil)
 			if err != nil {
 				return nil, nil, err
 			}
 			if r.log != nil {
 				r.fillLogFields(start, "queue bind").WithField("Queue", q.Name).
-					WithField("Exchange", r.config.Exchange).WithField("key", key).
+					WithField("Router", r.config.Router).WithField("key", key).
 					Info("[ORM][RABBIT_MQ][QUEUE BIND]")
 			}
 		}
@@ -277,13 +265,13 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 		return err
 	}
 	start := time.Now()
-	err = r.channelSender.Publish(r.config.Exchange, routingKey, mandatory, immediate, msg)
+	err = r.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
 	if err != nil {
 		return err
 	}
 	if r.log != nil {
-		if r.config.Exchange != "" {
-			r.fillLogFields(start, "publish").WithField("Exchange", r.config.Exchange).WithField("mandatory", mandatory).
+		if r.config.Router != "" {
+			r.fillLogFields(start, "publish").WithField("Router", r.config.Router).WithField("mandatory", mandatory).
 				WithField("immediate", immediate).WithField("key", routingKey).Info("[ORM][RABBIT_MQ][PUBLISH]")
 		} else {
 			r.fillLogFields(start, "publish").WithField("Queue", r.q.Name).WithField("mandatory", mandatory).
