@@ -66,7 +66,6 @@ func TestRabbitMQQueueExchange(t *testing.T) {
 	go func() {
 		c := 0
 		err = consumer.Consume(func(items [][]byte) error {
-			//has = true
 			assert.Len(t, items, 1)
 			if c == 0 {
 				assert.Equal(t, []byte("hello"), items[0])

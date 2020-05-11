@@ -24,15 +24,20 @@ type RabbitMQConsumer interface {
 }
 
 type rabbitMQReceiver struct {
-	name        string
-	q           *amqp.Queue
-	channel     *amqp.Channel
-	parent      *rabbitMQChannel
-	disableLoop bool
+	name            string
+	q               *amqp.Queue
+	channel         *amqp.Channel
+	parent          *rabbitMQChannel
+	disableLoop     bool
+	maxLoopDuration time.Duration
 }
 
 func (r *rabbitMQReceiver) DisableLoop() {
 	r.disableLoop = true
+}
+
+func (r *rabbitMQReceiver) SetMaxLoopDudation(duration time.Duration) {
+	r.maxLoopDuration = duration
 }
 
 func (r *rabbitMQReceiver) Close() {
@@ -100,7 +105,7 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 				r.parent.fillLogFields(start, "received").WithField("Queue", r.q.Name).
 					WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][RECEIVED]")
 			}
-		case <-time.After(1 * time.Second):
+		case <-time.After(r.maxLoopDuration):
 			timeOut = true
 		}
 	}
@@ -226,7 +231,7 @@ func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
 	if err != nil {
 		return nil, err
 	}
-	receiver := &rabbitMQReceiver{name: name, channel: channel, q: q, parent: r}
+	receiver := &rabbitMQReceiver{name: name, channel: channel, q: q, parent: r, maxLoopDuration: time.Second}
 	r.channelConsumers[q.Name] = receiver
 	return receiver, nil
 }
