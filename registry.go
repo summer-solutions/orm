@@ -180,13 +180,21 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			hasLog = true
 		}
 	}
-	if hasLog && registry.rabbitMQChannelsToQueue["orm_log"] == nil {
+	if hasLog && registry.rabbitMQChannelsToQueue[logQueueName] == nil {
 		connection, has := registry.rabbitMQServers["default"]
 		if !has {
 			return nil, fmt.Errorf("missing default rabbitMQ connection to handle entity change log")
 		}
-		def := &RabbitMQQueueConfig{Name: "orm_log"}
-		registry.rabbitMQChannelsToQueue["orm_log"] = &rabbitMQChannelToQueue{connection: connection, config: def}
+		def := &RabbitMQQueueConfig{Name: logQueueName}
+		registry.rabbitMQChannelsToQueue[logQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
+	}
+	if registry.rabbitMQChannelsToQueue[lazyQueueName] == nil {
+		connection, has := registry.rabbitMQServers["default"]
+		if !has {
+			return nil, fmt.Errorf("missing default rabbitMQ connection to handle lazyFlush")
+		}
+		def := &RabbitMQQueueConfig{Name: lazyQueueName}
+		registry.rabbitMQChannelsToQueue[lazyQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 	}
 	return registry, nil
 }

@@ -18,9 +18,7 @@ type testEntityFlushLazyLocal struct {
 
 func TestFlushLazyLocal(t *testing.T) {
 	var entity testEntityFlushLazyLocal
-	registry := &Registry{}
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
-	engine := PrepareTables(t, registry, entity)
+	engine := PrepareTables(t, &Registry{}, entity)
 
 	DBLogger := memory.New()
 	pool := engine.GetMysql()

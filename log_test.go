@@ -15,9 +15,7 @@ type testEntityLog struct {
 
 func TestLog(t *testing.T) {
 	entity := &testEntityLog{}
-	registry := &Registry{}
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
-	engine := PrepareTables(t, registry, entity, entity)
+	engine := PrepareTables(t, &Registry{}, entity, entity)
 	logDB := engine.GetMysql("log")
 	_, err := logDB.Exec("TRUNCATE TABLE `_log_default_testEntityLog`")
 	assert.Nil(t, err)
