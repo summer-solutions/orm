@@ -57,12 +57,6 @@ func TestYamlLoader(t *testing.T) {
 	assert.Nil(t, registry)
 	assert.EqualError(t, err, "invalid redis DB id: test:ss:dd")
 
-	invalidLazyQueue := make(map[string]interface{})
-	invalidLazyQueue["default"] = map[interface{}]interface{}{"lazyQueueRedis": 12}
-	registry, err = InitByYaml(invalidLazyQueue)
-	assert.Nil(t, registry)
-	assert.EqualError(t, err, "invalid orm value for default: 12")
-
 	invalidLocker := make(map[string]interface{})
 	invalidLocker["default"] = map[interface{}]interface{}{"locker": 12}
 	registry, err = InitByYaml(invalidLocker)

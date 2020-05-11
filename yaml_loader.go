@@ -30,18 +30,6 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 				if err != nil {
 					return nil, err
 				}
-			case "lazyQueueRedis":
-				valAsString, err := validateOrmString(value, key)
-				if err != nil {
-					return nil, err
-				}
-				registry.RegisterLazyQueue(&RedisQueueSender{PoolName: valAsString})
-			case "lazyQueueRabbitMQ":
-				valAsString, err := validateOrmString(value, key)
-				if err != nil {
-					return nil, err
-				}
-				registry.RegisterLazyQueue(&RabbitMQQueueSender{QueueName: valAsString})
 			case "locker":
 				valAsString, err := validateOrmString(value, key)
 				if err != nil {

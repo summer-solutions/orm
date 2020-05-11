@@ -467,9 +467,8 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		}
 	}
 	if len(lazyMap) > 0 {
-		v := serializeForLazyQueue(lazyMap)
-		queue := engine.registry.lazyQueue
-		err := queue.Send(engine, lazyQueueName, [][]byte{v})
+		channel := engine.GetRabbitMQQueue(lazyQueueName)
+		err := channel.Publish(serializeForLazyQueue(lazyMap))
 		if err != nil {
 			return err
 		}

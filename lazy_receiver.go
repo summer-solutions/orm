@@ -4,34 +4,55 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-const lazyQueueName = "_lazy_queue"
+const lazyQueueName = "lazy_queue"
 
 type LazyReceiver struct {
-	engine    *Engine
-	queueName string
+	engine      *Engine
+	disableLoop bool
 }
 
 func NewLazyReceiver(engine *Engine) *LazyReceiver {
-	return &LazyReceiver{engine: engine, queueName: lazyQueueName}
+	return &LazyReceiver{engine: engine}
 }
 
-func (r *LazyReceiver) QueueName() string {
-	return r.queueName
+func (r *LazyReceiver) DisableLoop() {
+	r.disableLoop = true
 }
 
-func (r *LazyReceiver) Digest(item []byte) error {
+func (r *LazyReceiver) Digest() error {
+	channel := r.engine.GetRabbitMQQueue(lazyQueueName)
+	consumer, err := channel.NewConsumer("default consumer")
+	if err != nil {
+		return err
+	}
+	defer consumer.Close()
+	if r.disableLoop {
+		consumer.DisableLoop()
+	}
 	var data interface{}
-	_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(item, &data)
-	validMap := data.(map[string]interface{})
-	err := r.handleQueries(r.engine, validMap)
+	err = consumer.Consume(func(items [][]byte) error {
+		for _, item := range items {
+			_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(item, &data)
+			validMap := data.(map[string]interface{})
+			err := r.handleQueries(r.engine, validMap)
+			if err != nil {
+				return err
+			}
+			err = r.handleClearCache(validMap, "cl")
+			if err != nil {
+				return err
+			}
+			err = r.handleClearCache(validMap, "cr")
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	err = r.handleClearCache(validMap, "cl")
-	if err != nil {
-		return err
-	}
-	return r.handleClearCache(validMap, "cr")
+	return nil
 }
 
 func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interface{}) error {

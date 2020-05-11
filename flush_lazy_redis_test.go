@@ -18,7 +18,9 @@ type testEntityFlushLazyRedis struct {
 
 func TestFlushLazyRedis(t *testing.T) {
 	var entity testEntityFlushLazyRedis
-	engine := PrepareTables(t, &Registry{}, entity)
+	registry := &Registry{}
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
+	engine := PrepareTables(t, registry, entity)
 
 	DBLogger := memory.New()
 	pool := engine.GetMysql()
@@ -35,15 +37,12 @@ func TestFlushLazyRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Entries, 0)
 
-	LazyReceiver := NewLazyReceiver(engine)
-	val, found, err := engine.GetRedis("default_queue").RPop(LazyReceiver.QueueName())
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = LazyReceiver.Digest([]byte(val))
+	receiver := NewLazyReceiver(engine)
+	receiver.DisableLoop()
+	err = receiver.Digest()
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Entries, 1)
-	found, err = engine.LoadByID(1, &entity)
+	found, err := engine.LoadByID(1, &entity)
 	assert.Nil(t, err)
 	assert.True(t, found)
 	assert.Equal(t, "Name 1", entity.Name)
@@ -55,11 +54,7 @@ func TestFlushLazyRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Entries, 0)
 
-	val, found, err = engine.GetRedis("default_queue").RPop(LazyReceiver.QueueName())
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = LazyReceiver.Digest([]byte(val))
+	err = receiver.Digest()
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Entries, 1)
 	found, err = engine.LoadByID(1, &entity)
@@ -73,11 +68,7 @@ func TestFlushLazyRedis(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Entries, 0)
 
-	val, found, err = engine.GetRedis("default_queue").RPop(LazyReceiver.QueueName())
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = LazyReceiver.Digest([]byte(val))
+	err = receiver.Digest()
 	assert.Nil(t, err)
 	assert.Len(t, DBLogger.Entries, 1)
 	found, err = engine.LoadByID(1, &entity)
