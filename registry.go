@@ -311,24 +311,32 @@ func (r *Registry) RegisterRabbitMQServer(address string, code ...string) {
 	r.rabbitMQServers[dbCode] = rabbitMQ
 }
 
-func (r *Registry) RegisterRabbitMQQueue(serverPool string, config *RabbitMQQueueConfig) {
+func (r *Registry) RegisterRabbitMQQueue(config *RabbitMQQueueConfig, serverPool ...string) {
+	dbCode := "default"
+	if len(serverPool) > 0 {
+		dbCode = serverPool[0]
+	}
 	if r.rabbitMQQueues == nil {
 		r.rabbitMQQueues = make(map[string][]*RabbitMQQueueConfig)
 	}
-	if r.rabbitMQQueues[serverPool] == nil {
-		r.rabbitMQQueues[serverPool] = make([]*RabbitMQQueueConfig, 0)
+	if r.rabbitMQQueues[dbCode] == nil {
+		r.rabbitMQQueues[dbCode] = make([]*RabbitMQQueueConfig, 0)
 	}
-	r.rabbitMQQueues[serverPool] = append(r.rabbitMQQueues[serverPool], config)
+	r.rabbitMQQueues[dbCode] = append(r.rabbitMQQueues[dbCode], config)
 }
 
-func (r *Registry) RegisterRabbitMQRouter(serverPool string, config *RabbitMQRouterConfig) {
+func (r *Registry) RegisterRabbitMQRouter(config *RabbitMQRouterConfig, serverPool ...string) {
+	dbCode := "default"
+	if len(serverPool) > 0 {
+		dbCode = serverPool[0]
+	}
 	if r.rabbitMQRouters == nil {
 		r.rabbitMQRouters = make(map[string][]*RabbitMQRouterConfig)
 	}
-	if r.rabbitMQRouters[serverPool] == nil {
-		r.rabbitMQRouters[serverPool] = make([]*RabbitMQRouterConfig, 0)
+	if r.rabbitMQRouters[dbCode] == nil {
+		r.rabbitMQRouters[dbCode] = make([]*RabbitMQRouterConfig, 0)
 	}
-	r.rabbitMQRouters[serverPool] = append(r.rabbitMQRouters[serverPool], config)
+	r.rabbitMQRouters[dbCode] = append(r.rabbitMQRouters[dbCode], config)
 }
 
 func (r *Registry) RegisterDirtyQueue(code string, batchSize int) {

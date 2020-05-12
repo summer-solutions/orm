@@ -5,9 +5,20 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/summer-solutions/orm)](https://goreportcard.com/report/github.com/summer-solutions/orm)
 [![MIT license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
+
+
+ORM that delivers support for full stack data access:
+
+ * MySQL - for relational data
+ * Redis - for NoSQL in memory shared cache
+ * Elastic Search - for full text search
+ * Local Cache - in memory local (not shared) cache
+ * ClickHouse - time series database
+ * RabbitMQ - message broker 
+
 ## Configuration
 
-First you need to define Registry object and register all connection pools to MySQL, Redis and local cache.
+First you need to define Registry object and register all connection pools to MySQL, Redis, RabbitMQ and local cache.
 Use this object to register queues, and entities. You should create this object once when application
 starts.
 
@@ -30,18 +41,10 @@ func main() {
     //optionally you can define pool name as second argument
     registry.RegisterRedis("localhost:6379", 1, "second_pool")
 
-    /* Redis used to handle queues (explained later) */
-    registry.RegisterRedis("localhost:6379", 3, "queues_pool")
-    registry.RegisterLazyQueue("default", &RedisQueueSender{PoolName: "queues_pool"})
-    registry.RegisterLogQueue("default", &RedisQueueSender{PoolName: "queues_pool"})
-
     /* RabbitMQ */
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
-    
-    /* RabbitMQ used to handle queues (explained later) */
-    registry.RegisterLazyQueue("default", &RabbitMQQueueSender{PoolName: "queues_pool"})
-    registry.RegisterLogQueue("default", &RabbitMQQueueSender{PoolName: "queues_pool"})
+    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue"})
+    registry.RegisterRabbitMQRouter(&RabbitMQRouterConfig{Name, "test_router"})
 
     /* Local cache (in memory) */
     registry.RegisterLocalCache(1000) //you need to define cache size
@@ -61,39 +64,28 @@ func main() {
 default:
     mysql: root:root@tcp(localhost:3310)/db
     redis: localhost:6379:0
-    redisQueues: localhost:6379:1
-    lazyQueue: redisQueues
     locker: default
-    dirtyQueueRedis: redisQueues
-    lazyQueueRedis: redisQueues
-    lazyQueueRabbitMQ: test2
-    dirtyQueueabbitMQ: test2    
+    dirtyQueues:
+        test: 10
+        test2: 1    
     localCache: 1000
     rabbitMQ:
         server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
             queues:
                 - name: test
                 - name: test2
-                  passive: false // optional, default false
                   durrable: false // optional, default true
-                  exclusive: false // optional, default false
                   autodelete: false // optional, default false
-                  nowait: false // optional, default false
-                  prefetchCount: 1 // optional, default 0
-                  exchage: test // optional, default ""
+                  prefetchCount: 1 // optional, default 1
+                  router: test // optional, default ""
                   router_keys: // optional, default []string
                     - aa
                     - bb
-            exchanges:
-                - name: test
-                  type: fanout
+            routers:
                 - name: test_delayed
+                  type: direct  
                   delayed: true //optional, default false  
-                  type: direct
                   durable: false // optional, default true
-                  autodelete: false // optional, default false
-                  internal: false // optional, default false
-                  nowait: false   // optional, default false
 second_pool:
     mysql: root:root@tcp(localhost:3311)/db2
     redis: localhost:6380:1 
@@ -596,14 +588,9 @@ package main
 import "github.com/summer-solutions/orm"
 
 func main() {
-
-    // You need to register queue sender receiver that will send data to queue.
-    // Here we used RedisQueueSenderReceiver. If you want to use other queue service simply implement QueueSenderReceiver
-    registry.RegisterRedis("localhost:6379", 1, "queue_code")
-    registry.RegisterLazyQueue(&RedisQueueSender{PoolName: "queue_code"}) 
-    //Or using RabbitMQ (recommended)
+    
+    // you need to register default rabbitMQ server    
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
     
     // now in code you can use FlushLazy() methods instead of Flush().
     // it will send changes to queue (database and cached is not updated yet)
@@ -611,25 +598,9 @@ func main() {
     
     //You need to run code that will read data from queue and execute changes
     
-    lazyReceiver := NewLazyReceiver(engine)
-    //Redis
-    r := engine.GetRedis(engine.GetRegistry().GetLazQueueSender().(*orm.RedisQueueSender).PoolName)
-    for {
-        val, found, err := r.RPop(lazyReceiver.QueueName())
-        if found {
-            err = lazyReceiver.Digest(val)
-        } else {
-            //sleep x seconds
-        }
-    }
-    //RabbitMQ
-    channel := engine.GetRabbitMQQueue(engine.GetRegistry().GetLazQueueSender().(*orm.RabbitMQQueueSender).QueueName)
-    items := channel.Consume()
-    for item := range items {
-        //item.RoutingKey == lazyReceiver.QueueName() if you are using
-        err := lazyReceiver.Digest(item.Body)
-        item.Ack(false)
-    }
+    receiver := NewLazyReceiver(engine)
+    //optionally 
+    err := receiver.Digest() //It will wait for new messages in queue, run receiver.DisableLoop() to run loop once
 }
 
 ```
@@ -645,14 +616,10 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/log_database", "log_db_pool") //it's recommended to keep logs in separated DB
-
-    // You need to register queue sender receiver that will send  data to queue.
-    registry.RegisterRedis("localhost:6379", 1, "queue_code")
-    registry.RegisterLogQueue("log_db_pool", &RedisQueueSender{PoolName: "queue_code"})  //all changes that will be stored in "log_db_pool" database
-    //Or using RabbitMQ (recommended)
+    //it's recommended to keep logs in separated DB
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/log_database", "log_db_pool")
+    // you need to register default rabbitMQ server    
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
 
     //next you need to define in Entity that you want to log changes. Just add "log" tag
     type User struct {
@@ -670,28 +637,8 @@ func main() {
     // you can set meta only in specific entity
     engine.SetEntityLogMeta("user_name", "john", entity)
     
-    
-    //You need to run code that will read data from queue and store logs
-    logReceiver := NewLogReceiver(engine)
-    //Redis
-    sender := engine.GetRegistry().GetLogQueueSenders()["log_db_pool"]
-    r := engine.GetRedis(sender.(*orm.RedisQueueSender).PoolName)
-    for {
-        val, found, err :=r.RPop(logReceiver.QueueName())
-        if found {
-            err = logReceiver.Digest(val)
-        } else {
-            //sleep x seconds
-        }
-    }
-    //RabbitMQ
-    sender := engine.GetRegistry().GetLogQueueSenders()["log_db_pool"]
-    channel := engine.GetRabbitMQQueue(sender.(*orm.RabbitMQQueueSender).QueueName)
-    items := channel.Consume()
-    for item := range items {
-        //item.RoutingKey == logReceiver.QueueName()
-        err := logReceiver.Digest(item.Body)
-    }
+    receiver := NewLogReceiver(engine)
+    err := receiver.Digets() //it will wait for new messages in queue
 }
 
 ```
@@ -707,14 +654,11 @@ import "github.com/summer-solutions/orm"
 
 func main() {
     
-    // Using RabbitMQ Queue:
-
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "user_changes"})
     // register dirty queue
-    registry.RegisterDirtyQueue("user_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
-    registry.RegisterDirtyQueue("age_name_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
-    registry.RegisterDirtyQueue("age_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
+    registry.RegisterDirtyQueue("user_changed", 100)
+    registry.RegisterDirtyQueue("age_name_changed", 100)
+    registry.RegisterDirtyQueue("age_changed", 100)
 
     // next you need to define in Entity that you want to log changes. Just add "log" tag
     type User struct {
@@ -728,69 +672,19 @@ func main() {
 
     // receiving events
     receiver := NewDirtyReceiver(engine)
-    channel = engine.GetRabbitMQQueue("user_changes") 
-    defer channel.Close()
-    consumer, err := channel.NewConsumer("test consumer")
-    items, err := consumer.Consume()
-    for item := range items {
-        // item.Headers["q-code"] contains queue name, for example "user_changed"
-    	err = receiver.Digest(item.Body, func(data *DirtyData) error {
+    
+    // in this case data length is max 100
+    err := receiver.Digest("user_changed", func(data []*DirtyData) error {
+        for _, item := range data {
             // data.TableSchema is TableSchema of entity
             // data.ID has entity ID
             // data.Added is true if entity was added
             // data.Updated is true if entity was updated
             // data.Deleted is true if entity was deleted
-            item.Ack(false)
-    	    return nil
-    	})
-    }
+        }
+        return nil
+    })
 }
-
-    // Using RabbitMQ Router:
-
-    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "user_changes", Exchange: "my_exchange", RouterKeys: []string{"user_changes"}})
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "user_fields_changes", Exchange: "my_exchange", RouterKeys: []string{"age_name_changed","age_changed"}})
-    registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "my_exchange", Type: "fanout"})
-    // register dirty queue
-    registry.RegisterDirtyQueue("user_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
-    registry.RegisterDirtyQueue("age_name_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
-    registry.RegisterDirtyQueue("age_changed", &RabbitMQQueueSender{QueueName: "user_changes"})
-
-    // next you need to define in Entity that you want to log changes. Just add "log" tag
-    type User struct {
-        orm.ORM  `orm:"dirty=user_changed"` //define dirty here to track all changes
-        ID       uint
-        Name     string `orm:"dirty=age_name_changed"` //event will be send to age_name_changed if Name or Age changed
-        Age      int `orm:"dirty=age_name_changed,age_changed"` //event will be send to age_changed if Age changed
-    }
-
-    // now just use Flush and events will be send to queue
-
-    // receiving events
-    receiver := NewDirtyReceiver(engine)
-    channel = engine.GetRabbitMQRouter("user_fields_changes") 
-    defer channel.Close()
-    consumer, err := channel.NewConsumer("test consumer")
-    items, err := consumer.Consume()
-    for item := range items {
-        // item.RouterKey contains queue name: "age_changed" or "age_name_changed"
-    	err = receiver.Digest(item.Body, func(data *DirtyData) error {
-            item.Ack(false)
-    	    return nil
-    	})
-    }
-    channel2 = engine.GetRabbitMQRouter("user_changes") 
-    defer channel2.Close()
-    consumer2, err := channel2.NewConsumer("test consumer")
-    items, err := consumer2.Consume()
-    for item := range items {
-        // item.RouterKey contains queue name: "user_changes"
-    	err = receiver.Digest(item.Body, func(data *DirtyData) error {
-            item.Ack(false)
-    	    return nil
-    	})
-    }
 
 
 ```
@@ -1024,13 +918,11 @@ func main() {
 
     // register rabbitMQ servers, queues and exchanges
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue"})
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange", Exchange: "test_exchange"})
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_delayed", Exchange: "test_exchange_delayed"})
-    registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange_keys", 
-        Exchange: "test_exchange_topic", RouteKeys: []string{"aa", "bb"}})
-    registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange", Type: "fanout"})
-    registry.RegisterRabbitMQExchange("default", &RabbitMQExchangeConfig{Name: "test_exchange_delayed", Type: "direct", Delayed: true})
+    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue"})
+    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_delayed", Delayed: true})
+    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_router", 
+        Router: "test_router", RouteKeys: []string{"aa", "bb"}})
+    registry.RegisterRabbitMQRoutere("default", &RabbitMQRouteConfig{Name: "test_router", Type: "fanout"})
     
     //create engine:
     validatedRegistry, err := registry.Validate()
@@ -1044,8 +936,10 @@ func main() {
 
     //start consumer (you can add as many you want)
     consumer, err := channel.NewConsumer("test consumer")
-    items, err := consumer.Consume() //items is a channel
-
+    err := consumer.Consume(func(items [][]byte) error {
+    	//do staff
+    	return nil   
+    })
 
     //Delayed queue
     channel := engine.GetRabbitMQDelayedQueue("test_queue_delayed") //provide Queue name
@@ -1054,19 +948,23 @@ func main() {
 
     //start consumer (you can add as many you want)
     consumer, err := channel.NewConsumer("test consumer")
-    items, err := consumer.Consume() //items is a channel
+    err := consumer.Consume(func(items [][]byte) error {
+        //do staff
+    	return nil
+    })
     
     // publish to router
 
     channel = engine.GetRabbitMQRouter("test_queue_exchange") 
     defer channel.Close()
-    err = channel.PublishToExchange("router.key", []byte("hello"))
+    err = channel.Publish("router.key", []byte("hello"))
 
-    //start consumers
-    consumer1, err := channel.NewConsumer("test consumer")
-    consumer2, err := channel.NewConsumer("test consumer")
-    items, err := consumer.Consume()
-    items2, err := consumer.Consume()
+    //start consumer
+   consumer, err := channel.NewConsumer("test consumer")
+   err := consumer.Consume(func(items [][]byte) error {
+        //do staff
+        return nil
+   })
 }
 
 ```

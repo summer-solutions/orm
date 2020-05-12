@@ -158,7 +158,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
 			config := &RabbitMQQueueConfig{asString, int(prefetchCount), delayed, router, durable,
 				routerKeys, autoDeleted}
-			registry.RegisterRabbitMQQueue(key, config)
+			registry.RegisterRabbitMQQueue(config, key)
 		}
 	}
 	value, has = def["exchanges"]
@@ -190,7 +190,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			}
 			durable := getBoolOptional(asMap, "durable", true)
 			config := &RabbitMQRouterConfig{nameAsString, typeAsString, durable}
-			registry.RegisterRabbitMQRouter(key, config)
+			registry.RegisterRabbitMQRouter(config, key)
 		}
 	}
 	return nil

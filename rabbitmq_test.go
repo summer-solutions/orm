@@ -12,7 +12,7 @@ import (
 func TestRabbitMQQueue(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
-	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue", PrefetchCount: 2, AutoDelete: true})
+	registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue", PrefetchCount: 2, AutoDelete: true})
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
@@ -47,9 +47,9 @@ func TestRabbitMQQueue(t *testing.T) {
 func TestRabbitMQQueueExchange(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
-	registry.RegisterRabbitMQQueue("default", &RabbitMQQueueConfig{Name: "test_queue_exchange", AutoDelete: true,
+	registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_exchange", AutoDelete: true,
 		Router: "test_exchange_topic", RouterKeys: []string{"aa", "bb"}})
-	registry.RegisterRabbitMQRouter("default", &RabbitMQRouterConfig{Name: "test_exchange_topic", Type: "topic"})
+	registry.RegisterRabbitMQRouter(&RabbitMQRouterConfig{Name: "test_exchange_topic", Type: "topic"})
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
