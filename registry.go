@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -258,10 +259,12 @@ func (r *Registry) RegisterEnumMap(code string, val map[string]string, defaultVa
 	e := EnumModel{}
 	e.mapping = val
 	e.defaultValue = defaultValue
-	e.fields = make([]string, 0)
+	fields := make([]string, 0)
 	for name := range val {
-		e.fields = append(e.fields, name)
+		fields = append(fields, name)
 	}
+	sort.Strings(fields)
+	e.fields = fields
 	if r.enums == nil {
 		r.enums = make(map[string]Enum)
 	}
