@@ -63,12 +63,6 @@ func TestYamlLoader(t *testing.T) {
 	assert.Nil(t, registry)
 	assert.EqualError(t, err, "invalid orm value for default: 12")
 
-	invalidDirtyQueue := make(map[string]interface{})
-	invalidDirtyQueue["default"] = map[interface{}]interface{}{"dirtyQueueRedis": 12}
-	registry, err = InitByYaml(invalidDirtyQueue)
-	assert.Nil(t, registry)
-	assert.EqualError(t, err, "invalid orm value for default: 12")
-
 	invalidLocalCache := make(map[string]interface{})
 	invalidLocalCache["default"] = map[interface{}]interface{}{"localCache": "test"}
 	registry, err = InitByYaml(invalidLocalCache)
