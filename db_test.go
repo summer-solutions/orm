@@ -12,7 +12,7 @@ import (
 func TestDB(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test")
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	db := validatedRegistry.CreateEngine().GetMysql()

@@ -96,7 +96,7 @@ func TestSchema(t *testing.T) {
 	var entityRef testEntitySchemaRef
 	registry.RegisterEntity(entity, entityRef)
 	registry.RegisterEnumStruct("orm.colorEnum", colorEnum)
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
 
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)

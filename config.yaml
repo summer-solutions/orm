@@ -2,7 +2,7 @@ default:
   mysql: root:root@tcp(localhost:3308)/test
   redis: localhost:6379:0
   rabbitMQ:
-    server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test
+    server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
     queues:
       - name: test
         prefetchCount: 1
