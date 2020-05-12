@@ -16,6 +16,7 @@ type testEntityLog struct {
 func TestLog(t *testing.T) {
 	entity := &testEntityLog{}
 	engine := PrepareTables(t, &Registry{}, entity, entity)
+	defer engine.Defer()
 	logDB := engine.GetMysql("log")
 	_, err := logDB.Exec("TRUNCATE TABLE `_log_default_testEntityLog`")
 	assert.Nil(t, err)

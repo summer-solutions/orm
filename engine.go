@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
+
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
 	"github.com/apex/log/handlers/text"
@@ -148,6 +150,24 @@ func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 		orm.attributes.delete = true
 		e.Track(row)
 	}
+}
+
+func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) error {
+	_, has := e.GetRegistry().GetDirtyQueues()[queueCode]
+	if !has {
+		return fmt.Errorf("unknown dirty queue '%s'", queueCode)
+	}
+	channel := e.GetRabbitMQQueue("dirty_queue_" + queueCode)
+	entityName := initIfNeeded(e, entity).tableSchema.t.String()
+	for _, id := range ids {
+		val := &DirtyQueueValue{Updated: true, ID: id, EntityName: entityName}
+		asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
+		err := channel.Publish(asJSON)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (e *Engine) Loaded(entity Entity) bool {

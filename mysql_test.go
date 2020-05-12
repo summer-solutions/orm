@@ -16,6 +16,7 @@ type testEntityMySQL struct {
 func TestMySQL(t *testing.T) {
 	var entity testEntityMySQL
 	engine := PrepareTables(t, &Registry{}, entity, entity)
+	defer engine.Defer()
 	for i := 1; i <= 5; i++ {
 		e := &testEntityMySQL{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(e)

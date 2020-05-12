@@ -19,6 +19,7 @@ type testEntityFakeDelete struct {
 func TestFakeDelete(t *testing.T) {
 	registry := &Registry{}
 	engine := PrepareTables(t, registry, testEntityFakeDelete{})
+	defer engine.Defer()
 
 	entity := &testEntityFakeDelete{}
 	engine.Track(entity)

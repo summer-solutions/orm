@@ -33,6 +33,7 @@ func (e *testEntityInterfaces) AfterSaved(_ *Engine) error {
 
 func TestInterfaces(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, testEntityInterfaces{}, testEntityInterfacesRef{})
+	defer engine.Defer()
 
 	e := &testEntityInterfacesRef{}
 	err := engine.TrackAndFlush(e)

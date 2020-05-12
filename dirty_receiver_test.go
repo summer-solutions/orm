@@ -20,12 +20,12 @@ type testEntityDirtyQueueAge struct {
 }
 
 func TestDirtyReceiver(t *testing.T) {
-	entityAll := &testEntityDirtyQueueAll{Name: "Name"}
+	entityAll := &testEntityDirtyQueueAll{Name: "GetRabbitMQQueue"}
 	entityAge := &testEntityDirtyQueueAge{Name: "Name", Age: 18}
 	registry := &Registry{}
 	registry.RegisterDirtyQueue("test", 2)
 	engine := PrepareTables(t, registry, entityAll, entityAge)
-
+	defer engine.Defer()
 	//engine.EnableDebug()
 
 	engine.Track(entityAll)

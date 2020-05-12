@@ -27,6 +27,7 @@ func TestFlushInCache(t *testing.T) {
 	entityRedis := &testEntityFlusherInCacheRedis{Name: "Name", Age: 18}
 	entityLocal := &testEntityFlusherInCacheLocal{}
 	engine := PrepareTables(t, &Registry{}, entityRedis, entityLocal)
+	defer engine.Defer()
 
 	engine.Track(entityRedis)
 	err := engine.Flush()
