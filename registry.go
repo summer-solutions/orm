@@ -26,7 +26,7 @@ type Registry struct {
 	rabbitMQRouters      map[string][]*RabbitMQRouterConfig
 	entities             map[string]reflect.Type
 	enums                map[string]Enum
-	dirtyQueues          map[string]QueueSender
+	dirtyQueues          map[string]int
 	locks                map[string]string
 }
 
@@ -74,7 +74,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.sqlClients[k] = v
 	}
 	if registry.dirtyQueues == nil {
-		registry.dirtyQueues = make(map[string]QueueSender)
+		registry.dirtyQueues = make(map[string]int)
 	}
 	for k, v := range r.dirtyQueues {
 		registry.dirtyQueues[k] = v
@@ -185,7 +185,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if !has {
 			return nil, fmt.Errorf("missing default rabbitMQ connection to handle entity change log")
 		}
-		def := &RabbitMQQueueConfig{Name: logQueueName}
+		def := &RabbitMQQueueConfig{Name: logQueueName, Durable: true}
 		registry.rabbitMQChannelsToQueue[logQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 	}
 	if registry.rabbitMQChannelsToQueue[lazyQueueName] == nil {
@@ -193,7 +193,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if !has {
 			return nil, fmt.Errorf("missing default rabbitMQ connection to handle lazyFlush")
 		}
-		def := &RabbitMQQueueConfig{Name: lazyQueueName}
+		def := &RabbitMQQueueConfig{Name: lazyQueueName, Durable: true}
 		registry.rabbitMQChannelsToQueue[lazyQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 	}
 	if registry.rabbitMQChannelsToQueue[flushCacheQueueName] == nil {
@@ -201,8 +201,20 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if !has {
 			return nil, fmt.Errorf("missing default rabbitMQ connection to handle flushInCache")
 		}
-		def := &RabbitMQQueueConfig{Name: flushCacheQueueName}
+		def := &RabbitMQQueueConfig{Name: flushCacheQueueName, Durable: true}
 		registry.rabbitMQChannelsToQueue[flushCacheQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
+	}
+	queues := registry.GetDirtyQueues()
+	if len(queues) > 0 {
+		connection, has := registry.rabbitMQServers["default"]
+		if !has {
+			return nil, fmt.Errorf("missing default rabbitMQ connection to handle flushInCache")
+		}
+		for name, max := range registry.GetDirtyQueues() {
+			queueName := "dirty_queue_" + name
+			def := &RabbitMQQueueConfig{Name: queueName, Durable: false, PrefetchCount: max}
+			registry.rabbitMQChannelsToQueue[queueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
+		}
 	}
 	return registry, nil
 }
@@ -319,11 +331,11 @@ func (r *Registry) RegisterRabbitMQRouter(serverPool string, config *RabbitMQRou
 	r.rabbitMQRouters[serverPool] = append(r.rabbitMQRouters[serverPool], config)
 }
 
-func (r *Registry) RegisterDirtyQueue(code string, sender QueueSender) {
+func (r *Registry) RegisterDirtyQueue(code string, batchSize int) {
 	if r.dirtyQueues == nil {
-		r.dirtyQueues = make(map[string]QueueSender)
+		r.dirtyQueues = make(map[string]int)
 	}
-	r.dirtyQueues[code] = sender
+	r.dirtyQueues[code] = batchSize
 }
 
 func (r *Registry) RegisterLocker(code string, redisCode string) {

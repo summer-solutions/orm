@@ -25,7 +25,7 @@ type ValidatedRegistry interface {
 	CreateEngine() *Engine
 	GetTableSchema(entityName string) TableSchema
 	GetTableSchemaForEntity(entity Entity) TableSchema
-	GetDirtyQueueSenders() map[string]QueueSender
+	GetDirtyQueues() map[string]int
 	AddLogger(handler log.Handler)
 	SetLogLevel(level log.Level)
 	EnableDebug()
@@ -35,7 +35,7 @@ type validatedRegistry struct {
 	tableSchemas            map[reflect.Type]*tableSchema
 	entities                map[string]reflect.Type
 	sqlClients              map[string]*DBConfig
-	dirtyQueues             map[string]QueueSender
+	dirtyQueues             map[string]int
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
 	rabbitMQServers         map[string]*rabbitMQConnection
@@ -151,6 +151,6 @@ func (r *validatedRegistry) GetEnum(code string) Enum {
 	return r.enums[code]
 }
 
-func (r *validatedRegistry) GetDirtyQueueSenders() map[string]QueueSender {
+func (r *validatedRegistry) GetDirtyQueues() map[string]int {
 	return r.dirtyQueues
 }

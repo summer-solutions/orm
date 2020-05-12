@@ -36,18 +36,18 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 					return nil, err
 				}
 				registry.RegisterLocker(key, valAsString)
-			case "dirtyQueueRedis":
-				valAsString, err := validateOrmString(value, key)
-				if err != nil {
-					return nil, err
+			case "dirtyQueues":
+				def, ok := value.(map[interface{}]interface{})
+				if !ok {
+					return nil, fmt.Errorf("invalid dirtyQueues definition: %s", value)
 				}
-				registry.RegisterDirtyQueue(key, &RedisQueueSender{PoolName: valAsString})
-			case "dirtyQueueRabbitMQ":
-				valAsString, err := validateOrmString(value, key)
-				if err != nil {
-					return nil, err
+				for k, v := range def {
+					asInt, ok := v.(int)
+					if !ok {
+						return nil, fmt.Errorf("invalid dirtyQueues definition: %s", value)
+					}
+					registry.RegisterDirtyQueue(k.(string), asInt)
 				}
-				registry.RegisterDirtyQueue(key, &RabbitMQQueueSender{QueueName: valAsString})
 			case "localCache":
 				number, err := validateOrmInt(value, key)
 				if err != nil {
@@ -129,6 +129,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 				return fmt.Errorf("invalid rabbitMQ channel name: %s", key)
 			}
 			delayed := getBoolOptional(asMap, "delayed", false)
+			durable := getBoolOptional(asMap, "durable", true)
 			autoDeleted := getBoolOptional(asMap, "autodelete", false)
 			router := ""
 			exchangeVal, has := asMap["exchange"]
@@ -155,7 +156,8 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 				}
 			}
 			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
-			config := &RabbitMQQueueConfig{asString, int(prefetchCount), delayed, router, routerKeys, autoDeleted}
+			config := &RabbitMQQueueConfig{asString, int(prefetchCount), delayed, router, durable,
+				routerKeys, autoDeleted}
 			registry.RegisterRabbitMQQueue(key, config)
 		}
 	}
@@ -186,7 +188,8 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			if !ok {
 				return fmt.Errorf("invalid rabbitMQ exchange type: %s", key)
 			}
-			config := &RabbitMQRouterConfig{nameAsString, typeAsString}
+			durable := getBoolOptional(asMap, "durable", true)
+			config := &RabbitMQRouterConfig{nameAsString, typeAsString, durable}
 			registry.RegisterRabbitMQRouter(key, config)
 		}
 	}

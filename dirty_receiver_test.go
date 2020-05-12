@@ -3,9 +3,6 @@ package orm
 import (
 	"testing"
 
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/memory"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,13 +23,9 @@ func TestDirtyReceiver(t *testing.T) {
 	entityAll := &testEntityDirtyQueueAll{Name: "Name"}
 	entityAge := &testEntityDirtyQueueAge{Name: "Name", Age: 18}
 	registry := &Registry{}
-	registry.RegisterDirtyQueue("test", &RedisQueueSender{PoolName: "default_queue"})
+	registry.RegisterDirtyQueue("test", 10)
 	engine := PrepareTables(t, registry, entityAll, entityAge)
 
-	LoggerRedisQueue := memory.New()
-	cache := engine.GetRedis("default_queue")
-	cache.AddLogger(LoggerRedisQueue)
-	cache.SetLogLevel(log.InfoLevel)
 	//engine.EnableDebug()
 
 	engine.Track(entityAll)
@@ -43,29 +36,20 @@ func TestDirtyReceiver(t *testing.T) {
 	assert.Nil(t, err)
 
 	receiver := NewDirtyReceiver(engine)
-
+	receiver.DisableLoop()
 	queueName := "test"
-	val, found, err := cache.RPop(queueName)
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
-		assert.Equal(t, uint64(1), data.ID)
-		assert.True(t, data.Added)
-		assert.False(t, data.Updated)
-		assert.False(t, data.Deleted)
-		return nil
-	})
-	assert.Nil(t, err)
-	val, found, err = cache.RPop(queueName)
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
-		assert.Equal(t, uint64(1), data.ID)
-		assert.True(t, data.Added)
-		assert.False(t, data.Updated)
-		assert.False(t, data.Deleted)
+
+	err = receiver.Digest(queueName, func(data []*DirtyData) error {
+		assert.Len(t, data, 2)
+		assert.Equal(t, uint64(1), data[0].ID)
+		assert.True(t, data[0].Added)
+		assert.False(t, data[0].Updated)
+		assert.False(t, data[0].Deleted)
+
+		assert.Equal(t, uint64(1), data[1].ID)
+		assert.True(t, data[1].Added)
+		assert.False(t, data[1].Updated)
+		assert.False(t, data[1].Deleted)
 		return nil
 	})
 	assert.Nil(t, err)
@@ -75,16 +59,13 @@ func TestDirtyReceiver(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	val, found, err = cache.RPop(queueName)
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
-		assert.Equal(t, "testEntityDirtyQueueAll", data.TableSchema.GetTableName())
-		assert.Equal(t, uint64(1), data.ID)
-		assert.False(t, data.Added)
-		assert.True(t, data.Updated)
-		assert.False(t, data.Deleted)
+	err = receiver.Digest(queueName, func(data []*DirtyData) error {
+		assert.Len(t, data, 1)
+		assert.Equal(t, "testEntityDirtyQueueAll", data[0].TableSchema.GetTableName())
+		assert.Equal(t, uint64(1), data[0].ID)
+		assert.False(t, data[0].Added)
+		assert.True(t, data[0].Updated)
+		assert.False(t, data[0].Deleted)
 		return nil
 	})
 	assert.Nil(t, err)
@@ -94,16 +75,13 @@ func TestDirtyReceiver(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	val, found, err = cache.RPop(queueName)
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
-		assert.Equal(t, "testEntityDirtyQueueAge", data.TableSchema.GetTableName())
-		assert.Equal(t, uint64(1), data.ID)
-		assert.False(t, data.Added)
-		assert.True(t, data.Updated)
-		assert.False(t, data.Deleted)
+	err = receiver.Digest(queueName, func(data []*DirtyData) error {
+		assert.Len(t, data, 1)
+		assert.Equal(t, "testEntityDirtyQueueAge", data[0].TableSchema.GetTableName())
+		assert.Equal(t, uint64(1), data[0].ID)
+		assert.False(t, data[0].Added)
+		assert.True(t, data[0].Updated)
+		assert.False(t, data[0].Deleted)
 		return nil
 	})
 	assert.Nil(t, err)
@@ -112,16 +90,13 @@ func TestDirtyReceiver(t *testing.T) {
 	err = engine.Flush()
 	assert.Nil(t, err)
 
-	val, found, err = cache.RPop(queueName)
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.NotNil(t, val)
-	err = receiver.Digest([]byte(val), func(data *DirtyData) error {
-		assert.Equal(t, "testEntityDirtyQueueAge", data.TableSchema.GetTableName())
-		assert.Equal(t, uint64(1), data.ID)
-		assert.False(t, data.Added)
-		assert.False(t, data.Updated)
-		assert.True(t, data.Deleted)
+	err = receiver.Digest(queueName, func(data []*DirtyData) error {
+		assert.Len(t, data, 1)
+		assert.Equal(t, "testEntityDirtyQueueAge", data[0].TableSchema.GetTableName())
+		assert.Equal(t, uint64(1), data[0].ID)
+		assert.False(t, data[0].Added)
+		assert.False(t, data[0].Updated)
+		assert.True(t, data[0].Deleted)
 		return nil
 	})
 	assert.Nil(t, err)

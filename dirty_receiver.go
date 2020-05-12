@@ -5,7 +5,8 @@ import (
 )
 
 type DirtyReceiver struct {
-	engine *Engine
+	engine      *Engine
+	disableLoop bool
 }
 
 type DirtyQueueValue struct {
@@ -28,25 +29,45 @@ func NewDirtyReceiver(engine *Engine) *DirtyReceiver {
 	return &DirtyReceiver{engine: engine}
 }
 
-type DirtyHandler func(data *DirtyData) error
+func (r *DirtyReceiver) DisableLoop() {
+	r.disableLoop = true
+}
 
-func (r *DirtyReceiver) Digest(item []byte, handler DirtyHandler) error {
-	var value DirtyQueueValue
-	err := jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(item, &value)
+type DirtyHandler func(data []*DirtyData) error
+
+func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) error {
+	channel := r.engine.GetRabbitMQQueue("dirty_queue_" + code)
+	consumer, err := channel.NewConsumer("default consumer")
 	if err != nil {
-		return nil
+		return err
 	}
-	t, has := r.engine.registry.entities[value.EntityName]
-	if !has {
-		return nil
+	defer consumer.Close()
+	if r.disableLoop {
+		consumer.DisableLoop()
 	}
-	tableSchema := getTableSchema(r.engine.registry, t)
-	data := &DirtyData{
-		TableSchema: tableSchema,
-		ID:          value.ID,
-		Added:       value.Added,
-		Updated:     value.Updated,
-		Deleted:     value.Deleted,
+	var value DirtyQueueValue
+	err = consumer.Consume(func(items [][]byte) error {
+		data := make([]*DirtyData, len(items))
+		for i, item := range items {
+			_ = jsoniter.ConfigFastest.Unmarshal(item, &value)
+			t, has := r.engine.registry.entities[value.EntityName]
+			if !has {
+				return nil
+			}
+			tableSchema := getTableSchema(r.engine.registry, t)
+			v := &DirtyData{
+				TableSchema: tableSchema,
+				ID:          value.ID,
+				Added:       value.Added,
+				Updated:     value.Updated,
+				Deleted:     value.Deleted,
+			}
+			data[i] = v
+		}
+		return handler(data)
+	})
+	if err != nil {
+		return err
 	}
-	return handler(data)
+	return nil
 }

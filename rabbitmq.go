@@ -129,13 +129,15 @@ type RabbitMQQueueConfig struct {
 	PrefetchCount int
 	Delayed       bool
 	Router        string
+	Durable       bool
 	RouterKeys    []string
 	AutoDelete    bool
 }
 
 type RabbitMQRouterConfig struct {
-	Name string
-	Type string
+	Name    string
+	Type    string
+	Durable bool
 }
 
 func (r *rabbitMQChannel) close() bool {
@@ -164,7 +166,7 @@ func (r *rabbitMQChannel) close() bool {
 
 func (r *rabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*amqp.Queue, error) {
 	config := r.config
-	q, err := channel.QueueDeclare(name, true, config.AutoDelete, false, false, nil)
+	q, err := channel.QueueDeclare(name, config.Durable, config.AutoDelete, false, false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +260,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			typeValue = "x-delayed-message"
 		}
 		start = time.Now()
-		err := channel.ExchangeDeclare(configRouter.Name, typeValue, true, true,
+		err := channel.ExchangeDeclare(configRouter.Name, typeValue, configRouter.Durable, true,
 			false, false, args)
 		if err != nil {
 			return nil, nil, errors.Trace(err)

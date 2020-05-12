@@ -11,15 +11,17 @@ default:
         router: test
         delayed: false
         autodelete: false
+        durable: false
         router_keys:
           - aa
           - bb
     routers:
       - name: test
         type: fanout
+        durable: false
   localCache: 1000
-  dirtyQueueRedis: default_queue
-  dirtyQueueRabbitMQ: test2
+  dirtyQueues:
+    default_queue: 10
   locker: default
 default_queue:
   redis: localhost:6379:1
