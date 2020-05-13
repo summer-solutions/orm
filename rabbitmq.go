@@ -51,6 +51,7 @@ func (r *rabbitMQReceiver) Close() {
 	if r.parent.log != nil {
 		r.parent.fillLogFields(start, "close channel").WithField("Queue", r.q.Name).Info("[ORM][RABBIT_MQ][CLOSE CHANNEL]")
 	}
+	delete(r.parent.channelConsumers, r.q.Name)
 }
 
 func (r *rabbitMQReceiver) consume() (<-chan amqp.Delivery, error) {

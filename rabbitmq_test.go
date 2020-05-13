@@ -31,6 +31,7 @@ func TestRabbitMQQueue(t *testing.T) {
 
 	consumer, err := r.NewConsumer("test consumer")
 	assert.NoError(t, err)
+	defer consumer.Close()
 	consumer.DisableLoop()
 	has := false
 	err = consumer.Consume(func(items [][]byte) error {

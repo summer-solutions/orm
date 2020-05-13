@@ -936,6 +936,7 @@ func main() {
 
     //start consumer (you can add as many you want)
     consumer, err := channel.NewConsumer("test consumer")
+    defer consumer.Close()
     err := consumer.Consume(func(items [][]byte) error {
     	//do staff
     	return nil   
@@ -948,6 +949,7 @@ func main() {
 
     //start consumer (you can add as many you want)
     consumer, err := channel.NewConsumer("test consumer")
+    defer consumer.Close()
     err := consumer.Consume(func(items [][]byte) error {
         //do staff
     	return nil
@@ -961,6 +963,7 @@ func main() {
 
     //start consumer
    consumer, err := channel.NewConsumer("test consumer")
+   defer consumer.Close()
    err := consumer.Consume(func(items [][]byte) error {
         //do staff
         return nil
