@@ -17,7 +17,7 @@ func TestLocker(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRedis("localhost:6379", 5)
 	registry.RegisterLocker("default", "default")
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
