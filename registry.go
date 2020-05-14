@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/streadway/amqp"
-
 	"github.com/apex/log/handlers/multi"
 
 	"github.com/go-redis/redis/v7"
@@ -103,13 +101,9 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.rabbitMQServers = make(map[string]*rabbitMQConnection)
 	}
 	for k, v := range r.rabbitMQServers {
-		conn, err := amqp.Dial(v.address)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		registry.rabbitMQServers[k] = &rabbitMQConnection{config: v, client: conn}
+		rConn := &rabbitMQConnection{config: v}
+		registry.rabbitMQServers[k] = rConn
 	}
-
 	if registry.rabbitMQRouterConfigs == nil {
 		registry.rabbitMQRouterConfigs = make(map[string]*RabbitMQRouterConfig)
 	}

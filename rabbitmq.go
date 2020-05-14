@@ -2,6 +2,7 @@ package orm
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -111,13 +112,61 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 }
 
 type rabbitMQConnection struct {
-	config *rabbitMQConfig
-	client *amqp.Connection
+	config          *rabbitMQConfig
+	clientSender    *amqp.Connection
+	clientReceivers *amqp.Connection
+	mux             sync.Mutex
 }
 
 type rabbitMQChannelToQueue struct {
 	connection *rabbitMQConnection
 	config     *RabbitMQQueueConfig
+}
+
+func (r *rabbitMQConnection) getClient(sender bool) *amqp.Connection {
+	if sender {
+		return r.clientSender
+	}
+	return r.clientReceivers
+}
+
+func (r *rabbitMQConnection) keepConnection(sender bool, log *log.Entry, errChannel chan *amqp.Error) {
+	go func() {
+		err := <-errChannel
+		if log != nil {
+			log.
+				WithField("operation", "reconnect").
+				WithField("target", "rabbitMQ").
+				WithField("reason", err.Reason).
+				WithField("time", time.Now().Unix()).Warn("[ORM][RABBIT_MQ][RECONNECT]")
+		}
+		_ = r.connect(sender, log)
+	}()
+}
+
+func (r *rabbitMQConnection) connect(sender bool, log *log.Entry) error {
+	start := time.Now()
+	conn, err := amqp.Dial(r.config.address)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if log != nil {
+		log.
+			WithField("microseconds", time.Since(start).Microseconds()).
+			WithField("operation", "open connection").
+			WithField("target", "rabbitMQ").
+			WithField("time", start.Unix()).Info("[ORM][RABBIT_MQ][OPEN CONNECTION]")
+	}
+	if sender {
+		r.clientSender = conn
+	} else {
+		r.clientReceivers = conn
+	}
+	errChannel := make(chan *amqp.Error)
+	conn.NotifyClose(errChannel)
+
+	go r.keepConnection(sender, log, errChannel)
+	return nil
 }
 
 type RabbitMQQueueConfig struct {
@@ -237,9 +286,30 @@ func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
 	return receiver, nil
 }
 
+func (r *rabbitMQChannel) getClient(sender bool) (*amqp.Connection, error) {
+	client := r.connection.getClient(sender)
+	if client == nil {
+		r.connection.mux.Lock()
+		client = r.connection.getClient(sender)
+		if client == nil {
+			err := r.connection.connect(sender, r.log)
+			r.connection.mux.Unlock()
+			if err != nil {
+				return nil, err
+			}
+		}
+		return r.connection.getClient(sender), nil
+	}
+	return client, nil
+}
+
 func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Channel, *amqp.Queue, error) {
 	start := time.Now()
-	channel, err := r.connection.client.Channel()
+	client, err := r.getClient(sender)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	channel, err := client.Channel()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -352,7 +422,6 @@ func (r *rabbitMQChannel) fillLogFields(start time.Time, operation string) *log.
 	e := r.log.
 		WithField("microseconds", time.Since(start).Microseconds()).
 		WithField("operation", operation).
-		WithField("pool", r.connection.config.code).
 		WithField("target", "rabbitMQ").
 		WithField("time", start.Unix())
 	return e
