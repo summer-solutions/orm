@@ -42,11 +42,6 @@ func (r *rabbitMQReceiver) SetMaxLoopDudation(duration time.Duration) {
 
 func (r *rabbitMQReceiver) Close() {
 	start := time.Now()
-	if r.parent.config.Router != "" {
-		for _, key := range r.parent.config.RouterKeys {
-			_ = r.channel.QueueUnbind(r.q.Name, key, r.parent.config.Router, nil) //is that needed
-		}
-	}
 	_ = r.channel.Close()
 	if r.parent.log != nil {
 		r.parent.fillLogFields(start, "close channel").WithField("Queue", r.q.Name).Info("[ORM][RABBIT_MQ][CLOSE CHANNEL]")
