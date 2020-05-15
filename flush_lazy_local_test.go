@@ -19,8 +19,6 @@ type testEntityFlushLazyLocal struct {
 func TestFlushLazyLocal(t *testing.T) {
 	var entity testEntityFlushLazyLocal
 	engine := PrepareTables(t, &Registry{}, entity)
-	defer engine.Defer()
-
 	DBLogger := memory.New()
 	pool := engine.GetMysql()
 	pool.AddLogger(DBLogger)

@@ -51,7 +51,6 @@ type testEntityByIDLocal struct {
 func TestGetByIDLocal(t *testing.T) {
 	var entity testEntityByIDLocal
 	engine := PrepareTables(t, &Registry{}, entity)
-	defer engine.Defer()
 
 	found, err := engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
@@ -173,7 +172,6 @@ func TestGetByIDLocal(t *testing.T) {
 func BenchmarkGetByIDLocal(b *testing.B) {
 	var entity testEntityByIDLocal
 	engine := PrepareTables(&testing.T{}, &Registry{}, entity)
-	defer engine.Defer()
 
 	entity = testEntityByIDLocal{}
 	engine.Track(&entity)

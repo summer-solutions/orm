@@ -16,7 +16,6 @@ type testEntityFlushLazyReference struct {
 func TestFlushLazyReference(t *testing.T) {
 	var entity testEntityFlushLazyReference
 	engine := PrepareTables(t, &Registry{}, entity)
-	defer engine.Defer()
 
 	entity1 := &testEntityFlushLazyReference{Name: "Name 1"}
 	engine.Track(entity1)

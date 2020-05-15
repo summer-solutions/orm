@@ -185,30 +185,6 @@ type RabbitMQRouterConfig struct {
 	Durable bool
 }
 
-func (r *rabbitMQChannel) close() bool {
-	has := false
-	if r.channelSender != nil {
-		start := time.Now()
-		_ = r.channelSender.Close()
-		if r.log != nil {
-			if r.config.Router == "" {
-				r.fillLogFields(start, "close channel").WithField("Queue", r.q.Name).Info("[ORM][RABBIT_MQ][CLOSE CHANNEL]")
-			} else {
-				r.fillLogFields(start, "close channel").WithField("Router", r.config.Router).Info("[ORM][RABBIT_MQ][CLOSE CHANNEL]")
-			}
-		}
-		has = true
-	}
-	if r.channelConsumers != nil {
-		for _, receiver := range r.channelConsumers {
-			receiver.Close()
-		}
-		r.channelConsumers = nil
-		has = true
-	}
-	return has
-}
-
 func (r *rabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*amqp.Queue, error) {
 	config := r.config
 	q, err := channel.QueueDeclare(name, config.Durable, config.AutoDelete, false, false, nil)

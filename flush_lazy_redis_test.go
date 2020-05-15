@@ -19,7 +19,6 @@ type testEntityFlushLazyRedis struct {
 func TestFlushLazyRedis(t *testing.T) {
 	var entity testEntityFlushLazyRedis
 	engine := PrepareTables(t, &Registry{}, entity)
-	defer engine.Defer()
 
 	DBLogger := memory.New()
 	pool := engine.GetMysql()

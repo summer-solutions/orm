@@ -25,7 +25,6 @@ func TestDirtyReceiver(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterDirtyQueue("test", 2)
 	engine := PrepareTables(t, registry, entityAll, entityAge)
-	defer engine.Defer()
 	//engine.EnableDebug()
 
 	engine.Track(entityAll)

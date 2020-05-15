@@ -49,7 +49,6 @@ type testEntityByIDRedis struct {
 func TestGetByIDRedis(t *testing.T) {
 	var entity testEntityByIDRedis
 	engine := PrepareTables(t, &Registry{}, entity)
-	defer engine.Defer()
 
 	found, err := engine.LoadByID(100, &entity)
 	assert.Nil(t, err)
@@ -183,7 +182,6 @@ func TestGetByIDRedis(t *testing.T) {
 func BenchmarkLoadByID(b *testing.B) {
 	var entity *testEntityByIDRedis
 	engine := PrepareTables(&testing.T{}, &Registry{}, entity)
-	defer engine.Defer()
 
 	entity = &testEntityByIDRedis{}
 	engine.Track(entity)

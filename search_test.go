@@ -22,7 +22,6 @@ type testEntitySearchRef struct {
 
 func TestSearch(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, testEntitySearch{}, testEntitySearchRef{})
-	defer engine.Defer()
 	var entity testEntitySearch
 
 	var entities = make([]interface{}, 10)

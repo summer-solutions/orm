@@ -27,7 +27,6 @@ type testEntityDeleteReferenceRefCascade struct {
 func TestDeleteReference(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, testEntityDeleteReference{},
 		testEntityDeleteReferenceRefRestrict{}, testEntityDeleteReferenceRefCascade{})
-	defer engine.Defer()
 	entity1 := &testEntityDeleteReference{}
 	engine.Track(entity1)
 	err := engine.Flush()

@@ -27,7 +27,6 @@ func TestEntityByIDsRedis(t *testing.T) {
 	var entity testEntityByIDsRedisCache
 	var entityRef testEntityByIDsRedisCacheRef
 	engine := PrepareTables(t, &Registry{}, entityRef, entity)
-	defer engine.Defer()
 
 	for i := 1; i <= 10; i++ {
 		e := &testEntityByIDsRedisCache{Name: "Name " + strconv.Itoa(i)}
@@ -96,7 +95,6 @@ func TestEntityByIDsRedis(t *testing.T) {
 func BenchmarkGetByIDsRedis(b *testing.B) {
 	var entity testEntityByIDsRedisCache
 	engine := PrepareTables(&testing.T{}, &Registry{}, entity)
-	defer engine.Defer()
 
 	for i := 1; i <= 3; i++ {
 		e := &testEntityByIDsRedisCache{Name: fmt.Sprintf("Name %d", i)}

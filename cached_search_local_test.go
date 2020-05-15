@@ -32,7 +32,6 @@ func TestCachedSearchLocal(t *testing.T) {
 	var entity *testEntityIndexTestLocal
 	var entityRef *testEntityIndexTestLocalRef
 	engine := PrepareTables(t, &Registry{}, entityRef, entity)
-	defer engine.Defer()
 
 	for i := 1; i <= 5; i++ {
 		e := &testEntityIndexTestLocalRef{Name: "Name " + strconv.Itoa(i)}
@@ -216,7 +215,6 @@ func BenchmarkCachedSearchLocal(b *testing.B) {
 	var entity testEntityIndexTestLocal
 	var entityRef testEntityIndexTestLocalRef
 	engine := PrepareTables(&testing.T{}, &Registry{}, entity, entityRef)
-	defer engine.Defer()
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {

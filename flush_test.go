@@ -54,7 +54,6 @@ func TestFlush(t *testing.T) {
 	registry.RegisterLocker("default", "default")
 	var entity testEntityFlush
 	engine := PrepareTables(t, registry, entity)
-	defer engine.Defer()
 
 	var entities = make([]*testEntityFlush, 10)
 	for i := 1; i <= 10; i++ {
@@ -166,7 +165,6 @@ func TestFlushInTransaction(t *testing.T) {
 	var entity testEntityFlushTransactionLocal
 	var entity2 testEntityFlushTransactionRedis
 	engine := PrepareTables(t, registry, entity, entity2)
-	defer engine.Defer()
 	logger := memory.New()
 	engine.AddLogger(logger)
 	engine.SetLogLevel(log.InfoLevel)
@@ -204,7 +202,6 @@ func TestFlushInTransaction(t *testing.T) {
 func TestFlushErrors(t *testing.T) {
 	entity := &testEntityErrors{Name: "Name"}
 	engine := PrepareTables(t, &Registry{}, entity)
-	defer engine.Defer()
 	engine.Track(entity)
 
 	entity.ReferenceOne = &testEntityErrors{ID: 2}

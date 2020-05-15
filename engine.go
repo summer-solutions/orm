@@ -32,12 +32,6 @@ type Engine struct {
 	afterCommitRedisCacheDeletes map[string][]string
 }
 
-func (e *Engine) Defer() {
-	for _, channel := range e.rabbitMQChannels {
-		channel.close()
-	}
-}
-
 func (e *Engine) AddLogger(handler log.Handler) {
 	e.logHandler.Handlers = append(e.logHandler.Handlers, handler)
 }

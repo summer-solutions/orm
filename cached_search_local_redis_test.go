@@ -40,7 +40,6 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	var entity *testEntityIndexTestLocalRedis
 	var entityRef *testEntityIndexTestLocalRedisRef
 	engine := PrepareTables(t, &Registry{}, entityRef, entity)
-	defer engine.Defer()
 
 	for i := 1; i <= 5; i++ {
 		e := &testEntityIndexTestLocalRedisRef{Name: "Name " + strconv.Itoa(i)}

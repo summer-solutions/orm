@@ -20,7 +20,6 @@ type testEntityFlusherManual struct {
 func TestFlusherManual(t *testing.T) {
 	var entity testEntityFlusherManual
 	engine := PrepareTables(t, &Registry{}, entity)
-	defer engine.Defer()
 
 	DBLogger := memory.New()
 	pool := engine.GetMysql()

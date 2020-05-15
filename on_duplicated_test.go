@@ -18,7 +18,6 @@ func TestFlushOnDuplicated(t *testing.T) {
 	registry.RegisterEnumStruct("orm.colorEnum", colorEnum)
 	var entity testEntityOnDuplicated
 	engine := PrepareTables(t, registry, entity)
-	defer engine.Defer()
 
 	entity = testEntityOnDuplicated{Name: "test", Counter: 7}
 	err := engine.TrackAndFlush(&entity)

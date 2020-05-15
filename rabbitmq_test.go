@@ -16,7 +16,6 @@ func TestRabbitMQQueue(t *testing.T) {
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
-	defer engine.Defer()
 
 	r := engine.GetRabbitMQQueue("test_queue")
 	testLogger := memory.New()
@@ -54,8 +53,6 @@ func TestRabbitMQQueueExchange(t *testing.T) {
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
-	defer engine.Defer()
-
 	r := engine.GetRabbitMQRouter("test_queue_exchange")
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
