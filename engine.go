@@ -159,7 +159,7 @@ func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) error
 		asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
 		err := channel.Publish(asJSON)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -300,7 +300,7 @@ func (e *Engine) SearchWithCount(where *Where, pager *Pager, entities interface{
 
 func (e *Engine) Search(where *Where, pager *Pager, entities interface{}, references ...string) error {
 	_, err := search(true, e, where, pager, false, reflect.ValueOf(entities).Elem(), references...)
-	return err
+	return errors.Trace(err)
 }
 
 func (e *Engine) SearchIDsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int, err error) {
@@ -309,7 +309,7 @@ func (e *Engine) SearchIDsWithCount(where *Where, pager *Pager, entity interface
 
 func (e *Engine) SearchIDs(where *Where, pager *Pager, entity Entity) ([]uint64, error) {
 	results, _, err := searchIDs(true, e, where, pager, false, reflect.TypeOf(entity).Elem())
-	return results, err
+	return results, errors.Trace(err)
 }
 
 func (e *Engine) SearchOne(where *Where, entity Entity, references ...string) (bool, error) {
@@ -357,7 +357,7 @@ func (e *Engine) Load(entity Entity, references ...string) error {
 	id := orm.GetID()
 	if id > 0 {
 		_, err := loadByID(e, id, entity, true, references...)
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -384,7 +384,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 		for _, db := range dbPools {
 			err := db.Begin()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -396,7 +396,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 
 	err := flush(e, lazy, transaction, e.trackedEntities...)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if transaction {
 		for _, db := range dbPools {
@@ -415,7 +415,7 @@ func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName str
 	locker := e.GetLocker(lockerPool)
 	lock, has, err := locker.Obtain(lockName, ttl, waitTimeout)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if !has {
 		return errors.Errorf("lock wait timeout")

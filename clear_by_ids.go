@@ -1,5 +1,7 @@
 package orm
 
+import "github.com/juju/errors"
+
 func clearByIDs(engine *Engine, entity Entity, ids ...uint64) error {
 	schema := initIfNeeded(engine, entity).tableSchema
 	cacheKeys := make([]string, len(ids))
@@ -12,7 +14,10 @@ func clearByIDs(engine *Engine, entity Entity, ids ...uint64) error {
 	}
 	redisCache, has := schema.GetRedisCache(engine)
 	if has {
-		return redisCache.Del(cacheKeys...)
+		err := redisCache.Del(cacheKeys...)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }

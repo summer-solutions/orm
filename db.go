@@ -41,7 +41,7 @@ func (db *standardSQLClient) Commit() error {
 	}
 	err := db.tx.Commit()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	db.tx = nil
 	return nil
@@ -53,7 +53,7 @@ func (db *standardSQLClient) Rollback() (bool, error) {
 	}
 	err := db.tx.Rollback()
 	if err != nil {
-		return true, err
+		return true, errors.Trace(err)
 	}
 	db.tx = nil
 	return true, nil
@@ -128,7 +128,7 @@ func (db *DB) Begin() error {
 	start := time.Now()
 	err := db.client.Begin()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if db.log != nil {
 		db.fillLogFields(start, "transaction", "START TRANSACTION", nil).Info("[ORM][MYSQL][BEGIN]")
@@ -140,7 +140,7 @@ func (db *DB) Commit() error {
 	start := time.Now()
 	err := db.client.Commit()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if db.log != nil {
 		db.fillLogFields(start, "transaction", "COMMIT", nil).Info("[ORM][MYSQL][COMMIT]")
@@ -157,7 +157,7 @@ func (db *DB) Commit() error {
 			cache := db.engine.GetRedis(cacheCode)
 			err := cache.Del(keys...)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}

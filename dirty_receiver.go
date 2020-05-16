@@ -2,6 +2,7 @@ package orm
 
 import (
 	jsoniter "github.com/json-iterator/go"
+	"github.com/juju/errors"
 )
 
 type DirtyReceiver struct {
@@ -39,7 +40,7 @@ func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) error {
 	channel := r.engine.GetRabbitMQQueue("dirty_queue_" + code)
 	consumer, err := channel.NewConsumer("default consumer")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer consumer.Close()
 	if r.disableLoop {
@@ -67,7 +68,7 @@ func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) error {
 		return handler(data)
 	})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

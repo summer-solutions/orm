@@ -71,11 +71,11 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 		max = 1
 	}
 	counter := 0
-	items := make([][]byte, 0, max)
+	items := make([][]byte, max)
 	var last *amqp.Delivery
 	for {
 		if counter > 0 && (timeOut || counter == max) {
-			err := handler(items)
+			err := handler(items[0:counter])
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -89,7 +89,6 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			}
 			counter = 0
 			timeOut = false
-			items = items[:0]
 			if r.disableLoop {
 				return nil
 			}
@@ -98,9 +97,9 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 		}
 		select {
 		case item := <-delivery:
-			counter++
 			last = &item
-			items = append(items, item.Body)
+			items[counter] = item.Body
+			counter++
 			if r.parent.log != nil {
 				r.parent.fillLogFields(start, "received").WithField("Queue", r.q.Name).
 					WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][RECEIVED]")
