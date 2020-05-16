@@ -79,6 +79,7 @@ func TestRabbitMQQueueExchange(t *testing.T) {
 	assert.NotNil(t, r)
 	err = r.Publish("aa", []byte("hello"))
 	assert.NoError(t, err)
+
 	err = r.Publish("bb", []byte("hello2"))
 	assert.NoError(t, err)
 }
