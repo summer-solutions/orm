@@ -2,7 +2,6 @@ package orm
 
 import (
 	"database/sql"
-	"fmt"
 	"math"
 	"reflect"
 	"sort"
@@ -178,7 +177,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	if hasLog && registry.rabbitMQChannelsToQueue[logQueueName] == nil {
 		connection, has := registry.rabbitMQServers["default"]
 		if !has {
-			return nil, fmt.Errorf("missing default rabbitMQ connection to handle entity change log")
+			return nil, errors.Errorf("missing default rabbitMQ connection to handle entity change log")
 		}
 		def := &RabbitMQQueueConfig{Name: logQueueName, Durable: true}
 		registry.rabbitMQChannelsToQueue[logQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
@@ -186,7 +185,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	if registry.rabbitMQChannelsToQueue[lazyQueueName] == nil {
 		connection, has := registry.rabbitMQServers["default"]
 		if !has {
-			return nil, fmt.Errorf("missing default rabbitMQ connection to handle lazyFlush")
+			return nil, errors.Errorf("missing default rabbitMQ connection to handle lazyFlush")
 		}
 		def := &RabbitMQQueueConfig{Name: lazyQueueName, Durable: true}
 		registry.rabbitMQChannelsToQueue[lazyQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
@@ -194,7 +193,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	if registry.rabbitMQChannelsToQueue[flushCacheQueueName] == nil {
 		connection, has := registry.rabbitMQServers["default"]
 		if !has {
-			return nil, fmt.Errorf("missing default rabbitMQ connection to handle flushInCache")
+			return nil, errors.Errorf("missing default rabbitMQ connection to handle flushInCache")
 		}
 		def := &RabbitMQQueueConfig{Name: flushCacheQueueName, Durable: true}
 		registry.rabbitMQChannelsToQueue[flushCacheQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
@@ -203,7 +202,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	if len(queues) > 0 {
 		connection, has := registry.rabbitMQServers["default"]
 		if !has {
-			return nil, fmt.Errorf("missing default rabbitMQ connection to handle flushInCache")
+			return nil, errors.Errorf("missing default rabbitMQ connection to handle flushInCache")
 		}
 		for name, max := range registry.GetDirtyQueues() {
 			queueName := "dirty_queue_" + name

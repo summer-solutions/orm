@@ -1,10 +1,11 @@
 package orm
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"time"
+
+	"github.com/juju/errors"
 
 	jsoniter "github.com/json-iterator/go"
 
@@ -75,7 +76,7 @@ func (e *Engine) Track(entity ...Entity) {
 		e.trackedEntities = append(e.trackedEntities, entity)
 		e.trackedEntitiesCounter++
 		if e.trackedEntitiesCounter == 10000 {
-			panic(fmt.Errorf("track limit 10000 exceeded"))
+			panic(errors.Errorf("track limit 10000 exceeded"))
 		}
 	}
 }
@@ -149,7 +150,7 @@ func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) error {
 	_, has := e.GetRegistry().GetDirtyQueues()[queueCode]
 	if !has {
-		return fmt.Errorf("unknown dirty queue '%s'", queueCode)
+		return errors.Errorf("unknown dirty queue '%s'", queueCode)
 	}
 	channel := e.GetRabbitMQQueue("dirty_queue_" + queueCode)
 	entityName := initIfNeeded(e, entity).tableSchema.t.String()
@@ -189,7 +190,7 @@ func (e *Engine) GetMysql(code ...string) *DB {
 	}
 	db, has := e.dbs[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered mysql pool '%s'", dbCode))
+		panic(errors.Errorf("unregistered mysql pool '%s'", dbCode))
 	}
 	return db
 }
@@ -201,7 +202,7 @@ func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 	}
 	cache, has := e.localCache[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered local cache pool '%s'", dbCode))
+		panic(errors.Errorf("unregistered local cache pool '%s'", dbCode))
 	}
 	return cache
 }
@@ -213,7 +214,7 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	}
 	cache, has := e.redis[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
+		panic(errors.Errorf("unregistered redis cache pool '%s'", dbCode))
 	}
 	return cache
 }
@@ -225,10 +226,10 @@ func (e *Engine) GetRabbitMQQueue(code string) *RabbitMQQueue {
 	}
 	channel, has := e.rabbitMQChannels[code]
 	if !has {
-		panic(fmt.Errorf("unregistered rabbitMQ queue '%s'", code))
+		panic(errors.Errorf("unregistered rabbitMQ queue '%s'", code))
 	}
 	if channel.config.Router != "" {
-		panic(fmt.Errorf("rabbitMQ queue '%s' is declared as router", code))
+		panic(errors.Errorf("rabbitMQ queue '%s' is declared as router", code))
 	}
 	if e.rabbitMQQueues == nil {
 		e.rabbitMQQueues = make(map[string]*RabbitMQQueue)
@@ -244,13 +245,13 @@ func (e *Engine) GetRabbitMQDelayedQueue(code string) *RabbitMQDelayedQueue {
 	}
 	channel, has := e.rabbitMQChannels[code]
 	if !has {
-		panic(fmt.Errorf("unregistered rabbitMQ delayed queue '%s'", code))
+		panic(errors.Errorf("unregistered rabbitMQ delayed queue '%s'", code))
 	}
 	if channel.config.Router == "" {
-		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", code))
+		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", code))
 	}
 	if !channel.config.Delayed {
-		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", code))
+		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", code))
 	}
 	if e.rabbitMQDelayedQueues == nil {
 		e.rabbitMQDelayedQueues = make(map[string]*RabbitMQDelayedQueue)
@@ -266,13 +267,13 @@ func (e *Engine) GetRabbitMQRouter(code string) *RabbitMQRouter {
 	}
 	channel, has := e.rabbitMQChannels[code]
 	if !has {
-		panic(fmt.Errorf("unregistered rabbitMQ router '%s'", code))
+		panic(errors.Errorf("unregistered rabbitMQ router '%s'", code))
 	}
 	if channel.config.Router == "" {
-		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as router", code))
+		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as router", code))
 	}
 	if channel.config.Delayed {
-		panic(fmt.Errorf("rabbitMQ queue '%s' is declared as delayed queue", code))
+		panic(errors.Errorf("rabbitMQ queue '%s' is declared as delayed queue", code))
 	}
 	if e.rabbitMQRouters == nil {
 		e.rabbitMQRouters = make(map[string]*RabbitMQRouter)
@@ -288,7 +289,7 @@ func (e *Engine) GetLocker(code ...string) *Locker {
 	}
 	locker, has := e.locks[dbCode]
 	if !has {
-		panic(fmt.Errorf("unregistered locker pool '%s'", dbCode))
+		panic(errors.Errorf("unregistered locker pool '%s'", dbCode))
 	}
 	return locker
 }
@@ -417,7 +418,7 @@ func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName str
 		return err
 	}
 	if !has {
-		return fmt.Errorf("lock wait timeout")
+		return errors.Errorf("lock wait timeout")
 	}
 	defer lock.Release()
 	return e.flushTrackedEntities(false, transaction)

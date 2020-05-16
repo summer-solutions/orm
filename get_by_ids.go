@@ -1,9 +1,10 @@
 package orm
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/juju/errors"
 
 	jsoniter "github.com/json-iterator/go"
 )
@@ -185,11 +186,11 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 		parts := strings.Split(ref, "/")
 		_, has := tableSchema.tags[parts[0]]
 		if !has {
-			return fmt.Errorf("invalid reference %s in %s", ref, tableSchema.tableName)
+			return errors.Errorf("invalid reference %s in %s", ref, tableSchema.tableName)
 		}
 		parentRef, has := tableSchema.tags[parts[0]]["ref"]
 		if !has {
-			return fmt.Errorf("missing reference tag %s", ref)
+			return errors.Errorf("missing reference tag %s", ref)
 		}
 		parentType, has := engine.registry.entities[parentRef]
 		if !has {

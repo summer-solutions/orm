@@ -1,9 +1,10 @@
 package orm
 
 import (
-	"fmt"
 	"testing"
 	"time"
+
+	"github.com/juju/errors"
 
 	"github.com/bsm/redislock"
 
@@ -52,7 +53,7 @@ func TestLocker(t *testing.T) {
 	mockClient := &mockLockerClient{client: locker.locker}
 	locker.locker = mockClient
 	mockClient.ObtainMock = func(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error) {
-		return nil, fmt.Errorf("test error")
+		return nil, errors.Errorf("test error")
 	}
 	_, _, err = locker.Obtain("test", 10*time.Second, 10*time.Second)
 	assert.EqualError(t, err, "test error")

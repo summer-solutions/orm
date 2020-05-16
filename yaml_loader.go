@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/juju/errors"
 )
 
 func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
@@ -11,7 +13,7 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 	for key, data := range yaml {
 		dataAsMap, ok := data.(map[interface{}]interface{})
 		if !ok {
-			return nil, fmt.Errorf("invalid orm section in config")
+			return nil, errors.Errorf("invalid orm section in config")
 		}
 		for dataKey, value := range dataAsMap {
 			switch dataKey {
@@ -39,12 +41,12 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 			case "dirtyQueues":
 				def, ok := value.(map[interface{}]interface{})
 				if !ok {
-					return nil, fmt.Errorf("invalid dirtyQueues definition: %s", value)
+					return nil, errors.Errorf("invalid dirtyQueues definition: %s", value)
 				}
 				for k, v := range def {
 					asInt, ok := v.(int)
 					if !ok {
-						return nil, fmt.Errorf("invalid dirtyQueues definition: %s", value)
+						return nil, errors.Errorf("invalid dirtyQueues definition: %s", value)
 					}
 					registry.RegisterDirtyQueue(k.(string), asInt)
 				}
@@ -63,7 +65,7 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 func validateOrmMysqlURI(registry *Registry, value interface{}, key string) error {
 	asString, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("invalid mysql uri: %v", value)
+		return errors.Errorf("invalid mysql uri: %v", value)
 	}
 	registry.RegisterMySQLPool(asString, key)
 	return nil
@@ -72,15 +74,15 @@ func validateOrmMysqlURI(registry *Registry, value interface{}, key string) erro
 func validateRedisURI(registry *Registry, value interface{}, key string) error {
 	asString, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("invalid redis uri: %v", value)
+		return errors.Errorf("invalid redis uri: %v", value)
 	}
 	elements := strings.Split(asString, ":")
 	if len(elements) != 3 {
-		return fmt.Errorf("invalid redis uri: %v", value)
+		return errors.Errorf("invalid redis uri: %v", value)
 	}
 	db, err := strconv.ParseUint(elements[2], 10, 64)
 	if err != nil {
-		return fmt.Errorf("invalid redis DB id: %v", value)
+		return errors.Errorf("invalid redis DB id: %v", value)
 	}
 	uri := fmt.Sprintf("%s:%s", elements[0], elements[1])
 	registry.RegisterRedis(uri, int(db), key)
@@ -98,35 +100,35 @@ func getBoolOptional(data map[interface{}]interface{}, key string, defaultValue 
 func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) error {
 	def, ok := value.(map[interface{}]interface{})
 	if !ok {
-		return fmt.Errorf("invalid rabbitMQ definition: %s", key)
+		return errors.Errorf("invalid rabbitMQ definition: %s", key)
 	}
 	value, has := def["server"]
 	if !has {
-		return fmt.Errorf("missing rabbitMQ server definition: %s", key)
+		return errors.Errorf("missing rabbitMQ server definition: %s", key)
 	}
 	poolName, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("invalid rabbitMQ server definition: %s", key)
+		return errors.Errorf("invalid rabbitMQ server definition: %s", key)
 	}
 	registry.RegisterRabbitMQServer(poolName, key)
 	value, has = def["queues"]
 	if has {
 		asSlice, ok := value.([]interface{})
 		if !ok {
-			return fmt.Errorf("invalid rabbitMQ queues definition: %s", key)
+			return errors.Errorf("invalid rabbitMQ queues definition: %s", key)
 		}
 		for _, channel := range asSlice {
 			asMap, ok := channel.(map[interface{}]interface{})
 			if !ok {
-				return fmt.Errorf("invalid rabbitMQ queues definition: %s", key)
+				return errors.Errorf("invalid rabbitMQ queues definition: %s", key)
 			}
 			name, has := asMap["name"]
 			if !has {
-				return fmt.Errorf("missing rabbitMQ channel name: %s", key)
+				return errors.Errorf("missing rabbitMQ channel name: %s", key)
 			}
 			asString, ok := name.(string)
 			if !ok {
-				return fmt.Errorf("invalid rabbitMQ channel name: %s", key)
+				return errors.Errorf("invalid rabbitMQ channel name: %s", key)
 			}
 			delayed := getBoolOptional(asMap, "delayed", false)
 			durable := getBoolOptional(asMap, "durable", true)
@@ -136,7 +138,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			if has {
 				asString, ok := exchangeVal.(string)
 				if !ok {
-					return fmt.Errorf("invalid rabbitMQ exchange name: %s", key)
+					return errors.Errorf("invalid rabbitMQ exchange name: %s", key)
 				}
 				router = asString
 			}
@@ -145,12 +147,12 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			if has {
 				asSlice, ok := exchangeVal.([]interface{})
 				if !ok {
-					return fmt.Errorf("invalid rabbitMQ exchange keys: %s", key)
+					return errors.Errorf("invalid rabbitMQ exchange keys: %s", key)
 				}
 				for _, val := range asSlice {
 					asString, ok := val.(string)
 					if !ok {
-						return fmt.Errorf("invalid rabbitMQ exchange key: %s", key)
+						return errors.Errorf("invalid rabbitMQ exchange key: %s", key)
 					}
 					routerKeys = append(routerKeys, asString)
 				}
@@ -165,28 +167,28 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 	if has {
 		asSlice, ok := value.([]interface{})
 		if !ok {
-			return fmt.Errorf("invalid rabbitMQ exchanges definition: %s", key)
+			return errors.Errorf("invalid rabbitMQ exchanges definition: %s", key)
 		}
 		for _, exchange := range asSlice {
 			asMap, ok := exchange.(map[interface{}]interface{})
 			if !ok {
-				return fmt.Errorf("invalid rabbitMQ exchange definition: %s", key)
+				return errors.Errorf("invalid rabbitMQ exchange definition: %s", key)
 			}
 			value, has := asMap["name"]
 			if !has {
-				return fmt.Errorf("missing rabbitMQ exchange name: %s", key)
+				return errors.Errorf("missing rabbitMQ exchange name: %s", key)
 			}
 			nameAsString, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("invalid rabbitMQ exchange name: %s", key)
+				return errors.Errorf("invalid rabbitMQ exchange name: %s", key)
 			}
 			value, has = asMap["type"]
 			if !has {
-				return fmt.Errorf("missing rabbitMQ exchange type: %s", key)
+				return errors.Errorf("missing rabbitMQ exchange type: %s", key)
 			}
 			typeAsString, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("invalid rabbitMQ exchange type: %s", key)
+				return errors.Errorf("invalid rabbitMQ exchange type: %s", key)
 			}
 			durable := getBoolOptional(asMap, "durable", true)
 			config := &RabbitMQRouterConfig{nameAsString, typeAsString, durable}
@@ -199,7 +201,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 func validateOrmInt(value interface{}, key string) (int, error) {
 	asInt, ok := value.(int)
 	if !ok {
-		return 0, fmt.Errorf("invalid orm value for %s: %v", key, value)
+		return 0, errors.Errorf("invalid orm value for %s: %v", key, value)
 	}
 	return asInt, nil
 }
@@ -207,7 +209,7 @@ func validateOrmInt(value interface{}, key string) (int, error) {
 func validateOrmString(value interface{}, key string) (string, error) {
 	asString, ok := value.(string)
 	if !ok {
-		return "", fmt.Errorf("invalid orm value for %s: %v", key, value)
+		return "", errors.Errorf("invalid orm value for %s: %v", key, value)
 	}
 	return asString, nil
 }

@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"github.com/segmentio/fasthash/fnv1a"
 )
 
@@ -241,7 +243,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	}
 	_, has = registry.sqlClients[mysql]
 	if !has {
-		return nil, fmt.Errorf("unknown mysql pool '%s'", mysql)
+		return nil, errors.Errorf("unknown mysql pool '%s'", mysql)
 	}
 	table, has := tags["ORM"]["table"]
 	if !has {
@@ -259,7 +261,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	if localCache != "" {
 		_, has = registry.localCacheContainers[localCache]
 		if !has {
-			return nil, fmt.Errorf("unknown local cache pool '%s'", localCache)
+			return nil, errors.Errorf("unknown local cache pool '%s'", localCache)
 		}
 	}
 	userValue, has = tags["ORM"]["redisCache"]
@@ -272,7 +274,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	if redisCache != "" {
 		_, has = registry.redisServers[redisCache]
 		if !has {
-			return nil, fmt.Errorf("unknown redis pool '%s'", redisCache)
+			return nil, errors.Errorf("unknown redis pool '%s'", redisCache)
 		}
 	}
 

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/go-sql-driver/mysql"
@@ -84,7 +86,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			deleteBinds[t][currentID] = dbData
 		} else if len(dbData) == 0 {
 			if currentID > 0 {
-				return fmt.Errorf("unloaded entity %s with ID %d", t.String(), currentID)
+				return errors.Errorf("unloaded entity %s with ID %d", t.String(), currentID)
 			}
 			onUpdate := entity.getORM().attributes.onDuplicateKeyUpdate
 			if onUpdate != nil {
@@ -158,14 +160,14 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 									return err
 								}
 								if !has {
-									return fmt.Errorf("missing unique index to find updated row")
+									return errors.Errorf("missing unique index to find updated row")
 								}
 								valid = true
 								break
 							}
 						}
 						if !valid {
-							return fmt.Errorf("missing unique index to find updated row")
+							return errors.Errorf("missing unique index to find updated row")
 						}
 					}
 				}
@@ -202,7 +204,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		} else {
 			values := make([]interface{}, bindLength+1)
 			if !engine.Loaded(entity) {
-				return fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().attributes.elem.Type().String(), currentID)
+				return errors.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().attributes.elem.Type().String(), currentID)
 			}
 			fields := make([]string, bindLength)
 			i := 0
@@ -258,7 +260,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 
 	if referencesToFlash != nil {
 		if lazy {
-			return fmt.Errorf("lazy flush not supported for unsaved regerences")
+			return errors.Errorf("lazy flush not supported for unsaved regerences")
 		}
 		toFlush := make([]Entity, len(referencesToFlash))
 		i := 0

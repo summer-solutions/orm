@@ -1,9 +1,10 @@
 package orm
 
 import (
-	"fmt"
 	"os"
 	"time"
+
+	"github.com/juju/errors"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
@@ -48,7 +49,7 @@ func (l *Locker) EnableDebug() {
 
 func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool, err error) {
 	if ttl == 0 {
-		return nil, false, fmt.Errorf("ttl must be greater than zero")
+		return nil, false, errors.Errorf("ttl must be greater than zero")
 	}
 	if waitTimeout == 0 {
 		waitTimeout = ttl

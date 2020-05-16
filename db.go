@@ -2,7 +2,6 @@ package orm
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"time"
 
@@ -29,7 +28,7 @@ type standardSQLClient struct {
 
 func (db *standardSQLClient) Begin() error {
 	if db.tx != nil {
-		return fmt.Errorf("transaction already started")
+		return errors.Errorf("transaction already started")
 	}
 	tx, err := db.db.Begin()
 	db.tx = tx
@@ -38,7 +37,7 @@ func (db *standardSQLClient) Begin() error {
 
 func (db *standardSQLClient) Commit() error {
 	if db.tx == nil {
-		return fmt.Errorf("transaction not started")
+		return errors.Errorf("transaction not started")
 	}
 	err := db.tx.Commit()
 	if err != nil {

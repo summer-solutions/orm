@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"github.com/segmentio/fasthash/fnv1a"
 )
 
@@ -22,21 +24,21 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	schema := getTableSchema(engine.registry, entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
-		return 0, fmt.Errorf("unknown index %s", indexName)
+		return 0, errors.Errorf("unknown index %s", indexName)
 	}
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: definition.Max}
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
-		return 0, fmt.Errorf("max cache index page size (%d) exceeded %s", definition.Max, indexName)
+		return 0, errors.Errorf("max cache index page size (%d) exceeded %s", definition.Max, indexName)
 	}
 
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && !hasRedis {
-		return 0, fmt.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
+		return 0, errors.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
 	}
 	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
 
@@ -67,7 +69,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 		if hasRedis && len(nilsKeys) > 0 {
 			fromRedis, err := redisCache.HMget(cacheKey, nilsKeys...)
 			if err != nil {
-				return 0, err
+				return 0, errors.Trace(err)
 			}
 			for key, idsFromRedis := range fromRedis {
 				fromCache[key] = idsFromRedis
@@ -76,7 +78,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	} else if hasRedis {
 		fromCache, err = redisCache.HMget(cacheKey, pages...)
 		if err != nil {
-			return 0, err
+			return 0, errors.Trace(err)
 		}
 	}
 	hasNil := false
@@ -109,7 +111,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 		searchPager := &Pager{minPage, maxPage * idsOnCachePage}
 		results, total, err := searchIDsWithCount(true, engine, Where, searchPager, entityType)
 		if err != nil {
-			return 0, err
+			return 0, errors.Trace(err)
 		}
 		totalRows = total
 		cacheFields := make(map[string]interface{})
@@ -138,7 +140,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 		if hasRedis {
 			err := redisCache.HMset(cacheKey, cacheFields)
 			if err != nil {
-				return 0, err
+				return 0, errors.Trace(err)
 			}
 		}
 	}
@@ -176,7 +178,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 		}
 	}
 	_, err = engine.LoadByIDs(nonZero, entities, references...)
-	return totalRows, err
+	return totalRows, errors.Trace(err)
 }
 
 func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments []interface{}, references []string) (has bool, err error) {
@@ -188,13 +190,13 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	}
 	definition, has := schema.cachedIndexesOne[indexName]
 	if !has {
-		return false, fmt.Errorf("unknown index %s", indexName)
+		return false, errors.Errorf("unknown index %s", indexName)
 	}
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && !hasRedis {
-		return false, fmt.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
+		return false, errors.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
 	}
 	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
 	var fromCache map[string]interface{}
@@ -204,14 +206,14 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	if fromCache["1"] == nil && hasRedis {
 		fromCache, err = redisCache.HMget(cacheKey, "1")
 		if err != nil {
-			return false, err
+			return false, errors.Trace(err)
 		}
 	}
 	var id uint64
 	if fromCache["1"] == nil {
 		results, _, err := searchIDs(true, engine, Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
 		if err != nil {
-			return false, err
+			return false, errors.Trace(err)
 		}
 		l := len(results)
 		value := fmt.Sprintf("%d", l)
@@ -226,7 +228,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 		if hasRedis {
 			err := redisCache.HMset(cacheKey, fields)
 			if err != nil {
-				return false, err
+				return false, errors.Trace(err)
 			}
 		}
 	} else {

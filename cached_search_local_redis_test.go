@@ -1,9 +1,10 @@
 package orm
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
+
+	"github.com/juju/errors"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
@@ -242,7 +243,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 	mockClient.HMGetMock = func(key string, fields ...string) ([]interface{}, error) {
-		return nil, fmt.Errorf("redis error")
+		return nil, errors.Errorf("redis error")
 	}
 	_, err = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.EqualError(t, err, "redis error")
@@ -250,7 +251,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	mockClient.HMGetMock = nil
 	_ = r.FlushDB()
 	mockClient.HMSetMock = func(key string, fields map[string]interface{}) (bool, error) {
-		return false, fmt.Errorf("redis error")
+		return false, errors.Errorf("redis error")
 	}
 	_, err = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.EqualError(t, err, "redis error")

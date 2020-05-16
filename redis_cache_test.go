@@ -1,9 +1,10 @@
 package orm
 
 import (
-	"fmt"
 	"testing"
 	"time"
+
+	"github.com/juju/errors"
 
 	"github.com/stretchr/testify/assert"
 
@@ -46,7 +47,7 @@ func TestBasicRedis(t *testing.T) {
 	assert.Equal(t, "[ORM][REDIS][GET]", testLogger.Entries[2].Message)
 
 	mockClient.GetMock = func(key string) (string, error) {
-		return "", fmt.Errorf("redis error")
+		return "", errors.Errorf("redis error")
 	}
 	val, err = r.GetSet("test", 1, func() interface{} {
 		return "hello"
@@ -56,7 +57,7 @@ func TestBasicRedis(t *testing.T) {
 	mockClient.GetMock = nil
 
 	mockClient.SetMock = func(key string, value interface{}, expiration time.Duration) error {
-		return fmt.Errorf("redis error")
+		return errors.Errorf("redis error")
 	}
 	val, err = r.GetSet("test2", 1, func() interface{} {
 		return "hello"
@@ -68,7 +69,7 @@ func TestBasicRedis(t *testing.T) {
 	err = r.MSet("a", "a1", "b", "b1")
 	assert.NoError(t, err)
 	mockClient.MSetMock = func(pairs ...interface{}) error {
-		return fmt.Errorf("redis error")
+		return errors.Errorf("redis error")
 	}
 	err = r.MSet("a", "a1", "b", "b1")
 	assert.EqualError(t, err, "redis error")
@@ -81,7 +82,7 @@ func TestBasicRedis(t *testing.T) {
 	assert.Equal(t, "b1", values["b"])
 	assert.Nil(t, values["c"])
 	mockClient.MGetMock = func(keys ...string) ([]interface{}, error) {
-		return nil, fmt.Errorf("redis error")
+		return nil, errors.Errorf("redis error")
 	}
 	_, err = r.MGet("a", "b", "c")
 	assert.EqualError(t, err, "redis error")
@@ -99,7 +100,7 @@ func TestList(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(3), total)
 	mockClient.LPushMock = func(key string, values ...interface{}) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	total, err = r.LPush("key", "a", "b", "c")
 	assert.EqualError(t, err, "redis error")
@@ -110,7 +111,7 @@ func TestList(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(3), total)
 	mockClient.LLenMock = func(key string) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	total, err = r.LLen("key")
 	assert.EqualError(t, err, "redis error")
@@ -121,7 +122,7 @@ func TestList(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(4), total)
 	mockClient.RPushMock = func(key string, values ...interface{}) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	total, err = r.RPush("key", "d")
 	assert.EqualError(t, err, "redis error")
@@ -132,7 +133,7 @@ func TestList(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"c", "b"}, elements)
 	mockClient.LRangeMock = func(key string, start, stop int64) ([]string, error) {
-		return nil, fmt.Errorf("redis error")
+		return nil, errors.Errorf("redis error")
 	}
 	_, err = r.LRange("key", 0, 1)
 	assert.EqualError(t, err, "redis error")
@@ -141,7 +142,7 @@ func TestList(t *testing.T) {
 	err = r.LSet("key", 1, "f")
 	assert.Nil(t, err)
 	mockClient.LSetMock = func(key string, index int64, value interface{}) (string, error) {
-		return "", fmt.Errorf("redis error")
+		return "", errors.Errorf("redis error")
 	}
 	err = r.LSet("key", 0, 1)
 	assert.EqualError(t, err, "redis error")
@@ -151,7 +152,7 @@ func TestList(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"c", "f"}, elements)
 	mockClient.LRangeMock = func(key string, start, stop int64) ([]string, error) {
-		return nil, fmt.Errorf("redis error")
+		return nil, errors.Errorf("redis error")
 	}
 	_, err = r.LRange("key", 0, 1)
 	assert.EqualError(t, err, "redis error")
@@ -160,7 +161,7 @@ func TestList(t *testing.T) {
 	err = r.LRem("key", 1, "c")
 	assert.Nil(t, err)
 	mockClient.LRemMock = func(key string, count int64, value interface{}) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	err = r.LRem("key", 1, "c")
 	assert.EqualError(t, err, "redis error")
@@ -175,7 +176,7 @@ func TestList(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, "d", element)
 	mockClient.RPopMock = func(key string) (string, error) {
-		return "", fmt.Errorf("redis error")
+		return "", errors.Errorf("redis error")
 	}
 	_, _, err = r.RPop("key")
 	assert.EqualError(t, err, "redis error")
@@ -184,7 +185,7 @@ func TestList(t *testing.T) {
 	err = r.Del("key")
 	assert.Nil(t, err)
 	mockClient.DelMock = func(keys ...string) error {
-		return fmt.Errorf("redis error")
+		return errors.Errorf("redis error")
 	}
 	err = r.Del("key")
 	assert.EqualError(t, err, "redis error")
@@ -199,7 +200,7 @@ func TestList(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(3), total)
 	mockClient.LPushMock = func(key string, values ...interface{}) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	_, err = r.LPush("key", "a", "b", "c")
 	assert.EqualError(t, err, "redis error")
@@ -208,7 +209,7 @@ func TestList(t *testing.T) {
 	err = r.Ltrim("key", 1, 3)
 	assert.Nil(t, err)
 	mockClient.LTrimMock = func(key string, start, stop int64) (string, error) {
-		return "", fmt.Errorf("redis error")
+		return "", errors.Errorf("redis error")
 	}
 	err = r.Ltrim("key", 1, 3)
 	assert.EqualError(t, err, "redis error")
@@ -229,7 +230,7 @@ func TestHash(t *testing.T) {
 	err := r.HSet("key", "field_1", "a")
 	assert.Nil(t, err)
 	mockClient.HSetMock = func(key string, field string, value interface{}) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	err = r.HSet("key", "field_1", "a")
 	assert.EqualError(t, err, "redis error")
@@ -240,7 +241,7 @@ func TestHash(t *testing.T) {
 	assert.Equal(t, fields["field_1"], "a")
 	assert.Nil(t, fields["field_2"])
 	mockClient.HMGetMock = func(key string, fields ...string) ([]interface{}, error) {
-		return nil, fmt.Errorf("redis error")
+		return nil, errors.Errorf("redis error")
 	}
 	_, err = r.HMget("key", "field_1", "field_2")
 	assert.EqualError(t, err, "redis error")
@@ -249,7 +250,7 @@ func TestHash(t *testing.T) {
 	err = r.HMset("key", map[string]interface{}{"field_3": "c", "field_4": "d"})
 	assert.Nil(t, err)
 	mockClient.HMSetMock = func(key string, fields map[string]interface{}) (bool, error) {
-		return false, fmt.Errorf("redis error")
+		return false, errors.Errorf("redis error")
 	}
 	err = r.HMset("key", map[string]interface{}{"field_3": "c", "field_4": "d"})
 	assert.EqualError(t, err, "redis error")
@@ -265,7 +266,7 @@ func TestHash(t *testing.T) {
 	assert.Equal(t, "c", fieldsAll["field_3"])
 	assert.Equal(t, "d", fieldsAll["field_4"])
 	mockClient.HGetAllMock = func(key string) (map[string]string, error) {
-		return nil, fmt.Errorf("redis error")
+		return nil, errors.Errorf("redis error")
 	}
 	_, err = r.HGetAll("key")
 	assert.EqualError(t, err, "redis error")
@@ -281,7 +282,7 @@ func TestSet(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(3), total)
 	mockClient.SAddMock = func(key string, members ...interface{}) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	_, err = r.SAdd("key", "a", "b", "c")
 	assert.EqualError(t, err, "redis error")
@@ -291,7 +292,7 @@ func TestSet(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(3), total)
 	mockClient.SCardMock = func(key string) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	_, err = r.SCard("key")
 	assert.EqualError(t, err, "redis error")
@@ -301,7 +302,7 @@ func TestSet(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, has)
 	mockClient.SPopMock = func(key string) (string, error) {
-		return "", fmt.Errorf("redis error")
+		return "", errors.Errorf("redis error")
 	}
 	_, _, err = r.SPop("key")
 	assert.EqualError(t, err, "redis error")
@@ -311,7 +312,7 @@ func TestSet(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, values, 2)
 	mockClient.SPopNMock = func(key string, max int64) ([]string, error) {
-		return nil, fmt.Errorf("redis error")
+		return nil, errors.Errorf("redis error")
 	}
 	_, err = r.SPopN("key", 2)
 	assert.EqualError(t, err, "redis error")
@@ -329,7 +330,7 @@ func TestSortedSet(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), total)
 	mockClient.ZAddMock = func(key string, members ...*redis.Z) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	_, err = r.ZAdd("key", &redis.Z{Member: "a", Score: 100})
 	assert.EqualError(t, err, "redis error")
@@ -343,7 +344,7 @@ func TestSortedSet(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(2), total)
 	mockClient.ZCardMock = func(key string) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	_, err = r.ZCard("key")
 	assert.EqualError(t, err, "redis error")
@@ -353,7 +354,7 @@ func TestSortedSet(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), total)
 	mockClient.ZCountMock = func(key string, min, max string) (int64, error) {
-		return 0, fmt.Errorf("redis error")
+		return 0, errors.Errorf("redis error")
 	}
 	_, err = r.ZCount("key", "100", "150")
 	assert.EqualError(t, err, "redis error")
@@ -372,7 +373,7 @@ func prepareRedis(t *testing.T) *RedisCache {
 	err = r.FlushDB()
 	assert.Nil(t, err)
 	mockClient.FlushDBMock = func() error {
-		return fmt.Errorf("redis error")
+		return errors.Errorf("redis error")
 	}
 	err = r.FlushDB()
 	assert.EqualError(t, err, "redis error")

@@ -753,7 +753,7 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 			}
 		}
 		if !valid {
-			return nil, fmt.Errorf("unsupported field type: %s %s in %s", field.Name, field.Type.String(), t.String())
+			return nil, errors.Errorf("unsupported field type: %s %s in %s", field.Name, field.Type.String(), t.String())
 		}
 	}
 	isNotNull := false
@@ -815,7 +815,7 @@ func handleString(registry *validatedRegistry, attributes map[string]string, for
 			return "", false, false, "", err
 		}
 		if i > 65535 {
-			return "", false, false, "", fmt.Errorf("length to heigh: %s", length)
+			return "", false, false, "", errors.Errorf("length to heigh: %s", length)
 		}
 		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	}
@@ -829,11 +829,11 @@ func handleString(registry *validatedRegistry, attributes map[string]string, for
 
 func handleSetEnum(registry *validatedRegistry, fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
 	if registry.enums == nil {
-		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
+		return "", false, false, "", errors.Errorf("unregistered enum %s", attribute)
 	}
 	enum, has := registry.enums[attribute]
 	if !has {
-		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
+		return "", false, false, "", errors.Errorf("unregistered enum %s", attribute)
 	}
 
 	var definition = fieldType + "("
