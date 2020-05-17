@@ -402,7 +402,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 		for _, db := range dbPools {
 			err := db.Commit()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}

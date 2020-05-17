@@ -20,22 +20,22 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 			case "mysql":
 				err := validateOrmMysqlURI(registry, value, key)
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 			case "redis":
 				err := validateRedisURI(registry, value, key)
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 			case "rabbitMQ":
 				err := validateOrmRabbitMQ(registry, value, key)
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 			case "locker":
 				valAsString, err := validateOrmString(value, key)
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 				registry.RegisterLocker(key, valAsString)
 			case "dirtyQueues":
@@ -53,7 +53,7 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 			case "localCache":
 				number, err := validateOrmInt(value, key)
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 				registry.RegisterLocalCache(number, key)
 			}

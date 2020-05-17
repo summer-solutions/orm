@@ -2,6 +2,8 @@ package orm
 
 import (
 	"strconv"
+
+	"github.com/juju/errors"
 )
 
 func flushInCache(engine *Engine, entities ...Entity) error {
@@ -41,7 +43,7 @@ func flushInCache(engine *Engine, entities ...Entity) error {
 	if len(invalidEntities) > 0 {
 		err := flush(engine, false, false, invalidEntities...)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	if len(validEntities) > 0 {
@@ -49,13 +51,13 @@ func flushInCache(engine *Engine, entities ...Entity) error {
 		for _, v := range validEntities {
 			err := channel.Publish(v)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 		for cacheCode, keys := range redisValues {
 			err := engine.GetRedis(cacheCode).MSet(keys...)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}

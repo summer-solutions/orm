@@ -31,8 +31,11 @@ func (db *standardSQLClient) Begin() error {
 		return errors.Errorf("transaction already started")
 	}
 	tx, err := db.db.Begin()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	db.tx = tx
-	return err
+	return nil
 }
 
 func (db *standardSQLClient) Commit() error {
@@ -61,9 +64,17 @@ func (db *standardSQLClient) Rollback() (bool, error) {
 
 func (db *standardSQLClient) Exec(query string, args ...interface{}) (sql.Result, error) {
 	if db.tx != nil {
-		return db.tx.Exec(query, args...)
+		res, err := db.tx.Exec(query, args...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return res, nil
 	}
-	return db.db.Exec(query, args...)
+	res, err := db.db.Exec(query, args...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return res, nil
 }
 
 func (db *standardSQLClient) QueryRow(query string, args ...interface{}) SQLRow {
@@ -75,9 +86,17 @@ func (db *standardSQLClient) QueryRow(query string, args ...interface{}) SQLRow 
 
 func (db *standardSQLClient) Query(query string, args ...interface{}) (SQLRows, error) {
 	if db.tx != nil {
-		return db.tx.Query(query, args...)
+		rows, err := db.tx.Query(query, args...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return rows, nil
 	}
-	return db.db.Query(query, args...)
+	rows, err := db.db.Query(query, args...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rows, nil
 }
 
 type SQLRows interface {
@@ -181,10 +200,13 @@ func (db *DB) Rollback() {
 func (db *DB) Exec(query string, args ...interface{}) (rows sql.Result, err error) {
 	start := time.Now()
 	rows, err = db.client.Exec(query, args...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if db.log != nil {
 		db.fillLogFields(start, "exec", query, args).Info("[ORM][MYSQL][EXEC]")
 	}
-	return rows, err
+	return rows, nil
 }
 
 func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
@@ -199,6 +221,9 @@ func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
 func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF func(), err error) {
 	start := time.Now()
 	rows, err = db.client.Query(query, args...)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	if db.log != nil {
 		db.fillLogFields(start, "select", query, args).Info("[ORM][MYSQL][SELECT]")
 	}
@@ -206,7 +231,7 @@ func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF fun
 		if rows != nil {
 			_ = rows.Close()
 		}
-	}, err
+	}, nil
 }
 
 func (db *DB) fillLogFields(start time.Time, typeCode string, query string, args []interface{}) *log.Entry {

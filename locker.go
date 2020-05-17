@@ -67,7 +67,7 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 		if err == redislock.ErrNotObtained {
 			return nil, false, nil
 		}
-		return nil, false, err
+		return nil, false, errors.Trace(err)
 	}
 	return &Lock{lock: redisLock, locker: l, key: key, has: true}, true, nil
 }
@@ -97,7 +97,7 @@ func (l *Lock) TTL() (time.Duration, error) {
 	if l.locker.log != nil {
 		l.locker.fillLogFields(start, l.key, "ttl").Info("[ORM][LOCKER][TTL]")
 	}
-	return d, err
+	return d, errors.Trace(err)
 }
 
 func (l *Locker) fillLogFields(start time.Time, key string, operation string) *log.Entry {

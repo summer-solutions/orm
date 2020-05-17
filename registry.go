@@ -40,7 +40,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.sqlClients {
 		db, err := sql.Open("mysql", v.dataSourceName)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		var maxConnections int
 		var skip string
@@ -51,7 +51,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		var waitTimeout int
 		err = db.QueryRow("SHOW VARIABLES LIKE 'wait_timeout'").Scan(&skip, &waitTimeout)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		maxConnections = int(math.Floor(float64(maxConnections) * 0.9))
 		if maxConnections == 0 {
@@ -158,7 +158,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for name, entityType := range r.entities {
 		tableSchema, err := initTableSchema(r, entityType)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		registry.tableSchemas[entityType] = tableSchema
 		registry.entities[name] = entityType

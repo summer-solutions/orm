@@ -2,6 +2,7 @@ package orm
 
 import (
 	jsoniter "github.com/json-iterator/go"
+	"github.com/juju/errors"
 )
 
 const lazyQueueName = "lazy_queue"
@@ -23,7 +24,7 @@ func (r *LazyReceiver) Digest() error {
 	channel := r.engine.GetRabbitMQQueue(lazyQueueName)
 	consumer, err := channel.NewConsumer("default consumer")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer consumer.Close()
 	if r.disableLoop {
@@ -36,21 +37,21 @@ func (r *LazyReceiver) Digest() error {
 			validMap := data.(map[string]interface{})
 			err := r.handleQueries(r.engine, validMap)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			err = r.handleClearCache(validMap, "cl")
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			err = r.handleClearCache(validMap, "cr")
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -67,7 +68,7 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 			attributes := validInsert[2].([]interface{})
 			_, err := db.Exec(sql, attributes...)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -91,7 +92,7 @@ func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key str
 				cache := r.engine.redis[cacheCode]
 				err := cache.Del(stringKeys...)
 				if err != nil {
-					return err
+					return errors.Trace(err)
 				}
 			}
 		}

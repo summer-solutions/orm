@@ -115,17 +115,17 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 				} else {
 					result, err := db.Exec(sql, bindRow...)
 					if err != nil {
-						return convertToError(err)
+						return errors.Trace(convertToError(err))
 					}
 					affected, err := result.RowsAffected()
 					if err != nil {
-						return err
+						return errors.Trace(err)
 					}
 					var lastID int64
 					if affected > 0 {
 						lastID, err = result.LastInsertId()
 						if err != nil {
-							return err
+							return errors.Trace(err)
 						}
 					}
 					if affected > 0 {
@@ -136,7 +136,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 						if affected == 2 {
 							_, err = loadByID(engine, uint64(lastID), entity, false)
 							if err != nil {
-								return err
+								return errors.Trace(err)
 							}
 						}
 					} else {
@@ -157,7 +157,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 								findWhere := NewWhere(strings.Join(fields, " AND "), binds)
 								has, err := engine.SearchOne(findWhere, entity)
 								if err != nil {
-									return err
+									return errors.Trace(err)
 								}
 								if !has {
 									return errors.Errorf("missing unique index to find updated row")
@@ -222,13 +222,13 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			} else {
 				_, err := db.Exec(sql, values...)
 				if err != nil {
-					return convertToError(err)
+					return errors.Trace(convertToError(err))
 				}
 				afterSaved, is := entity.(AfterSavedInterface)
 				if is {
 					err := afterSaved.AfterSaved(engine)
 					if err != nil {
-						return err
+						return errors.Trace(err)
 					}
 				}
 			}
@@ -270,7 +270,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		}
 		err := flush(engine, false, transaction, toFlush...)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		rest := make([]Entity, 0)
 		for _, v := range entities {
@@ -281,7 +281,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		}
 		err = flush(engine, transaction, transaction, rest...)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		return nil
 	}
@@ -303,11 +303,11 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		} else {
 			res, err := db.Exec(sql, insertArguments[typeOf]...)
 			if err != nil {
-				return convertToError(err)
+				return errors.Trace(convertToError(err))
 			}
 			insertID, err := res.LastInsertId()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			id = uint64(insertID)
 		}
@@ -322,7 +322,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			if is {
 				err := afterSaveInterface.AfterSaved(engine)
 				if err != nil {
-					return err
+					return errors.Trace(err)
 				}
 			}
 		}
@@ -343,7 +343,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		} else {
 			usage, err := schema.GetUsage(engine.registry)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if len(usage) > 0 {
 				for refT, refColumns := range usage {
@@ -359,7 +359,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 							for {
 								err := engine.Search(where, pager, sub)
 								if err != nil {
-									return err
+									return errors.Trace(err)
 								}
 								total := subElem.Len()
 								if total == 0 {
@@ -373,7 +373,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 								}
 								err = flush(engine, transaction, lazy, toDeleteAll...)
 								if err != nil {
-									return err
+									return errors.Trace(err)
 								}
 							}
 						}
@@ -382,7 +382,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			}
 			_, err = db.Exec(sql, ids...)
 			if err != nil {
-				return convertToError(err)
+				return errors.Trace(convertToError(err))
 			}
 		}
 
@@ -458,7 +458,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			if !transaction {
 				err := cache.Del(keys...)
 				if err != nil {
-					return err
+					return errors.Trace(err)
 				}
 			} else {
 				if engine.afterCommitRedisCacheDeletes == nil {
@@ -472,7 +472,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		channel := engine.GetRabbitMQQueue(lazyQueueName)
 		err := channel.Publish(serializeForLazyQueue(lazyMap))
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	for k, v := range dirtyQueues {
@@ -481,7 +481,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
 			err := channel.Publish(asJSON)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -497,7 +497,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		channel := engine.GetRabbitMQQueue(logQueueName)
 		err := channel.Publish(asJSON)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -828,7 +828,7 @@ func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, va
 }
 
 func convertToError(err error) error {
-	sqlErr, yes := err.(*mysql.MySQLError)
+	sqlErr, yes := errors.Cause(err).(*mysql.MySQLError)
 	if yes {
 		if sqlErr.Number == 1062 {
 			var abortLabelReg, _ = regexp.Compile(` for key '(.*?)'`)

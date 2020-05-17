@@ -57,7 +57,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 			pool := engine.GetMysql(poolName)
 			tables, err := getAllTables(pool.client)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			for _, table := range tables {
 				tablesInDB[poolName][table] = true
@@ -126,7 +126,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 			if !has {
 				dropForeignKeyAlter, err := getDropForeignKeysAlter(engine, tableName, poolName)
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 				if dropForeignKeyAlter != "" {
 					alters = append(alters, Alter{SQL: dropForeignKeyAlter, Safe: true, Pool: poolName})
@@ -135,7 +135,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 				dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableName)
 				isEmpty, err := isTableEmptyInPool(engine, poolName, tableName)
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 				if isEmpty {
 					alters = append(alters, Alter{SQL: dropSQL, Safe: true, Pool: poolName})
@@ -191,13 +191,13 @@ func getAllTables(db sqlClient) ([]string, error) {
 		var row string
 		err = results.Scan(&row)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		tables = append(tables, row)
 	}
 	err = results.Err()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return tables, nil
 }
@@ -257,7 +257,7 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 	var createTableDB string
 	err = pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.tableName)).Scan(&skip, &createTableDB)
 	if err != nil {
-		return false, nil, err
+		return false, nil, errors.Trace(err)
 	}
 	lines := strings.Split(createTableDB, "\n")
 	for x := 1; x < len(lines); x++ {
@@ -281,13 +281,13 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 		var row indexDB
 		err = results.Scan(&row.Skip, &row.NonUnique, &row.KeyName, &row.Seq, &row.Column, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip)
 		if err != nil {
-			return false, nil, err
+			return false, nil, errors.Trace(err)
 		}
 		rows = append(rows, row)
 	}
 	err = results.Err()
 	if err != nil {
-		return false, nil, err
+		return false, nil, errors.Trace(err)
 	}
 	def()
 	var indexesDB = make(map[string]*index)
@@ -303,7 +303,7 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 
 	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableSchema.tableName, tableSchema.mysqlPoolName)
 	if err != nil {
-		return false, nil, err
+		return false, nil, errors.Trace(err)
 	}
 
 	var newColumns []string
@@ -531,14 +531,14 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 	pool := engine.GetMysql(poolName)
 	results, def, err := pool.Query(fmt.Sprintf(query, pool.GetDatabaseName(), tableName))
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer def()
 	for results.Next() {
 		var row foreignKeyDB
 		err = results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		row.OnDelete = "RESTRICT"
 		for _, line := range strings.Split(createTableDB, "\n") {
@@ -554,7 +554,7 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 	}
 	err = results.Err()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	def()
 	var foreignKeysDB = make(map[string]*foreignIndex)
@@ -577,7 +577,7 @@ func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) 
 	alter := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableName)
 	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableName, poolName)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	if len(foreignKeysDB) == 0 {
 		return "", nil
@@ -714,12 +714,12 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 	case "string", "[]string":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	case "interface {}":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, true)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	case "float32":
 		definition, addNotNullIfNotSet, defaultValue = handleFloat("float", attributes)
@@ -740,7 +740,7 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 		if kind == "struct" {
 			structFields, err := checkStruct(schema, engine, field.Type, indexes, foreignKeys, field.Name)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			return structFields, nil
 		} else if kind == "ptr" {
@@ -812,7 +812,7 @@ func handleString(registry *validatedRegistry, attributes map[string]string, for
 	} else {
 		i, err := strconv.Atoi(length)
 		if err != nil {
-			return "", false, false, "", err
+			return "", false, false, "", errors.Trace(err)
 		}
 		if i > 65535 {
 			return "", false, false, "", errors.Errorf("length to heigh: %s", length)

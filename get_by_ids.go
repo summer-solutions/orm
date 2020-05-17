@@ -43,18 +43,18 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 			resultsLocalCache := localCache.MGet(cacheKeys...)
 			cacheKeys, err = getKeysForNils(engine, schema.t, resultsLocalCache, keysMapping, results, false)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			localCacheKeys = cacheKeys
 		}
 		if hasRedis && len(cacheKeys) > 0 {
 			resultsRedis, err := redisCache.MGet(cacheKeys...)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			cacheKeys, err = getKeysForNils(engine, schema.t, resultsRedis, keysMapping, results, true)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			redisCacheKeys = cacheKeys
 		}
@@ -67,7 +67,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	if l > 0 {
 		_, err = search(false, engine, NewWhere("`ID` IN ?", ids), &Pager{1, l}, false, entities)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		for i := 0; i < entities.Len(); i++ {
 			e := entities.Index(i).Interface().(Entity)
@@ -114,7 +114,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 			}
 			err = redisCache.MSet(pairs...)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 		}
 	}
@@ -136,7 +136,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	if len(references) > 0 && v.Len() > 0 {
 		err = warmUpReferences(engine, schema, entities, references, true)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 	return
@@ -156,7 +156,7 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 				var decoded []string
 				err := jsoniter.ConfigFastest.Unmarshal([]byte(v.(string)), &decoded)
 				if err != nil {
-					return nil, err
+					return nil, errors.Trace(err)
 				}
 				fillFromDBRow(keysMapping[k], engine, decoded, entity)
 				results[k] = entity
@@ -244,7 +244,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 		sub := reflect.New(reflect.SliceOf(reflect.PtrTo(t))).Elem()
 		_, err := tryByIDs(engine, ids, sub, warmUpSubRefs[t])
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		subLen := sub.Len()
 		for i := 0; i < subLen; i++ {

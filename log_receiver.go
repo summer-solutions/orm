@@ -27,7 +27,7 @@ func (r *LogReceiver) Digest() error {
 	channel := r.engine.GetRabbitMQQueue(logQueueName)
 	consumer, err := channel.NewConsumer("default consumer")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer consumer.Close()
 	if r.disableLoop {
@@ -66,7 +66,7 @@ func (r *LogReceiver) Digest() error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

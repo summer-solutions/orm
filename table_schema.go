@@ -137,23 +137,23 @@ func (tableSchema *tableSchema) GetType() reflect.Type {
 func (tableSchema *tableSchema) DropTable(engine *Engine) error {
 	pool := tableSchema.GetMysql(engine)
 	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.tableName))
-	return err
+	return errors.Trace(err)
 }
 
 func (tableSchema *tableSchema) TruncateTable(engine *Engine) error {
 	pool := tableSchema.GetMysql(engine)
 	_, err := pool.Exec("SET FOREIGN_KEY_CHECKS = 0")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;",
 		pool.GetDatabaseName(), tableSchema.tableName))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	_, err = pool.Exec("SET FOREIGN_KEY_CHECKS = 1")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -162,13 +162,13 @@ func (tableSchema *tableSchema) UpdateSchema(engine *Engine) error {
 	pool := tableSchema.GetMysql(engine)
 	has, alters, err := tableSchema.GetSchemaChanges(engine)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if has {
 		for _, alter := range alters {
 			_, err := pool.Exec(alter.SQL)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -178,11 +178,11 @@ func (tableSchema *tableSchema) UpdateSchema(engine *Engine) error {
 func (tableSchema *tableSchema) UpdateSchemaAndTruncateTable(engine *Engine) error {
 	err := tableSchema.UpdateSchema(engine)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	pool := tableSchema.GetMysql(engine)
 	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.tableName))
-	return err
+	return errors.Trace(err)
 }
 
 func (tableSchema *tableSchema) GetMysql(engine *Engine) *DB {
@@ -321,7 +321,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 				if has {
 					maxFromUser, err := strconv.Atoi(maxAttribute)
 					if err != nil {
-						return nil, err
+						return nil, errors.Trace(err)
 					}
 					max = maxFromUser
 				}

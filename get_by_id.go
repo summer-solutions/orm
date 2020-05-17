@@ -3,6 +3,8 @@ package orm
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -22,8 +24,11 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			fillFromDBRow(id, engine, e.([]string), entity)
 			if len(references) > 0 {
 				err = warmUpReferences(engine, schema, orm.attributes.elem, references, false)
+				if err != nil {
+					return false, errors.Trace(err)
+				}
 			}
-			return true, err
+			return true, nil
 		}
 	}
 	redisCache, hasRedis := schema.GetRedisCache(engine)
@@ -31,7 +36,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 		cacheKey = schema.getCacheKey(id)
 		row, has, err := redisCache.Get(cacheKey)
 		if err != nil {
-			return false, err
+			return false, errors.Trace(err)
 		}
 		if has {
 			if row == "nil" {
@@ -40,18 +45,21 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			var decoded []string
 			err = jsoniter.ConfigFastest.Unmarshal([]byte(row), &decoded)
 			if err != nil {
-				return true, err
+				return false, errors.Trace(err)
 			}
 			fillFromDBRow(id, engine, decoded, entity)
 			if len(references) > 0 {
 				err = warmUpReferences(engine, schema, orm.attributes.elem, references, false)
+				if err != nil {
+					return false, errors.Trace(err)
+				}
 			}
-			return true, err
+			return true, nil
 		}
 	}
 	found, err = searchRow(false, engine, NewWhere("`ID` = ?", id), entity, nil)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
 	if !found {
 		if localCache != nil {
@@ -60,7 +68,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 		if redisCache != nil {
 			err = redisCache.Set(cacheKey, "nil", 60)
 			if err != nil {
-				return false, err
+				return false, errors.Trace(err)
 			}
 		}
 		return false, nil
@@ -71,13 +79,13 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 	if redisCache != nil && useCache {
 		err = redisCache.Set(cacheKey, buildRedisValue(entity), 0)
 		if err != nil {
-			return false, err
+			return false, errors.Trace(err)
 		}
 	}
 	if len(references) > 0 {
 		err = warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 		if err != nil {
-			return true, err
+			return true, errors.Trace(err)
 		}
 	}
 	return true, nil
