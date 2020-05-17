@@ -3,6 +3,8 @@ package orm
 import (
 	"testing"
 
+	"github.com/juju/errors"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,8 +47,8 @@ func TestDeleteReference(t *testing.T) {
 	engine.MarkToDelete(entity1)
 	err = engine.Flush()
 	assert.NotNil(t, err)
-	assert.IsType(t, &ForeignKeyError{}, err)
-	assert.Equal(t, "test:testEntityDeleteReferenceRefRestrict:ReferenceOne", err.(*ForeignKeyError).Constraint)
+	assert.IsType(t, &ForeignKeyError{}, errors.Cause(err))
+	assert.Equal(t, "test:testEntityDeleteReferenceRefRestrict:ReferenceOne", errors.Cause(err).(*ForeignKeyError).Constraint)
 	engine.ClearTrackedEntities()
 
 	entityCascade := &testEntityDeleteReferenceRefCascade{}

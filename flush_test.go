@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
 
@@ -207,7 +209,7 @@ func TestFlushErrors(t *testing.T) {
 	entity.ReferenceOne = &testEntityErrors{ID: 2}
 	err := engine.Flush()
 	assert.NotNil(t, err)
-	keyError, is := err.(*ForeignKeyError)
+	keyError, is := errors.Cause(err).(*ForeignKeyError)
 	assert.True(t, is)
 	assert.Equal(t, "test:testEntityErrors:ReferenceOne", keyError.Constraint)
 	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`testEntityErrors`, CONSTRAINT `test:testEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `testEntityErrors` (`ID`))", keyError.Error())
@@ -222,7 +224,7 @@ func TestFlushErrors(t *testing.T) {
 	engine.Track(entity)
 	err = engine.Flush()
 	assert.NotNil(t, err)
-	duplicatedError, is := err.(*DuplicatedKeyError)
+	duplicatedError, is := errors.Cause(err).(*DuplicatedKeyError)
 	assert.True(t, is)
 	assert.Equal(t, "NameIndex", duplicatedError.Index)
 	assert.Equal(t, "Duplicate entry 'Name' for key 'NameIndex'", duplicatedError.Error())

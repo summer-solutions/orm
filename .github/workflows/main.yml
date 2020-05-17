@@ -48,7 +48,7 @@ jobs:
         env:
           RABBITMQ_DEFAULT_USER: rabbitmq_user
           RABBITMQ_DEFAULT_PASS: rabbitmq_password
-
+          RABBITMQ_DEFAULT_VHOST: test
     steps:
       - name: Set up Go
         uses: actions/setup-go@v1
