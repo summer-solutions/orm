@@ -287,6 +287,9 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	}
 	channel, err := client.Channel()
 	if err != nil {
+		if r.log != nil {
+			r.log.WithError(err).Warn("[ORM][RABBIT_MQ][CHANEL ERROR]")
+		}
 		rabbitErr, ok := err.(*amqp.Error)
 		if ok && rabbitErr.Code == amqp.ChannelError {
 			client, err = r.getClient(sender, true)
@@ -375,6 +378,9 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 	start := time.Now()
 	err = r.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
 	if err != nil {
+		if r.log != nil {
+			r.log.WithError(err).Warn("[ORM][RABBIT_MQ][PUBLISH ERROR]")
+		}
 		rabbitErr, ok := err.(*amqp.Error)
 		if ok && rabbitErr.Code == amqp.ChannelError {
 			err2 := r.initChannelSender(true)

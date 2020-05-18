@@ -485,6 +485,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			}
 		}
 	}
+	fmt.Printf("HAS QUEUES %v\n", logQueues)
 	for _, val := range logQueues {
 		if val.Meta == nil {
 			val.Meta = engine.logMetaData
