@@ -77,7 +77,6 @@ func (c *LocalCache) Set(key string, value interface{}) {
 	m.Lock()
 	defer m.Unlock()
 	c.lru.Add(key, value)
-	m.Unlock()
 	if c.log != nil {
 		c.fillLogFields(start, "set", -1).WithField("Key", key).
 			WithField("value", value).Info("[ORM][LOCAL][MGET]")
@@ -93,8 +92,6 @@ func (c *LocalCache) MSet(pairs ...interface{}) {
 	for i := 0; i < max; i += 2 {
 		c.lru.Add(pairs[i], pairs[i+1])
 	}
-	m.Unlock()
-
 	if c.log != nil {
 		c.fillLogFields(start, "mset", -1).WithField("Keys", pairs).Info("[ORM][LOCAL][MSET]")
 	}
@@ -136,7 +133,6 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		c.lru.Add(key, m)
-		mutex.Unlock()
 	}
 	for k, v := range fields {
 		m.(map[string]interface{})[k] = v
@@ -155,7 +151,6 @@ func (c *LocalCache) Remove(keys ...string) {
 	for _, v := range keys {
 		c.lru.Remove(v)
 	}
-	m.Unlock()
 	if c.log != nil {
 		c.fillLogFields(start, "remove", -1).
 			WithField("Keys", keys).Info("[ORM][LOCAL][REMOVE]")
@@ -168,7 +163,6 @@ func (c *LocalCache) Clear() {
 	m.Lock()
 	defer m.Unlock()
 	c.lru.Clear()
-	m.Unlock()
 	if c.log != nil {
 		c.fillLogFields(start, "clear", -1).Info("[ORM][LOCAL][CLEAR]")
 	}
