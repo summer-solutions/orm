@@ -267,10 +267,10 @@ func (r *rabbitMQChannel) getClient(sender bool, force bool) (*amqp.Connection, 
 	client := r.connection.getClient(sender)
 	if client == nil || force {
 		r.connection.mux.Lock()
+		defer r.connection.mux.Unlock()
 		client = r.connection.getClient(sender)
 		if client == nil || client.IsClosed() {
 			err := r.connection.connect(sender, r.log)
-			r.connection.mux.Unlock()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
