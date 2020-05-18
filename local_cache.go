@@ -75,6 +75,7 @@ func (c *LocalCache) Set(key string, value interface{}) {
 	start := time.Now()
 	m := &sync.Mutex{}
 	m.Lock()
+	defer m.Unlock()
 	c.lru.Add(key, value)
 	m.Unlock()
 	if c.log != nil {
@@ -88,6 +89,7 @@ func (c *LocalCache) MSet(pairs ...interface{}) {
 	max := len(pairs)
 	m := &sync.Mutex{}
 	m.Lock()
+	defer m.Unlock()
 	for i := 0; i < max; i += 2 {
 		c.lru.Add(pairs[i], pairs[i+1])
 	}
@@ -132,6 +134,7 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 		m = make(map[string]interface{})
 		mutex := &sync.Mutex{}
 		mutex.Lock()
+		defer mutex.Unlock()
 		c.lru.Add(key, m)
 		mutex.Unlock()
 	}
@@ -148,6 +151,7 @@ func (c *LocalCache) Remove(keys ...string) {
 	start := time.Now()
 	m := &sync.Mutex{}
 	m.Lock()
+	defer m.Unlock()
 	for _, v := range keys {
 		c.lru.Remove(v)
 	}
@@ -162,6 +166,7 @@ func (c *LocalCache) Clear() {
 	start := time.Now()
 	m := &sync.Mutex{}
 	m.Lock()
+	defer m.Unlock()
 	c.lru.Clear()
 	m.Unlock()
 	if c.log != nil {
