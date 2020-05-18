@@ -485,7 +485,6 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			}
 		}
 	}
-	fmt.Printf("HAS QUEUES %v\n", logQueues)
 	for _, val := range logQueues {
 		if val.Meta == nil {
 			val.Meta = engine.logMetaData
@@ -494,18 +493,13 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 				val.Meta[k] = v
 			}
 		}
-		fmt.Printf("MARSHAL QUEUES\n")
 		asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
-		fmt.Printf("MARSHALLED QUEUES\n")
 		channel := engine.GetRabbitMQQueue(logQueueName)
-		fmt.Printf("PUBLISHING %v\n", asJSON)
 		err := channel.Publish(asJSON)
-		fmt.Printf("PUBLISGED %v\n", asJSON)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
-	fmt.Printf("FINISH QUEUES\n")
 	return nil
 }
 

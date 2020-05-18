@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -282,17 +281,12 @@ func (r *rabbitMQChannel) getClient(sender bool, force bool) (*amqp.Connection, 
 
 func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Channel, *amqp.Queue, error) {
 	start := time.Now()
-	fmt.Printf("GETTING CLIENT\n")
 	client, err := r.getClient(sender, false)
-	fmt.Printf("GOT CLIENT\n")
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	fmt.Printf("CREATING CHANNEL\n")
 	channel, err := client.Channel()
-	fmt.Printf("CREATED CHANNEL\n")
 	if err != nil {
-		fmt.Printf("CREATED CHANNEL WITH ERROR\n")
 		if r.log != nil {
 			r.log.WithError(err).Warn("[ORM][RABBIT_MQ][CHANEL ERROR]")
 		}
@@ -308,7 +302,6 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			return nil, nil, errors.Trace(err)
 		}
 	}
-	fmt.Printf("CREATED CHANNEL NO ERROR\n")
 	if r.log != nil {
 		r.fillLogFields(start, "create channel").Info("[ORM][RABBIT_MQ][CREATE CHANNEL]")
 	}
@@ -337,12 +330,10 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		}
 	}
 	start = time.Now()
-	fmt.Printf("REGISTERING QUEUE\n")
 	q, err := r.registerQueue(channel, queueName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	fmt.Printf("REGISTERED QUEUE\n")
 	if r.log != nil {
 		r.fillLogFields(start, "register queue").WithField("Queue", q.Name).Info("[ORM][RABBIT_MQ][REGISTER QUEUE]")
 	}
@@ -380,19 +371,13 @@ func (r *rabbitMQChannel) initChannelSender(force bool) error {
 }
 
 func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
-	fmt.Printf("INIT SENDER\n")
 	err := r.initChannelSender(false)
-	fmt.Printf("INITED SENDER\n")
 	if err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Printf("INITED SENDER NO ERROR\n")
 	start := time.Now()
-	fmt.Printf("PUBLISHIBNG\n")
 	err = r.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
-	fmt.Printf("PUBLISHED\n")
 	if err != nil {
-		fmt.Printf("PUBLISHED WITH ERROR\n")
 		if r.log != nil {
 			r.log.WithError(err).Warn("[ORM][RABBIT_MQ][PUBLISH ERROR]")
 		}
