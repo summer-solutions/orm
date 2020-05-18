@@ -56,6 +56,15 @@ func (e *Engine) SetLogLevel(level log.Level) {
 	for _, l := range e.rabbitMQChannels {
 		l.log = e.log
 	}
+	for _, l := range e.rabbitMQQueues {
+		l.log = e.log
+	}
+	for _, l := range e.rabbitMQRouters {
+		l.log = e.log
+	}
+	for _, l := range e.rabbitMQDelayedQueues {
+		l.log = e.log
+	}
 }
 
 func (e *Engine) EnableDebug() {
