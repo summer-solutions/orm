@@ -39,6 +39,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.sqlClients = make(map[string]*DBConfig)
 	}
 	sqltrace.Register("mysql", mysql.MySQLDriver{})
+	sqltrace.WithAnalytics(true)
 	for k, v := range r.sqlClients {
 		db, err := sqltrace.Open("mysql", v.dataSourceName)
 		if err != nil {
