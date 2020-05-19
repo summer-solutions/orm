@@ -1,7 +1,7 @@
 package orm
 
 import (
-	"database/sql"
+	"github.com/go-sql-driver/mysql"
 	"math"
 	"reflect"
 	"sort"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/apex/log/handlers/multi"
+	sqltrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
@@ -37,8 +38,9 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	if registry.sqlClients == nil {
 		registry.sqlClients = make(map[string]*DBConfig)
 	}
+	sqltrace.Register("mysql", mysql.MySQLDriver{})
 	for k, v := range r.sqlClients {
-		db, err := sql.Open("mysql", v.dataSourceName)
+		db, err := sqltrace.Open("mysql", v.dataSourceName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
