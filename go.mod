@@ -16,5 +16,6 @@ require (
 	github.com/segmentio/fasthash v1.0.2
 	github.com/streadway/amqp v0.0.0-20200108173154-1c71cc93ed71
 	github.com/stretchr/testify v1.5.1
+	golang.org/x/tools v0.0.0-20200519205726-57a9e4404bf7 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )

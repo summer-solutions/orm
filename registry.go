@@ -210,6 +210,43 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			registry.rabbitMQChannelsToQueue[queueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 		}
 	}
+	//init rabbitMQ channels
+	engine = registry.CreateEngine()
+	for code, config := range registry.rabbitMQChannelsToQueue {
+		if config.config.Router == "" {
+			if config.config.Delayed {
+				r := engine.GetRabbitMQDelayedQueue(code)
+				receiver, _, err := r.initChannel(config.config.Name, false)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				err = receiver.Close()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+			} else {
+				r := engine.GetRabbitMQQueue(code)
+				receiver, _, err := r.initChannel(config.config.Name, false)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				err = receiver.Close()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+			}
+		} else {
+			r := engine.GetRabbitMQRouter(code)
+			receiver, _, err := r.initChannel(config.config.Name, false)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			err = receiver.Close()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+	}
 	return registry, nil
 }
 
