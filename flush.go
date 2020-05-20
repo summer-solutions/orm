@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -9,8 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-
-	jsoniter "github.com/json-iterator/go"
 
 	"github.com/go-sql-driver/mysql"
 )
@@ -478,7 +477,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 	for k, v := range dirtyQueues {
 		channel := engine.GetRabbitMQQueue("dirty_queue_" + k)
 		for _, k := range v {
-			asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
+			asJSON, _ := json.Marshal(k)
 			err := channel.Publish(asJSON)
 			if err != nil {
 				return errors.Trace(err)
@@ -493,7 +492,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 				val.Meta[k] = v
 			}
 		}
-		asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
+		asJSON, _ := json.Marshal(val)
 		channel := engine.GetRabbitMQQueue(logQueueName)
 		err := channel.Publish(asJSON)
 		if err != nil {
@@ -504,7 +503,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 }
 
 func serializeForLazyQueue(lazyMap map[string]interface{}) []byte {
-	encoded, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(lazyMap)
+	encoded, _ := json.Marshal(lazyMap)
 	return encoded
 }
 
@@ -688,7 +687,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			value := field.Interface()
 			var valString string
 			if value != nil && value != "" {
-				encoded, _ := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(value)
+				encoded, _ := json.Marshal(value)
 				asString := string(encoded)
 				if asString != "" {
 					valString = asString

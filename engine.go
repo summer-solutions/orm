@@ -1,13 +1,12 @@
 package orm
 
 import (
+	"encoding/json"
 	"os"
 	"reflect"
 	"time"
 
 	"github.com/juju/errors"
-
-	jsoniter "github.com/json-iterator/go"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
@@ -165,7 +164,7 @@ func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) error
 	entityName := initIfNeeded(e, entity).tableSchema.t.String()
 	for _, id := range ids {
 		val := &DirtyQueueValue{Updated: true, ID: id, EntityName: entityName}
-		asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
+		asJSON, _ := json.Marshal(val)
 		err := channel.Publish(asJSON)
 		if err != nil {
 			return errors.Trace(err)

@@ -1,12 +1,11 @@
 package orm
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
-
-	jsoniter "github.com/json-iterator/go"
 )
 
 func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64, err error) {
@@ -154,7 +153,7 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 			} else if fromRedis {
 				entity := reflect.New(entityType).Interface().(Entity)
 				var decoded []string
-				err := jsoniter.ConfigFastest.Unmarshal([]byte(v.(string)), &decoded)
+				err := json.Unmarshal([]byte(v.(string)), &decoded)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}

@@ -2,6 +2,7 @@ package orm
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -9,8 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-
-	jsoniter "github.com/json-iterator/go"
 )
 
 func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int, err error) {
@@ -332,7 +331,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		field := value.Field(i)
 		if data[index] != "" {
 			var f interface{}
-			_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(data[index]), &f)
+			_ = json.Unmarshal([]byte(data[index]), &f)
 			field.Set(reflect.ValueOf(f))
 		} else {
 			field.Set(reflect.Zero(field.Type()))

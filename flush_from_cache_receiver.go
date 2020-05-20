@@ -1,14 +1,13 @@
 package orm
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
-
-	jsoniter "github.com/json-iterator/go"
 )
 
 const flushCacheQueueName = "orm_flush_cache"
@@ -55,7 +54,7 @@ func (r *FlushFromCacheReceiver) Digest() error {
 			entity := entityValue.Interface().(Entity)
 
 			var decoded []string
-			_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(inCache), &decoded)
+			_ = json.Unmarshal([]byte(inCache), &decoded)
 
 			fillFromDBRow(id, r.engine, decoded, entity)
 			entityDBValue := reflect.New(schema.t).Interface().(Entity)

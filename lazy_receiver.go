@@ -1,7 +1,8 @@
 package orm
 
 import (
-	jsoniter "github.com/json-iterator/go"
+	"encoding/json"
+
 	"github.com/juju/errors"
 )
 
@@ -33,7 +34,7 @@ func (r *LazyReceiver) Digest() error {
 	var data interface{}
 	err = consumer.Consume(func(items [][]byte) error {
 		for _, item := range items {
-			_ = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(item, &data)
+			_ = json.Unmarshal(item, &data)
 			validMap := data.(map[string]interface{})
 			err := r.handleQueries(r.engine, validMap)
 			if err != nil {

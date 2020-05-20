@@ -1,7 +1,8 @@
 package orm
 
 import (
-	jsoniter "github.com/json-iterator/go"
+	"encoding/json"
+
 	"github.com/juju/errors"
 )
 
@@ -50,7 +51,7 @@ func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) error {
 	err = consumer.Consume(func(items [][]byte) error {
 		data := make([]*DirtyData, len(items))
 		for i, item := range items {
-			_ = jsoniter.ConfigFastest.Unmarshal(item, &value)
+			_ = json.Unmarshal(item, &value)
 			t, has := r.engine.registry.entities[value.EntityName]
 			if !has {
 				return nil
