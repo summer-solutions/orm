@@ -321,9 +321,9 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			return nil, nil, errors.Trace(err)
 		}
 		if r.log != nil {
-			r.fillLogFields(start, "register exchange").WithField("Name", configRouter.Name).
+			r.fillLogFields(start, "register router").WithField("Name", configRouter.Name).
 				WithField("Name", configRouter.Name).WithField("type", configRouter.Type).
-				WithField("args", args).Info("[ORM][RABBIT_MQ][REGISTER EXCHANGE]")
+				WithField("args", args).Info("[ORM][RABBIT_MQ][REGISTER ROUTER]")
 		}
 		if sender {
 			return channel, nil, nil

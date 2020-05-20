@@ -71,21 +71,21 @@ default:
     localCache: 1000
     rabbitMQ:
         server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
-            queues:
-                - name: test
-                - name: test2
-                  durrable: false // optional, default true
-                  autodelete: false // optional, default false
-                  prefetchCount: 1 // optional, default 1
-                  router: test // optional, default ""
-                  router_keys: // optional, default []string
-                    - aa
-                    - bb
-            routers:
-                - name: test_delayed
-                  type: direct  
-                  delayed: true //optional, default false  
-                  durable: false // optional, default true
+        queues:
+            - name: test
+            - name: test2
+              durrable: false // optional, default true
+              autodelete: false // optional, default false
+              prefetchCount: 1 // optional, default 1
+              router: test // optional, default ""
+              router_keys: // optional, default []string
+                - aa
+                - bb
+        routers:
+            - name: test_delayed
+              type: direct  
+              delayed: true //optional, default false  
+              durable: false // optional, default true
 second_pool:
     mysql: root:root@tcp(localhost:3311)/db2
     redis: localhost:6380:1 
@@ -916,7 +916,7 @@ import "github.com/summer-solutions/orm"
 
 func main() {
 
-    // register rabbitMQ servers, queues and exchanges
+    // register rabbitMQ servers, queues and routers
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
     registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue"})
     registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_delayed", Delayed: true})
@@ -957,7 +957,7 @@ func main() {
     
     // publish to router
 
-    channel = engine.GetRabbitMQRouter("test_queue_exchange") 
+    channel = engine.GetRabbitMQRouter("test_queue_router") 
     defer channel.Close()
     err = channel.Publish("router.key", []byte("hello"))
 

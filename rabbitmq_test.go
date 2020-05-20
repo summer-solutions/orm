@@ -44,16 +44,16 @@ func TestRabbitMQQueue(t *testing.T) {
 	assert.True(t, has)
 }
 
-func TestRabbitMQQueueExchange(t *testing.T) {
+func TestRabbitMQQueueRouter(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
-	registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_exchange", AutoDelete: true,
-		Router: "test_exchange_topic", RouterKeys: []string{"aa", "bb"}})
-	registry.RegisterRabbitMQRouter(&RabbitMQRouterConfig{Name: "test_exchange_topic", Type: "topic"})
+	registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_router", AutoDelete: true,
+		Router: "test_router_topic", RouterKeys: []string{"aa", "bb"}})
+	registry.RegisterRabbitMQRouter(&RabbitMQRouterConfig{Name: "test_router_topic", Type: "topic"})
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
-	r := engine.GetRabbitMQRouter("test_queue_exchange")
+	r := engine.GetRabbitMQRouter("test_router_exchange")
 	testLogger := memory.New()
 	r.AddLogger(testLogger)
 	r.SetLogLevel(log.InfoLevel)

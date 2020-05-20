@@ -134,25 +134,25 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			durable := getBoolOptional(asMap, "durable", true)
 			autoDeleted := getBoolOptional(asMap, "autodelete", false)
 			router := ""
-			exchangeVal, has := asMap["exchange"]
+			routerVal, has := asMap["router"]
 			if has {
-				asString, ok := exchangeVal.(string)
+				asString, ok := routerVal.(string)
 				if !ok {
-					return errors.Errorf("invalid rabbitMQ exchange name: %s", key)
+					return errors.Errorf("invalid rabbitMQ router name: %s", key)
 				}
 				router = asString
 			}
 			routerKeys := make([]string, 0)
-			exchangeVal, has = asMap["router_keys"]
+			routerVal, has = asMap["router_keys"]
 			if has {
-				asSlice, ok := exchangeVal.([]interface{})
+				asSlice, ok := routerVal.([]interface{})
 				if !ok {
-					return errors.Errorf("invalid rabbitMQ exchange keys: %s", key)
+					return errors.Errorf("invalid rabbitMQ router keys: %s", key)
 				}
 				for _, val := range asSlice {
 					asString, ok := val.(string)
 					if !ok {
-						return errors.Errorf("invalid rabbitMQ exchange key: %s", key)
+						return errors.Errorf("invalid rabbitMQ router key: %s", key)
 					}
 					routerKeys = append(routerKeys, asString)
 				}
@@ -163,32 +163,32 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			registry.RegisterRabbitMQQueue(config, key)
 		}
 	}
-	value, has = def["exchanges"]
+	value, has = def["routers"]
 	if has {
 		asSlice, ok := value.([]interface{})
 		if !ok {
-			return errors.Errorf("invalid rabbitMQ exchanges definition: %s", key)
+			return errors.Errorf("invalid rabbitMQ routers definition: %s", key)
 		}
-		for _, exchange := range asSlice {
-			asMap, ok := exchange.(map[interface{}]interface{})
+		for _, router := range asSlice {
+			asMap, ok := router.(map[interface{}]interface{})
 			if !ok {
-				return errors.Errorf("invalid rabbitMQ exchange definition: %s", key)
+				return errors.Errorf("invalid rabbitMQ router definition: %s", key)
 			}
 			value, has := asMap["name"]
 			if !has {
-				return errors.Errorf("missing rabbitMQ exchange name: %s", key)
+				return errors.Errorf("missing rabbitMQ router name: %s", key)
 			}
 			nameAsString, ok := value.(string)
 			if !ok {
-				return errors.Errorf("invalid rabbitMQ exchange name: %s", key)
+				return errors.Errorf("invalid rabbitMQ router name: %s", key)
 			}
 			value, has = asMap["type"]
 			if !has {
-				return errors.Errorf("missing rabbitMQ exchange type: %s", key)
+				return errors.Errorf("missing rabbitMQ router type: %s", key)
 			}
 			typeAsString, ok := value.(string)
 			if !ok {
-				return errors.Errorf("invalid rabbitMQ exchange type: %s", key)
+				return errors.Errorf("invalid rabbitMQ router type: %s", key)
 			}
 			durable := getBoolOptional(asMap, "durable", true)
 			config := &RabbitMQRouterConfig{nameAsString, typeAsString, durable}
