@@ -75,7 +75,7 @@ type TableSchema interface {
 	GetRedisCache(engine *Engine) (cache *RedisCache, has bool)
 	GetReferences() []string
 	GetColumns() []string
-	GetUsage(registry *validatedRegistry) (map[reflect.Type][]string, error)
+	GetUsage(registry ValidatedRegistry) (map[reflect.Type][]string, error)
 	GetSchemaChanges(engine *Engine) (has bool, alters []Alter, err error)
 }
 
@@ -211,11 +211,12 @@ func (tableSchema *tableSchema) GetColumns() []string {
 	return tableSchema.columnNames
 }
 
-func (tableSchema *tableSchema) GetUsage(registry *validatedRegistry) (map[reflect.Type][]string, error) {
+func (tableSchema *tableSchema) GetUsage(registry ValidatedRegistry) (map[reflect.Type][]string, error) {
+	vRegistry := registry.(*validatedRegistry)
 	results := make(map[reflect.Type][]string)
-	if registry.entities != nil {
-		for _, t := range registry.entities {
-			schema := getTableSchema(registry, t)
+	if vRegistry.entities != nil {
+		for _, t := range vRegistry.entities {
+			schema := getTableSchema(vRegistry, t)
 			for _, columnName := range schema.refOne {
 				ref, has := schema.tags[columnName]["ref"]
 				if has && ref == tableSchema.t.String() {
