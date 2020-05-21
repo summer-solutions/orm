@@ -376,6 +376,8 @@ func main() {
 
     engine.Track(&entity, &entity2)
     entity.Name = "New name 2"
+    //you can also use (but it's slower):
+    entity.SetField("Name", "New name 2")
     engine.IsDirty(entity) //returns true
     engine.IsDirty(entity2) //returns false
     err = entity.Flush() //it will save data in DB for all dirty tracked entities and untrack all of them
