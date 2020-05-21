@@ -1,12 +1,19 @@
 package orm
 
 import (
+	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/juju/errors"
 )
 
 type Entity interface {
 	getORM() *ORM
 	GetID() uint64
+	SetField(field string, value interface{}) error
 }
 
 type entityAttributes struct {
@@ -35,4 +42,107 @@ func (orm *ORM) GetID() uint64 {
 		return 0
 	}
 	return orm.attributes.idElem.Uint()
+}
+
+func (orm *ORM) SetField(field string, value interface{}) error {
+	if orm.attributes == nil {
+		return errors.NotValidf("entity is not loaded")
+	}
+	f := orm.attributes.elem.FieldByName(field)
+	if !f.IsValid() {
+		return errors.NotFoundf("field %s", field)
+	}
+	if !f.CanSet() {
+		return errors.NotAssignedf("field %s", field)
+	}
+	typeName := f.Type().String()
+	switch typeName {
+	case "uint",
+		"uint8",
+		"uint16",
+		"uint32",
+		"uint64":
+		val := uint64(0)
+		if value != nil {
+			parsed, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
+			if err != nil {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			val = parsed
+		}
+		f.SetUint(val)
+	case "int",
+		"int8",
+		"int16",
+		"int32",
+		"int64":
+		val := int64(0)
+		if value != nil {
+			parsed, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
+			if err != nil {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			val = parsed
+		}
+		f.SetInt(val)
+	case "string":
+		f.SetString(fmt.Sprintf("%v", value))
+	case "[]string":
+		_, ok := value.([]string)
+		if !ok {
+			return errors.NotValidf("%s value %v", field, value)
+		}
+		f.Set(reflect.ValueOf(value))
+	case "[]uint8":
+		_, ok := value.([]uint8)
+		if !ok {
+			return errors.NotValidf("%s value %v", field, value)
+		}
+		f.Set(reflect.ValueOf(value))
+	case "bool":
+		val := false
+		asString := strings.ToLower(fmt.Sprintf("%v", value))
+		if asString == "true" || asString == "1" {
+			val = true
+		}
+		f.SetBool(val)
+	case "float32",
+		"float64":
+		val := float64(0)
+		if value != nil {
+			parsed, err := strconv.ParseFloat(fmt.Sprintf("%v", value), 64)
+			if err != nil {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			val = parsed
+		}
+		f.SetFloat(val)
+	case "*time.Time":
+		_, ok := value.(*time.Time)
+		if !ok {
+			return errors.NotValidf("%s value %v", field, value)
+		}
+		f.Set(reflect.ValueOf(value))
+	case "time.Time":
+		_, ok := value.(time.Time)
+		if !ok {
+			return errors.NotValidf("%s value %v", field, value)
+		}
+		f.Set(reflect.ValueOf(value))
+	case "interface {}":
+		f.Set(reflect.ValueOf(value))
+	default:
+		k := f.Type().Kind().String()
+		if k == "struct" {
+			return errors.NotSupportedf("%s", field)
+		} else if k == "ptr" {
+			modelType := reflect.TypeOf((*Entity)(nil)).Elem()
+			if f.Type().Implements(modelType) {
+				f.Set(reflect.ValueOf(value))
+			}
+		} else {
+			return errors.NotSupportedf("%s", field)
+		}
+	}
+	return nil
 }

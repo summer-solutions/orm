@@ -17,6 +17,7 @@ type testEntityFlush struct {
 	ORM
 	ID           uint16
 	Name         string
+	Number       int16
 	NameNotNull  string `orm:"required"`
 	Blob         []byte
 	Enum         string   `orm:"enum=orm.colorEnum"`
@@ -65,6 +66,7 @@ func TestFlush(t *testing.T) {
 	}
 	err := engine.Flush()
 	assert.Nil(t, err)
+
 	for i := 1; i < 10; i++ {
 		testEntity := entities[i-1]
 		assert.Equal(t, uint16(i), testEntity.ID)
