@@ -988,7 +988,7 @@ func main() {
 	
     //enable human friendly console log
     engine.EnableDebug() //MySQL, redis, rabbitMQ queries (local cache in excluded bt default)
-    engine.EnableDebug(orm.LoggerRedis, orm.LoggerSourceLocalCache)
+    engine.EnableDebug(orm.LoggerSourceRedis, orm.LoggerSourceLocalCache)
     engine.EnableDebug(orm.LoggerSourceDB, orm.LoggerSourceRedis, orm. LoggerSourceRabbitMQ, orm.LoggerSourceLocalCache) //all sources
 
     //adding custom logger example:
