@@ -1,14 +1,9 @@
 package orm
 
 import (
-	"os"
 	"time"
 
 	"github.com/juju/errors"
-
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 
 	"github.com/bsm/redislock"
 )
@@ -26,25 +21,9 @@ func (l *standardLockerClient) Obtain(key string, ttl time.Duration, opt *redisl
 }
 
 type Locker struct {
-	code       string
-	locker     lockerClient
-	log        *log.Entry
-	logHandler *multi.Handler
-}
-
-func (l *Locker) AddLogger(handler log.Handler) {
-	l.logHandler.Handlers = append(l.logHandler.Handlers, handler)
-}
-
-func (l *Locker) SetLogLevel(level log.Level) {
-	logger := log.Logger{Handler: l.logHandler, Level: level}
-	l.log = logger.WithField("source", "orm")
-	l.log.Level = level
-}
-
-func (l *Locker) EnableDebug() {
-	l.AddLogger(text.New(os.Stdout))
-	l.SetLogLevel(log.DebugLevel)
+	code   string
+	locker lockerClient
+	engine *Engine
 }
 
 func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool, err error) {
@@ -60,16 +39,19 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 	options := &redislock.Options{RetryStrategy: redislock.LimitRetry(redislock.ExponentialBackoff(minInterval, maxInterval), max)}
 	start := time.Now()
 	redisLock, err := l.locker.Obtain(key, ttl, options)
-	if l.log != nil {
-		l.fillLogFields(start, key, "obtain").Info("[ORM][LOCKER][OBTAIN]")
-	}
 	if err != nil {
 		if err == redislock.ErrNotObtained {
 			return nil, false, nil
 		}
+		if l.engine.loggers[LoggerSourceRedis] != nil {
+			l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain", err)
+		}
 		return nil, false, errors.Trace(err)
 	}
-	return &Lock{lock: redisLock, locker: l, key: key, has: true}, true, nil
+	if l.engine.loggers[LoggerSourceRedis] != nil {
+		l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain", nil)
+	}
+	return &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}, true, nil
 }
 
 type Lock struct {
@@ -77,6 +59,7 @@ type Lock struct {
 	key    string
 	locker *Locker
 	has    bool
+	engine *Engine
 }
 
 func (l *Lock) Release() {
@@ -84,9 +67,9 @@ func (l *Lock) Release() {
 		return
 	}
 	start := time.Now()
-	_ = l.lock.Release()
-	if l.locker.log != nil {
-		l.locker.fillLogFields(start, l.key, "release").Info("[ORM][LOCKER][RELEASE]")
+	err := l.lock.Release()
+	if l.engine.loggers[LoggerSourceRedis] != nil {
+		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release", err)
 	}
 	l.has = false
 }
@@ -94,18 +77,26 @@ func (l *Lock) Release() {
 func (l *Lock) TTL() (time.Duration, error) {
 	start := time.Now()
 	d, err := l.lock.TTL()
-	if l.locker.log != nil {
-		l.locker.fillLogFields(start, l.key, "ttl").Info("[ORM][LOCKER][TTL]")
+	if l.engine.loggers[LoggerSourceRedis] != nil {
+		l.locker.fillLogFields("[ORM][LOCKER][TTL]", start, l.key, "ttl", err)
 	}
 	return d, errors.Trace(err)
 }
 
-func (l *Locker) fillLogFields(start time.Time, key string, operation string) *log.Entry {
-	return l.log.
-		WithField("Key", key).
-		WithField("microseconds", time.Since(start).Microseconds()).
-		WithField("operation", operation).
-		WithField("pool", l.code).
-		WithField("target", "locker").
-		WithField("time", start.Unix())
+func (l *Locker) fillLogFields(message string, start time.Time, key string, operation string, err error) {
+	stop := time.Since(start).Microseconds()
+	for _, logger := range l.engine.loggers[LoggerSourceDB] {
+		e := logger.log.
+			WithField("Key", key).
+			WithField("microseconds", stop).
+			WithField("operation", operation).
+			WithField("pool", l.code).
+			WithField("target", "locker").
+			WithField("time", start.Unix())
+		if err != nil {
+			e.WithError(err).Error(message)
+		} else {
+			e.Info(message)
+		}
+	}
 }

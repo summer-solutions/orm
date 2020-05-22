@@ -82,9 +82,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.False(t, engine.Loaded(rows[0].ReferenceOne))
 
 	DBLogger := memory.New()
-	pool := engine.GetMysql()
-	pool.AddLogger(DBLogger)
-	pool.SetLogLevel(log.InfoLevel)
+	engine.AddLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
 
 	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Nil(t, err)

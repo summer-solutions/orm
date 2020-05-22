@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/apex/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,10 +27,6 @@ func TestEngine(t *testing.T) {
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
 	assert.NotNil(t, engine)
-	engine.EnableDebug()
-	assert.NotNil(t, engine.log)
-	assert.Equal(t, log.DebugLevel, engine.log.Level)
-	engine.log = nil
 
 	require.PanicsWithError(t, "track limit 10000 exceeded", func() {
 		for i := 0; i < 10001; i++ {

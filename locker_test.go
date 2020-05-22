@@ -25,9 +25,7 @@ func TestLocker(t *testing.T) {
 	locker := engine.GetLocker()
 
 	testLogger := memory.New()
-	locker.AddLogger(testLogger)
-	locker.SetLogLevel(log.InfoLevel)
-	assert.Equal(t, log.InfoLevel, locker.log.Level)
+	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 
 	lock, has, err := locker.Obtain("test", 10*time.Second, 0*time.Second)
 	assert.Nil(t, err)
@@ -57,7 +55,4 @@ func TestLocker(t *testing.T) {
 	}
 	_, _, err = locker.Obtain("test", 10*time.Second, 10*time.Second)
 	assert.EqualError(t, err, "test error")
-
-	locker.EnableDebug()
-	locker.SetLogLevel(log.DebugLevel)
 }

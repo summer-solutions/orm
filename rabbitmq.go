@@ -1,15 +1,12 @@
 package orm
 
 import (
-	"os"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
 
 	"github.com/apex/log"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 	"github.com/streadway/amqp"
 )
 
@@ -43,9 +40,9 @@ func (r *rabbitMQReceiver) SetMaxLoopDudation(duration time.Duration) {
 
 func (r *rabbitMQReceiver) Close() {
 	start := time.Now()
-	_ = r.channel.Close()
-	if r.parent.log != nil {
-		r.parent.fillLogFields(start, "close channel").WithField("Queue", r.q.Name).Info("[ORM][RABBIT_MQ][CLOSE CHANNEL]")
+	err := r.channel.Close()
+	if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
+		r.parent.fillLogFields("[ORM][RABBIT_MQ][CLOSE CHANNEL]", start, "close channel", map[string]interface{}{"Queue": r.q.Name}, err)
 	}
 	delete(r.parent.channelConsumers, r.q.Name)
 }
@@ -57,12 +54,11 @@ func (r *rabbitMQReceiver) consume() (<-chan amqp.Delivery, error) {
 func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 	start := time.Now()
 	delivery, err := r.consume()
+	if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
+		r.parent.fillLogFields("[ORM][RABBIT_MQ][CONSUME]", start, "consume", map[string]interface{}{"Queue": r.q.Name, "consumer": r.name}, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.parent.log != nil {
-		r.parent.fillLogFields(start, "consume").WithField("Queue", r.q.Name).
-			WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][CONSUME]")
 	}
 
 	timeOut := false
@@ -81,12 +77,11 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 				return errors.Trace(err)
 			}
 			err = last.Ack(true)
+			if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
+				r.parent.fillLogFields("[ORM][RABBIT_MQ][ACK]", start, "ack", map[string]interface{}{"Queue": r.q.Name, "consumer": r.name}, err)
+			}
 			if err != nil {
 				return errors.Trace(err)
-			}
-			if r.parent.log != nil {
-				r.parent.fillLogFields(start, "ack").WithField("Queue", r.q.Name).
-					WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][ACK]")
 			}
 			counter = 0
 			timeOut = false
@@ -101,9 +96,8 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			last = &item
 			items = append(items, item.Body)
 			counter++
-			if r.parent.log != nil {
-				r.parent.fillLogFields(start, "received").WithField("Queue", r.q.Name).
-					WithField("consumer", r.name).Info("[ORM][RABBIT_MQ][RECEIVED]")
+			if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
+				r.parent.fillLogFields("[ORM][RABBIT_MQ][RECEIVED]", start, "received", map[string]interface{}{"Queue": r.q.Name, "consumer": r.name}, nil)
 			}
 		case <-time.After(r.maxLoopDuration):
 			timeOut = true
@@ -130,27 +124,27 @@ func (r *rabbitMQConnection) getClient(sender bool) *amqp.Connection {
 	return r.clientReceivers
 }
 
-func (r *rabbitMQConnection) keepConnection(sender bool, log *log.Entry, errChannel chan *amqp.Error) {
+func (r *rabbitMQConnection) keepConnection(sender bool, engine *Engine, errChannel chan *amqp.Error) {
 	go func() {
 		err := <-errChannel
-		if log != nil {
+		if engine.loggers[LoggerSourceRabbitMQ] != nil {
 			log.
 				WithField("operation", "reconnect").
 				WithField("target", "rabbitMQ").
 				WithField("reason", err.Reason).
 				WithField("time", time.Now().Unix()).Warn("[ORM][RABBIT_MQ][RECONNECT]")
 		}
-		_ = r.connect(sender, log)
+		_ = r.connect(sender, engine)
 	}()
 }
 
-func (r *rabbitMQConnection) connect(sender bool, log *log.Entry) error {
+func (r *rabbitMQConnection) connect(sender bool, engine *Engine) error {
 	start := time.Now()
 	conn, err := amqp.Dial(r.config.address)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if log != nil {
+	if engine.loggers[LoggerSourceRabbitMQ] != nil {
 		log.
 			WithField("microseconds", time.Since(start).Microseconds()).
 			WithField("operation", "open connection").
@@ -165,7 +159,7 @@ func (r *rabbitMQConnection) connect(sender bool, log *log.Entry) error {
 	errChannel := make(chan *amqp.Error)
 	conn.NotifyClose(errChannel)
 
-	go r.keepConnection(sender, log, errChannel)
+	go r.keepConnection(sender, engine, errChannel)
 	return nil
 }
 
@@ -239,8 +233,6 @@ func (r *RabbitMQRouter) Publish(routerKey string, body []byte) error {
 
 type rabbitMQChannel struct {
 	engine           *Engine
-	log              *log.Entry
-	logHandler       *multi.Handler
 	channelSender    *amqp.Channel
 	connection       *rabbitMQConnection
 	channelConsumers map[string]RabbitMQConsumer
@@ -269,8 +261,12 @@ func (r *rabbitMQChannel) getClient(sender bool, force bool) (*amqp.Connection, 
 		defer r.connection.mux.Unlock()
 		client = r.connection.getClient(sender)
 		if client == nil || client.IsClosed() {
-			err := r.connection.connect(sender, r.log)
+			start := time.Now()
+			err := r.connection.connect(sender, r.engine)
 			if err != nil {
+				if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
+					r.fillLogFields("[ORM][RABBIT_MQ][CONNECT]", start, "connect", nil, nil)
+				}
 				return nil, errors.Trace(err)
 			}
 		}
@@ -287,9 +283,6 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	}
 	channel, err := client.Channel()
 	if err != nil {
-		if r.log != nil {
-			r.log.WithError(err).Warn("[ORM][RABBIT_MQ][CHANEL ERROR]")
-		}
 		rabbitErr, ok := err.(*amqp.Error)
 		if ok && rabbitErr.Code == amqp.ChannelError {
 			client, err = r.getClient(sender, true)
@@ -299,11 +292,14 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			channel, err = client.Channel()
 		}
 		if err != nil {
+			if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
+				r.fillLogFields("[ORM][RABBIT_MQ][CREATE CHANNEL]", start, "create channel", nil, err)
+			}
 			return nil, nil, errors.Trace(err)
 		}
 	}
-	if r.log != nil {
-		r.fillLogFields(start, "create channel").Info("[ORM][RABBIT_MQ][CREATE CHANNEL]")
+	if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
+		r.fillLogFields("[ORM][RABBIT_MQ][CREATE CHANNEL]", start, "create channel", nil, nil)
 	}
 	hasRouter := r.config.Router != ""
 	if hasRouter {
@@ -317,13 +313,12 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		start = time.Now()
 		err := channel.ExchangeDeclare(configRouter.Name, typeValue, configRouter.Durable, true,
 			false, false, args)
+		if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
+			r.fillLogFields("[ORM][RABBIT_MQ][REGISTER ROUTER]", start, "register router",
+				map[string]interface{}{"Name": configRouter.Name, "type": configRouter.Type, "args": args}, err)
+		}
 		if err != nil {
 			return nil, nil, errors.Trace(err)
-		}
-		if r.log != nil {
-			r.fillLogFields(start, "register router").WithField("Name", configRouter.Name).
-				WithField("Name", configRouter.Name).WithField("type", configRouter.Type).
-				WithField("args", args).Info("[ORM][RABBIT_MQ][REGISTER ROUTER]")
 		}
 		if sender {
 			return channel, nil, nil
@@ -331,11 +326,12 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	}
 	start = time.Now()
 	q, err := r.registerQueue(channel, queueName)
+	if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
+		r.fillLogFields("[ORM][RABBIT_MQ][REGISTER QUEUE]", start, "register queue",
+			map[string]interface{}{"Queue": queueName}, err)
+	}
 	if err != nil {
 		return nil, nil, errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "register queue").WithField("Queue", q.Name).Info("[ORM][RABBIT_MQ][REGISTER QUEUE]")
 	}
 	if hasRouter {
 		keys := r.config.RouterKeys
@@ -345,13 +341,12 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		for _, key := range keys {
 			start = time.Now()
 			err = channel.QueueBind(q.Name, key, r.config.Router, false, nil)
+			if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
+				r.fillLogFields("[ORM][RABBIT_MQ][QUEUE BIND]", start, "queue bind",
+					map[string]interface{}{"Queue": q.Name, "Router": r.config.Router, "key": key}, err)
+			}
 			if err != nil {
 				return nil, nil, errors.Trace(err)
-			}
-			if r.log != nil {
-				r.fillLogFields(start, "queue bind").WithField("Queue", q.Name).
-					WithField("Router", r.config.Router).WithField("key", key).
-					Info("[ORM][RABBIT_MQ][QUEUE BIND]")
 			}
 		}
 	}
@@ -378,9 +373,6 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 	start := time.Now()
 	err = r.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
 	if err != nil {
-		if r.log != nil {
-			r.log.WithError(err).Warn("[ORM][RABBIT_MQ][PUBLISH ERROR]")
-		}
 		rabbitErr, ok := err.(*amqp.Error)
 		if ok && rabbitErr.Code == amqp.ChannelError {
 			err2 := r.initChannelSender(true)
@@ -392,42 +384,37 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 				return errors.Trace(err)
 			}
 		}
-		if err != nil {
-			return errors.Trace(err)
+	}
+	if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
+		if r.config.Router != "" {
+			r.fillLogFields("[ORM][RABBIT_MQ][PUBLISH]", start, "publish",
+				map[string]interface{}{"Router": r.config.Router, "key": routingKey}, err)
+		} else {
+			r.fillLogFields("[ORM][RABBIT_MQ][PUBLISH]", start, "publish",
+				map[string]interface{}{"Queue": r.q.Name, "key": routingKey}, err)
 		}
 	}
-	if r.log != nil {
-		if r.config.Router != "" {
-			r.fillLogFields(start, "publish").WithField("Router", r.config.Router).WithField("mandatory", mandatory).
-				WithField("immediate", immediate).WithField("key", routingKey).Info("[ORM][RABBIT_MQ][PUBLISH]")
-		} else {
-			r.fillLogFields(start, "publish").WithField("Queue", r.q.Name).WithField("mandatory", mandatory).
-				WithField("immediate", immediate).WithField("key", routingKey).Info("[ORM][RABBIT_MQ][PUBLISH]")
-		}
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (r *rabbitMQChannel) AddLogger(handler log.Handler) {
-	r.logHandler.Handlers = append(r.logHandler.Handlers, handler)
-}
-
-func (r *rabbitMQChannel) SetLogLevel(level log.Level) {
-	logger := log.Logger{Handler: r.logHandler, Level: level}
-	r.log = logger.WithField("source", "orm")
-	r.log.Level = level
-}
-
-func (r *rabbitMQChannel) EnableDebug() {
-	r.AddLogger(text.New(os.Stdout))
-	r.SetLogLevel(log.DebugLevel)
-}
-
-func (r *rabbitMQChannel) fillLogFields(start time.Time, operation string) *log.Entry {
-	e := r.log.
-		WithField("microseconds", time.Since(start).Microseconds()).
-		WithField("operation", operation).
-		WithField("target", "rabbitMQ").
-		WithField("time", start.Unix())
-	return e
+func (r *rabbitMQChannel) fillLogFields(message string, start time.Time, operation string, fields map[string]interface{}, err error) {
+	stop := time.Since(start).Microseconds()
+	for _, l := range r.engine.loggers[LoggerSourceDB] {
+		e := l.log.
+			WithField("microseconds", stop).
+			WithField("operation", operation).
+			WithField("target", "rabbitMQ").
+			WithField("time", start.Unix())
+		for k, v := range fields {
+			e = e.WithField(k, v)
+		}
+		if err != nil {
+			e.WithError(err).Error(message)
+		} else {
+			e.Info(message)
+		}
+	}
 }

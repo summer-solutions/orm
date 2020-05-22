@@ -1,24 +1,17 @@
 package orm
 
 import (
-	"os"
 	"sync"
 	"time"
-
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 
 	"github.com/golang/groupcache/lru"
 )
 
 type LocalCache struct {
-	engine     *Engine
-	code       string
-	lru        *lru.Cache
-	ttl        int64
-	log        *log.Entry
-	logHandler *multi.Handler
+	engine *Engine
+	code   string
+	lru    *lru.Cache
+	ttl    int64
 }
 
 type ttlValue struct {
@@ -47,8 +40,8 @@ func (c *LocalCache) Get(key string) (value interface{}, ok bool) {
 	if !ok {
 		misses = 1
 	}
-	if c.log != nil {
-		c.fillLogFields(start, "get", misses).WithField("Key", key).Info("[ORM][LOCAL][GET]")
+	if c.engine.loggers[LoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][GET]", start, "get", misses, map[string]interface{}{"Key": key})
 	}
 	return
 }
@@ -65,8 +58,8 @@ func (c *LocalCache) MGet(keys ...string) map[string]interface{} {
 		}
 		results[key] = value
 	}
-	if c.log != nil {
-		c.fillLogFields(start, "mget", misses).WithField("Keys", keys).Info("[ORM][LOCAL][MGET]")
+	if c.engine.loggers[LoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][MGET]", start, "mget", misses, map[string]interface{}{"Keys": keys})
 	}
 	return results
 }
@@ -77,9 +70,8 @@ func (c *LocalCache) Set(key string, value interface{}) {
 	m.Lock()
 	defer m.Unlock()
 	c.lru.Add(key, value)
-	if c.log != nil {
-		c.fillLogFields(start, "set", -1).WithField("Key", key).
-			WithField("value", value).Info("[ORM][LOCAL][MGET]")
+	if c.engine.loggers[LoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][MGET]", start, "set", -1, map[string]interface{}{"Key": key, "value": value})
 	}
 }
 
@@ -92,8 +84,8 @@ func (c *LocalCache) MSet(pairs ...interface{}) {
 	for i := 0; i < max; i += 2 {
 		c.lru.Add(pairs[i], pairs[i+1])
 	}
-	if c.log != nil {
-		c.fillLogFields(start, "mset", -1).WithField("Keys", pairs).Info("[ORM][LOCAL][MSET]")
+	if c.engine.loggers[LoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][MSET]", start, "mset", -1, map[string]interface{}{"Keys": pairs})
 	}
 }
 
@@ -117,9 +109,8 @@ func (c *LocalCache) HMget(key string, fields ...string) map[string]interface{} 
 			}
 		}
 	}
-	if c.log != nil {
-		c.fillLogFields(start, "hmget", misses).
-			WithField("Key", key).WithField("fields", fields).Info("[ORM][LOCAL][HMGET]")
+	if c.engine.loggers[LoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][HMGET]", start, "hmget", misses, map[string]interface{}{"Key": key, "fields": fields})
 	}
 	return results
 }
@@ -137,9 +128,8 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 	for k, v := range fields {
 		m.(map[string]interface{})[k] = v
 	}
-	if c.log != nil {
-		c.fillLogFields(start, "hmset", -1).
-			WithField("Key", key).WithField("fields", fields).Info("[ORM][LOCAL][HMSET]")
+	if c.engine.loggers[LoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][HMSET]", start, "hmset", -1, map[string]interface{}{"Key": key, "fields": fields})
 	}
 }
 
@@ -151,9 +141,8 @@ func (c *LocalCache) Remove(keys ...string) {
 	for _, v := range keys {
 		c.lru.Remove(v)
 	}
-	if c.log != nil {
-		c.fillLogFields(start, "remove", -1).
-			WithField("Keys", keys).Info("[ORM][LOCAL][REMOVE]")
+	if c.engine.loggers[LoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][REMOVE]", start, "remove", -1, map[string]interface{}{"Keys": keys})
 	}
 }
 
@@ -163,35 +152,26 @@ func (c *LocalCache) Clear() {
 	m.Lock()
 	defer m.Unlock()
 	c.lru.Clear()
-	if c.log != nil {
-		c.fillLogFields(start, "clear", -1).Info("[ORM][LOCAL][CLEAR]")
+	if c.engine.loggers[LoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][CLEAR]", start, "clear", -1, nil)
 	}
 }
 
-func (c *LocalCache) AddLogger(handler log.Handler) {
-	c.logHandler.Handlers = append(c.logHandler.Handlers, handler)
-}
-
-func (c *LocalCache) SetLogLevel(level log.Level) {
-	logger := log.Logger{Handler: c.logHandler, Level: level}
-	c.log = logger.WithField("source", "orm")
-	c.log.Level = level
-}
-
-func (c *LocalCache) EnableDebug() {
-	c.AddLogger(text.New(os.Stdout))
-	c.SetLogLevel(log.DebugLevel)
-}
-
-func (c *LocalCache) fillLogFields(start time.Time, operation string, misses int) *log.Entry {
-	e := c.log.
-		WithField("microseconds", time.Since(start).Microseconds()).
-		WithField("operation", operation).
-		WithField("pool", c.code).
-		WithField("target", "local_cache").
-		WithField("time", start.Unix())
-	if misses >= 0 {
-		e = e.WithField("misses", misses)
+func (c *LocalCache) fillLogFields(message string, start time.Time, operation string, misses int, fields map[string]interface{}) {
+	stop := time.Since(start).Microseconds()
+	for _, l := range c.engine.loggers[LoggerSourceLocalCache] {
+		e := l.log.
+			WithField("microseconds", stop).
+			WithField("operation", operation).
+			WithField("pool", c.code).
+			WithField("target", "local_cache").
+			WithField("time", start.Unix())
+		if misses >= 0 {
+			e = e.WithField("misses", misses)
+		}
+		for k, v := range fields {
+			e = e.WithField(k, v)
+		}
+		e.Info(message)
 	}
-	return e
 }

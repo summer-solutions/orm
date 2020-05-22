@@ -15,12 +15,11 @@ func TestDB(t *testing.T) {
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
-	db := validatedRegistry.CreateEngine().GetMysql()
+	engine := validatedRegistry.CreateEngine()
+	db := engine.GetMysql()
 	assert.NotNil(t, db)
 	testLogger := memory.New()
-	db.AddLogger(testLogger)
-	db.SetLogLevel(log.InfoLevel)
-	assert.Equal(t, log.InfoLevel, db.log.Level)
+	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceDB)
 
 	err = db.Commit()
 	assert.EqualError(t, err, "transaction not started")
@@ -45,8 +44,4 @@ func TestDB(t *testing.T) {
 	assert.Equal(t, 2, i)
 	err = db.Commit()
 	assert.Nil(t, err)
-
-	db.EnableDebug()
-	assert.NotNil(t, db.log)
-	assert.Equal(t, log.DebugLevel, db.log.Level)
 }

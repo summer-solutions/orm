@@ -1,14 +1,10 @@
 package orm
 
 import (
-	"os"
 	"time"
 
 	"github.com/juju/errors"
 
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/go-redis/redis/v7"
@@ -147,29 +143,12 @@ func (c *standardRedisClient) FlushDB() error {
 }
 
 type RedisCache struct {
-	engine     *Engine
-	code       string
-	client     redisClient
-	log        *log.Entry
-	logHandler *multi.Handler
+	engine *Engine
+	code   string
+	client redisClient
 }
 
 type GetSetProvider func() interface{}
-
-func (r *RedisCache) AddLogger(handler log.Handler) {
-	r.logHandler.Handlers = append(r.logHandler.Handlers, handler)
-}
-
-func (r *RedisCache) SetLogLevel(level log.Level) {
-	logger := log.Logger{Handler: r.logHandler, Level: level}
-	r.log = logger.WithField("source", "orm")
-	r.log.Level = level
-}
-
-func (r *RedisCache) EnableDebug() {
-	r.AddLogger(text.New(os.Stdout))
-	r.SetLogLevel(log.DebugLevel)
-}
 
 func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider) (interface{}, error) {
 	val, has, err := r.Get(key)
@@ -195,15 +174,18 @@ func (r *RedisCache) Get(key string) (value string, has bool, err error) {
 	val, err := r.client.Get(key)
 	if err != nil {
 		if err == redis.Nil {
-			if r.log != nil {
-				r.fillLogFields(start, "get", 1).WithField("Key", key).Info("[ORM][REDIS][GET]")
+			if r.engine.loggers[LoggerSourceRedis] != nil {
+				r.fillLogFields("[ORM][REDIS][GET]", start, "get", 1, map[string]interface{}{"Key": key}, nil)
 			}
 			return "", false, nil
 		}
+		if r.engine.loggers[LoggerSourceRedis] != nil {
+			r.fillLogFields("[ORM][REDIS][GET]", start, "get", 1, map[string]interface{}{"Key": key}, err)
+		}
 		return "", false, errors.Trace(err)
 	}
-	if r.log != nil {
-		r.fillLogFields(start, "get", 0).WithField("Key", key).Info("[ORM][REDIS][GET]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][GET]", start, "get", 0, map[string]interface{}{"Key": key}, nil)
 	}
 	return val, true, nil
 }
@@ -211,12 +193,11 @@ func (r *RedisCache) Get(key string) (value string, has bool, err error) {
 func (r *RedisCache) LRange(key string, start, stop int64) ([]string, error) {
 	s := time.Now()
 	val, err := r.client.LRange(key, start, stop)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][LRANGE]", s, "lrange", -1, map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(s, "lrange", -1).WithField("Key", key).
-			WithField("start", start).WithField("stop", stop).Info("[ORM][REDIS][LRANGE]")
 	}
 	return val, nil
 }
@@ -225,6 +206,9 @@ func (r *RedisCache) HMget(key string, fields ...string) (map[string]interface{}
 	start := time.Now()
 	val, err := r.client.HMGet(key, fields...)
 	if err != nil {
+		if r.engine.loggers[LoggerSourceRedis] != nil {
+			r.fillLogFields("[ORM][REDIS][HMGET]", start, "hmget", 0, map[string]interface{}{"Key": key, "fields": fields}, err)
+		}
 		return nil, errors.Trace(err)
 	}
 	results := make(map[string]interface{}, len(fields))
@@ -235,9 +219,8 @@ func (r *RedisCache) HMget(key string, fields ...string) (map[string]interface{}
 		}
 		results[fields[index]] = v
 	}
-	if r.log != nil {
-		r.fillLogFields(start, "hmget", misses).WithField("Key", key).
-			WithField("fields", fields).Info("[ORM][REDIS][HMGET]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][HMGET]", start, "hmget", misses, map[string]interface{}{"Key": key, "fields": fields}, nil)
 	}
 	return results, nil
 }
@@ -245,11 +228,11 @@ func (r *RedisCache) HMget(key string, fields ...string) (map[string]interface{}
 func (r *RedisCache) HGetAll(key string) (map[string]string, error) {
 	start := time.Now()
 	val, err := r.client.HGetAll(key)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][HGETALL]", start, "hgetall", -1, map[string]interface{}{"Key": key}, err)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "hgetall", -1).WithField("Key", key).Info("[ORM][REDIS][HGETALL]")
 	}
 	return val, nil
 }
@@ -257,12 +240,11 @@ func (r *RedisCache) HGetAll(key string) (map[string]string, error) {
 func (r *RedisCache) LPush(key string, values ...interface{}) (int64, error) {
 	start := time.Now()
 	val, err := r.client.LPush(key, values...)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][LPUSH]", start, "lpush", -1, map[string]interface{}{"Key": key, "values": values}, err)
+	}
 	if err != nil {
 		return 0, errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "lpush", -1).
-			WithField("Key", key).WithField("values", values).Info("[ORM][REDIS][LPUSH]")
 	}
 	return val, nil
 }
@@ -270,12 +252,11 @@ func (r *RedisCache) LPush(key string, values ...interface{}) (int64, error) {
 func (r *RedisCache) RPush(key string, values ...interface{}) (int64, error) {
 	start := time.Now()
 	val, err := r.client.RPush(key, values...)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][RPUSH]", start, "rpush", -1, map[string]interface{}{"Key": key, "values": values}, err)
+	}
 	if err != nil {
 		return 0, errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "rpush", -1).
-			WithField("Key", key).WithField("values", values).Info("[ORM][REDIS][RPUSH]")
 	}
 	return val, nil
 }
@@ -285,15 +266,18 @@ func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
 	val, err := r.client.RPop(key)
 	if err != nil {
 		if err == redis.Nil {
-			if r.log != nil {
-				r.fillLogFields(start, "rpop", 1).WithField("Key", key).Info("[ORM][REDIS][RPOP]")
+			if r.engine.loggers[LoggerSourceRedis] != nil {
+				r.fillLogFields("[ORM][REDIS][RPOP]", start, "rpop", 1, map[string]interface{}{"Key": key}, nil)
 			}
 			return "", false, nil
 		}
+		if r.engine.loggers[LoggerSourceRedis] != nil {
+			r.fillLogFields("[ORM][REDIS][RPOP]", start, "rpop", 1, map[string]interface{}{"Key": key}, err)
+		}
 		return "", false, errors.Trace(err)
 	}
-	if r.log != nil {
-		r.fillLogFields(start, "rpop", 0).WithField("Key", key).Info("[ORM][REDIS][RPOP]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][RPOP]", start, "rpop", 0, map[string]interface{}{"Key": key}, nil)
 	}
 	return val, true, nil
 }
@@ -301,12 +285,11 @@ func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
 func (r *RedisCache) LSet(key string, index int64, value interface{}) error {
 	start := time.Now()
 	_, err := r.client.LSet(key, index, value)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][LSET]", start, "lset", -1, map[string]interface{}{"Key": key, "index": index, "value": value}, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "lset", -1).
-			WithField("Key", key).WithField("index", index).WithField("value", value).Info("[ORM][REDIS][LSET]")
 	}
 	return nil
 }
@@ -314,12 +297,11 @@ func (r *RedisCache) LSet(key string, index int64, value interface{}) error {
 func (r *RedisCache) LRem(key string, count int64, value interface{}) error {
 	start := time.Now()
 	_, err := r.client.LRem(key, count, value)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][LREM]", start, "lrem", -1, map[string]interface{}{"Key": key, "count": count, "value": value}, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "lrem", -1).
-			WithField("Key", key).WithField("count", count).WithField("value", value).Info("[ORM][REDIS][LREM]")
 	}
 	return nil
 }
@@ -327,12 +309,11 @@ func (r *RedisCache) LRem(key string, count int64, value interface{}) error {
 func (r *RedisCache) Ltrim(key string, start, stop int64) error {
 	s := time.Now()
 	_, err := r.client.LTrim(key, start, stop)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][LTRIM]", s, "ltrim", -1, map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(s, "ltrim", -1).
-			WithField("Key", key).WithField("start", start).WithField("stop", stop).Info("[ORM][REDIS][LTRIM]")
 	}
 	return nil
 }
@@ -340,9 +321,8 @@ func (r *RedisCache) Ltrim(key string, start, stop int64) error {
 func (r *RedisCache) ZCard(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZCard(key)
-	if r.log != nil {
-		r.fillLogFields(start, "zcard", -1).
-			WithField("Key", key).Info("[ORM][REDIS][ZCARD]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][ZCARD]", start, "zcard", -1, map[string]interface{}{"Key": key}, err)
 	}
 	if err != nil {
 		return 0, errors.Trace(err)
@@ -353,9 +333,8 @@ func (r *RedisCache) ZCard(key string) (int64, error) {
 func (r *RedisCache) SCard(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.SCard(key)
-	if r.log != nil {
-		r.fillLogFields(start, "scard", -1).
-			WithField("Key", key).Info("[ORM][REDIS][SCARD]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][SCARD]", start, "scard", -1, map[string]interface{}{"Key": key}, err)
 	}
 	if err != nil {
 		return 0, errors.Trace(err)
@@ -366,9 +345,8 @@ func (r *RedisCache) SCard(key string) (int64, error) {
 func (r *RedisCache) ZCount(key string, min, max string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZCount(key, min, max)
-	if r.log != nil {
-		r.fillLogFields(start, "zcount", -1).
-			WithField("Key", key).WithField("min", min).WithField("max", max).Info("[ORM][REDIS][ZCOUNT]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][ZCOUNT]", start, "zcount", -1, map[string]interface{}{"Key": key, "min": min, "max": max}, err)
 	}
 	if err != nil {
 		return 0, errors.Trace(err)
@@ -379,9 +357,8 @@ func (r *RedisCache) ZCount(key string, min, max string) (int64, error) {
 func (r *RedisCache) SPop(key string) (string, bool, error) {
 	start := time.Now()
 	val, err := r.client.SPop(key)
-	if r.log != nil {
-		r.fillLogFields(start, "spop", -1).
-			WithField("Key", key).Info("[ORM][REDIS][SPOP]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][SPOP]", start, "spop", -1, map[string]interface{}{"Key": key}, err)
 	}
 	if err != nil {
 		if err == redis.Nil {
@@ -395,9 +372,8 @@ func (r *RedisCache) SPop(key string) (string, bool, error) {
 func (r *RedisCache) SPopN(key string, max int64) ([]string, error) {
 	start := time.Now()
 	val, err := r.client.SPopN(key, max)
-	if r.log != nil {
-		r.fillLogFields(start, "spopn", -1).
-			WithField("Key", key).WithField("max", max).Info("[ORM][REDIS][SPOPN]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][SPOPN]", start, "spopn", -1, map[string]interface{}{"Key": key, "max": max}, err)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -408,9 +384,8 @@ func (r *RedisCache) SPopN(key string, max int64) ([]string, error) {
 func (r *RedisCache) LLen(key string) (int64, error) {
 	start := time.Now()
 	val, err := r.client.LLen(key)
-	if r.log != nil {
-		r.fillLogFields(start, "llen", -1).
-			WithField("Key", key).Info("[ORM][REDIS][LLEN]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][LLEN]", start, "llen", -1, map[string]interface{}{"Key": key}, err)
 	}
 	if err != nil {
 		return 0, errors.Trace(err)
@@ -421,12 +396,11 @@ func (r *RedisCache) LLen(key string) (int64, error) {
 func (r *RedisCache) ZAdd(key string, members ...*redis.Z) (int64, error) {
 	start := time.Now()
 	val, err := r.client.ZAdd(key, members...)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][ZADD]", start, "zadd", -1, map[string]interface{}{"Key": key, "members": len(members)}, err)
+	}
 	if err != nil {
 		return 0, errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "zadd", -1).
-			WithField("Key", key).WithField("members", len(members)).Info("[ORM][REDIS][ZADD]")
 	}
 	return val, nil
 }
@@ -434,12 +408,11 @@ func (r *RedisCache) ZAdd(key string, members ...*redis.Z) (int64, error) {
 func (r *RedisCache) SAdd(key string, members ...interface{}) (int64, error) {
 	start := time.Now()
 	val, err := r.client.SAdd(key, members...)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][SADD]", start, "sadd", -1, map[string]interface{}{"Key": key, "members": len(members)}, err)
+	}
 	if err != nil {
 		return 0, errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "sadd", -1).
-			WithField("Key", key).WithField("members", len(members)).Info("[ORM][REDIS][SADD]")
 	}
 	return val, nil
 }
@@ -447,12 +420,11 @@ func (r *RedisCache) SAdd(key string, members ...interface{}) (int64, error) {
 func (r *RedisCache) HMset(key string, fields map[string]interface{}) error {
 	start := time.Now()
 	_, err := r.client.HMSet(key, fields)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][HMSET]", start, "hmset", -1, map[string]interface{}{"Key": key, "fields": fields}, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "hmset", -1).
-			WithField("Key", key).WithField("fields", fields).Info("[ORM][REDIS][HMSET]")
 	}
 	return nil
 }
@@ -460,12 +432,11 @@ func (r *RedisCache) HMset(key string, fields map[string]interface{}) error {
 func (r *RedisCache) HSet(key string, field string, value interface{}) error {
 	start := time.Now()
 	_, err := r.client.HSet(key, field, value)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][HSET]", start, "hset", -1, map[string]interface{}{"Key": key, "field": field, "value": value}, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "hset", -1).
-			WithField("Key", key).WithField("field", field).WithField("value", value).Info("[ORM][REDIS][HSET]")
 	}
 	return nil
 }
@@ -474,6 +445,9 @@ func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
 	start := time.Now()
 	val, err := r.client.MGet(keys...)
 	if err != nil {
+		if r.engine.loggers[LoggerSourceRedis] != nil {
+			r.fillLogFields("[ORM][REDIS][MGET]", start, "mget", 0, map[string]interface{}{"Keys": keys}, err)
+		}
 		return nil, errors.Trace(err)
 	}
 	results := make(map[string]interface{}, len(keys))
@@ -484,9 +458,8 @@ func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
 			misses++
 		}
 	}
-	if r.log != nil {
-		r.fillLogFields(start, "mget", misses).
-			WithField("Keys", keys).Info("[ORM][REDIS][MGET]")
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][MGET]", start, "mget", misses, map[string]interface{}{"Keys": keys}, nil)
 	}
 	return results, nil
 }
@@ -494,12 +467,11 @@ func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
 func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) error {
 	start := time.Now()
 	err := r.client.Set(key, value, time.Duration(ttlSeconds)*time.Second)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][SET]", start, "set", -1, map[string]interface{}{"Key": key, "value": value, "ttl": ttlSeconds}, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "set", -1).
-			WithField("Key", key).WithField("value", value).WithField("ttl", ttlSeconds).Info("[ORM][REDIS][SET]")
 	}
 	return nil
 }
@@ -507,12 +479,11 @@ func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) error {
 func (r *RedisCache) MSet(pairs ...interface{}) error {
 	start := time.Now()
 	err := r.client.MSet(pairs...)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][MSET]", start, "mset", -1, map[string]interface{}{"Pairs": pairs}, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "mset", -1).
-			WithField("Pairs", pairs).Info("[ORM][REDIS][MSET]")
 	}
 	return nil
 }
@@ -520,12 +491,11 @@ func (r *RedisCache) MSet(pairs ...interface{}) error {
 func (r *RedisCache) Del(keys ...string) error {
 	start := time.Now()
 	err := r.client.Del(keys...)
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][DEL]", start, "del", -1, map[string]interface{}{"Keys": keys}, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "del", -1).
-			WithField("Keys", keys).Info("[ORM][REDIS][DEL]")
 	}
 	return nil
 }
@@ -533,24 +503,34 @@ func (r *RedisCache) Del(keys ...string) error {
 func (r *RedisCache) FlushDB() error {
 	start := time.Now()
 	err := r.client.FlushDB()
+	if r.engine.loggers[LoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][FLUSHDB]", start, "flushdb", -1, nil, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if r.log != nil {
-		r.fillLogFields(start, "flushdb", -1).Info("[ORM][REDIS][FLUSHDB]")
 	}
 	return nil
 }
 
-func (r *RedisCache) fillLogFields(start time.Time, operation string, misses int) *log.Entry {
-	e := r.log.
-		WithField("microseconds", time.Since(start).Microseconds()).
-		WithField("operation", operation).
-		WithField("pool", r.code).
-		WithField("target", "redis").
-		WithField("time", start.Unix())
-	if misses >= 0 {
-		e = e.WithField("misses", misses)
+func (r *RedisCache) fillLogFields(message string, start time.Time, operation string, misses int, fields map[string]interface{}, err error) {
+	stop := time.Since(start).Microseconds()
+	for _, l := range r.engine.loggers[LoggerSourceRedis] {
+		e := l.log.
+			WithField("microseconds", stop).
+			WithField("operation", operation).
+			WithField("pool", r.code).
+			WithField("target", "redis").
+			WithField("time", start.Unix())
+		if misses >= 0 {
+			e = e.WithField("misses", misses)
+		}
+		for k, v := range fields {
+			e = e.WithField(k, v)
+		}
+		if err != nil {
+			e.WithError(err).Error(message)
+		} else {
+			e.Info(message)
+		}
 	}
-	return e
 }

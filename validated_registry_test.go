@@ -5,9 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/memory"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,14 +25,6 @@ func TestValidatedRegistry(t *testing.T) {
 	vr, err := registry.Validate()
 	assert.Nil(t, err)
 
-	vrFull := vr.(*validatedRegistry)
-	vr.AddLogger(memory.New())
-	assert.Nil(t, vrFull.log)
-	vr.SetLogLevel(log.WarnLevel)
-	assert.NotNil(t, vrFull.log)
-	assert.Equal(t, log.WarnLevel, vrFull.log.Level)
-	vr.EnableDebug()
-	assert.Equal(t, log.DebugLevel, vrFull.log.Level)
 	require.PanicsWithError(t, "entity 'orm.testEntityValidatedRegistryUnregistered' is not registered", func() {
 		vr.GetTableSchemaForEntity(&testEntityValidatedRegistryUnregistered{})
 	})

@@ -20,8 +20,7 @@ func TestLocalCache(t *testing.T) {
 
 	testLogger := memory.New()
 	cache := engine.GetLocalCache()
-	cache.AddLogger(testLogger)
-	cache.SetLogLevel(log.InfoLevel)
+	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceLocalCache)
 
 	val := cache.GetSet("test", 1, func() interface{} {
 		return "hello"
@@ -59,7 +58,4 @@ func TestLocalCache(t *testing.T) {
 	assert.Nil(t, res["test"])
 	assert.Equal(t, "hello2", res["test2"])
 	assert.Nil(t, res["test3"])
-
-	cache.EnableDebug()
-	cache.SetLogLevel(log.DebugLevel)
 }

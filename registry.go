@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apex/log/handlers/multi"
-
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/errors"
@@ -30,7 +28,6 @@ type Registry struct {
 
 func (r *Registry) Validate() (ValidatedRegistry, error) {
 	registry := &validatedRegistry{}
-	registry.logHandler = multi.New()
 	l := len(r.entities)
 	registry.tableSchemas = make(map[reflect.Type]*tableSchema, l)
 	registry.entities = make(map[string]reflect.Type)

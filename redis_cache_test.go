@@ -15,18 +15,10 @@ import (
 	"github.com/go-redis/redis/v7"
 )
 
-func TestRedisEnableDebug(t *testing.T) {
-	r := prepareRedis(t)
-	r.EnableDebug()
-	assert.NotNil(t, r.log)
-	assert.Equal(t, log.DebugLevel, r.log.Level)
-}
-
 func TestBasicRedis(t *testing.T) {
-	r := prepareRedis(t)
+	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	r.AddLogger(testLogger)
-	r.SetLogLevel(log.InfoLevel)
+	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 
@@ -89,10 +81,9 @@ func TestBasicRedis(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	r := prepareRedis(t)
+	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	r.AddLogger(testLogger)
-	r.SetLogLevel(log.InfoLevel)
+	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 
@@ -220,10 +211,9 @@ func TestList(t *testing.T) {
 }
 
 func TestHash(t *testing.T) {
-	r := prepareRedis(t)
+	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	r.AddLogger(testLogger)
-	r.SetLogLevel(log.InfoLevel)
+	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 
@@ -274,7 +264,7 @@ func TestHash(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
-	r := prepareRedis(t)
+	r, _ := prepareRedis(t)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 
@@ -319,10 +309,9 @@ func TestSet(t *testing.T) {
 }
 
 func TestSortedSet(t *testing.T) {
-	r := prepareRedis(t)
+	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	r.AddLogger(testLogger)
-	r.SetLogLevel(log.InfoLevel)
+	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 
@@ -360,7 +349,7 @@ func TestSortedSet(t *testing.T) {
 	assert.EqualError(t, err, "redis error")
 }
 
-func prepareRedis(t *testing.T) *RedisCache {
+func prepareRedis(t *testing.T) (*RedisCache, *Engine) {
 	registry := &Registry{}
 	registry.RegisterRedis("localhost:6379", 15)
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
@@ -377,5 +366,5 @@ func prepareRedis(t *testing.T) *RedisCache {
 	}
 	err = r.FlushDB()
 	assert.EqualError(t, err, "redis error")
-	return r
+	return r, engine
 }

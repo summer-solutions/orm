@@ -38,13 +38,10 @@ func TestEntityByIDsRedis(t *testing.T) {
 	assert.Nil(t, err)
 
 	DBLogger := memory.New()
-	pool := engine.GetMysql()
-	pool.AddLogger(DBLogger)
-	pool.SetLogLevel(log.InfoLevel)
+	engine.AddLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
 	CacheLogger := memory.New()
 	cache := engine.GetRedis()
-	cache.AddLogger(CacheLogger)
-	cache.SetLogLevel(log.InfoLevel)
+	engine.AddLogger(CacheLogger, log.InfoLevel, LoggerSourceRedis)
 
 	var found []*testEntityByIDsRedisCache
 	missing, err := engine.LoadByIDs([]uint64{2, 13, 1}, &found)

@@ -2,13 +2,8 @@ package orm
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
-
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 
 	"github.com/bsm/redislock"
 )
@@ -26,9 +21,6 @@ type ValidatedRegistry interface {
 	GetTableSchema(entityName string) TableSchema
 	GetTableSchemaForEntity(entity Entity) TableSchema
 	GetDirtyQueues() map[string]int
-	AddLogger(handler log.Handler)
-	SetLogLevel(level log.Level)
-	EnableDebug()
 }
 
 type validatedRegistry struct {
@@ -43,88 +35,46 @@ type validatedRegistry struct {
 	rabbitMQRouterConfigs   map[string]*RabbitMQRouterConfig
 	lockServers             map[string]string
 	enums                   map[string]Enum
-	log                     *log.Entry
-	logHandler              *multi.Handler
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {
 	e := &Engine{registry: r}
 	e.dbs = make(map[string]*DB)
 	e.trackedEntities = make([]Entity, 0)
-	e.log = r.log
-	e.logHandler = multi.New()
-	if r.logHandler != nil {
-		e.logHandler.Handlers = r.logHandler.Handlers
-	}
 	if e.registry.sqlClients != nil {
 		for key, val := range e.registry.sqlClients {
-			logHandler := multi.New()
-			if r.logHandler != nil {
-				logHandler.Handlers = r.logHandler.Handlers
-			}
 			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName,
-				client: &standardSQLClient{db: val.db}, log: r.log, logHandler: logHandler}
+				client: &standardSQLClient{db: val.db}}
 		}
 	}
 	e.localCache = make(map[string]*LocalCache)
 	if e.registry.localCacheContainers != nil {
 		for key, val := range e.registry.localCacheContainers {
-			logHandler := multi.New()
-			if r.logHandler != nil {
-				logHandler.Handlers = r.logHandler.Handlers
-			}
-			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, ttl: val.ttl, log: r.log, logHandler: logHandler}
+			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, ttl: val.ttl}
 		}
 	}
 	e.redis = make(map[string]*RedisCache)
 	if e.registry.redisServers != nil {
 		for key, val := range e.registry.redisServers {
-			logHandler := multi.New()
-			if r.logHandler != nil {
-				logHandler.Handlers = r.logHandler.Handlers
-			}
-			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{val.client}, log: r.log, logHandler: logHandler}
+			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{val.client}}
 		}
 	}
 
 	e.rabbitMQChannels = make(map[string]*rabbitMQChannel)
 	if e.registry.rabbitMQChannelsToQueue != nil {
 		for key, val := range e.registry.rabbitMQChannelsToQueue {
-			logHandler := multi.New()
-			if r.logHandler != nil {
-				logHandler.Handlers = r.logHandler.Handlers
-			}
-			e.rabbitMQChannels[key] = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config, log: r.log, logHandler: logHandler}
+			e.rabbitMQChannels[key] = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
 		}
 	}
 
 	e.locks = make(map[string]*Locker)
 	if e.registry.lockServers != nil {
 		for key, val := range e.registry.lockServers {
-			logHandler := multi.New()
-			if r.logHandler != nil {
-				logHandler.Handlers = r.logHandler.Handlers
-			}
 			locker := &standardLockerClient{client: redislock.New(e.registry.redisServers[val].client)}
-			e.locks[key] = &Locker{locker: locker, code: val, log: r.log, logHandler: logHandler}
+			e.locks[key] = &Locker{locker: locker, code: val, engine: e}
 		}
 	}
 	return e
-}
-
-func (r *validatedRegistry) AddLogger(handler log.Handler) {
-	r.logHandler.Handlers = append(r.logHandler.Handlers, handler)
-}
-
-func (r *validatedRegistry) SetLogLevel(level log.Level) {
-	logger := log.Logger{Handler: r.logHandler, Level: level}
-	r.log = logger.WithField("source", "orm")
-	r.log.Level = level
-}
-
-func (r *validatedRegistry) EnableDebug() {
-	r.AddLogger(text.New(os.Stdout))
-	r.SetLogLevel(log.DebugLevel)
 }
 
 func (r *validatedRegistry) GetTableSchema(entityName string) TableSchema {

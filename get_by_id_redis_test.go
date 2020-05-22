@@ -83,10 +83,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.False(t, engine.IsDirty(&entity))
 
 	DBLogger := memory.New()
-	pool := engine.GetMysql()
-	assert.True(t, has)
-	pool.AddLogger(DBLogger)
-	pool.SetLogLevel(log.InfoLevel)
+	engine.AddLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
 
 	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.Nil(t, err)

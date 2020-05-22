@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/apex/log"
-	"github.com/apex/log/handlers/multi"
 	"github.com/apex/log/handlers/text"
 )
 
@@ -26,49 +25,41 @@ type Engine struct {
 	logMetaData                  map[string]interface{}
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
-	log                          *log.Entry
-	logHandler                   *multi.Handler
+	loggersMap                   map[log.Level]map[LoggerSource]*logger
+	loggers                      map[LoggerSource][]*logger
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
 }
 
-func (e *Engine) AddLogger(handler log.Handler) {
-	e.logHandler.Handlers = append(e.logHandler.Handlers, handler)
-}
-
-func (e *Engine) SetLogLevel(level log.Level) {
-	logger := log.Logger{Handler: e.logHandler, Level: level}
-	e.log = logger.WithField("source", "orm")
-	e.log.Level = level
-	for _, db := range e.dbs {
-		db.log = e.log
+func (e *Engine) AddLogger(handler log.Handler, level log.Level, source ...LoggerSource) {
+	if e.loggersMap == nil {
+		e.loggersMap = make(map[log.Level]map[LoggerSource]*logger)
 	}
-	for _, r := range e.redis {
-		r.log = e.log
+	_, has := e.loggersMap[level]
+	if !has {
+		e.loggersMap[level] = make(map[LoggerSource]*logger)
 	}
-	for _, l := range e.localCache {
-		l.log = e.log
+	if len(source) == 0 {
+		source = []LoggerSource{LoggerSourceDB, LoggerSourceRedis, LoggerSourceRabbitMQ}
 	}
-	for _, l := range e.locks {
-		l.log = e.log
-	}
-	for _, l := range e.rabbitMQChannels {
-		l.log = e.log
-	}
-	for _, l := range e.rabbitMQQueues {
-		l.log = e.log
-	}
-	for _, l := range e.rabbitMQRouters {
-		l.log = e.log
-	}
-	for _, l := range e.rabbitMQDelayedQueues {
-		l.log = e.log
+	for _, source := range source {
+		l, has := e.loggersMap[level][source]
+		if has {
+			l.handler.Handlers = append(l.handler.Handlers, handler)
+		} else {
+			newL := e.newLogger(handler, level)
+			e.loggersMap[level][source] = newL
+			if e.loggers == nil {
+				e.loggers = map[LoggerSource][]*logger{source: {newL}}
+			} else {
+				e.loggers[source] = append(e.loggers[source], newL)
+			}
+		}
 	}
 }
 
-func (e *Engine) EnableDebug() {
-	e.AddLogger(text.New(os.Stdout))
-	e.SetLogLevel(log.DebugLevel)
+func (e *Engine) EnableDebug(source ...LoggerSource) {
+	e.AddLogger(text.New(os.Stdout), log.DebugLevel, source...)
 }
 
 func (e *Engine) SetLogMetaData(key string, value interface{}) {

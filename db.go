@@ -2,14 +2,9 @@ package orm
 
 import (
 	"database/sql"
-	"os"
 	"time"
 
 	"github.com/juju/errors"
-
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 )
 
 type sqlClient interface {
@@ -116,23 +111,6 @@ type DB struct {
 	client       sqlClient
 	code         string
 	databaseName string
-	log          *log.Entry
-	logHandler   *multi.Handler
-}
-
-func (db *DB) AddLogger(handler log.Handler) {
-	db.logHandler.Handlers = append(db.logHandler.Handlers, handler)
-}
-
-func (db *DB) SetLogLevel(level log.Level) {
-	logger := log.Logger{Handler: db.logHandler, Level: level}
-	db.log = logger.WithField("source", "orm")
-	db.log.Level = level
-}
-
-func (db *DB) EnableDebug() {
-	db.AddLogger(text.New(os.Stdout))
-	db.SetLogLevel(log.DebugLevel)
 }
 
 func (db *DB) GetDatabaseName() string {
@@ -146,11 +124,11 @@ func (db *DB) GetPoolCode() string {
 func (db *DB) Begin() error {
 	start := time.Now()
 	err := db.client.Begin()
+	if db.engine.loggers[LoggerSourceDB] != nil {
+		db.fillLogFields("[ORM][MYSQL][BEGIN]", start, "transaction", "START TRANSACTION", nil, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if db.log != nil {
-		db.fillLogFields(start, "transaction", "START TRANSACTION", nil).Info("[ORM][MYSQL][BEGIN]")
 	}
 	return nil
 }
@@ -158,11 +136,11 @@ func (db *DB) Begin() error {
 func (db *DB) Commit() error {
 	start := time.Now()
 	err := db.client.Commit()
+	if db.engine.loggers[LoggerSourceDB] != nil {
+		db.fillLogFields("[ORM][MYSQL][COMMIT]", start, "transaction", "COMMIT", nil, err)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if db.log != nil {
-		db.fillLogFields(start, "transaction", "COMMIT", nil).Info("[ORM][MYSQL][COMMIT]")
 	}
 	if db.engine.afterCommitLocalCacheSets != nil {
 		for cacheCode, pairs := range db.engine.afterCommitLocalCacheSets {
@@ -187,11 +165,11 @@ func (db *DB) Commit() error {
 func (db *DB) Rollback() {
 	start := time.Now()
 	has, err := db.client.Rollback()
+	if has && db.engine.loggers[LoggerSourceDB] != nil {
+		db.fillLogFields("[ORM][MYSQL][ROLLBACK]", start, "transaction", "ROLLBACK", nil, err)
+	}
 	if err != nil {
 		panic(errors.Annotate(err, "rollback failed"))
-	}
-	if has && db.log != nil {
-		db.fillLogFields(start, "transaction", "ROLLBACK", nil).Info("[ORM][MYSQL][ROLLBACK]")
 	}
 	db.engine.afterCommitLocalCacheSets = nil
 	db.engine.afterCommitRedisCacheDeletes = nil
@@ -200,11 +178,11 @@ func (db *DB) Rollback() {
 func (db *DB) Exec(query string, args ...interface{}) (rows sql.Result, err error) {
 	start := time.Now()
 	rows, err = db.client.Exec(query, args...)
+	if db.engine.loggers[LoggerSourceDB] != nil {
+		db.fillLogFields("[ORM][MYSQL][EXEC]", start, "exec", query, args, err)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	if db.log != nil {
-		db.fillLogFields(start, "exec", query, args).Info("[ORM][MYSQL][EXEC]")
 	}
 	return rows, nil
 }
@@ -212,8 +190,8 @@ func (db *DB) Exec(query string, args ...interface{}) (rows sql.Result, err erro
 func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
 	start := time.Now()
 	row := db.client.QueryRow(query, args...)
-	if db.log != nil {
-		db.fillLogFields(start, "select", query, args).Info("[ORM][MYSQL][SELECT]")
+	if db.engine.loggers[LoggerSourceDB] != nil {
+		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query, args, nil)
 	}
 	return row
 }
@@ -221,11 +199,11 @@ func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
 func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF func(), err error) {
 	start := time.Now()
 	rows, err = db.client.Query(query, args...)
+	if db.engine.loggers[LoggerSourceDB] != nil {
+		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query, args, err)
+	}
 	if err != nil {
 		return nil, nil, errors.Trace(err)
-	}
-	if db.log != nil {
-		db.fillLogFields(start, "select", query, args).Info("[ORM][MYSQL][SELECT]")
 	}
 	return rows, func() {
 		if rows != nil {
@@ -234,16 +212,24 @@ func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF fun
 	}, nil
 }
 
-func (db *DB) fillLogFields(start time.Time, typeCode string, query string, args []interface{}) *log.Entry {
-	e := db.log.
-		WithField("pool", db.code).
-		WithField("Query", query).
-		WithField("microseconds", time.Since(start).Microseconds()).
-		WithField("target", "mysql").
-		WithField("type", typeCode).
-		WithField("time", start.Unix())
-	if args != nil {
-		e = e.WithField("args", args)
+func (db *DB) fillLogFields(message string, start time.Time, typeCode string, query string, args []interface{}, err error) {
+	stop := time.Since(start).Microseconds()
+	for _, l := range db.engine.loggers[LoggerSourceDB] {
+		e := l.log.
+			WithField("pool", db.code).
+			WithField("Query", query).
+			WithField("microseconds", stop).
+			WithField("target", "mysql").
+			WithField("type", typeCode).
+			WithField("time", start.Unix())
+		if args != nil {
+			e = e.WithField("args", args)
+		}
+		if err != nil {
+			e.WithError(err)
+			e.Error(message)
+		} else {
+			e.Info(message)
+		}
 	}
-	return e
 }

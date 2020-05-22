@@ -987,13 +987,12 @@ import "github.com/summer-solutions/orm"
 func main() {
 	
     //enable human friendly console log
-    validatedRegistry.EnableDebug() // for all database, redis, local cache queries in all engines created from this registry
-    engine.EnableDebug() //for all database, redis, local cache queries only in this engine
-    engine.GetRedis().EnableDebug() //only queries in this redis in this engine
-    engine.GetMysql().EnableDebug() //only queries in this DB in this engine
-    engine.GetLocalCache().EnableDebug() //only queries in this local cache in this engine
+    engine.EnableDebug() //MySQL, redis, rabbitMQ queries (local cache in excluded bt default)
+    engine.EnableDebug(orm.LoggerRedis, orm.LoggerSourceLocalCache)
+    engine.EnableDebug(orm.LoggerSourceDB, orm.LoggerSourceRedis, orm. LoggerSourceRabbitMQ, orm.LoggerSourceLocalCache) //all sources
 
     //adding custom logger example:
-    engine.AddLogger(json.New(os.Stdout))
+    engine.AddLogger(json.New(os.Stdout), log.LevelWarn) //MySQL, redis, rabbitMQ warnings and above
+    engine.AddLogger(es.New(os.Stdout), log.LevelError, orm.LoggerSourceRedis, orm. LoggerSourceRabbitMQ)
 }    
 ```
