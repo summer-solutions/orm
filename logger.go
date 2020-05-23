@@ -43,12 +43,12 @@ func newDBDataDogHandler(ctx context.Context) *dbDataDogHandler {
 }
 
 func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
-	started := time.Unix(e.Fields.Get("started_seconds").(int64), e.Fields.Get("started_nano").(int64))
+	started := time.Unix(0, e.Fields.Get("started").(int64))
 	span, _ := tracer.StartSpanFromContext(h.ctx, "mysql.query", tracer.StartTime(started))
 	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
 	span.SetTag(ext.ServiceName, "mysql.db."+e.Fields.Get("pool").(string))
 	span.SetTag(ext.SQLType, e.Fields.Get("type"))
-	span.SetTag(ext.SQLQuery, e.Fields.Get("Query"))
+	//span.SetTag(ext.SQLQuery, e.Fields.Get("Query"))
 	span.SetTag(ext.ResourceName, e.Fields.Get("Query"))
 	span.SetTag(ext.DBName, e.Fields.Get("db"))
 	err := e.Fields.Get("error")
@@ -57,8 +57,8 @@ func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 		span.SetTag(ext.ErrorStack, strings.ReplaceAll(e.Fields.Get("stack").(string), "\\n", "\n"))
 		span.SetTag(ext.ErrorType, e.Fields.Get("error_type"))
 	}
-	span.SetTag(ext.AnalyticsEvent, true)
-	finished := time.Unix(e.Fields.Get("finished_seconds").(int64), e.Fields.Get("finished_nano").(int64))
+	//span.SetTag(ext.AnalyticsEvent, true)
+	finished := time.Unix(0, e.Fields.Get("finished").(int64))
 	span.Finish(tracer.FinishTime(finished))
 	return nil
 }

@@ -224,10 +224,8 @@ func (db *DB) fillLogFields(message string, start time.Time, typeCode string, qu
 		WithField("microseconds", stop).
 		WithField("target", "mysql").
 		WithField("type", typeCode).
-		WithField("started_seconds", start.Unix()).
-		WithField("started_nano", start.UnixNano()).
-		WithField("finished_seconds", now.Unix()).
-		WithField("finished_nano", now.UnixNano())
+		WithField("started", start.UnixNano()).
+		WithField("finished", now.UnixNano())
 	if args != nil {
 		e = e.WithField("args", args)
 	}
