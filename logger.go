@@ -48,9 +48,7 @@ func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
 	span.SetTag(ext.ServiceName, "mysql.db."+e.Fields.Get("pool").(string))
 	span.SetTag(ext.ResourceName, e.Fields.Get("Query"))
-
 	span.SetTag(ext.SQLType, e.Fields.Get("type"))
-	span.SetTag(ext.DBType, "master")
 
 	err := e.Fields.Get("error")
 	if err != nil {
