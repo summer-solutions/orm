@@ -1,8 +1,9 @@
 package orm
 
 import (
-	"github.com/apex/log/handlers/memory"
 	"testing"
+
+	"github.com/apex/log/handlers/memory"
 
 	"github.com/apex/log"
 	"github.com/stretchr/testify/assert"
