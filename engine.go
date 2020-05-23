@@ -3,9 +3,18 @@ package orm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"os"
 	"reflect"
+	"runtime/debug"
+	"strconv"
+	"strings"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	levelHandler "github.com/apex/log/handlers/level"
 	"github.com/juju/errors"
@@ -30,10 +39,49 @@ type Engine struct {
 	loggers                      map[LoggerSource]*logger
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
+	dataDogSpan                  tracer.Span
+	dataDogCtx                   context.Context
 }
 
-func (e *Engine) AddDataDogAPMLog(ctx context.Context, level log.Level, source ...LoggerSource) {
-	handler := newDBDataDogHandler(ctx)
+func (e *Engine) StartDataDogHTTPAPM(request *http.Request, service string) (tracer.Span, context.Context) {
+	resource := request.Method + " " + request.URL.Path
+	opts := []ddtrace.StartSpanOption{
+		tracer.ServiceName(service),
+		tracer.ResourceName(resource),
+		tracer.SpanType(ext.SpanTypeWeb),
+		tracer.Tag(ext.HTTPMethod, request.Method),
+		tracer.Tag(ext.HTTPURL, request.URL.Path),
+		tracer.Measured(),
+	}
+	if spanCtx, err := tracer.Extract(tracer.HTTPHeadersCarrier(request.Header)); err == nil {
+		opts = append(opts, tracer.ChildOf(spanCtx))
+	}
+	span, ctx := tracer.StartSpanFromContext(request.Context(), "http.request", opts...)
+	e.dataDogSpan = span
+	e.dataDogCtx = ctx
+	return span, ctx
+}
+
+func (e *Engine) StopDataDogHTTPAPM(status int, err error) {
+	e.dataDogSpan.SetTag(ext.HTTPCode, strconv.Itoa(status))
+	if status >= 500 && status < 600 {
+		if err != nil {
+			stackParts := strings.Split(errors.ErrorStack(err), "\n")
+			stack := strings.Join(stackParts[1:], "\n")
+			fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[2:], "\n")
+			e.dataDogSpan.SetTag(ext.Error, 1)
+			e.dataDogSpan.SetTag(ext.ErrorMsg, err.Error())
+			e.dataDogSpan.SetTag(ext.ErrorDetails, fullStack)
+			e.dataDogSpan.SetTag(ext.ErrorStack, stack)
+			e.dataDogSpan.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
+		} else {
+			e.dataDogSpan.SetTag(ext.Error, fmt.Errorf("%d: %s", status, http.StatusText(status)))
+		}
+	}
+}
+
+func (e *Engine) AddDataDogAPMLog(level log.Level, source ...LoggerSource) {
+	handler := newDBDataDogHandler(e.dataDogCtx)
 	e.AddLogger(handler, level, source...)
 }
 
