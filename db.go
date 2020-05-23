@@ -231,7 +231,7 @@ func (db *DB) fillLogFields(message string, start time.Time, typeCode string, qu
 	}
 	if err != nil {
 		e.WithError(err).
-			WithField("trace", strings.ReplaceAll(errors.ErrorStack(err), "\n", "\\n")).
+			WithField("stack", strings.ReplaceAll(errors.ErrorStack(err), "\n", "\\n")).
 			WithField("error_type", reflect.TypeOf(errors.Cause(err)).String()).
 			Error(message)
 	} else {
