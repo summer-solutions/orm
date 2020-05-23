@@ -49,10 +49,9 @@ func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 	span.SetTag(ext.ServiceName, "mysql.db."+e.Fields.Get("pool").(string))
 	span.SetTag(ext.ResourceName, e.Fields.Get("Query"))
 
-
-	span.SetTag(ext.SQLType,"select")
+	span.SetTag(ext.SQLType, e.Fields.Get("type"))
 	span.SetTag(ext.DBInstance, "dbInstance")
-	span.SetTag(ext.DBName, "dbName")
+	span.SetTag(ext.DBName, e.Fields.Get("db"))
 	span.SetTag(ext.DBStatement, "dbStatement")
 	span.SetTag(ext.DBType, "master")
 	span.SetTag(ext.TargetHost, "127.0.0.1")
@@ -60,6 +59,7 @@ func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 
 	err := e.Fields.Get("error")
 	if err != nil {
+		span.SetTag(ext.Error, 1)
 		span.SetTag(ext.ErrorMsg, err)
 		span.SetTag(ext.ErrorStack, strings.ReplaceAll(e.Fields.Get("stack").(string), "\\n", "\n"))
 		span.SetTag(ext.ErrorType, e.Fields.Get("error_type"))
