@@ -1,11 +1,13 @@
 package orm
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"reflect"
 	"time"
 
+	levelHandler "github.com/apex/log/handlers/level"
 	"github.com/juju/errors"
 
 	"github.com/apex/log"
@@ -25,35 +27,30 @@ type Engine struct {
 	logMetaData                  map[string]interface{}
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
-	loggersMap                   map[log.Level]map[LoggerSource]*logger
-	loggers                      map[LoggerSource][]*logger
+	loggers                      map[LoggerSource]*logger
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
 }
 
+func (e *Engine) AddDataDogAPMLog(ctx context.Context, level log.Level, source ...LoggerSource) {
+	handler := newDBDataDogHandler(ctx)
+	e.AddLogger(handler, level, source...)
+}
+
 func (e *Engine) AddLogger(handler log.Handler, level log.Level, source ...LoggerSource) {
-	if e.loggersMap == nil {
-		e.loggersMap = make(map[log.Level]map[LoggerSource]*logger)
-	}
-	_, has := e.loggersMap[level]
-	if !has {
-		e.loggersMap[level] = make(map[LoggerSource]*logger)
+	if e.loggers == nil {
+		e.loggers = make(map[LoggerSource]*logger)
 	}
 	if len(source) == 0 {
 		source = []LoggerSource{LoggerSourceDB, LoggerSourceRedis, LoggerSourceRabbitMQ}
 	}
+	newHandler := levelHandler.New(handler, level)
 	for _, source := range source {
-		l, has := e.loggersMap[level][source]
+		l, has := e.loggers[source]
 		if has {
-			l.handler.Handlers = append(l.handler.Handlers, handler)
+			l.handler.Handlers = append(l.handler.Handlers, newHandler)
 		} else {
-			newL := e.newLogger(handler, level)
-			e.loggersMap[level][source] = newL
-			if e.loggers == nil {
-				e.loggers = map[LoggerSource][]*logger{source: {newL}}
-			} else {
-				e.loggers[source] = append(e.loggers[source], newL)
-			}
+			e.loggers[source] = e.newLogger(newHandler, level)
 		}
 	}
 }

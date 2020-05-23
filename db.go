@@ -2,6 +2,8 @@ package orm
 
 import (
 	"database/sql"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -213,23 +215,28 @@ func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF fun
 }
 
 func (db *DB) fillLogFields(message string, start time.Time, typeCode string, query string, args []interface{}, err error) {
+	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	for _, l := range db.engine.loggers[LoggerSourceDB] {
-		e := l.log.
-			WithField("pool", db.code).
-			WithField("Query", query).
-			WithField("microseconds", stop).
-			WithField("target", "mysql").
-			WithField("type", typeCode).
-			WithField("time", start.Unix())
-		if args != nil {
-			e = e.WithField("args", args)
-		}
-		if err != nil {
-			e.WithError(err)
-			e.Error(message)
-		} else {
-			e.Info(message)
-		}
+	e := db.engine.loggers[LoggerSourceDB].log.
+		WithField("pool", db.code).
+		WithField("db", db.databaseName).
+		WithField("Query", query).
+		WithField("microseconds", stop).
+		WithField("target", "mysql").
+		WithField("type", typeCode).
+		WithField("started_seconds", start.Unix()).
+		WithField("started_nano", start.UnixNano()).
+		WithField("finished_seconds", now.Unix()).
+		WithField("finished_nano", now.UnixNano())
+	if args != nil {
+		e = e.WithField("args", args)
+	}
+	if err != nil {
+		e.WithError(err).
+			WithField("trace", strings.ReplaceAll(errors.ErrorStack(err), "\n", "\\n")).
+			WithField("error_type", reflect.TypeOf(errors.Cause(err)).String()).
+			Error(message)
+	} else {
+		e.Info(message)
 	}
 }

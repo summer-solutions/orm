@@ -514,23 +514,21 @@ func (r *RedisCache) FlushDB() error {
 
 func (r *RedisCache) fillLogFields(message string, start time.Time, operation string, misses int, fields map[string]interface{}, err error) {
 	stop := time.Since(start).Microseconds()
-	for _, l := range r.engine.loggers[LoggerSourceRedis] {
-		e := l.log.
-			WithField("microseconds", stop).
-			WithField("operation", operation).
-			WithField("pool", r.code).
-			WithField("target", "redis").
-			WithField("time", start.Unix())
-		if misses >= 0 {
-			e = e.WithField("misses", misses)
-		}
-		for k, v := range fields {
-			e = e.WithField(k, v)
-		}
-		if err != nil {
-			e.WithError(err).Error(message)
-		} else {
-			e.Info(message)
-		}
+	e := r.engine.loggers[LoggerSourceRedis].log.
+		WithField("microseconds", stop).
+		WithField("operation", operation).
+		WithField("pool", r.code).
+		WithField("target", "redis").
+		WithField("time", start.Unix())
+	if misses >= 0 {
+		e = e.WithField("misses", misses)
+	}
+	for k, v := range fields {
+		e = e.WithField(k, v)
+	}
+	if err != nil {
+		e.WithError(err).WithField("trace", errors.ErrorStack(err)).Error(message)
+	} else {
+		e.Info(message)
 	}
 }

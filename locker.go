@@ -85,18 +85,16 @@ func (l *Lock) TTL() (time.Duration, error) {
 
 func (l *Locker) fillLogFields(message string, start time.Time, key string, operation string, err error) {
 	stop := time.Since(start).Microseconds()
-	for _, logger := range l.engine.loggers[LoggerSourceDB] {
-		e := logger.log.
-			WithField("Key", key).
-			WithField("microseconds", stop).
-			WithField("operation", operation).
-			WithField("pool", l.code).
-			WithField("target", "locker").
-			WithField("time", start.Unix())
-		if err != nil {
-			e.WithError(err).Error(message)
-		} else {
-			e.Info(message)
-		}
+	e := l.engine.loggers[LoggerSourceRedis].log.
+		WithField("Key", key).
+		WithField("microseconds", stop).
+		WithField("operation", operation).
+		WithField("pool", l.code).
+		WithField("target", "locker").
+		WithField("time", start.Unix())
+	if err != nil {
+		e.WithError(err).WithField("trace", errors.ErrorStack(err)).Error(message)
+	} else {
+		e.Info(message)
 	}
 }

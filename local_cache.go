@@ -159,19 +159,17 @@ func (c *LocalCache) Clear() {
 
 func (c *LocalCache) fillLogFields(message string, start time.Time, operation string, misses int, fields map[string]interface{}) {
 	stop := time.Since(start).Microseconds()
-	for _, l := range c.engine.loggers[LoggerSourceLocalCache] {
-		e := l.log.
-			WithField("microseconds", stop).
-			WithField("operation", operation).
-			WithField("pool", c.code).
-			WithField("target", "local_cache").
-			WithField("time", start.Unix())
-		if misses >= 0 {
-			e = e.WithField("misses", misses)
-		}
-		for k, v := range fields {
-			e = e.WithField(k, v)
-		}
-		e.Info(message)
+	e := c.engine.loggers[LoggerSourceLocalCache].log.
+		WithField("microseconds", stop).
+		WithField("operation", operation).
+		WithField("pool", c.code).
+		WithField("target", "local_cache").
+		WithField("time", start.Unix())
+	if misses >= 0 {
+		e = e.WithField("misses", misses)
 	}
+	for k, v := range fields {
+		e = e.WithField(k, v)
+	}
+	e.Info(message)
 }

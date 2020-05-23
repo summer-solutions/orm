@@ -402,19 +402,17 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 
 func (r *rabbitMQChannel) fillLogFields(message string, start time.Time, operation string, fields map[string]interface{}, err error) {
 	stop := time.Since(start).Microseconds()
-	for _, l := range r.engine.loggers[LoggerSourceDB] {
-		e := l.log.
-			WithField("microseconds", stop).
-			WithField("operation", operation).
-			WithField("target", "rabbitMQ").
-			WithField("time", start.Unix())
-		for k, v := range fields {
-			e = e.WithField(k, v)
-		}
-		if err != nil {
-			e.WithError(err).Error(message)
-		} else {
-			e.Info(message)
-		}
+	e := r.engine.loggers[LoggerSourceRabbitMQ].log.
+		WithField("microseconds", stop).
+		WithField("operation", operation).
+		WithField("target", "rabbitMQ").
+		WithField("time", start.Unix())
+	for k, v := range fields {
+		e = e.WithField(k, v)
+	}
+	if err != nil {
+		e.WithError(err).WithField("trace", errors.ErrorStack(err)).Error(message)
+	} else {
+		e.Info(message)
 	}
 }
