@@ -31,7 +31,8 @@ func TestDB(t *testing.T) {
 	err = db.Begin()
 	assert.Nil(t, err)
 
-	rows, def, err := db.Query("SELECT 1")
+	engine.EnableDebug()
+	rows, def, err := db.Query("SELECTs 1")
 	assert.Nil(t, err)
 	defer def()
 	assert.True(t, rows.Next())

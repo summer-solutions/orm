@@ -3,6 +3,7 @@ package orm
 import (
 	"database/sql"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -230,8 +231,12 @@ func (db *DB) fillLogFields(message string, start time.Time, typeCode string, qu
 		e = e.WithField("args", args)
 	}
 	if err != nil {
+		stackParts := strings.Split(errors.ErrorStack(err), "\n")
+		stack := strings.Join(stackParts[1:], "\\n")
+		fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[4:], "\\n")
 		e.WithError(err).
-			WithField("stack", strings.ReplaceAll(errors.ErrorStack(err), "\n", "\\n")).
+			WithField("stack", stack).
+			WithField("stack_full", fullStack).
 			WithField("error_type", reflect.TypeOf(errors.Cause(err)).String()).
 			Error(message)
 	} else {
