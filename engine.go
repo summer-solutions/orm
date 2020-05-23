@@ -81,8 +81,16 @@ func (e *Engine) StopDataDogHTTPAPM(status int, err error) {
 }
 
 func (e *Engine) AddDataDogAPMLog(level log.Level, source ...LoggerSource) {
-	handler := newDBDataDogHandler(e.dataDogCtx)
-	e.AddLogger(handler, level, source...)
+	if len(source) == 0 {
+		source = []LoggerSource{LoggerSourceDB, LoggerSourceRedis, LoggerSourceRabbitMQ}
+	}
+	for _, s := range source {
+		if s == LoggerSourceDB {
+			e.AddLogger(newDBDataDogHandler(e.dataDogCtx), level, s)
+		} else if s == LoggerSourceRabbitMQ {
+			e.AddLogger(newRabbitMQDataDogHandler(e.dataDogCtx), level, s)
+		}
+	}
 }
 
 func (e *Engine) AddLogger(handler log.Handler, level log.Level, source ...LoggerSource) {

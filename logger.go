@@ -49,7 +49,41 @@ func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 	span.SetTag(ext.ServiceName, "mysql.db."+e.Fields.Get("pool").(string))
 	span.SetTag(ext.ResourceName, e.Fields.Get("Query"))
 	span.SetTag(ext.SQLType, e.Fields.Get("type"))
+	injectError(e, span)
+	finished := time.Unix(0, e.Fields.Get("finished").(int64))
+	span.Finish(tracer.FinishTime(finished))
+	return nil
+}
 
+type rabbitMQDataDogHandler struct {
+	ctx context.Context
+}
+
+func newRabbitMQDataDogHandler(ctx context.Context) *rabbitMQDataDogHandler {
+	return &rabbitMQDataDogHandler{ctx}
+}
+
+func (h *rabbitMQDataDogHandler) HandleLog(e *log.Entry) error {
+	started := time.Unix(0, e.Fields.Get("started").(int64))
+	operation := e.Fields.Get("operation").(string)
+	span, _ := tracer.StartSpanFromContext(h.ctx, "rabbitMQ."+operation, tracer.StartTime(started))
+	span.SetTag(ext.SpanType, ext.AppTypeDB)
+	span.SetTag(ext.ServiceName, "rabbitMQ.default")
+	queue := e.Fields.Get("Queue")
+	if queue == nil {
+		queue = e.Fields.Get("Router")
+	}
+	if queue != nil {
+		operation = operation + " " + queue.(string)
+	}
+	span.SetTag(ext.ResourceName, operation)
+	injectError(e, span)
+	finished := time.Unix(0, e.Fields.Get("finished").(int64))
+	span.Finish(tracer.FinishTime(finished))
+	return nil
+}
+
+func injectError(e *log.Entry, span tracer.Span) {
 	err := e.Fields.Get("error")
 	if err != nil {
 		span.SetTag(ext.Error, 1)
@@ -58,8 +92,4 @@ func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 		span.SetTag(ext.ErrorStack, strings.ReplaceAll(e.Fields.Get("stack").(string), "\\n", "\n"))
 		span.SetTag(ext.ErrorType, e.Fields.Get("error_type"))
 	}
-	//span.SetTag(ext.AnalyticsEvent, true)
-	finished := time.Unix(0, e.Fields.Get("finished").(int64))
-	span.Finish(tracer.FinishTime(finished))
-	return nil
 }

@@ -1,6 +1,9 @@
 package orm
 
 import (
+	"reflect"
+	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -97,7 +100,7 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			items = append(items, item.Body)
 			counter++
 			if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
-				r.parent.fillLogFields("[ORM][RABBIT_MQ][RECEIVED]", start, "received", map[string]interface{}{"Queue": r.q.Name, "consumer": r.name}, nil)
+				r.parent.fillLogFields("[ORM][RABBIT_MQ][RECEIVED]", start, "receive", map[string]interface{}{"Queue": r.q.Name, "consumer": r.name}, nil)
 			}
 		case <-time.After(r.maxLoopDuration):
 			timeOut = true
@@ -293,13 +296,13 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		}
 		if err != nil {
 			if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
-				r.fillLogFields("[ORM][RABBIT_MQ][CREATE CHANNEL]", start, "create channel", nil, err)
+				r.fillLogFields("[ORM][RABBIT_MQ][CREATE CHANNEL]", start, "create channel", map[string]interface{}{"Queue": queueName}, err)
 			}
 			return nil, nil, errors.Trace(err)
 		}
 	}
 	if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
-		r.fillLogFields("[ORM][RABBIT_MQ][CREATE CHANNEL]", start, "create channel", nil, nil)
+		r.fillLogFields("[ORM][RABBIT_MQ][CREATE CHANNEL]", start, "create channel", map[string]interface{}{"Queue": queueName}, nil)
 	}
 	hasRouter := r.config.Router != ""
 	if hasRouter {
@@ -401,17 +404,26 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 }
 
 func (r *rabbitMQChannel) fillLogFields(message string, start time.Time, operation string, fields map[string]interface{}, err error) {
+	now := time.Now()
 	stop := time.Since(start).Microseconds()
 	e := r.engine.loggers[LoggerSourceRabbitMQ].log.
 		WithField("microseconds", stop).
 		WithField("operation", operation).
 		WithField("target", "rabbitMQ").
-		WithField("time", start.Unix())
+		WithField("started", start.UnixNano()).
+		WithField("finished", now.UnixNano())
 	for k, v := range fields {
 		e = e.WithField(k, v)
 	}
 	if err != nil {
-		e.WithError(err).WithField("trace", errors.ErrorStack(err)).Error(message)
+		stackParts := strings.Split(errors.ErrorStack(err), "\n")
+		stack := strings.Join(stackParts[1:], "\\n")
+		fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[4:], "\\n")
+		e.WithError(err).
+			WithField("stack", stack).
+			WithField("stack_full", fullStack).
+			WithField("error_type", reflect.TypeOf(errors.Cause(err)).String()).
+			Error(message)
 	} else {
 		e.Info(message)
 	}
