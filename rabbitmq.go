@@ -47,7 +47,7 @@ func (r *rabbitMQReceiver) Close() {
 	if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
 		r.parent.fillLogFields("[ORM][RABBIT_MQ][CLOSE CHANNEL]", start, "close channel", map[string]interface{}{"Queue": r.q.Name}, err)
 	}
-	delete(r.parent.channelConsumers, r.q.Name)
+	delete(r.parent.connection.channelConsumers, r.q.Name)
 }
 
 func (r *rabbitMQReceiver) consume() (<-chan amqp.Delivery, error) {
@@ -109,10 +109,13 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 }
 
 type rabbitMQConnection struct {
-	config          *rabbitMQConfig
-	clientSender    *amqp.Connection
-	clientReceivers *amqp.Connection
-	mux             sync.Mutex
+	config           *rabbitMQConfig
+	clientSender     *amqp.Connection
+	clientReceivers  *amqp.Connection
+	channelSender    *amqp.Channel
+	channelConsumers map[string]RabbitMQConsumer
+	muxConsumer      sync.Mutex
+	muxSender        sync.Once
 }
 
 type rabbitMQChannelToQueue struct {
@@ -235,17 +238,17 @@ func (r *RabbitMQRouter) Publish(routerKey string, body []byte) error {
 }
 
 type rabbitMQChannel struct {
-	engine           *Engine
-	channelSender    *amqp.Channel
-	connection       *rabbitMQConnection
-	channelConsumers map[string]RabbitMQConsumer
-	config           *RabbitMQQueueConfig
-	q                *amqp.Queue
+	engine     *Engine
+	connection *rabbitMQConnection
+	config     *RabbitMQQueueConfig
+	q          *amqp.Queue
 }
 
 func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
-	if r.channelConsumers == nil {
-		r.channelConsumers = make(map[string]RabbitMQConsumer)
+	r.connection.muxConsumer.Lock()
+	defer r.connection.muxConsumer.Unlock()
+	if r.connection.channelConsumers == nil {
+		r.connection.channelConsumers = make(map[string]RabbitMQConsumer)
 	}
 	queueName := r.config.Name
 	channel, q, err := r.initChannel(queueName, false)
@@ -253,15 +256,15 @@ func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
 		return nil, errors.Trace(err)
 	}
 	receiver := &rabbitMQReceiver{name: name, channel: channel, q: q, parent: r, maxLoopDuration: time.Second}
-	r.channelConsumers[q.Name] = receiver
+	r.connection.channelConsumers[q.Name] = receiver
 	return receiver, nil
 }
 
 func (r *rabbitMQChannel) getClient(sender bool, force bool) (*amqp.Connection, error) {
 	client := r.connection.getClient(sender)
 	if client == nil || force {
-		r.connection.mux.Lock()
-		defer r.connection.mux.Unlock()
+		r.connection.muxConsumer.Lock()
+		defer r.connection.muxConsumer.Unlock()
 		client = r.connection.getClient(sender)
 		if client == nil || client.IsClosed() {
 			start := time.Now()
@@ -356,33 +359,38 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	return channel, q, nil
 }
 
-func (r *rabbitMQChannel) initChannelSender(force bool) error {
-	if r.channelSender == nil || force {
-		channel, q, err := r.initChannel(r.config.Name, true)
-		if err != nil {
-			return errors.Trace(err)
+func (r *rabbitMQChannel) initChannelSender() error {
+	var err error
+	r.connection.muxSender.Do(func() {
+		channel, q, e := r.initChannel(r.config.Name, true)
+		if e != nil {
+			err = e
+			return
 		}
 		r.q = q
-		r.channelSender = channel
-	}
-	return nil
+		r.connection.channelSender = channel
+	})
+	return err
 }
 
 func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
-	err := r.initChannelSender(false)
-	if err != nil {
-		return errors.Trace(err)
+	if r.connection.channelSender == nil {
+		err := r.initChannelSender()
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	start := time.Now()
-	err = r.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
+	err := r.connection.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
 	if err != nil {
 		rabbitErr, ok := err.(*amqp.Error)
 		if ok && rabbitErr.Code == amqp.ChannelError {
-			err2 := r.initChannelSender(true)
+			r.connection.muxSender = sync.Once{}
+			err2 := r.initChannelSender()
 			if err2 != nil {
 				return errors.Trace(err2)
 			}
-			err = r.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
+			err = r.connection.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
 			if err != nil {
 				return errors.Trace(err)
 			}
