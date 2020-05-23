@@ -47,10 +47,17 @@ func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 	span, _ := tracer.StartSpanFromContext(h.ctx, "mysql.query", tracer.StartTime(started))
 	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
 	span.SetTag(ext.ServiceName, "mysql.db."+e.Fields.Get("pool").(string))
-	span.SetTag(ext.SQLType, e.Fields.Get("type"))
-	//span.SetTag(ext.SQLQuery, e.Fields.Get("Query"))
 	span.SetTag(ext.ResourceName, e.Fields.Get("Query"))
-	span.SetTag(ext.DBName, e.Fields.Get("db"))
+
+
+	span.SetTag(ext.SQLType,"select")
+	span.SetTag(ext.DBInstance, "dbInstance")
+	span.SetTag(ext.DBName, "dbName")
+	span.SetTag(ext.DBStatement, "dbStatement")
+	span.SetTag(ext.DBType, "master")
+	span.SetTag(ext.TargetHost, "127.0.0.1")
+	span.SetTag(ext.TargetPort, "3306")
+
 	err := e.Fields.Get("error")
 	if err != nil {
 		span.SetTag(ext.ErrorMsg, err)
