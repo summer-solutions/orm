@@ -213,7 +213,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if config.config.Router == "" {
 			if config.config.Delayed {
 				r := engine.GetRabbitMQDelayedQueue(code)
-				receiver, _, err := r.initChannel(config.config.Name, false)
+				receiver, err := r.initChannel(config.config.Name, false)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -223,7 +223,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 				}
 			} else {
 				r := engine.GetRabbitMQQueue(code)
-				receiver, _, err := r.initChannel(config.config.Name, false)
+				receiver, err := r.initChannel(config.config.Name, false)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -234,7 +234,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			}
 		} else {
 			r := engine.GetRabbitMQRouter(code)
-			receiver, _, err := r.initChannel(config.config.Name, false)
+			receiver, err := r.initChannel(config.config.Name, false)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -26,7 +26,6 @@ type RabbitMQConsumer interface {
 
 type rabbitMQReceiver struct {
 	name            string
-	q               *amqp.Queue
 	channel         *amqp.Channel
 	parent          *rabbitMQChannel
 	disableLoop     bool
@@ -45,20 +44,22 @@ func (r *rabbitMQReceiver) Close() {
 	start := time.Now()
 	err := r.channel.Close()
 	if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
-		r.parent.fillLogFields("[ORM][RABBIT_MQ][CLOSE CHANNEL]", start, "close channel", map[string]interface{}{"Queue": r.q.Name}, err)
+		r.parent.fillLogFields("[ORM][RABBIT_MQ][CLOSE CHANNEL]", start, "close channel",
+			map[string]interface{}{"Queue": r.parent.config.Name}, err)
 	}
-	delete(r.parent.connection.channelConsumers, r.q.Name)
+	delete(r.parent.connection.channelConsumers, r.parent.config.Name)
 }
 
 func (r *rabbitMQReceiver) consume() (<-chan amqp.Delivery, error) {
-	return r.channel.Consume(r.q.Name, r.name, false, false, false, false, nil)
+	return r.channel.Consume(r.parent.config.Name, r.name, false, false, false, false, nil)
 }
 
 func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 	start := time.Now()
 	delivery, err := r.consume()
 	if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
-		r.parent.fillLogFields("[ORM][RABBIT_MQ][CONSUME]", start, "consume", map[string]interface{}{"Queue": r.q.Name, "consumer": r.name}, err)
+		r.parent.fillLogFields("[ORM][RABBIT_MQ][CONSUME]", start, "consume",
+			map[string]interface{}{"Queue": r.parent.config.Name, "consumer": r.name}, err)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -81,7 +82,8 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			}
 			err = last.Ack(true)
 			if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
-				r.parent.fillLogFields("[ORM][RABBIT_MQ][ACK]", start, "ack", map[string]interface{}{"Queue": r.q.Name, "consumer": r.name}, err)
+				r.parent.fillLogFields("[ORM][RABBIT_MQ][ACK]", start, "ack",
+					map[string]interface{}{"Queue": r.parent.config.Name, "consumer": r.name}, err)
 			}
 			if err != nil {
 				return errors.Trace(err)
@@ -100,7 +102,8 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			items = append(items, item.Body)
 			counter++
 			if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
-				r.parent.fillLogFields("[ORM][RABBIT_MQ][RECEIVED]", start, "receive", map[string]interface{}{"Queue": r.q.Name, "consumer": r.name}, nil)
+				r.parent.fillLogFields("[ORM][RABBIT_MQ][RECEIVED]", start, "receive",
+					map[string]interface{}{"Queue": r.parent.config.Name, "consumer": r.name}, nil)
 			}
 		case <-time.After(r.maxLoopDuration):
 			timeOut = true
@@ -241,7 +244,6 @@ type rabbitMQChannel struct {
 	engine     *Engine
 	connection *rabbitMQConnection
 	config     *RabbitMQQueueConfig
-	q          *amqp.Queue
 }
 
 func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
@@ -251,12 +253,12 @@ func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
 		r.connection.channelConsumers = make(map[string]RabbitMQConsumer)
 	}
 	queueName := r.config.Name
-	channel, q, err := r.initChannel(queueName, false)
+	channel, err := r.initChannel(queueName, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	receiver := &rabbitMQReceiver{name: name, channel: channel, q: q, parent: r, maxLoopDuration: time.Second}
-	r.connection.channelConsumers[q.Name] = receiver
+	receiver := &rabbitMQReceiver{name: name, channel: channel, parent: r, maxLoopDuration: time.Second}
+	r.connection.channelConsumers[r.config.Name] = receiver
 	return receiver, nil
 }
 
@@ -281,11 +283,11 @@ func (r *rabbitMQChannel) getClient(sender bool, force bool) (*amqp.Connection, 
 	return client, nil
 }
 
-func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Channel, *amqp.Queue, error) {
+func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Channel, error) {
 	start := time.Now()
 	client, err := r.getClient(sender, false)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	channel, err := client.Channel()
 	if err != nil {
@@ -293,7 +295,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		if ok && rabbitErr.Code == amqp.ChannelError {
 			client, err = r.getClient(sender, true)
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 			channel, err = client.Channel()
 		}
@@ -301,7 +303,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
 				r.fillLogFields("[ORM][RABBIT_MQ][CREATE CHANNEL]", start, "create channel", map[string]interface{}{"Queue": queueName}, err)
 			}
-			return nil, nil, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 	}
 	if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
@@ -324,10 +326,10 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 				map[string]interface{}{"Name": configRouter.Name, "type": configRouter.Type, "args": args}, err)
 		}
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		if sender {
-			return channel, nil, nil
+			return channel, nil
 		}
 	}
 	start = time.Now()
@@ -337,7 +339,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			map[string]interface{}{"Queue": queueName}, err)
 	}
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if hasRouter {
 		keys := r.config.RouterKeys
@@ -352,22 +354,21 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 					map[string]interface{}{"Queue": q.Name, "Router": r.config.Router, "key": key}, err)
 			}
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 		}
 	}
-	return channel, q, nil
+	return channel, nil
 }
 
 func (r *rabbitMQChannel) initChannelSender() error {
 	var err error
 	r.connection.muxSender.Do(func() {
-		channel, q, e := r.initChannel(r.config.Name, true)
+		channel, e := r.initChannel(r.config.Name, true)
 		if e != nil {
 			err = e
 			return
 		}
-		r.q = q
 		r.connection.channelSender = channel
 	})
 	return err
@@ -402,7 +403,7 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 				map[string]interface{}{"Router": r.config.Router, "key": routingKey}, err)
 		} else {
 			r.fillLogFields("[ORM][RABBIT_MQ][PUBLISH]", start, "publish",
-				map[string]interface{}{"Queue": r.q.Name, "key": routingKey}, err)
+				map[string]interface{}{"Queue": r.config.Name, "key": routingKey}, err)
 		}
 	}
 	if err != nil {
