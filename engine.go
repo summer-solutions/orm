@@ -89,32 +89,28 @@ func (e *Engine) AddDataDogAPMLog(level log.Level, source ...LoggerSource) {
 }
 
 func (e *Engine) RegisterDataDogAPMError(err error) {
-	e.registerDataDogAPMError(err, 0)
-}
-
-func (e *Engine) RegisterDataDogAPMRecovery(err interface{}, skipLines int) {
-	asErr, ok := err.(error)
-	if ok {
-		e.registerDataDogAPMError(asErr, skipLines)
-		return
-	}
-	fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[2:], "\n")
-	e.dataDogSpan.SetTag(ext.Error, 1)
-	e.dataDogSpan.SetTag(ext.ErrorMsg, fmt.Sprintf("%v", err))
-	e.dataDogSpan.SetTag(ext.ErrorStack, fullStack)
-	e.dataDogSpan.SetTag(ext.ErrorType, "panicRecovery")
-	e.dataDogHasError = true
-}
-
-func (e *Engine) registerDataDogAPMError(err error, skipLines int) {
 	stackParts := strings.Split(errors.ErrorStack(err), "\n")
 	stack := strings.Join(stackParts[1:], "\n")
-	fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[2+skipLines:], "\n")
+	fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[2:], "\n")
 	e.dataDogSpan.SetTag(ext.Error, 1)
 	e.dataDogSpan.SetTag(ext.ErrorMsg, err.Error())
 	e.dataDogSpan.SetTag(ext.ErrorDetails, fullStack)
 	e.dataDogSpan.SetTag(ext.ErrorStack, stack)
 	e.dataDogSpan.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
+	e.dataDogHasError = true
+}
+
+func (e *Engine) RegisterDataDogAPMRecovery(err interface{}, skipLines int) {
+	asErr, ok := err.(error)
+	if ok {
+		e.RegisterDataDogAPMError(asErr)
+		return
+	}
+	fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[skipLines:], "\n")
+	e.dataDogSpan.SetTag(ext.Error, 1)
+	e.dataDogSpan.SetTag(ext.ErrorMsg, fmt.Sprintf("%v", err))
+	e.dataDogSpan.SetTag(ext.ErrorStack, fullStack)
+	e.dataDogSpan.SetTag(ext.ErrorType, "panicRecovery")
 	e.dataDogHasError = true
 }
 
