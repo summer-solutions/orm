@@ -41,6 +41,7 @@ type Engine struct {
 	afterCommitRedisCacheDeletes map[string][]string
 	dataDogSpan                  tracer.Span
 	dataDogCtx                   context.Context
+	dataDogHasError              bool
 }
 
 func (e *Engine) StartDataDogHTTPAPM(request *http.Request, service string) (tracer.Span, context.Context) {
@@ -63,19 +64,10 @@ func (e *Engine) StartDataDogHTTPAPM(request *http.Request, service string) (tra
 	return span, ctx
 }
 
-func (e *Engine) StopDataDogHTTPAPM(status int, err error) {
+func (e *Engine) StopDataDogHTTPAPM(status int) {
 	e.dataDogSpan.SetTag(ext.HTTPCode, strconv.Itoa(status))
 	if status >= 500 && status < 600 {
-		if err != nil {
-			stackParts := strings.Split(errors.ErrorStack(err), "\n")
-			stack := strings.Join(stackParts[1:], "\n")
-			fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[2:], "\n")
-			e.dataDogSpan.SetTag(ext.Error, 1)
-			e.dataDogSpan.SetTag(ext.ErrorMsg, err.Error())
-			e.dataDogSpan.SetTag(ext.ErrorDetails, fullStack)
-			e.dataDogSpan.SetTag(ext.ErrorStack, stack)
-			e.dataDogSpan.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
-		} else {
+		if !e.dataDogHasError {
 			e.dataDogSpan.SetTag(ext.Error, fmt.Errorf("%d: %s", status, http.StatusText(status)))
 		}
 	}
@@ -94,6 +86,36 @@ func (e *Engine) AddDataDogAPMLog(level log.Level, source ...LoggerSource) {
 			e.AddLogger(newRedisDataDogHandler(e.dataDogCtx), level, s)
 		}
 	}
+}
+
+func (e *Engine) RegisterDataDogAPMError(err error) {
+	e.registerDataDogAPMError(err, 0)
+}
+
+func (e *Engine) RegisterDataDogAPMRecovery(err interface{}, skipLines int) {
+	asErr, ok := err.(error)
+	if ok {
+		e.registerDataDogAPMError(asErr, skipLines)
+		return
+	}
+	fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[2:], "\n")
+	e.dataDogSpan.SetTag(ext.Error, 1)
+	e.dataDogSpan.SetTag(ext.ErrorMsg, fmt.Sprintf("%v", err))
+	e.dataDogSpan.SetTag(ext.ErrorStack, fullStack)
+	e.dataDogSpan.SetTag(ext.ErrorType, "panicRecovery")
+	e.dataDogHasError = true
+}
+
+func (e *Engine) registerDataDogAPMError(err error, skipLines int) {
+	stackParts := strings.Split(errors.ErrorStack(err), "\n")
+	stack := strings.Join(stackParts[1:], "\n")
+	fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[2+skipLines:], "\n")
+	e.dataDogSpan.SetTag(ext.Error, 1)
+	e.dataDogSpan.SetTag(ext.ErrorMsg, err.Error())
+	e.dataDogSpan.SetTag(ext.ErrorDetails, fullStack)
+	e.dataDogSpan.SetTag(ext.ErrorStack, stack)
+	e.dataDogSpan.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
+	e.dataDogHasError = true
 }
 
 func (e *Engine) AddLogger(handler log.Handler, level log.Level, source ...LoggerSource) {
