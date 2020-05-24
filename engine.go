@@ -1,20 +1,10 @@
 package orm
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"os"
 	"reflect"
-	"runtime/debug"
-	"strconv"
-	"strings"
 	"time"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	levelHandler "github.com/apex/log/handlers/level"
 	"github.com/juju/errors"
@@ -39,79 +29,14 @@ type Engine struct {
 	loggers                      map[LoggerSource]*logger
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
-	dataDogSpan                  tracer.Span
-	dataDogCtx                   context.Context
-	dataDogHasError              bool
+	dataDog                      *dataDog
 }
 
-func (e *Engine) StartDataDogHTTPAPM(request *http.Request, service string) (tracer.Span, context.Context) {
-	resource := request.Method + " " + request.URL.Path
-	opts := []ddtrace.StartSpanOption{
-		tracer.ServiceName(service),
-		tracer.ResourceName(resource),
-		tracer.SpanType(ext.SpanTypeWeb),
-		tracer.Tag(ext.HTTPMethod, request.Method),
-		tracer.Tag(ext.HTTPURL, request.URL.Path),
-		tracer.Measured(),
+func (e *Engine) DataDog() DataDog {
+	if e.dataDog == nil {
+		e.dataDog = &dataDog{engine: e}
 	}
-	if spanCtx, err := tracer.Extract(tracer.HTTPHeadersCarrier(request.Header)); err == nil {
-		opts = append(opts, tracer.ChildOf(spanCtx))
-	}
-	span, ctx := tracer.StartSpanFromContext(request.Context(), "http.request", opts...)
-	span.SetTag(ext.AnalyticsEvent, true)
-	e.dataDogSpan = span
-	e.dataDogCtx = ctx
-	return span, ctx
-}
-
-func (e *Engine) StopDataDogHTTPAPM(status int) {
-	e.dataDogSpan.SetTag(ext.HTTPCode, strconv.Itoa(status))
-	if status >= 500 && status < 600 {
-		if !e.dataDogHasError {
-			e.dataDogSpan.SetTag(ext.Error, fmt.Errorf("%d: %s", status, http.StatusText(status)))
-		}
-	}
-}
-
-func (e *Engine) AddDataDogAPMLog(level log.Level, source ...LoggerSource) {
-	if len(source) == 0 {
-		source = []LoggerSource{LoggerSourceDB, LoggerSourceRedis, LoggerSourceRabbitMQ}
-	}
-	for _, s := range source {
-		if s == LoggerSourceDB {
-			e.AddLogger(newDBDataDogHandler(e.dataDogCtx), level, s)
-		} else if s == LoggerSourceRabbitMQ {
-			e.AddLogger(newRabbitMQDataDogHandler(e.dataDogCtx), level, s)
-		} else if s == LoggerSourceRedis {
-			e.AddLogger(newRedisDataDogHandler(e.dataDogCtx), level, s)
-		}
-	}
-}
-
-func (e *Engine) RegisterDataDogAPMError(err error) {
-	stackParts := strings.Split(errors.ErrorStack(err), "\n")
-	stack := strings.Join(stackParts[1:], "\n")
-	fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[2:], "\n")
-	e.dataDogSpan.SetTag(ext.Error, 1)
-	e.dataDogSpan.SetTag(ext.ErrorMsg, err.Error())
-	e.dataDogSpan.SetTag(ext.ErrorDetails, fullStack)
-	e.dataDogSpan.SetTag(ext.ErrorStack, stack)
-	e.dataDogSpan.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
-	e.dataDogHasError = true
-}
-
-func (e *Engine) RegisterDataDogAPMRecovery(err interface{}, skipLines int) {
-	asErr, ok := err.(error)
-	if ok {
-		e.RegisterDataDogAPMError(asErr)
-		return
-	}
-	fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[skipLines:], "\n")
-	e.dataDogSpan.SetTag(ext.Error, 1)
-	e.dataDogSpan.SetTag(ext.ErrorMsg, fmt.Sprintf("%v", err))
-	e.dataDogSpan.SetTag(ext.ErrorStack, fullStack)
-	e.dataDogSpan.SetTag(ext.ErrorType, "panicRecovery")
-	e.dataDogHasError = true
+	return e.dataDog
 }
 
 func (e *Engine) AddLogger(handler log.Handler, level log.Level, source ...LoggerSource) {
