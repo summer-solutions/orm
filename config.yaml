@@ -1,7 +1,7 @@
 default:
   mysql: root:root@tcp(localhost:3308)/test
   redis: localhost:6379:0
-  rabbitMQ:
+  rabbitmq:
     server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test
     queues:
       - name: test
@@ -19,8 +19,8 @@ default:
       - name: test
         type: fanout
         durable: false
-  localCache: 1000
-  dirtyQueues:
+  local_cache: 1000
+  dirty_queues:
     default_queue: 10
   locker: default
 default_queue:

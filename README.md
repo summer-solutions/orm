@@ -65,11 +65,11 @@ default:
     mysql: root:root@tcp(localhost:3310)/db
     redis: localhost:6379:0
     locker: default
-    dirtyQueues:
+    dirty_queues:
         test: 10
         test2: 1    
-    localCache: 1000
-    rabbitMQ:
+    local_cache: 1000
+    rabbitmq:
         server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
         queues:
             - name: test

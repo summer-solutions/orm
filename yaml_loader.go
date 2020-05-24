@@ -27,7 +27,7 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-			case "rabbitMQ":
+			case "rabbitmq":
 				err := validateOrmRabbitMQ(registry, value, key)
 				if err != nil {
 					return nil, errors.Trace(err)
@@ -38,19 +38,19 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 					return nil, errors.Trace(err)
 				}
 				registry.RegisterLocker(key, valAsString)
-			case "dirtyQueues":
+			case "dirty_queues":
 				def, ok := value.(map[interface{}]interface{})
 				if !ok {
-					return nil, errors.Errorf("invalid dirtyQueues definition: %s", value)
+					return nil, errors.Errorf("invalid dirty_queues definition: %s", value)
 				}
 				for k, v := range def {
 					asInt, ok := v.(int)
 					if !ok {
-						return nil, errors.Errorf("invalid dirtyQueues definition: %s", value)
+						return nil, errors.Errorf("invalid dirty_queues definition: %s", value)
 					}
 					registry.RegisterDirtyQueue(k.(string), asInt)
 				}
-			case "localCache":
+			case "local_cache":
 				number, err := validateOrmInt(value, key)
 				if err != nil {
 					return nil, errors.Trace(err)
@@ -100,35 +100,35 @@ func getBoolOptional(data map[interface{}]interface{}, key string, defaultValue 
 func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) error {
 	def, ok := value.(map[interface{}]interface{})
 	if !ok {
-		return errors.Errorf("invalid rabbitMQ definition: %s", key)
+		return errors.Errorf("invalid rabbitmq definition: %s", key)
 	}
 	value, has := def["server"]
 	if !has {
-		return errors.Errorf("missing rabbitMQ server definition: %s", key)
+		return errors.Errorf("missing rabbitmq server definition: %s", key)
 	}
 	poolName, ok := value.(string)
 	if !ok {
-		return errors.Errorf("invalid rabbitMQ server definition: %s", key)
+		return errors.Errorf("invalid rabbitmq server definition: %s", key)
 	}
 	registry.RegisterRabbitMQServer(poolName, key)
 	value, has = def["queues"]
 	if has {
 		asSlice, ok := value.([]interface{})
 		if !ok {
-			return errors.Errorf("invalid rabbitMQ queues definition: %s", key)
+			return errors.Errorf("invalid rabbitmq queues definition: %s", key)
 		}
 		for _, channel := range asSlice {
 			asMap, ok := channel.(map[interface{}]interface{})
 			if !ok {
-				return errors.Errorf("invalid rabbitMQ queues definition: %s", key)
+				return errors.Errorf("invalid rabbitmq queues definition: %s", key)
 			}
 			name, has := asMap["name"]
 			if !has {
-				return errors.Errorf("missing rabbitMQ channel name: %s", key)
+				return errors.Errorf("missing rabbitmq channel name: %s", key)
 			}
 			asString, ok := name.(string)
 			if !ok {
-				return errors.Errorf("invalid rabbitMQ channel name: %s", key)
+				return errors.Errorf("invalid rabbitmq channel name: %s", key)
 			}
 			delayed := getBoolOptional(asMap, "delayed", false)
 			durable := getBoolOptional(asMap, "durable", true)
@@ -138,7 +138,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			if has {
 				asString, ok := routerVal.(string)
 				if !ok {
-					return errors.Errorf("invalid rabbitMQ router name: %s", key)
+					return errors.Errorf("invalid rabbitmq router name: %s", key)
 				}
 				router = asString
 			}
@@ -147,12 +147,12 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 			if has {
 				asSlice, ok := routerVal.([]interface{})
 				if !ok {
-					return errors.Errorf("invalid rabbitMQ router keys: %s", key)
+					return errors.Errorf("invalid rabbitmq router keys: %s", key)
 				}
 				for _, val := range asSlice {
 					asString, ok := val.(string)
 					if !ok {
-						return errors.Errorf("invalid rabbitMQ router key: %s", key)
+						return errors.Errorf("invalid rabbitmq router key: %s", key)
 					}
 					routerKeys = append(routerKeys, asString)
 				}
@@ -167,28 +167,28 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) erro
 	if has {
 		asSlice, ok := value.([]interface{})
 		if !ok {
-			return errors.Errorf("invalid rabbitMQ routers definition: %s", key)
+			return errors.Errorf("invalid rabbitmq routers definition: %s", key)
 		}
 		for _, router := range asSlice {
 			asMap, ok := router.(map[interface{}]interface{})
 			if !ok {
-				return errors.Errorf("invalid rabbitMQ router definition: %s", key)
+				return errors.Errorf("invalid rabbitmq router definition: %s", key)
 			}
 			value, has := asMap["name"]
 			if !has {
-				return errors.Errorf("missing rabbitMQ router name: %s", key)
+				return errors.Errorf("missing rabbitmq router name: %s", key)
 			}
 			nameAsString, ok := value.(string)
 			if !ok {
-				return errors.Errorf("invalid rabbitMQ router name: %s", key)
+				return errors.Errorf("invalid rabbitmq router name: %s", key)
 			}
 			value, has = asMap["type"]
 			if !has {
-				return errors.Errorf("missing rabbitMQ router type: %s", key)
+				return errors.Errorf("missing rabbitmq router type: %s", key)
 			}
 			typeAsString, ok := value.(string)
 			if !ok {
-				return errors.Errorf("invalid rabbitMQ router type: %s", key)
+				return errors.Errorf("invalid rabbitmq router type: %s", key)
 			}
 			durable := getBoolOptional(asMap, "durable", true)
 			config := &RabbitMQRouterConfig{nameAsString, typeAsString, durable}
