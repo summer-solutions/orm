@@ -94,7 +94,7 @@ func (dd *dataDog) RegisterAPMError(err error, skipLines int) {
 	}
 	stackParts := strings.Split(errors.ErrorStack(err), "\n")
 	details := strings.Join(stackParts[1:], "\n")
-	lines := strings.Split(string(debug.Stack()), "\n")[2 + skipLines:]
+	lines := strings.Split(string(debug.Stack()), "\n")[2+skipLines:]
 	fullStack := strings.Join(lines, "\n")
 	source := strings.Split(lines[0], " ")[0]
 	dd.span.SetTag(ext.Error, true)
@@ -115,7 +115,7 @@ func (dd *dataDog) RegisterAPMRecovery(err interface{}, skipLines int) {
 		dd.RegisterAPMError(asErr, skipLines)
 		return
 	}
-	lines := strings.Split(string(debug.Stack()), "\n")[2 + skipLines:]
+	lines := strings.Split(string(debug.Stack()), "\n")[2+skipLines:]
 	fullStack := strings.Join(lines, "\n")
 	source := strings.Split(lines[0], " ")[0]
 	dd.span.SetTag(ext.Error, true)
