@@ -57,6 +57,7 @@ func (e *Engine) StartDataDogHTTPAPM(request *http.Request, service string) (tra
 		opts = append(opts, tracer.ChildOf(spanCtx))
 	}
 	span, ctx := tracer.StartSpanFromContext(request.Context(), "http.request", opts...)
+	span.SetTag(ext.AnalyticsEvent, true)
 	e.dataDogSpan = span
 	e.dataDogCtx = ctx
 	return span, ctx
