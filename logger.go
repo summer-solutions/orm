@@ -98,10 +98,13 @@ func (h *redisDataDogHandler) HandleLog(e *log.Entry) error {
 	span.SetTag(ext.SpanType, ext.SpanTypeRedis)
 	span.SetTag(ext.ServiceName, "redis."+e.Fields.Get("pool").(string))
 	span.SetTag(ext.ResourceName, operation)
-	span.SetTag("redis.keys", e.Fields.Get("keys"))
 	misses := e.Fields.Get("misses")
 	if misses != nil {
 		span.SetTag("redis.misses", misses)
+	}
+	keys := e.Fields.Get("keys")
+	if keys != nil {
+		span.SetTag("redis.keys", keys)
 	}
 	injectError(e, span)
 	finished := time.Unix(0, e.Fields.Get("finished").(int64))
