@@ -11,7 +11,17 @@ import (
 func InitByYaml(yaml map[string]interface{}) (registry *Registry, err error) {
 	registry = &Registry{}
 	for key, data := range yaml {
-		dataAsMap, ok := data.(map[interface{}]interface{})
+		dataAsMap, ok := data.(map[string]interface{})
+		if !ok {
+			dataAsMapRaw, ok2 := data.(map[interface{}]interface{})
+			if ok2 {
+				ok = true
+				dataAsMap = make(map[string]interface{})
+				for k, v := range dataAsMapRaw {
+					dataAsMap[k.(string)] = v
+				}
+			}
+		}
 		if !ok {
 			return nil, errors.Errorf("invalid orm section in config")
 		}

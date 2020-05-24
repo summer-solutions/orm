@@ -64,7 +64,7 @@ func TestYamlLoader(t *testing.T) {
 	assert.EqualError(t, err, "invalid orm value for default: 12")
 
 	invalidLocalCache := make(map[string]interface{})
-	invalidLocalCache["default"] = map[interface{}]interface{}{"localCache": "test"}
+	invalidLocalCache["default"] = map[interface{}]interface{}{"local_cache": "test"}
 	registry, err = InitByYaml(invalidLocalCache)
 	assert.Nil(t, registry)
 	assert.EqualError(t, err, "invalid orm value for default: test")
