@@ -1,6 +1,9 @@
 package orm
 
 import (
+	"reflect"
+	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -44,12 +47,12 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 			return nil, false, nil
 		}
 		if l.engine.loggers[LoggerSourceRedis] != nil {
-			l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain", err)
+			l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", err)
 		}
 		return nil, false, errors.Trace(err)
 	}
 	if l.engine.loggers[LoggerSourceRedis] != nil {
-		l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain", nil)
+		l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", nil)
 	}
 	return &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}, true, nil
 }
@@ -69,7 +72,7 @@ func (l *Lock) Release() {
 	start := time.Now()
 	err := l.lock.Release()
 	if l.engine.loggers[LoggerSourceRedis] != nil {
-		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release", err)
+		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release lock", err)
 	}
 	l.has = false
 }
@@ -78,12 +81,13 @@ func (l *Lock) TTL() (time.Duration, error) {
 	start := time.Now()
 	d, err := l.lock.TTL()
 	if l.engine.loggers[LoggerSourceRedis] != nil {
-		l.locker.fillLogFields("[ORM][LOCKER][TTL]", start, l.key, "ttl", err)
+		l.locker.fillLogFields("[ORM][LOCKER][TTL]", start, l.key, "ttl lock", err)
 	}
 	return d, errors.Trace(err)
 }
 
 func (l *Locker) fillLogFields(message string, start time.Time, key string, operation string, err error) {
+	now := time.Now()
 	stop := time.Since(start).Microseconds()
 	e := l.engine.loggers[LoggerSourceRedis].log.
 		WithField("Key", key).
@@ -91,9 +95,17 @@ func (l *Locker) fillLogFields(message string, start time.Time, key string, oper
 		WithField("operation", operation).
 		WithField("pool", l.code).
 		WithField("target", "locker").
-		WithField("time", start.Unix())
+		WithField("started", start.UnixNano()).
+		WithField("finished", now.UnixNano())
 	if err != nil {
-		e.WithError(err).WithField("trace", errors.ErrorStack(err)).Error(message)
+		stackParts := strings.Split(errors.ErrorStack(err), "\n")
+		stack := strings.Join(stackParts[1:], "\\n")
+		fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[4:], "\\n")
+		e.WithError(err).
+			WithField("stack", stack).
+			WithField("stack_full", fullStack).
+			WithField("error_type", reflect.TypeOf(errors.Cause(err)).String()).
+			Error(message)
 	} else {
 		e.Info(message)
 	}

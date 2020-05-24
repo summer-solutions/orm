@@ -66,7 +66,7 @@ func newRabbitMQDataDogHandler(ctx context.Context) *rabbitMQDataDogHandler {
 func (h *rabbitMQDataDogHandler) HandleLog(e *log.Entry) error {
 	started := time.Unix(0, e.Fields.Get("started").(int64))
 	operation := e.Fields.Get("operation").(string)
-	span, _ := tracer.StartSpanFromContext(h.ctx, "rabbitMQ."+operation, tracer.StartTime(started))
+	span, _ := tracer.StartSpanFromContext(h.ctx, operation, tracer.StartTime(started))
 	span.SetTag(ext.SpanType, ext.AppTypeDB)
 	span.SetTag(ext.ServiceName, "rabbitMQ.default")
 	queue := e.Fields.Get("Queue")
@@ -77,6 +77,32 @@ func (h *rabbitMQDataDogHandler) HandleLog(e *log.Entry) error {
 		operation = operation + " " + queue.(string)
 	}
 	span.SetTag(ext.ResourceName, operation)
+	injectError(e, span)
+	finished := time.Unix(0, e.Fields.Get("finished").(int64))
+	span.Finish(tracer.FinishTime(finished))
+	return nil
+}
+
+type redisDataDogHandler struct {
+	ctx context.Context
+}
+
+func newRedisDataDogHandler(ctx context.Context) *redisDataDogHandler {
+	return &redisDataDogHandler{ctx}
+}
+
+func (h *redisDataDogHandler) HandleLog(e *log.Entry) error {
+	started := time.Unix(0, e.Fields.Get("started").(int64))
+	operation := e.Fields.Get("operation").(string)
+	span, _ := tracer.StartSpanFromContext(h.ctx, operation, tracer.StartTime(started))
+	span.SetTag(ext.SpanType, ext.SpanTypeRedis)
+	span.SetTag(ext.ServiceName, "redis."+e.Fields.Get("pool").(string))
+	span.SetTag(ext.ResourceName, operation)
+	span.SetTag("redis.keys", e.Fields.Get("keys"))
+	misses := e.Fields.Get("misses")
+	if misses != nil {
+		span.SetTag("redis.misses", misses)
+	}
 	injectError(e, span)
 	finished := time.Unix(0, e.Fields.Get("finished").(int64))
 	span.Finish(tracer.FinishTime(finished))

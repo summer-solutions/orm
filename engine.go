@@ -89,6 +89,8 @@ func (e *Engine) AddDataDogAPMLog(level log.Level, source ...LoggerSource) {
 			e.AddLogger(newDBDataDogHandler(e.dataDogCtx), level, s)
 		} else if s == LoggerSourceRabbitMQ {
 			e.AddLogger(newRabbitMQDataDogHandler(e.dataDogCtx), level, s)
+		} else if s == LoggerSourceRedis {
+			e.AddLogger(newRedisDataDogHandler(e.dataDogCtx), level, s)
 		}
 	}
 }
