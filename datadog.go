@@ -28,7 +28,7 @@ type dataDog struct {
 type DataDog interface {
 	StartHTTPAPM(request *http.Request, service string) (tracer.Span, context.Context)
 	StopHTTPAPM(status int)
-	AddAPMLog(level log.Level, source ...LoggerSource)
+	EnableORMAPMLog(level log.Level, source ...LoggerSource)
 	RegisterAPMError(err error)
 	RegisterAPMRecovery(err interface{}, skipLines int)
 }
@@ -65,7 +65,7 @@ func (dd *dataDog) StopHTTPAPM(status int) {
 	}
 }
 
-func (dd *dataDog) AddAPMLog(level log.Level, source ...LoggerSource) {
+func (dd *dataDog) EnableORMAPMLog(level log.Level, source ...LoggerSource) {
 	if dd.span == nil {
 		return
 	}
