@@ -33,7 +33,7 @@ type DataDog interface {
 	RegisterAPMRecovery(err interface{}, skipLines int)
 }
 
-func (dd *dataDog) StartHTTPAPM(request *http.Request, service string) (tracer.Span, context.Context) {
+func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environment string) (tracer.Span, context.Context) {
 	resource := request.Method + " " + request.URL.Path
 	opts := []ddtrace.StartSpanOption{
 		tracer.ServiceName(service),
@@ -48,6 +48,11 @@ func (dd *dataDog) StartHTTPAPM(request *http.Request, service string) (tracer.S
 	}
 	span, ctx := tracer.StartSpanFromContext(request.Context(), "http.request", opts...)
 	span.SetTag(ext.AnalyticsEvent, true)
+	q := request.URL.Query()
+	if len(q) > 0 {
+		span.SetTag("url.query", request.URL.RawQuery)
+	}
+	span.SetTag(ext.Environment, environment)
 	dd.span = span
 	dd.ctx = ctx
 	return span, ctx
