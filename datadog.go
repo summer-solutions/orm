@@ -83,17 +83,20 @@ func (dd *dataDog) EnableORMAPMLog(level log.Level, source ...LoggerSource) {
 	}
 }
 
-func (dd *dataDog) RegisterAPMError(err error) {
+func (dd *dataDog) RegisterAPMError(err error, skipLines int) {
 	if dd.span == nil {
 		return
 	}
 	stackParts := strings.Split(errors.ErrorStack(err), "\n")
-	stack := strings.Join(stackParts[1:], "\n")
-	fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[2:], "\n")
+	details := strings.Join(stackParts[1:], "\n")
+	lines := strings.Split(string(debug.Stack()), "\n")[2 + skipLines:]
+	fullStack := strings.Join(lines, "\n")
+	source := strings.Split(lines[0], " ")[0]
 	dd.span.SetTag(ext.Error, true)
 	dd.span.SetTag(ext.ErrorMsg, err.Error())
-	dd.span.SetTag(ext.ErrorDetails, fullStack)
-	dd.span.SetTag(ext.ErrorStack, stack)
+	dd.span.SetTag(ext.ErrorDetails, details)
+	dd.span.SetTag("error.source", source)
+	dd.span.SetTag(ext.ErrorStack, fullStack)
 	dd.span.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
 	dd.hasError = true
 }
@@ -104,10 +107,10 @@ func (dd *dataDog) RegisterAPMRecovery(err interface{}, skipLines int) {
 	}
 	asErr, ok := err.(error)
 	if ok {
-		dd.RegisterAPMError(asErr)
+		dd.RegisterAPMError(asErr, skipLines)
 		return
 	}
-	lines := strings.Split(string(debug.Stack()), "\n")[skipLines:]
+	lines := strings.Split(string(debug.Stack()), "\n")[2 + skipLines:]
 	fullStack := strings.Join(lines, "\n")
 	source := strings.Split(lines[0], " ")[0]
 	dd.span.SetTag(ext.Error, true)
