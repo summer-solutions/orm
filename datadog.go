@@ -29,7 +29,7 @@ type DataDog interface {
 	StartHTTPAPM(request *http.Request, service string) (tracer.Span, context.Context)
 	StopHTTPAPM(status int)
 	EnableORMAPMLog(level log.Level, source ...LoggerSource)
-	RegisterAPMError(err error)
+	RegisterAPMError(err error, skipLines int)
 	RegisterAPMRecovery(err interface{}, skipLines int)
 }
 
