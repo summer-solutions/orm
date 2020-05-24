@@ -26,7 +26,7 @@ type dataDog struct {
 }
 
 type DataDog interface {
-	StartHTTPAPM(request *http.Request, service string) (tracer.Span, context.Context)
+	StartHTTPAPM(request *http.Request, service string, environment string) (tracer.Span, context.Context)
 	StopHTTPAPM(status int)
 	EnableORMAPMLog(level log.Level, source ...LoggerSource)
 	RegisterAPMError(err error, skipLines int)
