@@ -21,7 +21,6 @@ func TestLog(t *testing.T) {
 	assert.Nil(t, err)
 	receiver := NewLogReceiver(engine)
 	receiver.DisableLoop()
-	//engine.EnableDebug()
 
 	engine.Track(entity)
 	entity.Name = "Hello"
