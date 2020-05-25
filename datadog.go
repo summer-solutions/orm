@@ -153,6 +153,16 @@ func (dd *dataDog) StopHTTPAPM(status int) {
 	}
 }
 
+func (dd *dataDog) StartWorkSpan(name string) (stop func())  {
+	if dd.span == nil {
+		return func() {}
+	}
+	span, _ := tracer.StartSpanFromContext(dd.ctx, name)
+	return func() {
+		span.Finish()
+	}
+}
+
 func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source ...LoggerSource) {
 	if dd.span == nil {
 		return
