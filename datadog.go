@@ -62,7 +62,28 @@ type DataDog interface {
 	RegisterAPMRecovery(err interface{})
 	DropAPM()
 	SetAPMTag(key string, value interface{})
-	StartWorkSpan(name string) (stop func())
+	StartWorkSpan(name string) WorkSpan
+}
+
+type WorkSpan interface {
+	Finish()
+	SetTag(key string, value interface{})
+}
+
+type workSpan struct {
+	span tracer.Span
+}
+
+func (s *workSpan) Finish() {
+	if s.span != nil {
+		s.span.Finish()
+	}
+}
+
+func (s *workSpan) SetTag(key string, value interface{}) {
+	if s.span != nil {
+		s.span.SetTag(key, value)
+	}
 }
 
 func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environment string) (tracer.Span, context.Context) {
@@ -154,14 +175,12 @@ func (dd *dataDog) StopHTTPAPM(status int) {
 	}
 }
 
-func (dd *dataDog) StartWorkSpan(name string) (stop func()) {
+func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
 	if dd.span == nil {
-		return func() {}
+		return &workSpan{}
 	}
 	span, _ := tracer.StartSpanFromContext(dd.ctx, name)
-	return func() {
-		span.Finish()
-	}
+	return &workSpan{span}
 }
 
 func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source ...LoggerSource) {
