@@ -86,6 +86,19 @@ func (s *workSpan) SetTag(key string, value interface{}) {
 	}
 }
 
+func (dd *dataDog) StartAPM(context context.Context, service string, environment string) tracer.Span {
+	opts := []ddtrace.StartSpanOption{
+		tracer.ServiceName(service),
+		tracer.Measured(),
+	}
+	span, ctx := tracer.StartSpanFromContext(context, "service.run", opts...)
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(ext.Environment, environment)
+	dd.span = span
+	dd.ctx = ctx
+	return span
+}
+
 func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environment string) (tracer.Span, context.Context) {
 	resource := request.Method + " " + request.URL.Path
 	opts := []ddtrace.StartSpanOption{
