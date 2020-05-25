@@ -58,17 +58,6 @@ func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 	injectError(e, span)
 	finished := time.Unix(0, e.Fields.Get("finished").(int64))
 	span.Finish(tracer.FinishTime(finished))
-	if h.engine.dataDog.logDB {
-		h.engine.dataDog.dbAll++
-		switch queryType {
-		case "exec":
-			h.engine.dataDog.dbExecs++
-		case "transaction":
-			h.engine.dataDog.dbTransactions++
-		case "select":
-			h.engine.dataDog.dbQueries++
-		}
-	}
 	return nil
 }
 
@@ -103,27 +92,6 @@ func (h *rabbitMQDataDogHandler) HandleLog(e *log.Entry) error {
 	injectError(e, span)
 	finished := time.Unix(0, e.Fields.Get("finished").(int64))
 	span.Finish(tracer.FinishTime(finished))
-	if h.engine.dataDog.logRabbitMQ {
-		h.engine.dataDog.rabbitMQAll++
-		switch operationName {
-		case "close channel":
-			h.engine.dataDog.rabbitMQCloseChannels++
-		case "create channel":
-			h.engine.dataDog.rabbitMQCreateChannels++
-		case "consume":
-			h.engine.dataDog.rabbitMQConsumes++
-		case "ack":
-			h.engine.dataDog.rabbitMQACKs++
-		case "receive":
-			h.engine.dataDog.rabbitMQReceivers++
-		case "connect":
-			h.engine.dataDog.rabbitMQConnects++
-		case "register":
-			h.engine.dataDog.rabbitMQRegisters++
-		case "publish":
-			h.engine.dataDog.rabbitMQPublished++
-		}
-	}
 	return nil
 }
 
@@ -158,33 +126,6 @@ func (h *redisDataDogHandler) HandleLog(e *log.Entry) error {
 	injectError(e, span)
 	finished := time.Unix(0, e.Fields.Get("finished").(int64))
 	span.Finish(tracer.FinishTime(finished))
-	if h.engine.dataDog.logRedis {
-		if e.Fields.Get("target") == "locker" {
-			if e.Fields.Get("operation") == "obtain lock" {
-				h.engine.dataDog.lockerAll++
-			}
-		} else {
-			keys := uint(e.Fields.Get("keys").(int))
-			h.engine.dataDog.redisAll++
-			h.engine.dataDog.redisKeys += keys
-			misses := e.Fields.Get("misses")
-			if misses != nil {
-				h.engine.dataDog.redisMisses += uint(misses.(int))
-			}
-			isSet := e.Fields.Get("is_set")
-			isDelete := e.Fields.Get("is_delete")
-			if isSet != nil {
-				h.engine.dataDog.redisSets++
-				h.engine.dataDog.redisSetsKeys += keys
-			} else if isDelete != nil {
-				h.engine.dataDog.redisDeletes++
-				h.engine.dataDog.redisDeletesKeys += keys
-			} else {
-				h.engine.dataDog.redisGets++
-				h.engine.dataDog.redisGetsKeys += keys
-			}
-		}
-	}
 	return nil
 }
 

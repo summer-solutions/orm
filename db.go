@@ -10,6 +10,11 @@ import (
 	"github.com/juju/errors"
 )
 
+const counterDBAll = "db.all"
+const counterDBTransaction = "db.transaction"
+const counterDBQuery = "db.query"
+const counterDBExec = "db.exec"
+
 type sqlClient interface {
 	Begin() error
 	Commit() error
@@ -129,6 +134,8 @@ func (db *DB) Begin() error {
 	err := db.client.Begin()
 	if db.engine.loggers[LoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][BEGIN]", start, "transaction", "START TRANSACTION", nil, err)
+		db.engine.dataDog.incrementCounter(counterDBAll, 1)
+		db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -142,6 +149,8 @@ func (db *DB) Commit() error {
 	if db.engine.loggers[LoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][COMMIT]", start, "transaction", "COMMIT", nil, err)
 	}
+	db.engine.dataDog.incrementCounter(counterDBAll, 1)
+	db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -171,6 +180,8 @@ func (db *DB) Rollback() {
 	if has && db.engine.loggers[LoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][ROLLBACK]", start, "transaction", "ROLLBACK", nil, err)
 	}
+	db.engine.dataDog.incrementCounter(counterDBAll, 1)
+	db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	if err != nil {
 		panic(errors.Annotate(err, "rollback failed"))
 	}
@@ -184,6 +195,8 @@ func (db *DB) Exec(query string, args ...interface{}) (rows sql.Result, err erro
 	if db.engine.loggers[LoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][EXEC]", start, "exec", query, args, err)
 	}
+	db.engine.dataDog.incrementCounter(counterDBAll, 1)
+	db.engine.dataDog.incrementCounter(counterDBExec, 1)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -196,6 +209,8 @@ func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
 	if db.engine.loggers[LoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query, args, nil)
 	}
+	db.engine.dataDog.incrementCounter(counterDBAll, 1)
+	db.engine.dataDog.incrementCounter(counterDBQuery, 1)
 	return row
 }
 
@@ -205,6 +220,8 @@ func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF fun
 	if db.engine.loggers[LoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query, args, err)
 	}
+	db.engine.dataDog.incrementCounter(counterDBAll, 1)
+	db.engine.dataDog.incrementCounter(counterDBQuery, 1)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

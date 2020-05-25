@@ -11,6 +11,10 @@ import (
 	"github.com/bsm/redislock"
 )
 
+const counterRedisLockObtain = "redis.lockObtain"
+const counterRedisLockRelease = "redis.lockRelease"
+const counterRedisLockTTL = "redis.lockTTL"
+
 type lockerClient interface {
 	Obtain(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error)
 }
@@ -49,11 +53,15 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 		if l.engine.loggers[LoggerSourceRedis] != nil {
 			l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", err)
 		}
+		l.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
 		return nil, false, errors.Trace(err)
 	}
 	if l.engine.loggers[LoggerSourceRedis] != nil {
 		l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", nil)
 	}
+	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
 	return &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}, true, nil
 }
 
@@ -74,6 +82,8 @@ func (l *Lock) Release() {
 	if l.engine.loggers[LoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release lock", err)
 	}
+	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	l.engine.dataDog.incrementCounter(counterRedisLockRelease, 1)
 	l.has = false
 }
 
@@ -83,6 +93,8 @@ func (l *Lock) TTL() (time.Duration, error) {
 	if l.engine.loggers[LoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][TTL]", start, l.key, "ttl lock", err)
 	}
+	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	l.engine.dataDog.incrementCounter(counterRedisLockTTL, 1)
 	return d, errors.Trace(err)
 }
 

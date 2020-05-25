@@ -12,6 +12,15 @@ import (
 	"github.com/streadway/amqp"
 )
 
+const counterRabbitMQAll = "rabbitMQ.all"
+const counterRabbitMQCloseChannel = "rabbitMQ.closeChannel"
+const counterRabbitMQPublish = "rabbitMQ.publish"
+const counterRabbitMQReceive = "rabbitMQ.receive"
+const counterRabbitMQACK = "rabbitMQ.ack"
+const counterRabbitMQConnect = "rabbitMQ.connect"
+const counterRabbitMQCreateChannel = "rabbitMQ.createChannel"
+const counterRabbitMQRegister = "rabbitMQ.register"
+
 type rabbitMQConfig struct {
 	code    string
 	address string
@@ -46,6 +55,8 @@ func (r *rabbitMQReceiver) Close() {
 		fillRabbitMQLogFields(r.parent.engine, "[ORM][RABBIT_MQ][CLOSE CHANNEL]", start, "close channel",
 			map[string]interface{}{"Queue": r.parent.config.Name}, err)
 	}
+	r.parent.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+	r.parent.engine.dataDog.incrementCounter(counterRabbitMQCloseChannel, 1)
 	delete(r.parent.connection.channelConsumers, r.parent.config.Name)
 }
 
@@ -54,12 +65,7 @@ func (r *rabbitMQReceiver) consume() (<-chan amqp.Delivery, error) {
 }
 
 func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
-	start := time.Now()
 	delivery, err := r.consume()
-	if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
-		fillRabbitMQLogFields(r.parent.engine, "[ORM][RABBIT_MQ][CONSUME]", start, "consume",
-			map[string]interface{}{"Queue": r.parent.config.Name, "consumer": r.name}, err)
-	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -79,11 +85,14 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			start := time.Now()
 			err = last.Ack(true)
 			if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
 				fillRabbitMQLogFields(r.parent.engine, "[ORM][RABBIT_MQ][ACK]", start, "ack",
 					map[string]interface{}{"Queue": r.parent.config.Name, "consumer": r.name}, err)
 			}
+			r.parent.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+			r.parent.engine.dataDog.incrementCounter(counterRabbitMQACK, 1)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -100,10 +109,8 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			last = &item
 			items = append(items, item.Body)
 			counter++
-			if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
-				fillRabbitMQLogFields(r.parent.engine, "[ORM][RABBIT_MQ][RECEIVED]", start, "receive",
-					map[string]interface{}{"Queue": r.parent.config.Name, "consumer": r.name}, nil)
-			}
+			r.parent.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+			r.parent.engine.dataDog.incrementCounter(counterRabbitMQReceive, 1)
 		case <-time.After(r.maxLoopDuration):
 			timeOut = true
 		}
@@ -145,6 +152,8 @@ func (r *rabbitMQConnection) connect(sender bool, engine *Engine) error {
 	if engine.loggers[LoggerSourceRabbitMQ] != nil {
 		fillRabbitMQLogFields(engine, "[ORM][RABBIT_MQ][CONNECT]", start, "connect", nil, nil)
 	}
+	engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+	engine.dataDog.incrementCounter(counterRabbitMQConnect, 1)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -287,12 +296,16 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
 				fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][CREATE CHANNEL]", start, "create channel", map[string]interface{}{"Queue": queueName}, err)
 			}
+			r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+			r.engine.dataDog.incrementCounter(counterRabbitMQCreateChannel, 1)
 			return nil, errors.Trace(err)
 		}
 	}
 	if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
 		fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][CREATE CHANNEL]", start, "create channel", map[string]interface{}{"Queue": queueName}, nil)
 	}
+	r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+	r.engine.dataDog.incrementCounter(counterRabbitMQCreateChannel, 1)
 	hasRouter := r.config.Router != ""
 	if hasRouter {
 		configRouter := r.engine.registry.rabbitMQRouterConfigs[r.config.Router]
@@ -309,6 +322,8 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][REGISTER ROUTER]", start, "register",
 				map[string]interface{}{"Name": configRouter.Name, "type": configRouter.Type, "args": args}, err)
 		}
+		r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+		r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -322,6 +337,8 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][REGISTER QUEUE]", start, "register",
 			map[string]interface{}{"Queue": queueName}, err)
 	}
+	r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+	r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -337,6 +354,8 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 				fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][QUEUE BIND]", start, "register",
 					map[string]interface{}{"Queue": q.Name, "Router": r.config.Router, "key": key}, err)
 			}
+			r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+			r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -389,6 +408,8 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 			fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][PUBLISH]", start, "publish",
 				map[string]interface{}{"Queue": r.config.Name, "key": routingKey}, err)
 		}
+		r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+		r.engine.dataDog.incrementCounter(counterRabbitMQPublish, 1)
 	}
 	if err != nil {
 		return errors.Trace(err)

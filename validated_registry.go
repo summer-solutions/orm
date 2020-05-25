@@ -39,6 +39,7 @@ type validatedRegistry struct {
 
 func (r *validatedRegistry) CreateEngine() *Engine {
 	e := &Engine{registry: r}
+	e.dataDog = &dataDog{engine: e}
 	e.dbs = make(map[string]*DB)
 	e.trackedEntities = make([]Entity, 0)
 	if e.registry.sqlClients != nil {
