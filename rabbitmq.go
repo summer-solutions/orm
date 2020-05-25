@@ -306,7 +306,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		err := channel.ExchangeDeclare(configRouter.Name, typeValue, configRouter.Durable, true,
 			false, false, args)
 		if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
-			fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][REGISTER ROUTER]", start, "register router",
+			fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][REGISTER ROUTER]", start, "register",
 				map[string]interface{}{"Name": configRouter.Name, "type": configRouter.Type, "args": args}, err)
 		}
 		if err != nil {
@@ -319,7 +319,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	start = time.Now()
 	q, err := r.registerQueue(channel, queueName)
 	if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
-		fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][REGISTER QUEUE]", start, "register queue",
+		fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][REGISTER QUEUE]", start, "register",
 			map[string]interface{}{"Queue": queueName}, err)
 	}
 	if err != nil {
@@ -334,7 +334,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			start = time.Now()
 			err = channel.QueueBind(q.Name, key, r.config.Router, false, nil)
 			if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
-				fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][QUEUE BIND]", start, "queue bind",
+				fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][QUEUE BIND]", start, "register",
 					map[string]interface{}{"Queue": q.Name, "Router": r.config.Router, "key": key}, err)
 			}
 			if err != nil {
