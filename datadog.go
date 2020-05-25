@@ -62,6 +62,7 @@ type DataDog interface {
 	RegisterAPMRecovery(err interface{})
 	DropAPM()
 	SetAPMTag(key string, value interface{})
+	StartWorkSpan(name string) (stop func())
 }
 
 func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environment string) (tracer.Span, context.Context) {
@@ -153,7 +154,7 @@ func (dd *dataDog) StopHTTPAPM(status int) {
 	}
 }
 
-func (dd *dataDog) StartWorkSpan(name string) (stop func())  {
+func (dd *dataDog) StartWorkSpan(name string) (stop func()) {
 	if dd.span == nil {
 		return func() {}
 	}
