@@ -8,6 +8,9 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
@@ -48,14 +51,15 @@ type dataDog struct {
 	rabbitMQPublished      uint
 	rabbitMQConnects       uint
 	rabbitMQRegisters      uint
+	lockerAll              uint
 }
 
 type DataDog interface {
 	StartHTTPAPM(request *http.Request, service string, environment string) (tracer.Span, context.Context)
 	StopHTTPAPM(status int)
 	EnableORMAPMLog(level log.Level, withAnalytics bool, source ...LoggerSource)
-	RegisterAPMError(err error, skipLines int)
-	RegisterAPMRecovery(err interface{}, skipLines int)
+	RegisterAPMError(err error)
+	RegisterAPMRecovery(err interface{})
 	DropAPM()
 	SetAPMTag(key string, value interface{})
 }
@@ -115,6 +119,7 @@ func (dd *dataDog) StopHTTPAPM(status int) {
 		dd.span.SetTag("orm.redis.getKeys", dd.redisGetsKeys)
 		dd.span.SetTag("orm.redis.deletes", dd.redisDeletes)
 		dd.span.SetTag("orm.redis.deleteKeys", dd.redisDeletesKeys)
+		dd.span.SetTag("orm.redis.locker", dd.lockerAll)
 		dd.redisAll = 0
 		dd.redisKeys = 0
 		dd.redisMisses = 0
@@ -124,6 +129,7 @@ func (dd *dataDog) StopHTTPAPM(status int) {
 		dd.redisGetsKeys = 0
 		dd.redisDeletes = 0
 		dd.redisDeletesKeys = 0
+		dd.lockerAll = 0
 	}
 	if dd.logRabbitMQ {
 		dd.span.SetTag("orm.rabbitMQ.all", dd.rabbitMQAll)
@@ -174,42 +180,40 @@ func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source .
 	}
 }
 
-func (dd *dataDog) RegisterAPMError(err error, skipLines int) {
+func (dd *dataDog) RegisterAPMError(err error) {
 	if dd.span == nil {
 		return
 	}
 	stackParts := strings.Split(errors.ErrorStack(err), "\n")
 	details := strings.Join(stackParts[1:], "\n")
-	lines := strings.Split(string(debug.Stack()), "\n")[2+skipLines:]
+	lines := strings.Split(string(debug.Stack()), "\n")[2:]
 	fullStack := strings.Join(lines, "\n")
-	source := strings.Split(lines[0], " ")[0]
 	dd.span.SetTag(ext.Error, true)
 	dd.span.SetTag(ext.ErrorMsg, err.Error())
 	dd.span.SetTag(ext.ErrorDetails, details)
-	dd.span.SetTag("error.source", source)
 	dd.span.SetTag(ext.ErrorStack, fullStack)
 	dd.span.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
 	dd.hasError = true
+	dd.span.SetTag(ext.ManualKeep, true)
 }
 
-func (dd *dataDog) RegisterAPMRecovery(err interface{}, skipLines int) {
+func (dd *dataDog) RegisterAPMRecovery(err interface{}) {
 	if dd.span == nil {
 		return
 	}
 	asErr, ok := err.(error)
 	if ok {
-		dd.RegisterAPMError(asErr, skipLines)
+		dd.RegisterAPMError(asErr)
 		return
 	}
-	lines := strings.Split(string(debug.Stack()), "\n")[2+skipLines:]
+	lines := strings.Split(string(debug.Stack()), "\n")[2:]
 	fullStack := strings.Join(lines, "\n")
-	source := strings.Split(lines[0], " ")[0]
 	dd.span.SetTag(ext.Error, true)
-	dd.span.SetTag("error.source", source)
 	dd.span.SetTag(ext.ErrorMsg, fmt.Sprintf("%v", err))
 	dd.span.SetTag(ext.ErrorStack, fullStack)
 	dd.span.SetTag(ext.ErrorType, "panicRecovery")
 	dd.hasError = true
+	dd.span.SetTag(ext.ManualKeep, true)
 }
 
 func (dd *dataDog) DropAPM() {
@@ -229,4 +233,15 @@ func (dd *dataDog) SetAPMTag(key string, value interface{}) {
 func StartDataDogTracer(rate float64) (def func()) {
 	tracer.Start(tracer.WithAnalyticsRate(rate))
 	return func() { tracer.Stop() }
+}
+
+func StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func()) {
+	_ = profiler.Start(
+		profiler.WithPeriod(duration),
+		profiler.WithEnv(environment),
+		profiler.WithAPIKey(apiKey),
+		profiler.WithURL("https://intake.profile.datadoghq.eu/v1/input"),
+		profiler.WithService(service),
+	)
+	return func() { profiler.Stop() }
 }

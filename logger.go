@@ -157,24 +157,30 @@ func (h *redisDataDogHandler) HandleLog(e *log.Entry) error {
 	finished := time.Unix(0, e.Fields.Get("finished").(int64))
 	span.Finish(tracer.FinishTime(finished))
 	if h.engine.dataDog.logRedis {
-		keys := uint(e.Fields.Get("keys").(int))
-		h.engine.dataDog.redisAll++
-		h.engine.dataDog.redisKeys += keys
-		misses := e.Fields.Get("misses")
-		if misses != nil {
-			h.engine.dataDog.redisMisses += uint(misses.(int))
-		}
-		isSet := e.Fields.Get("is_set")
-		isDelete := e.Fields.Get("is_delete")
-		if isSet != nil {
-			h.engine.dataDog.redisSets++
-			h.engine.dataDog.redisSetsKeys += keys
-		} else if isDelete != nil {
-			h.engine.dataDog.redisDeletes++
-			h.engine.dataDog.redisDeletesKeys += keys
+		if e.Fields.Get("target") == "locker" {
+			if e.Fields.Get("operation") == "obtain lock" {
+				h.engine.dataDog.lockerAll++
+			}
 		} else {
-			h.engine.dataDog.redisGets++
-			h.engine.dataDog.redisGetsKeys += keys
+			keys := uint(e.Fields.Get("keys").(int))
+			h.engine.dataDog.redisAll++
+			h.engine.dataDog.redisKeys += keys
+			misses := e.Fields.Get("misses")
+			if misses != nil {
+				h.engine.dataDog.redisMisses += uint(misses.(int))
+			}
+			isSet := e.Fields.Get("is_set")
+			isDelete := e.Fields.Get("is_delete")
+			if isSet != nil {
+				h.engine.dataDog.redisSets++
+				h.engine.dataDog.redisSetsKeys += keys
+			} else if isDelete != nil {
+				h.engine.dataDog.redisDeletes++
+				h.engine.dataDog.redisDeletesKeys += keys
+			} else {
+				h.engine.dataDog.redisGets++
+				h.engine.dataDog.redisGetsKeys += keys
+			}
 		}
 	}
 	return nil
