@@ -31,6 +31,8 @@ type DataDog interface {
 	EnableORMAPMLog(level log.Level, source ...LoggerSource)
 	RegisterAPMError(err error, skipLines int)
 	RegisterAPMRecovery(err interface{}, skipLines int)
+	DropAPM()
+	SetAPMTag(key string, value interface{})
 }
 
 func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environment string) (tracer.Span, context.Context) {
@@ -124,4 +126,23 @@ func (dd *dataDog) RegisterAPMRecovery(err interface{}, skipLines int) {
 	dd.span.SetTag(ext.ErrorStack, fullStack)
 	dd.span.SetTag(ext.ErrorType, "panicRecovery")
 	dd.hasError = true
+}
+
+func (dd *dataDog) DropAPM() {
+	if dd.span == nil {
+		return
+	}
+	dd.span.SetTag(ext.ManualDrop, true)
+}
+
+func (dd *dataDog) SetAPMTag(key string, value interface{}) {
+	if dd.span == nil {
+		return
+	}
+	dd.span.SetTag(key, value)
+}
+
+func StartDataDogTracer(rate float64) (def func()) {
+	tracer.Start(tracer.WithAnalyticsRate(rate))
+	return func() { tracer.Stop() }
 }
