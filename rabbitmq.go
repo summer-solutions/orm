@@ -38,14 +38,19 @@ type rabbitMQReceiver struct {
 	parent          *rabbitMQChannel
 	disableLoop     bool
 	maxLoopDuration time.Duration
+	heartBeat       func()
 }
 
 func (r *rabbitMQReceiver) DisableLoop() {
 	r.disableLoop = true
 }
 
-func (r *rabbitMQReceiver) SetMaxLoopDudation(duration time.Duration) {
+func (r *rabbitMQReceiver) SetMaxLoopDuration(duration time.Duration) {
 	r.maxLoopDuration = duration
+}
+
+func (r *rabbitMQReceiver) SetHeartBeat(beat func()) {
+	r.heartBeat = beat
 }
 
 func (r *rabbitMQReceiver) Close() {
@@ -71,6 +76,7 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 	}
 
 	timeOut := false
+	heartBeat := false
 	max := r.parent.config.PrefetchCount
 	if max <= 0 {
 		max = 1
@@ -79,7 +85,12 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 	var last *amqp.Delivery
 	items := make([][]byte, 0)
 	for {
-		if counter > 0 && (timeOut || counter == max) {
+		if heartBeat {
+			if r.heartBeat != nil {
+				r.heartBeat()
+			}
+			heartBeat = false
+		} else if counter > 0 && (timeOut || counter == max) {
 			err := handler(items)
 			items = nil
 			if err != nil {
@@ -98,6 +109,7 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			}
 			counter = 0
 			timeOut = false
+			heartBeat = false
 			if r.disableLoop {
 				return nil
 			}
@@ -113,6 +125,8 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			r.parent.engine.dataDog.incrementCounter(counterRabbitMQReceive, 1)
 		case <-time.After(r.maxLoopDuration):
 			timeOut = true
+		case <-time.After(time.Minute):
+			heartBeat = true
 		}
 	}
 }
