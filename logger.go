@@ -108,6 +108,8 @@ func (h *rabbitMQDataDogHandler) HandleLog(e *log.Entry) error {
 		switch operationName {
 		case "close channel":
 			h.engine.dataDog.rabbitMQCloseChannels++
+		case "create channel":
+			h.engine.dataDog.rabbitMQCreateChannels++
 		case "consume":
 			h.engine.dataDog.rabbitMQConsumes++
 		case "ack":
@@ -118,7 +120,7 @@ func (h *rabbitMQDataDogHandler) HandleLog(e *log.Entry) error {
 			h.engine.dataDog.rabbitMQConnects++
 		case "register":
 			h.engine.dataDog.rabbitMQRegisters++
-		case "":
+		case "publish":
 			h.engine.dataDog.rabbitMQPublished++
 		}
 	}
