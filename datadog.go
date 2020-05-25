@@ -55,7 +55,7 @@ type dataDog struct {
 }
 
 type DataDog interface {
-	StartAPM(context context.Context, service string, environment string) APM
+	StartAPM(service string, environment string) APM
 	StartHTTPAPM(request *http.Request, service string, environment string) HTTPAPM
 	EnableORMAPMLog(level log.Level, withAnalytics bool, source ...LoggerSource)
 	RegisterAPMError(err error)
@@ -86,12 +86,12 @@ func (s *workSpan) SetTag(key string, value interface{}) {
 	}
 }
 
-func (dd *dataDog) StartAPM(context context.Context, service string, environment string) APM {
+func (dd *dataDog) StartAPM(service string, environment string) APM {
 	opts := []ddtrace.StartSpanOption{
 		tracer.ServiceName(service),
 		tracer.Measured(),
 	}
-	span, ctx := tracer.StartSpanFromContext(context, "service.run", opts...)
+	span, ctx := tracer.StartSpanFromContext(context.Background(), "service.run", opts...)
 	span.SetTag(ext.AnalyticsEvent, true)
 	span.SetTag(ext.Environment, environment)
 	dd.span = span
