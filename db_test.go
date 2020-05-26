@@ -21,27 +21,14 @@ func TestDB(t *testing.T) {
 	testLogger := memory.New()
 	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceDB)
 
-	err = db.Commit()
-	assert.EqualError(t, err, "transaction not started")
-	err = db.Begin()
-	assert.Nil(t, err)
-	err = db.Begin()
-	assert.EqualError(t, err, "transaction already started")
-	db.Rollback()
+	db.Begin()
 
-	err = db.Begin()
-	assert.Nil(t, err)
-
-	rows, def, err := db.Query("SELECT 1")
-	assert.Nil(t, err)
+	rows, def := db.Query("SELECT 1")
 	defer def()
 	assert.True(t, rows.Next())
 	def()
-	row := db.QueryRow("SELECT 2")
 	var i int
-	err = row.Scan(&i)
-	assert.Nil(t, err)
+	db.QueryRow(NewWhere("SELECT 2"), &i)
 	assert.Equal(t, 2, i)
-	err = db.Commit()
-	assert.Nil(t, err)
+	db.Commit()
 }

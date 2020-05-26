@@ -52,36 +52,30 @@ func TestGetByIDLocal(t *testing.T) {
 	var entity testEntityByIDLocal
 	engine := PrepareTables(t, &Registry{}, entity)
 
-	found, err := engine.LoadByID(100, &entity)
-	assert.Nil(t, err)
+	found := engine.LoadByID(100, &entity)
 	assert.False(t, found)
-	found, err = engine.LoadByID(100, &entity)
-	assert.Nil(t, err)
+	found = engine.LoadByID(100, &entity)
 	assert.False(t, found)
 
 	entity = testEntityByIDLocal{}
 	engine.Track(&entity)
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	assert.False(t, engine.IsDirty(&entity))
 
-	has, err := engine.LoadByID(1, &entity)
+	has := engine.LoadByID(1, &entity)
 	assert.True(t, has)
-	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity.ID)
 
 	engine.Track(&entity)
 	entity.ReferenceOne = &testEntityByIDLocal{ID: 1}
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	assert.False(t, engine.IsDirty(&entity))
 
 	DBLogger := memory.New()
 	engine.AddLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
 
-	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
-	assert.Nil(t, err)
+	found = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.True(t, found)
 	assert.NotNil(t, entity)
 	assert.Equal(t, uint(1), entity.ID)
@@ -111,7 +105,6 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.Equal(t, AddressByIDLocal{Street: "", Building: uint16(0)}, entity.Address)
 	assert.Nil(t, entity.JSON)
 	assert.Equal(t, "", string(entity.Uint8Slice))
-	assert.Nil(t, err)
 
 	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Entries, 0)
@@ -137,15 +130,12 @@ func TestGetByIDLocal(t *testing.T) {
 
 	assert.True(t, engine.IsDirty(&entity))
 
-	err = engine.Flush()
-	assert.Nil(t, err)
-	assert.Nil(t, err)
+	engine.Flush()
 	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Entries, 1)
 
 	var entity2 testEntityByIDLocal
-	found, err = engine.LoadByID(1, &entity2)
-	assert.Nil(t, err)
+	found = engine.LoadByID(1, &entity2)
 	assert.True(t, found)
 	assert.NotNil(t, entity2)
 	assert.Equal(t, "Test name", entity2.Name)
@@ -173,10 +163,9 @@ func BenchmarkGetByIDLocal(b *testing.B) {
 
 	entity = testEntityByIDLocal{}
 	engine.Track(&entity)
-	err := engine.Flush()
-	assert.Nil(b, err)
+	engine.Flush()
 
 	for n := 0; n < b.N; n++ {
-		_, _ = engine.LoadByID(1, &entity)
+		_ = engine.LoadByID(1, &entity)
 	}
 }

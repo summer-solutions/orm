@@ -28,7 +28,7 @@ type rabbitMQConfig struct {
 
 type RabbitMQConsumer interface {
 	Close()
-	Consume(handler func(items [][]byte) error) error
+	Consume(handler func(items [][]byte))
 	DisableLoop()
 	SetHeartBeat(beat func())
 }
@@ -70,10 +70,10 @@ func (r *rabbitMQReceiver) consume() (<-chan amqp.Delivery, error) {
 	return r.channel.Consume(r.parent.config.Name, r.name, false, false, false, false, nil)
 }
 
-func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
+func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 	delivery, err := r.consume()
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
 
 	timeOut := false
@@ -92,11 +92,8 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			}
 			heartBeat = false
 		} else if counter > 0 && (timeOut || counter == max) {
-			err := handler(items)
+			handler(items)
 			items = nil
-			if err != nil {
-				return errors.Trace(err)
-			}
 			start := time.Now()
 			err = last.Ack(true)
 			if r.parent.engine.loggers[LoggerSourceRabbitMQ] != nil {
@@ -106,16 +103,16 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte) error) error {
 			r.parent.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 			r.parent.engine.dataDog.incrementCounter(counterRabbitMQACK, 1)
 			if err != nil {
-				return errors.Trace(err)
+				panic(err)
 			}
 			counter = 0
 			timeOut = false
 			heartBeat = false
 			if r.disableLoop {
-				return nil
+				return
 			}
 		} else if timeOut && r.disableLoop {
-			return nil
+			return
 		}
 		select {
 		case item := <-delivery:
@@ -157,20 +154,20 @@ func (r *rabbitMQConnection) getClient(sender bool) *amqp.Connection {
 func (r *rabbitMQConnection) keepConnection(sender bool, engine *Engine, errChannel chan *amqp.Error) {
 	go func() {
 		<-errChannel
-		_ = r.connect(sender, engine)
+		r.connect(sender, engine)
 	}()
 }
 
-func (r *rabbitMQConnection) connect(sender bool, engine *Engine) error {
+func (r *rabbitMQConnection) connect(sender bool, engine *Engine) {
 	start := time.Now()
 	conn, err := amqp.Dial(r.config.address)
 	if engine.loggers[LoggerSourceRabbitMQ] != nil {
-		fillRabbitMQLogFields(engine, "[ORM][RABBIT_MQ][CONNECT]", start, "connect", nil, nil)
+		fillRabbitMQLogFields(engine, "[ORM][RABBIT_MQ][CONNECT]", start, "connect", nil, err)
 	}
 	engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 	engine.dataDog.incrementCounter(counterRabbitMQConnect, 1)
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
 	if sender {
 		r.clientSender = conn
@@ -181,7 +178,6 @@ func (r *rabbitMQConnection) connect(sender bool, engine *Engine) error {
 	conn.NotifyClose(errChannel)
 
 	go r.keepConnection(sender, engine, errChannel)
-	return nil
 }
 
 type RabbitMQQueueConfig struct {
@@ -217,19 +213,19 @@ type RabbitMQQueue struct {
 	*rabbitMQChannel
 }
 
-func (r *RabbitMQQueue) Publish(body []byte) error {
+func (r *RabbitMQQueue) Publish(body []byte) {
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        body,
 	}
-	return r.publish(false, false, r.config.Name, msg)
+	r.publish(false, false, r.config.Name, msg)
 }
 
 type RabbitMQDelayedQueue struct {
 	*rabbitMQChannel
 }
 
-func (r *RabbitMQDelayedQueue) Publish(delayed time.Duration, body []byte) error {
+func (r *RabbitMQDelayedQueue) Publish(delayed time.Duration, body []byte) {
 	msg := amqp.Publishing{
 		DeliveryMode: amqp.Persistent,
 		Timestamp:    time.Now(),
@@ -237,19 +233,19 @@ func (r *RabbitMQDelayedQueue) Publish(delayed time.Duration, body []byte) error
 		ContentType:  "text/plain",
 		Body:         body,
 	}
-	return r.publish(false, false, r.config.Name, msg)
+	r.publish(false, false, r.config.Name, msg)
 }
 
 type RabbitMQRouter struct {
 	*rabbitMQChannel
 }
 
-func (r *RabbitMQRouter) Publish(routerKey string, body []byte) error {
+func (r *RabbitMQRouter) Publish(routerKey string, body []byte) {
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        body,
 	}
-	return r.publish(false, false, routerKey, msg)
+	r.publish(false, false, routerKey, msg)
 }
 
 type rabbitMQChannel struct {
@@ -258,53 +254,41 @@ type rabbitMQChannel struct {
 	config     *RabbitMQQueueConfig
 }
 
-func (r *rabbitMQChannel) NewConsumer(name string) (RabbitMQConsumer, error) {
+func (r *rabbitMQChannel) NewConsumer(name string) RabbitMQConsumer {
 	r.connection.muxConsumer.Lock()
 	defer r.connection.muxConsumer.Unlock()
 	if r.connection.channelConsumers == nil {
 		r.connection.channelConsumers = make(map[string]RabbitMQConsumer)
 	}
 	queueName := r.config.Name
-	channel, err := r.initChannel(queueName, false)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	channel := r.initChannel(queueName, false)
 	receiver := &rabbitMQReceiver{name: name, channel: channel, parent: r, maxLoopDuration: time.Second}
 	r.connection.channelConsumers[r.config.Name] = receiver
-	return receiver, nil
+	return receiver
 }
 
-func (r *rabbitMQChannel) getClient(sender bool, force bool) (*amqp.Connection, error) {
+func (r *rabbitMQChannel) getClient(sender bool, force bool) *amqp.Connection {
 	client := r.connection.getClient(sender)
 	if client == nil || force {
 		r.connection.muxConsumer.Lock()
 		defer r.connection.muxConsumer.Unlock()
 		client = r.connection.getClient(sender)
 		if client == nil || client.IsClosed() {
-			err := r.connection.connect(sender, r.engine)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			r.connection.connect(sender, r.engine)
 		}
-		return r.connection.getClient(sender), nil
+		return r.connection.getClient(sender)
 	}
-	return client, nil
+	return client
 }
 
-func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Channel, error) {
+func (r *rabbitMQChannel) initChannel(queueName string, sender bool) *amqp.Channel {
 	start := time.Now()
-	client, err := r.getClient(sender, false)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	client := r.getClient(sender, false)
 	channel, err := client.Channel()
 	if err != nil {
 		rabbitErr, ok := err.(*amqp.Error)
 		if ok && rabbitErr.Code == amqp.ChannelError {
-			client, err = r.getClient(sender, true)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			client = r.getClient(sender, true)
 			channel, err = client.Channel()
 		}
 		if err != nil {
@@ -313,7 +297,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			}
 			r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 			r.engine.dataDog.incrementCounter(counterRabbitMQCreateChannel, 1)
-			return nil, errors.Trace(err)
+			panic(err)
 		}
 	}
 	if r.engine.loggers[LoggerSourceRabbitMQ] != nil {
@@ -340,10 +324,10 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 		r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 		r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
 		if err != nil {
-			return nil, errors.Trace(err)
+			panic(err)
 		}
 		if sender {
-			return channel, nil
+			return channel
 		}
 	}
 	start = time.Now()
@@ -355,7 +339,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 	r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 	r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
 	if err != nil {
-		return nil, errors.Trace(err)
+		panic(err)
 	}
 	if hasRouter {
 		keys := r.config.RouterKeys
@@ -372,32 +356,23 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) (*amqp.Chan
 			r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 			r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
 			if err != nil {
-				return nil, errors.Trace(err)
+				panic(err)
 			}
 		}
 	}
-	return channel, nil
+	return channel
 }
 
-func (r *rabbitMQChannel) initChannelSender() error {
-	var err error
+func (r *rabbitMQChannel) initChannelSender() {
 	r.connection.muxSender.Do(func() {
-		channel, e := r.initChannel(r.config.Name, true)
-		if e != nil {
-			err = e
-			return
-		}
+		channel := r.initChannel(r.config.Name, true)
 		r.connection.channelSender = channel
 	})
-	return err
 }
 
-func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, msg amqp.Publishing) error {
+func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, msg amqp.Publishing) {
 	if r.connection.channelSender == nil {
-		err := r.initChannelSender()
-		if err != nil {
-			return errors.Trace(err)
-		}
+		r.initChannelSender()
 	}
 	start := time.Now()
 	err := r.connection.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
@@ -405,13 +380,10 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 		rabbitErr, ok := err.(*amqp.Error)
 		if ok && rabbitErr.Code == amqp.ChannelError {
 			r.connection.muxSender = sync.Once{}
-			err2 := r.initChannelSender()
-			if err2 != nil {
-				return errors.Trace(err2)
-			}
+			r.initChannelSender()
 			err = r.connection.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
 			if err != nil {
-				return errors.Trace(err)
+				panic(err)
 			}
 		}
 	}
@@ -423,13 +395,12 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 			fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][PUBLISH]", start, "publish",
 				map[string]interface{}{"Queue": r.config.Name, "key": routingKey}, err)
 		}
-		r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
-		r.engine.dataDog.incrementCounter(counterRabbitMQPublish, 1)
 	}
+	r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
+	r.engine.dataDog.incrementCounter(counterRabbitMQPublish, 1)
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
 func fillRabbitMQLogFields(engine *Engine, message string, start time.Time, operation string, fields map[string]interface{}, err error) {

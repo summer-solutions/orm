@@ -53,8 +53,7 @@ func TestReferences(t *testing.T) {
 	ref3.ReferenceThree = &ref4
 	ref3b.ReferenceThree = &ref4
 
-	err := engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	assert.Equal(t, uint(1), ref1.ID)
 	assert.Equal(t, uint(1), ref1.ReferenceOne.ID)
@@ -73,8 +72,7 @@ func TestReferences(t *testing.T) {
 	assert.Equal(t, "name 4", ref3b.ReferenceThree.Name)
 
 	var root testEntityReferenceLevel1
-	has, err := engine.LoadByID(1, &root, "ReferenceOne/ReferenceTwo/ReferenceThree", "ReferenceFive", "ReferenceSix/*")
-	assert.Nil(t, err)
+	has := engine.LoadByID(1, &root, "ReferenceOne/ReferenceTwo/ReferenceThree", "ReferenceFive", "ReferenceSix/*")
 	assert.True(t, has)
 
 	assert.Equal(t, "name 2", root.ReferenceOne.Name)
@@ -84,28 +82,22 @@ func TestReferences(t *testing.T) {
 	assert.Equal(t, "name 3b", root.ReferenceSix.Name)
 	assert.Equal(t, "name 4", root.ReferenceSix.ReferenceThree.Name)
 
-	has, err = engine.LoadByID(1, &root)
-	assert.Nil(t, err)
+	has = engine.LoadByID(1, &root)
 	assert.True(t, has)
 	assert.False(t, engine.Loaded(root.ReferenceOne))
-	err = engine.Load(root.ReferenceOne)
-	assert.Nil(t, err)
+	engine.Load(root.ReferenceOne)
 	assert.True(t, engine.Loaded(root.ReferenceOne))
-	err = engine.Load(root.ReferenceOne, "ReferenceTwo")
-	assert.Nil(t, err)
+	engine.Load(root.ReferenceOne, "ReferenceTwo")
 	assert.NotNil(t, root.ReferenceOne.ReferenceTwo)
 	assert.Equal(t, "name 3", root.ReferenceOne.ReferenceTwo.Name)
 
 	engine.Track(&root)
 	root.ReferenceFive = &testEntityReferenceLevel3{ID: 2}
 	assert.False(t, engine.Loaded(root.ReferenceFive))
-	err = engine.Load(root.ReferenceFive)
-	assert.Nil(t, err)
+	engine.Load(root.ReferenceFive)
 
-	err = engine.Flush()
-	assert.Nil(t, err)
-	has, err = engine.LoadByID(1, &root)
-	assert.Nil(t, err)
+	engine.Flush()
+	has = engine.LoadByID(1, &root)
 	assert.True(t, has)
 	assert.Equal(t, uint(2), root.ReferenceFive.ID)
 }

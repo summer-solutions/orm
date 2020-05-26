@@ -157,26 +157,20 @@ type RedisCache struct {
 
 type GetSetProvider func() interface{}
 
-func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider) (interface{}, error) {
-	val, has, err := r.Get(key)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider) interface{} {
+	val, has := r.Get(key)
 	if !has {
 		userVal := provider()
 		encoded, _ := jsoniter.ConfigFastest.Marshal(userVal)
-		err := r.Set(key, string(encoded), ttlSeconds)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return userVal, nil
+		r.Set(key, string(encoded), ttlSeconds)
+		return userVal
 	}
 	var data interface{}
 	_ = jsoniter.ConfigFastest.Unmarshal([]byte(val), &data)
-	return data, nil
+	return data
 }
 
-func (r *RedisCache) Get(key string) (value string, has bool, err error) {
+func (r *RedisCache) Get(key string) (value string, has bool) {
 	start := time.Now()
 	val, err := r.client.Get(key)
 	if err != nil {
@@ -187,24 +181,27 @@ func (r *RedisCache) Get(key string) (value string, has bool, err error) {
 			}
 			r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 			r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
-			return "", false, nil
+			return "", false
 		}
 		if r.engine.loggers[LoggerSourceRedis] != nil {
 			r.fillLogFields("[ORM][REDIS][GET]", start, "get", 1, 1, map[string]interface{}{"Key": key}, err)
 		}
 		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
-		return "", false, errors.Trace(err)
+		if err != nil {
+			panic(err)
+		}
+		return "", false
 	}
 	if r.engine.loggers[LoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][GET]", start, "get", 0, 1, map[string]interface{}{"Key": key}, nil)
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
-	return val, true, nil
+	return val, true
 }
 
-func (r *RedisCache) LRange(key string, start, stop int64) ([]string, error) {
+func (r *RedisCache) LRange(key string, start, stop int64) []string {
 	s := time.Now()
 	val, err := r.client.LRange(key, start, stop)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -214,12 +211,12 @@ func (r *RedisCache) LRange(key string, start, stop int64) ([]string, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return nil, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) HMget(key string, fields ...string) (map[string]interface{}, error) {
+func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} {
 	start := time.Now()
 	val, err := r.client.HMGet(key, fields...)
 	if err != nil {
@@ -227,7 +224,7 @@ func (r *RedisCache) HMget(key string, fields ...string) (map[string]interface{}
 			r.fillLogFields("[ORM][REDIS][HMGET]", start, "hmget", 0, len(fields),
 				map[string]interface{}{"Key": key, "fields": fields}, err)
 		}
-		return nil, errors.Trace(err)
+		panic(err)
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(fields)))
@@ -245,10 +242,10 @@ func (r *RedisCache) HMget(key string, fields ...string) (map[string]interface{}
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(fields)))
-	return results, nil
+	return results
 }
 
-func (r *RedisCache) HGetAll(key string) (map[string]string, error) {
+func (r *RedisCache) HGetAll(key string) map[string]string {
 	start := time.Now()
 	val, err := r.client.HGetAll(key)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -258,12 +255,12 @@ func (r *RedisCache) HGetAll(key string) (map[string]string, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return nil, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) LPush(key string, values ...interface{}) (int64, error) {
+func (r *RedisCache) LPush(key string, values ...interface{}) int64 {
 	start := time.Now()
 	val, err := r.client.LPush(key, values...)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -273,12 +270,12 @@ func (r *RedisCache) LPush(key string, values ...interface{}) (int64, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(values)))
 	if err != nil {
-		return 0, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) RPush(key string, values ...interface{}) (int64, error) {
+func (r *RedisCache) RPush(key string, values ...interface{}) int64 {
 	start := time.Now()
 	val, err := r.client.RPush(key, values...)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -288,12 +285,12 @@ func (r *RedisCache) RPush(key string, values ...interface{}) (int64, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(values)))
 	if err != nil {
-		return 0, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
+func (r *RedisCache) RPop(key string) (value string, found bool) {
 	start := time.Now()
 	val, err := r.client.RPop(key)
 	if err != nil {
@@ -304,7 +301,7 @@ func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
 			}
 			r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 			r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
-			return "", false, nil
+			return "", false
 		}
 		if r.engine.loggers[LoggerSourceRedis] != nil {
 			r.fillLogFields("[ORM][REDIS][RPOP]", start, "rpop", 1, 1,
@@ -312,7 +309,10 @@ func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
 		}
 		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
-		return "", false, errors.Trace(err)
+		if err != nil {
+			panic(err)
+		}
+		return "", false
 	}
 	if r.engine.loggers[LoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][RPOP]", start, "rpop", 0, 1,
@@ -320,10 +320,10 @@ func (r *RedisCache) RPop(key string) (value string, found bool, err error) {
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
-	return val, true, nil
+	return val, true
 }
 
-func (r *RedisCache) LSet(key string, index int64, value interface{}) error {
+func (r *RedisCache) LSet(key string, index int64, value interface{}) {
 	start := time.Now()
 	_, err := r.client.LSet(key, index, value)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -333,12 +333,11 @@ func (r *RedisCache) LSet(key string, index int64, value interface{}) error {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
-func (r *RedisCache) LRem(key string, count int64, value interface{}) error {
+func (r *RedisCache) LRem(key string, count int64, value interface{}) {
 	start := time.Now()
 	_, err := r.client.LRem(key, count, value)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -348,12 +347,11 @@ func (r *RedisCache) LRem(key string, count int64, value interface{}) error {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
-func (r *RedisCache) Ltrim(key string, start, stop int64) error {
+func (r *RedisCache) Ltrim(key string, start, stop int64) {
 	s := time.Now()
 	_, err := r.client.LTrim(key, start, stop)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -363,12 +361,11 @@ func (r *RedisCache) Ltrim(key string, start, stop int64) error {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
-func (r *RedisCache) ZCard(key string) (int64, error) {
+func (r *RedisCache) ZCard(key string) int64 {
 	start := time.Now()
 	val, err := r.client.ZCard(key)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -378,12 +375,12 @@ func (r *RedisCache) ZCard(key string) (int64, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return 0, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) SCard(key string) (int64, error) {
+func (r *RedisCache) SCard(key string) int64 {
 	start := time.Now()
 	val, err := r.client.SCard(key)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -393,12 +390,12 @@ func (r *RedisCache) SCard(key string) (int64, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return 0, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) ZCount(key string, min, max string) (int64, error) {
+func (r *RedisCache) ZCount(key string, min, max string) int64 {
 	start := time.Now()
 	val, err := r.client.ZCount(key, min, max)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -408,30 +405,34 @@ func (r *RedisCache) ZCount(key string, min, max string) (int64, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return 0, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) SPop(key string) (string, bool, error) {
+func (r *RedisCache) SPop(key string) (string, bool) {
 	start := time.Now()
 	val, err := r.client.SPop(key)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
+		errToReport := err
+		if err == redis.Nil {
+			errToReport = nil
+		}
 		r.fillLogFields("[ORM][REDIS][SPOP]", start, "spop", -1, 1,
-			map[string]interface{}{"Key": key}, err)
+			map[string]interface{}{"Key": key}, errToReport)
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
 		if err == redis.Nil {
-			return "", false, nil
+			return "", false
 		}
-		return "", false, errors.Trace(err)
+		panic(err)
 	}
-	return val, true, nil
+	return val, true
 }
 
-func (r *RedisCache) SPopN(key string, max int64) ([]string, error) {
+func (r *RedisCache) SPopN(key string, max int64) []string {
 	start := time.Now()
 	val, err := r.client.SPopN(key, max)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -441,12 +442,12 @@ func (r *RedisCache) SPopN(key string, max int64) ([]string, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return nil, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) LLen(key string) (int64, error) {
+func (r *RedisCache) LLen(key string) int64 {
 	start := time.Now()
 	val, err := r.client.LLen(key)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -456,12 +457,12 @@ func (r *RedisCache) LLen(key string) (int64, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return 0, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) ZAdd(key string, members ...*redis.Z) (int64, error) {
+func (r *RedisCache) ZAdd(key string, members ...*redis.Z) int64 {
 	start := time.Now()
 	val, err := r.client.ZAdd(key, members...)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -471,12 +472,12 @@ func (r *RedisCache) ZAdd(key string, members ...*redis.Z) (int64, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(members)))
 	if err != nil {
-		return 0, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) SAdd(key string, members ...interface{}) (int64, error) {
+func (r *RedisCache) SAdd(key string, members ...interface{}) int64 {
 	start := time.Now()
 	val, err := r.client.SAdd(key, members...)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -486,12 +487,12 @@ func (r *RedisCache) SAdd(key string, members ...interface{}) (int64, error) {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(members)))
 	if err != nil {
-		return 0, errors.Trace(err)
+		panic(err)
 	}
-	return val, nil
+	return val
 }
 
-func (r *RedisCache) HMset(key string, fields map[string]interface{}) error {
+func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 	start := time.Now()
 	_, err := r.client.HMSet(key, fields)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -501,12 +502,11 @@ func (r *RedisCache) HMset(key string, fields map[string]interface{}) error {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(fields)))
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
-func (r *RedisCache) HSet(key string, field string, value interface{}) error {
+func (r *RedisCache) HSet(key string, field string, value interface{}) {
 	start := time.Now()
 	_, err := r.client.HSet(key, field, value)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -516,12 +516,11 @@ func (r *RedisCache) HSet(key string, field string, value interface{}) error {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
-func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
+func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
 	start := time.Now()
 	val, err := r.client.MGet(keys...)
 	if err != nil {
@@ -531,7 +530,7 @@ func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
 		}
 		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 		r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(keys)))
-		return nil, errors.Trace(err)
+		panic(err)
 	}
 	results := make(map[string]interface{}, len(keys))
 	misses := 0
@@ -547,10 +546,10 @@ func (r *RedisCache) MGet(keys ...string) (map[string]interface{}, error) {
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(keys)))
-	return results, nil
+	return results
 }
 
-func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) error {
+func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) {
 	start := time.Now()
 	err := r.client.Set(key, value, time.Duration(ttlSeconds)*time.Second)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -560,12 +559,11 @@ func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) error {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
-func (r *RedisCache) MSet(pairs ...interface{}) error {
+func (r *RedisCache) MSet(pairs ...interface{}) {
 	start := time.Now()
 	err := r.client.MSet(pairs...)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -575,12 +573,11 @@ func (r *RedisCache) MSet(pairs ...interface{}) error {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(pairs)))
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
-func (r *RedisCache) Del(keys ...string) error {
+func (r *RedisCache) Del(keys ...string) {
 	start := time.Now()
 	err := r.client.Del(keys...)
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -590,12 +587,11 @@ func (r *RedisCache) Del(keys ...string) error {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(keys)))
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
-func (r *RedisCache) FlushDB() error {
+func (r *RedisCache) FlushDB() {
 	start := time.Now()
 	err := r.client.FlushDB()
 	if r.engine.loggers[LoggerSourceRedis] != nil {
@@ -604,9 +600,8 @@ func (r *RedisCache) FlushDB() error {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
 func (r *RedisCache) fillLogFields(message string, start time.Time, operation string, misses int, keys int, fields map[string]interface{}, err error) {

@@ -22,24 +22,19 @@ func TestRabbitMQQueue(t *testing.T) {
 	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRabbitMQ)
 
 	assert.NotNil(t, r)
-	err = r.Publish([]byte("hello"))
-	assert.NoError(t, err)
-	err = r.Publish([]byte("hello2"))
-	assert.NoError(t, err)
+	r.Publish([]byte("hello"))
+	r.Publish([]byte("hello2"))
 
-	consumer, err := r.NewConsumer("test consumer")
-	assert.NoError(t, err)
+	consumer := r.NewConsumer("test consumer")
 	defer consumer.Close()
 	consumer.DisableLoop()
 	has := false
-	err = consumer.Consume(func(items [][]byte) error {
+	consumer.Consume(func(items [][]byte) {
 		has = true
 		assert.Len(t, items, 2)
 		assert.Equal(t, []byte("hello"), items[0])
 		assert.Equal(t, []byte("hello2"), items[1])
-		return nil
 	})
-	assert.NoError(t, err)
 	assert.True(t, has)
 }
 
@@ -56,12 +51,11 @@ func TestRabbitMQQueueRouter(t *testing.T) {
 	testLogger := memory.New()
 	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRabbitMQ)
 
-	consumer, err := r.NewConsumer("test consumer 1")
-	assert.NoError(t, err)
+	consumer := r.NewConsumer("test consumer 1")
 	consumer.DisableLoop()
 	go func() {
 		c := 0
-		err = consumer.Consume(func(items [][]byte) error {
+		consumer.Consume(func(items [][]byte) {
 			assert.Len(t, items, 1)
 			if c == 0 {
 				assert.Equal(t, []byte("hello"), items[0])
@@ -69,15 +63,11 @@ func TestRabbitMQQueueRouter(t *testing.T) {
 				assert.Equal(t, []byte("hello2"), items[0])
 			}
 			c++
-			return nil
 		})
-		assert.NoError(t, err)
 	}()
 
 	assert.NotNil(t, r)
-	err = r.Publish("aa", []byte("hello"))
-	assert.NoError(t, err)
+	r.Publish("aa", []byte("hello"))
 
-	err = r.Publish("bb", []byte("hello2"))
-	assert.NoError(t, err)
+	r.Publish("bb", []byte("hello2"))
 }

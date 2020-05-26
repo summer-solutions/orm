@@ -4,10 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/errors"
-
-	"github.com/bsm/redislock"
-
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
 
@@ -27,32 +23,15 @@ func TestLocker(t *testing.T) {
 	testLogger := memory.New()
 	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 
-	lock, has, err := locker.Obtain("test", 10*time.Second, 0*time.Second)
-	assert.Nil(t, err)
+	lock, has := locker.Obtain("test", 10*time.Second, 0*time.Second)
 	assert.True(t, has)
 	assert.NotNil(t, lock)
 
-	lock2, has, err := locker.Obtain("test", 10*time.Second, 500*time.Millisecond)
-	assert.Nil(t, err)
+	lock2, has := locker.Obtain("test", 10*time.Second, 500*time.Millisecond)
 	assert.False(t, has)
 	assert.Nil(t, lock2)
 
-	_, err = lock.TTL()
-	assert.Nil(t, err)
+	_ = lock.TTL()
 	lock.Release()
 	lock.Release()
-
-	lock, has, err = locker.Obtain("test", 0*time.Second, 10*time.Second)
-	assert.Nil(t, lock)
-	assert.False(t, has)
-	assert.NotNil(t, err)
-	assert.EqualError(t, err, "ttl must be greater than zero")
-
-	mockClient := &mockLockerClient{client: locker.locker}
-	locker.locker = mockClient
-	mockClient.ObtainMock = func(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error) {
-		return nil, errors.Errorf("test error")
-	}
-	_, _, err = locker.Obtain("test", 10*time.Second, 10*time.Second)
-	assert.EqualError(t, err, "test error")
 }

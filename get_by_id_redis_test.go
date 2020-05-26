@@ -50,43 +50,36 @@ func TestGetByIDRedis(t *testing.T) {
 	var entity testEntityByIDRedis
 	engine := PrepareTables(t, &Registry{}, entity)
 
-	found, err := engine.LoadByID(100, &entity)
-	assert.Nil(t, err)
+	found := engine.LoadByID(100, &entity)
 	assert.False(t, found)
-	found, err = engine.LoadByID(100, &entity)
-	assert.Nil(t, err)
+	found = engine.LoadByID(100, &entity)
 	assert.False(t, found)
 
 	entity = testEntityByIDRedis{}
 	engine.Track(&entity)
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	assert.False(t, engine.IsDirty(&entity))
 
 	var entity2 testEntityByIDRedis
-	has, err := engine.LoadByID(1, &entity2)
+	has := engine.LoadByID(1, &entity2)
 	assert.True(t, has)
-	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity2.ID)
 	assert.Nil(t, entity2.ReferenceOne)
 
 	var entity3 testEntityByIDRedis
-	has, err = engine.LoadByID(1, &entity3)
+	has = engine.LoadByID(1, &entity3)
 	assert.True(t, has)
-	assert.Nil(t, err)
 	assert.Equal(t, uint(1), entity3.ID)
 
 	engine.Track(&entity)
 	entity.ReferenceOne = &testEntityByIDRedis{ID: 1}
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	assert.False(t, engine.IsDirty(&entity))
 
 	DBLogger := memory.New()
 	engine.AddLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
 
-	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
-	assert.Nil(t, err)
+	found = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.True(t, found)
 	assert.NotNil(t, entity)
 	assert.True(t, engine.Loaded(entity.ReferenceOne))
@@ -118,8 +111,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.False(t, engine.IsDirty(&entity))
 	assert.Len(t, DBLogger.Entries, 1)
 
-	found, err = engine.LoadByID(1, &entity, "ReferenceOne")
-	assert.Nil(t, err)
+	found = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.True(t, found)
 	assert.True(t, engine.Loaded(entity.ReferenceOne))
 
@@ -143,14 +135,12 @@ func TestGetByIDRedis(t *testing.T) {
 
 	assert.True(t, engine.IsDirty(&entity))
 
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	assert.False(t, engine.IsDirty(&entity))
 
 	assert.Len(t, DBLogger.Entries, 2)
 
-	found, err = engine.LoadByID(1, &entity)
-	assert.Nil(t, err)
+	found = engine.LoadByID(1, &entity)
 	assert.True(t, found)
 	assert.NotNil(t, entity)
 	assert.Equal(t, "Test name", entity.Name)
@@ -171,8 +161,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"name": "John"}, entity.JSON)
 	assert.Len(t, DBLogger.Entries, 3)
 
-	_, err = engine.LoadByID(1, &entity)
-	assert.Nil(t, err)
+	_ = engine.LoadByID(1, &entity)
 	assert.Len(t, DBLogger.Entries, 3)
 }
 
@@ -182,10 +171,9 @@ func BenchmarkLoadByID(b *testing.B) {
 
 	entity = &testEntityByIDRedis{}
 	engine.Track(entity)
-	err := engine.Flush()
-	assert.Nil(b, err)
+	engine.Flush()
 
 	for n := 0; n < b.N; n++ {
-		_, _ = engine.LoadByID(1, entity)
+		_ = engine.LoadByID(1, entity)
 	}
 }

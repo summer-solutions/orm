@@ -29,17 +29,14 @@ func TestFlushInCache(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, entityRedis, entityLocal)
 
 	engine.Track(entityRedis)
-	err := engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	pager := &Pager{CurrentPage: 1, PageSize: 100}
 	var rows []*testEntityFlusherInCacheRedis
-	totalRows, err := engine.CachedSearch(&rows, "IndexAge", pager, 18)
-	assert.Nil(t, err)
+	totalRows := engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 1, totalRows)
 	assert.Len(t, rows, 1)
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 0, totalRows)
 	assert.Len(t, rows, 0)
 
@@ -51,17 +48,15 @@ func TestFlushInCache(t *testing.T) {
 	entityRedis.Name = "Name 2"
 	entityRedis.Age = 10
 
-	err = engine.FlushInCache(entityLocal, entityRedis)
-	assert.Nil(t, err)
+	engine.FlushInCache(entityLocal, entityRedis)
 	assert.Len(t, DBLogger.Entries, 1)
 	assert.Equal(t, "[ORM][MYSQL][EXEC]", DBLogger.Entries[0].Message)
 	assert.Len(t, LoggerRedisCache.Entries, 1)
 	assert.Equal(t, "[ORM][REDIS][MSET]", LoggerRedisCache.Entries[0].Message)
 
 	var loadedEntity testEntityFlusherInCacheRedis
-	has, err := engine.LoadByID(1, &loadedEntity)
+	has := engine.LoadByID(1, &loadedEntity)
 	assert.True(t, has)
-	assert.Nil(t, err)
 	assert.Equal(t, "Name 2", loadedEntity.Name)
 	assert.Len(t, LoggerRedisCache.Entries, 2)
 	assert.Equal(t, "[ORM][REDIS][GET]", LoggerRedisCache.Entries[1].Message)
@@ -69,20 +64,16 @@ func TestFlushInCache(t *testing.T) {
 	receiver := NewFlushFromCacheReceiver(engine)
 	receiver.DisableLoop()
 
-	err = receiver.Digest()
-	assert.Nil(t, err)
+	receiver.Digest()
 
 	var inDB testEntityFlusherInCacheRedis
-	_, err = engine.SearchOne(NewWhere("`ID` = ?", 1), &inDB)
-	assert.Nil(t, err)
+	_ = engine.SearchOne(NewWhere("`ID` = ?", 1), &inDB)
 	assert.Equal(t, "Name 2", inDB.Name)
 
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 0, totalRows)
 	assert.Len(t, rows, 0)
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 1, totalRows)
 	assert.Len(t, rows, 1)
 }

@@ -33,7 +33,7 @@ func (err *ForeignKeyError) Error() string {
 	return err.Message
 }
 
-func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) error {
+func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
@@ -86,7 +86,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			deleteBinds[t][currentID] = dbData
 		} else if len(dbData) == 0 {
 			if currentID > 0 {
-				return errors.Errorf("unloaded entity %s with ID %d", t.String(), currentID)
+				panic(errors.NotValidf("unloaded entity %s with ID %d", t.String(), currentID))
 			}
 			onUpdate := entity.getORM().attributes.onDuplicateKeyUpdate
 			if onUpdate != nil {
@@ -113,19 +113,16 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 				if lazy {
 					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, bindRow)
 				} else {
-					result, err := db.Exec(sql, bindRow...)
-					if err != nil {
-						return errors.Trace(convertToError(err))
-					}
+					result := db.Exec(sql, bindRow...)
 					affected, err := result.RowsAffected()
 					if err != nil {
-						return errors.Trace(err)
+						panic(err)
 					}
 					var lastID int64
 					if affected > 0 {
 						lastID, err = result.LastInsertId()
 						if err != nil {
-							return errors.Trace(err)
+							panic(err)
 						}
 					}
 					if affected > 0 {
@@ -134,10 +131,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 						logQueues = updateCacheForInserted(entity, lazy, uint64(lastID), bind, localCacheSets,
 							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 						if affected == 2 {
-							_, err = loadByID(engine, uint64(lastID), entity, false)
-							if err != nil {
-								return errors.Trace(err)
-							}
+							_ = loadByID(engine, uint64(lastID), entity, false)
 						}
 					} else {
 						valid := false
@@ -155,19 +149,16 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 							}
 							if allNotNil {
 								findWhere := NewWhere(strings.Join(fields, " AND "), binds)
-								has, err := engine.SearchOne(findWhere, entity)
-								if err != nil {
-									return errors.Trace(err)
-								}
+								has := engine.SearchOne(findWhere, entity)
 								if !has {
-									return errors.Errorf("missing unique index to find updated row")
+									panic(errors.NotValidf("missing unique index to find updated row"))
 								}
 								valid = true
 								break
 							}
 						}
 						if !valid {
-							return errors.Errorf("missing unique index to find updated row")
+							panic(errors.NotValidf("missing unique index to find updated row"))
 						}
 					}
 				}
@@ -204,7 +195,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		} else {
 			values := make([]interface{}, bindLength+1)
 			if !engine.Loaded(entity) {
-				return errors.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().attributes.elem.Type().String(), currentID)
+				panic(errors.NotValidf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().attributes.elem.Type().String(), currentID))
 			}
 			fields := make([]string, bindLength)
 			i := 0
@@ -220,16 +211,10 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			if lazy {
 				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 			} else {
-				_, err := db.Exec(sql, values...)
-				if err != nil {
-					return errors.Trace(convertToError(err))
-				}
+				_ = db.Exec(sql, values...)
 				afterSaved, is := entity.(AfterSavedInterface)
 				if is {
-					err := afterSaved.AfterSaved(engine)
-					if err != nil {
-						return errors.Trace(err)
-					}
+					afterSaved.AfterSaved(engine)
 				}
 			}
 			old := make(map[string]interface{}, len(dbData))
@@ -260,7 +245,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 
 	if referencesToFlash != nil {
 		if lazy {
-			return errors.Errorf("lazy flush not supported for unsaved regerences")
+			panic(errors.NotSupportedf("lazy flush for unsaved references"))
 		}
 		toFlush := make([]Entity, len(referencesToFlash))
 		i := 0
@@ -268,10 +253,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			toFlush[i] = v
 			i++
 		}
-		err := flush(engine, false, transaction, toFlush...)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		flush(engine, false, transaction, toFlush...)
 		rest := make([]Entity, 0)
 		for _, v := range entities {
 			_, has := referencesToFlash[v]
@@ -279,11 +261,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 				rest = append(rest, v)
 			}
 		}
-		err = flush(engine, transaction, transaction, rest...)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+		flush(engine, transaction, transaction, rest...)
 	}
 	for typeOf, values := range insertKeys {
 		schema := getTableSchema(engine.registry, typeOf)
@@ -301,13 +279,10 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		if lazy {
 			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, insertArguments[typeOf])
 		} else {
-			res, err := db.Exec(sql, insertArguments[typeOf]...)
-			if err != nil {
-				return errors.Trace(convertToError(err))
-			}
+			res := db.Exec(sql, insertArguments[typeOf]...)
 			insertID, err := res.LastInsertId()
 			if err != nil {
-				return errors.Trace(err)
+				panic(err)
 			}
 			id = uint64(insertID)
 		}
@@ -320,10 +295,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			id++
 			afterSaveInterface, is := entity.(AfterSavedInterface)
 			if is {
-				err := afterSaveInterface.AfterSaved(engine)
-				if err != nil {
-					return errors.Trace(err)
-				}
+				afterSaveInterface.AfterSaved(engine)
 			}
 		}
 	}
@@ -341,10 +313,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		if lazy {
 			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, ids)
 		} else {
-			usage, err := schema.GetUsage(engine.registry)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			usage := schema.GetUsage(engine.registry)
 			if len(usage) > 0 {
 				for refT, refColumns := range usage {
 					for _, refColumn := range refColumns {
@@ -357,10 +326,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 							pager := &Pager{CurrentPage: 1, PageSize: 1000}
 							where := NewWhere(fmt.Sprintf("`%s` IN ?", refColumn), ids)
 							for {
-								err := engine.Search(where, pager, sub)
-								if err != nil {
-									return errors.Trace(err)
-								}
+								engine.Search(where, pager, sub)
 								total := subElem.Len()
 								if total == 0 {
 									break
@@ -371,19 +337,13 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 									engine.MarkToDelete(toDeleteValue)
 									toDeleteAll[i] = toDeleteValue
 								}
-								err = flush(engine, transaction, lazy, toDeleteAll...)
-								if err != nil {
-									return errors.Trace(err)
-								}
+								flush(engine, transaction, lazy, toDeleteAll...)
 							}
 						}
 					}
 				}
 			}
-			_, err = db.Exec(sql, ids...)
-			if err != nil {
-				return errors.Trace(convertToError(err))
-			}
+			_ = db.Exec(sql, ids...)
 		}
 
 		localCache, hasLocalCache := schema.GetLocalCache(engine)
@@ -456,10 +416,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 			deletesRedisCache.(map[string][]string)[cacheCode] = keys
 		} else {
 			if !transaction {
-				err := cache.Del(keys...)
-				if err != nil {
-					return errors.Trace(err)
-				}
+				cache.Del(keys...)
 			} else {
 				if engine.afterCommitRedisCacheDeletes == nil {
 					engine.afterCommitRedisCacheDeletes = make(map[string][]string)
@@ -470,19 +427,13 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 	}
 	if len(lazyMap) > 0 {
 		channel := engine.GetRabbitMQQueue(lazyQueueName)
-		err := channel.Publish(serializeForLazyQueue(lazyMap))
-		if err != nil {
-			return errors.Trace(err)
-		}
+		channel.Publish(serializeForLazyQueue(lazyMap))
 	}
 	for k, v := range dirtyQueues {
 		channel := engine.GetRabbitMQQueue("dirty_queue_" + k)
 		for _, k := range v {
 			asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
-			err := channel.Publish(asJSON)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			channel.Publish(asJSON)
 		}
 	}
 	for _, val := range logQueues {
@@ -495,12 +446,8 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) erro
 		}
 		asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
 		channel := engine.GetRabbitMQQueue(logQueueName)
-		err := channel.Publish(asJSON)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		channel.Publish(asJSON)
 	}
-	return nil
 }
 
 func serializeForLazyQueue(lazyMap map[string]interface{}) []byte {

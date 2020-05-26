@@ -15,30 +15,30 @@ import (
 const idsOnCachePage = 1000
 
 func cachedSearch(engine *Engine, entities interface{}, indexName string, pager *Pager,
-	arguments []interface{}, references []string) (totalRows int, err error) {
+	arguments []interface{}, references []string) (totalRows int) {
 	value := reflect.ValueOf(entities)
 	entityType, has := getEntityTypeForSlice(engine.registry, value.Type())
 	if !has {
-		return 0, EntityNotRegisteredError{Name: value.Type().String()}
+		panic(EntityNotRegisteredError{Name: value.Type().String()})
 	}
 	schema := getTableSchema(engine.registry, entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
-		return 0, errors.Errorf("unknown index %s", indexName)
+		panic(errors.NotValidf("unknown index %s", indexName))
 	}
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: definition.Max}
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
-		return 0, errors.Errorf("max cache index page size (%d) exceeded %s", definition.Max, indexName)
+		panic(errors.NotValidf("max cache index page size (%d) exceeded %s", definition.Max, indexName))
 	}
 
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && !hasRedis {
-		return 0, errors.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
+		panic(errors.NotValidf("cache search not allowed for entity without cache: '%s'", entityType.String()))
 	}
 	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
 
@@ -67,19 +67,13 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 			}
 		}
 		if hasRedis && len(nilsKeys) > 0 {
-			fromRedis, err := redisCache.HMget(cacheKey, nilsKeys...)
-			if err != nil {
-				return 0, errors.Trace(err)
-			}
+			fromRedis := redisCache.HMget(cacheKey, nilsKeys...)
 			for key, idsFromRedis := range fromRedis {
 				fromCache[key] = idsFromRedis
 			}
 		}
 	} else if hasRedis {
-		fromCache, err = redisCache.HMget(cacheKey, pages...)
-		if err != nil {
-			return 0, errors.Trace(err)
-		}
+		fromCache = redisCache.HMget(cacheKey, pages...)
 	}
 	hasNil := false
 	totalRows = 0
@@ -109,10 +103,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 
 	if hasNil {
 		searchPager := &Pager{minPage, maxPage * idsOnCachePage}
-		results, total, err := searchIDsWithCount(true, engine, Where, searchPager, entityType)
-		if err != nil {
-			return 0, errors.Trace(err)
-		}
+		results, total := searchIDsWithCount(true, engine, Where, searchPager, entityType)
 		totalRows = total
 		cacheFields := make(map[string]interface{})
 		for key, ids := range fromCache {
@@ -138,10 +129,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 			}
 		}
 		if hasRedis {
-			err := redisCache.HMset(cacheKey, cacheFields)
-			if err != nil {
-				return 0, errors.Trace(err)
-			}
+			redisCache.HMset(cacheKey, cacheFields)
 		}
 	}
 
@@ -177,26 +165,26 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 			nonZero = append(nonZero, id)
 		}
 	}
-	_, err = engine.LoadByIDs(nonZero, entities, references...)
-	return totalRows, errors.Trace(err)
+	engine.LoadByIDs(nonZero, entities, references...)
+	return totalRows
 }
 
-func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments []interface{}, references []string) (has bool, err error) {
+func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments []interface{}, references []string) (has bool) {
 	value := reflect.ValueOf(entity)
 	entityType := value.Elem().Type()
 	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
-		return false, EntityNotRegisteredError{Name: entityType.String()}
+		panic(EntityNotRegisteredError{Name: entityType.String()})
 	}
 	definition, has := schema.cachedIndexesOne[indexName]
 	if !has {
-		return false, errors.Errorf("unknown index %s", indexName)
+		panic(errors.NotValidf("unknown index %s", indexName))
 	}
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && !hasRedis {
-		return false, errors.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String())
+		panic(errors.NotValidf("cache search not allowed for entity without cache: '%s'", entityType.String()))
 	}
 	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
 	var fromCache map[string]interface{}
@@ -204,17 +192,11 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 		fromCache = localCache.HMget(cacheKey, "1")
 	}
 	if fromCache["1"] == nil && hasRedis {
-		fromCache, err = redisCache.HMget(cacheKey, "1")
-		if err != nil {
-			return false, errors.Trace(err)
-		}
+		fromCache = redisCache.HMget(cacheKey, "1")
 	}
 	var id uint64
 	if fromCache["1"] == nil {
-		results, _, err := searchIDs(true, engine, Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
+		results, _ := searchIDs(true, engine, Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
 		l := len(results)
 		value := fmt.Sprintf("%d", l)
 		if l > 0 {
@@ -226,10 +208,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 			localCache.HMset(cacheKey, fields)
 		}
 		if hasRedis {
-			err := redisCache.HMset(cacheKey, fields)
-			if err != nil {
-				return false, errors.Trace(err)
-			}
+			redisCache.HMset(cacheKey, fields)
 		}
 	} else {
 		ids := strings.Split(fromCache["1"].(string), " ")
@@ -240,7 +219,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	if id > 0 {
 		return engine.LoadByID(id, entity, references...)
 	}
-	return false, nil
+	return false
 }
 
 func getCacheKeySearch(tableSchema *tableSchema, indexName string, parameters ...interface{}) string {

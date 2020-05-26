@@ -30,8 +30,7 @@ func TestFlusherManual(t *testing.T) {
 	}
 	assert.Len(t, DBLogger.Entries, 0)
 
-	err := engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	assert.Len(t, DBLogger.Entries, 1)
 	assert.Equal(t, "[ORM][MYSQL][EXEC]", DBLogger.Entries[0].Message)
 }

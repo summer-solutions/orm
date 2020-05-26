@@ -33,9 +33,9 @@ type Locker struct {
 	engine *Engine
 }
 
-func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool, err error) {
+func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool) {
 	if ttl == 0 {
-		return nil, false, errors.Errorf("ttl must be greater than zero")
+		panic(errors.NotValidf("ttl must be greater than zero"))
 	}
 	if waitTimeout == 0 {
 		waitTimeout = ttl
@@ -48,21 +48,21 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 	redisLock, err := l.locker.Obtain(key, ttl, options)
 	if err != nil {
 		if err == redislock.ErrNotObtained {
-			return nil, false, nil
+			return nil, false
 		}
 		if l.engine.loggers[LoggerSourceRedis] != nil {
 			l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", err)
 		}
 		l.engine.dataDog.incrementCounter(counterRedisAll, 1)
 		l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
-		return nil, false, errors.Trace(err)
+		panic(err)
 	}
 	if l.engine.loggers[LoggerSourceRedis] != nil {
 		l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", nil)
 	}
 	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
-	return &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}, true, nil
+	return &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}, true
 }
 
 type Lock struct {
@@ -87,7 +87,7 @@ func (l *Lock) Release() {
 	l.has = false
 }
 
-func (l *Lock) TTL() (time.Duration, error) {
+func (l *Lock) TTL() time.Duration {
 	start := time.Now()
 	d, err := l.lock.TTL()
 	if l.engine.loggers[LoggerSourceRedis] != nil {
@@ -95,7 +95,10 @@ func (l *Lock) TTL() (time.Duration, error) {
 	}
 	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	l.engine.dataDog.incrementCounter(counterRedisLockTTL, 1)
-	return d, errors.Trace(err)
+	if err != nil {
+		panic(err)
+	}
+	return d
 }
 
 func (l *Locker) fillLogFields(message string, start time.Time, key string, operation string, err error) {

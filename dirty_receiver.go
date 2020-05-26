@@ -2,8 +2,6 @@ package orm
 
 import (
 	"encoding/json"
-
-	"github.com/juju/errors"
 )
 
 type DirtyReceiver struct {
@@ -40,14 +38,11 @@ func (r *DirtyReceiver) SetHeartBeat(beat func()) {
 	r.heartBeat = beat
 }
 
-type DirtyHandler func(data []*DirtyData) error
+type DirtyHandler func(data []*DirtyData)
 
-func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) error {
+func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) {
 	channel := r.engine.GetRabbitMQQueue("dirty_queue_" + code)
-	consumer, err := channel.NewConsumer("default consumer")
-	if err != nil {
-		return errors.Trace(err)
-	}
+	consumer := channel.NewConsumer("default consumer")
 	defer consumer.Close()
 	if r.disableLoop {
 		consumer.DisableLoop()
@@ -56,13 +51,13 @@ func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) error {
 		consumer.SetHeartBeat(r.heartBeat)
 	}
 	var value DirtyQueueValue
-	err = consumer.Consume(func(items [][]byte) error {
+	consumer.Consume(func(items [][]byte) {
 		data := make([]*DirtyData, len(items))
 		for i, item := range items {
 			_ = json.Unmarshal(item, &value)
 			t, has := r.engine.registry.entities[value.EntityName]
 			if !has {
-				return nil
+				return
 			}
 			tableSchema := getTableSchema(r.engine.registry, t)
 			v := &DirtyData{
@@ -74,10 +69,6 @@ func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) error {
 			}
 			data[i] = v
 		}
-		return handler(data)
+		handler(data)
 	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }

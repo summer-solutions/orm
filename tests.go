@@ -1,12 +1,9 @@
 package orm
 
 import (
-	"database/sql"
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/bsm/redislock"
 
 	"github.com/go-redis/redis/v7"
 
@@ -28,18 +25,14 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *E
 	engine := validatedRegistry.CreateEngine()
 	assert.Equal(t, engine.GetRegistry(), validatedRegistry)
 	redisCache := engine.GetRedis()
-	err = redisCache.FlushDB()
-	assert.Nil(t, err)
+	redisCache.FlushDB()
 	redisCache = engine.GetRedis("default_queue")
-	err = redisCache.FlushDB()
-	assert.Nil(t, err)
+	redisCache.FlushDB()
 
-	alters, err := engine.GetAlters()
-	assert.Nil(t, err)
+	alters := engine.GetAlters()
 	for _, alter := range alters {
 		pool := engine.GetMysql(alter.Pool)
-		_, err := pool.Exec(alter.SQL)
-		assert.Nil(t, err)
+		pool.Exec(alter.SQL)
 	}
 
 	for _, entity := range entities {
@@ -48,59 +41,14 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *E
 			eType = eType.Elem()
 		}
 		tableSchema := validatedRegistry.GetTableSchema(eType.String())
-		err = tableSchema.TruncateTable(engine)
-		assert.Nil(t, err)
-		err = tableSchema.UpdateSchema(engine)
-		assert.Nil(t, err)
+		tableSchema.TruncateTable(engine)
+		tableSchema.UpdateSchema(engine)
 		localCache, has := tableSchema.GetLocalCache(engine)
 		if has {
 			localCache.Clear()
 		}
 	}
 	return engine
-}
-
-type mockSQLClient struct {
-	client       sqlClient
-	counter      int
-	QueryMock    func(db sqlClient, counter int, query string, args ...interface{}) (SQLRows, error)
-	QueryRowMock func(db sqlClient, counter int, query string, args ...interface{}) SQLRow
-	ExecMock     func(query string, args ...interface{}) (sql.Result, error)
-}
-
-func (db *mockSQLClient) Begin() error {
-	return nil
-}
-
-func (db *mockSQLClient) Commit() error {
-	return nil
-}
-
-func (db *mockSQLClient) Rollback() (bool, error) {
-	return false, nil
-}
-
-func (db *mockSQLClient) Exec(query string, args ...interface{}) (sql.Result, error) {
-	if db.ExecMock != nil {
-		return db.ExecMock(query, args...)
-	}
-	return db.client.Exec(query, args...)
-}
-
-func (db *mockSQLClient) QueryRow(query string, args ...interface{}) SQLRow {
-	db.counter++
-	if db.QueryRowMock != nil {
-		return db.QueryRowMock(db.client, db.counter, query, args...)
-	}
-	return db.client.QueryRow(query, args...)
-}
-
-func (db *mockSQLClient) Query(query string, args ...interface{}) (SQLRows, error) {
-	db.counter++
-	if db.QueryMock != nil {
-		return db.QueryMock(db.client, db.counter, query, args...)
-	}
-	return db.client.Query(query, args...)
 }
 
 type mockRedisClient struct {
@@ -305,16 +253,4 @@ func (c *mockRedisClient) FlushDB() error {
 		return c.FlushDBMock()
 	}
 	return c.client.FlushDB()
-}
-
-type mockLockerClient struct {
-	client     lockerClient
-	ObtainMock func(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error)
-}
-
-func (l *mockLockerClient) Obtain(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error) {
-	if l.ObtainMock != nil {
-		return l.ObtainMock(key, ttl, opt)
-	}
-	return l.client.Obtain(key, ttl, opt)
 }

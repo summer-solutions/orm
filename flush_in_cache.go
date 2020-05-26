@@ -2,11 +2,9 @@ package orm
 
 import (
 	"strconv"
-
-	"github.com/juju/errors"
 )
 
-func flushInCache(engine *Engine, entities ...Entity) error {
+func flushInCache(engine *Engine, entities ...Entity) {
 	invalidEntities := make([]Entity, 0)
 	validEntities := make([][]byte, 0)
 	redisValues := make(map[string][]interface{})
@@ -41,27 +39,17 @@ func flushInCache(engine *Engine, entities ...Entity) error {
 		}
 	}
 	if len(invalidEntities) > 0 {
-		err := flush(engine, false, false, invalidEntities...)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		flush(engine, false, false, invalidEntities...)
 	}
 	if len(validEntities) > 0 {
 		channel := engine.GetRabbitMQQueue(flushCacheQueueName)
 		for _, v := range validEntities {
-			err := channel.Publish(v)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			channel.Publish(v)
 		}
 		for cacheCode, keys := range redisValues {
-			err := engine.GetRedis(cacheCode).MSet(keys...)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			engine.GetRedis(cacheCode).MSet(keys...)
 		}
 	}
-	return nil
 }
 
 func createDirtyQueueMember(entityName string, id uint64) []byte {

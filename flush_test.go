@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/errors"
-
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
 
@@ -64,8 +62,7 @@ func TestFlush(t *testing.T) {
 		engine.Track(&e)
 		entities[i-1] = &e
 	}
-	err := engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	for i := 1; i < 10; i++ {
 		testEntity := entities[i-1]
@@ -84,20 +81,16 @@ func TestFlush(t *testing.T) {
 	entities[7].Date = &now
 	entities[7].DateTime = &now
 
-	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(entities[1]))
 	assert.True(t, engine.IsDirty(entities[7]))
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	var edited1 testEntityFlush
 	var edited2 testEntityFlush
-	has, err := engine.LoadByID(2, &edited1)
-	assert.Nil(t, err)
+	has := engine.LoadByID(2, &edited1)
 	assert.True(t, has)
-	has, err = engine.LoadByID(8, &edited2)
+	has = engine.LoadByID(8, &edited2)
 	assert.True(t, has)
-	assert.Nil(t, err)
 	assert.Equal(t, "Name 2.1", edited1.Name)
 	assert.Equal(t, uint16(7), edited1.ReferenceOne.ID)
 	assert.Equal(t, "Name 8.1", edited2.Name)
@@ -107,8 +100,7 @@ func TestFlush(t *testing.T) {
 	assert.NotNil(t, edited2.DateTime)
 	assert.Equal(t, now.Format("2006-01-02 15:04:05"), edited2.DateTime.Format("2006-01-02 15:04:05"))
 	assert.False(t, engine.Loaded(edited1.ReferenceOne))
-	err = engine.Load(edited1.ReferenceOne)
-	assert.Nil(t, err)
+	engine.Load(edited1.ReferenceOne)
 	assert.True(t, engine.Loaded(edited1.ReferenceOne))
 	assert.Equal(t, "Name 7", edited1.ReferenceOne.Name)
 
@@ -119,13 +111,10 @@ func TestFlush(t *testing.T) {
 	newEntity := &testEntityFlush{Name: "Name 11", EnumNotNull: "Red"}
 	engine.Track(newEntity)
 	assert.True(t, engine.IsDirty(&edited1))
-	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(&edited2))
-	assert.Nil(t, err)
 	assert.True(t, engine.IsDirty(newEntity))
 
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	assert.False(t, engine.IsDirty(&edited1))
 	assert.False(t, engine.IsDirty(newEntity))
@@ -133,14 +122,11 @@ func TestFlush(t *testing.T) {
 	var edited3 testEntityFlush
 	var deleted testEntityFlush
 	var new11 testEntityFlush
-	has, err = engine.LoadByID(2, &edited3)
+	has = engine.LoadByID(2, &edited3)
 	assert.True(t, has)
-	assert.Nil(t, err)
-	hasDeleted, err := engine.LoadByID(8, &deleted)
-	assert.Nil(t, err)
-	has, err = engine.LoadByID(11, &new11)
+	hasDeleted := engine.LoadByID(8, &deleted)
+	has = engine.LoadByID(11, &new11)
 	assert.True(t, has)
-	assert.Nil(t, err)
 	assert.Equal(t, "Name 2.2", edited3.Name)
 	assert.False(t, hasDeleted)
 	assert.Equal(t, "Name 11", new11.Name)
@@ -153,8 +139,7 @@ func TestFlush(t *testing.T) {
 		engine.Track(&e)
 	}
 	logger.Entries = make([]*log.Entry, 0)
-	err = engine.FlushWithLock("default", "test", time.Second, time.Second)
-	assert.Nil(t, err)
+	engine.FlushWithLock("default", "test", time.Second, time.Second)
 	assert.Len(t, logger.Entries, 3)
 	assert.Equal(t, "[ORM][LOCKER][OBTAIN]", logger.Entries[0].Message)
 	assert.Equal(t, "[ORM][MYSQL][EXEC]", logger.Entries[1].Message)
@@ -179,8 +164,7 @@ func TestFlushInTransaction(t *testing.T) {
 		e := testEntityFlushTransactionRedis{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(&e)
 	}
-	err := engine.FlushInTransaction()
-	assert.Nil(t, err)
+	engine.FlushInTransaction()
 	assert.Len(t, logger.Entries, 6)
 	assert.Equal(t, "[ORM][MYSQL][BEGIN]", logger.Entries[0].Message)
 	assert.Equal(t, "[ORM][MYSQL][EXEC]", logger.Entries[1].Message)
@@ -194,8 +178,7 @@ func TestFlushInTransaction(t *testing.T) {
 		engine.Track(&e)
 	}
 	logger.Entries = make([]*log.Entry, 0)
-	err = engine.FlushInTransactionWithLock("default", "test", time.Second, time.Second)
-	assert.Nil(t, err)
+	engine.FlushInTransactionWithLock("default", "test", time.Second, time.Second)
 	assert.Len(t, logger.Entries, 6)
 	assert.Equal(t, "[ORM][LOCKER][OBTAIN]", logger.Entries[0].Message)
 	assert.Equal(t, "[ORM][LOCKER][RELEASE]", logger.Entries[5].Message)
@@ -207,29 +190,20 @@ func TestFlushErrors(t *testing.T) {
 	engine.Track(entity)
 
 	entity.ReferenceOne = &testEntityErrors{ID: 2}
-	err := engine.Flush()
+	err, _ := engine.FlushWithCheck()
 	assert.NotNil(t, err)
-	keyError, is := errors.Cause(err).(*ForeignKeyError)
-	assert.True(t, is)
-	assert.Equal(t, "test:testEntityErrors:ReferenceOne", keyError.Constraint)
-	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`testEntityErrors`, CONSTRAINT `test:testEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `testEntityErrors` (`ID`))", keyError.Error())
+	assert.Equal(t, "test:testEntityErrors:ReferenceOne", err.Constraint)
+	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`testEntityErrors`, CONSTRAINT `test:testEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `testEntityErrors` (`ID`))", err.Error())
 	engine.ClearTrackedEntities()
 
 	engine.Track(entity)
 	entity.ReferenceOne = nil
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	entity = &testEntityErrors{Name: "Name"}
 	engine.Track(entity)
-	err = engine.Flush()
-	assert.NotNil(t, err)
-	duplicatedError, is := errors.Cause(err).(*DuplicatedKeyError)
-	assert.True(t, is)
+	_, duplicatedError := engine.FlushWithCheck()
+	assert.NotNil(t, duplicatedError)
 	assert.Equal(t, "NameIndex", duplicatedError.Index)
 	assert.Equal(t, "Duplicate entry 'Name' for key 'NameIndex'", duplicatedError.Error())
-
-	engine.ClearTrackedEntities()
-	err = engine.TrackAndFlush(&testEntityErrors{ID: 1})
-	assert.EqualError(t, err, "unloaded entity orm.testEntityErrors with ID 1")
 }

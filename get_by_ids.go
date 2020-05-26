@@ -8,16 +8,16 @@ import (
 	"github.com/juju/errors"
 )
 
-func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64, err error) {
+func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64) {
 	originalIDs := ids
 	lenIDs := len(ids)
 	if lenIDs == 0 {
 		entities.SetLen(0)
-		return make([]uint64, 0), nil
+		return make([]uint64, 0)
 	}
 	t, has := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
-		return nil, EntityNotRegisteredError{Name: entities.Type().String()}
+		panic(EntityNotRegisteredError{Name: entities.Type().String()})
 	}
 
 	schema := getTableSchema(engine.registry, t)
@@ -40,21 +40,12 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	if hasLocalCache || hasRedis {
 		if hasLocalCache {
 			resultsLocalCache := localCache.MGet(cacheKeys...)
-			cacheKeys, err = getKeysForNils(engine, schema.t, resultsLocalCache, keysMapping, results, false)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			cacheKeys = getKeysForNils(engine, schema.t, resultsLocalCache, keysMapping, results, false)
 			localCacheKeys = cacheKeys
 		}
 		if hasRedis && len(cacheKeys) > 0 {
-			resultsRedis, err := redisCache.MGet(cacheKeys...)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			cacheKeys, err = getKeysForNils(engine, schema.t, resultsRedis, keysMapping, results, true)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			resultsRedis := redisCache.MGet(cacheKeys...)
+			cacheKeys = getKeysForNils(engine, schema.t, resultsRedis, keysMapping, results, true)
 			redisCacheKeys = cacheKeys
 		}
 		ids = make([]uint64, len(cacheKeys))
@@ -64,10 +55,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	}
 	l := len(ids)
 	if l > 0 {
-		_, err = search(false, engine, NewWhere("`ID` IN ?", ids), &Pager{1, l}, false, entities)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		_ = search(false, engine, NewWhere("`ID` IN ?", ids), &Pager{1, l}, false, entities)
 		for i := 0; i < entities.Len(); i++ {
 			e := entities.Index(i).Interface().(Entity)
 			results[schema.getCacheKey(e.GetID())] = e
@@ -111,10 +99,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 				pairs[i+1] = toSet
 				i += 2
 			}
-			err = redisCache.MSet(pairs...)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			redisCache.MSet(pairs...)
 		}
 	}
 
@@ -133,16 +118,13 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	}
 	valOrigin.Set(v)
 	if len(references) > 0 && v.Len() > 0 {
-		err = warmUpReferences(engine, schema, entities, references, true)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		warmUpReferences(engine, schema, entities, references, true)
 	}
 	return
 }
 
 func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]interface{}, keysMapping map[string]uint64,
-	results map[string]Entity, fromRedis bool) ([]string, error) {
+	results map[string]Entity, fromRedis bool) []string {
 	keys := make([]string, 0)
 	for k, v := range rows {
 		if v == nil {
@@ -153,10 +135,7 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 			} else if fromRedis {
 				entity := reflect.New(entityType).Interface().(Entity)
 				var decoded []string
-				err := json.Unmarshal([]byte(v.(string)), &decoded)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
+				_ = json.Unmarshal([]byte(v.(string)), &decoded)
 				fillFromDBRow(keysMapping[k], engine, decoded, entity)
 				results[k] = entity
 			} else {
@@ -166,10 +145,10 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 			}
 		}
 	}
-	return keys, nil
+	return keys
 }
 
-func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Value, references []string, many bool) error {
+func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Value, references []string, many bool) {
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
 	warmUpRefs := make(map[reflect.Type]map[uint64][]reflect.Value)
 	warmUpRowsIDs := make(map[reflect.Type][]uint64)
@@ -185,15 +164,15 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 		parts := strings.Split(ref, "/")
 		_, has := tableSchema.tags[parts[0]]
 		if !has {
-			return errors.Errorf("invalid reference %s in %s", ref, tableSchema.tableName)
+			panic(errors.NotValidf("reference %s in %s", ref, tableSchema.tableName))
 		}
 		parentRef, has := tableSchema.tags[parts[0]]["ref"]
 		if !has {
-			return errors.Errorf("missing reference tag %s", ref)
+			panic(errors.NotValidf("reference tag %s", ref))
 		}
 		parentType, has := engine.registry.entities[parentRef]
 		if !has {
-			return EntityNotRegisteredError{Name: tableSchema.tags[parts[0]]["ref"]}
+			panic(EntityNotRegisteredError{Name: tableSchema.tags[parts[0]]["ref"]})
 		}
 		newSub := parts[1:]
 		if len(newSub) > 0 {
@@ -241,10 +220,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 	}
 	for t, ids := range warmUpRowsIDs {
 		sub := reflect.New(reflect.SliceOf(reflect.PtrTo(t))).Elem()
-		_, err := tryByIDs(engine, ids, sub, warmUpSubRefs[t])
-		if err != nil {
-			return errors.Trace(err)
-		}
+		_ = tryByIDs(engine, ids, sub, warmUpSubRefs[t])
 		subLen := sub.Len()
 		for i := 0; i < subLen; i++ {
 			v := sub.Index(i).Interface().(Entity)
@@ -257,5 +233,4 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			}
 		}
 	}
-	return nil
 }

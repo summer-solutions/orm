@@ -20,8 +20,7 @@ func TestMySQL(t *testing.T) {
 		e := &testEntityMySQL{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(e)
 	}
-	err := engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	db := engine.GetMysql()
 	assert.NotNil(t, db)

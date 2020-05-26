@@ -76,29 +76,58 @@ func (e *Engine) Track(entity ...Entity) {
 	}
 }
 
-func (e *Engine) TrackAndFlush(entity ...Entity) error {
+func (e *Engine) TrackAndFlush(entity ...Entity) {
 	e.Track(entity...)
-	return e.Flush()
+	e.Flush()
 }
 
-func (e *Engine) Flush() error {
-	return e.flushTrackedEntities(false, false)
+func (e *Engine) Flush() {
+	e.flushTrackedEntities(false, false)
 }
 
-func (e *Engine) FlushLazy() error {
-	return e.flushTrackedEntities(true, false)
+func (e *Engine) FlushWithCheck() (*ForeignKeyError, *DuplicatedKeyError) {
+	var err1 *ForeignKeyError
+	var err2 *DuplicatedKeyError
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				asErr, is := r.(error)
+				if !is {
+					panic(r)
+				}
+				source := errors.Cause(asErr)
+				assErr1, is := source.(*ForeignKeyError)
+				if is {
+					err1 = assErr1
+					return
+				}
+				assErr2, is := source.(*DuplicatedKeyError)
+				if is {
+					err2 = assErr2
+					return
+				}
+				panic(r)
+			}
+		}()
+		e.flushTrackedEntities(false, false)
+	}()
+	return err1, err2
 }
 
-func (e *Engine) FlushInTransaction() error {
-	return e.flushTrackedEntities(false, true)
+func (e *Engine) FlushLazy() {
+	e.flushTrackedEntities(true, false)
 }
 
-func (e *Engine) FlushWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) error {
-	return e.flushWithLock(false, lockerPool, lockName, ttl, waitTimeout)
+func (e *Engine) FlushInTransaction() {
+	e.flushTrackedEntities(false, true)
 }
 
-func (e *Engine) FlushInTransactionWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) error {
-	return e.flushWithLock(true, lockerPool, lockName, ttl, waitTimeout)
+func (e *Engine) FlushWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
+	e.flushWithLock(false, lockerPool, lockName, ttl, waitTimeout)
+}
+
+func (e *Engine) FlushInTransactionWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
+	e.flushWithLock(true, lockerPool, lockName, ttl, waitTimeout)
 }
 
 func (e *Engine) ClearTrackedEntities() {
@@ -142,22 +171,18 @@ func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 	}
 }
 
-func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) error {
+func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) {
 	_, has := e.GetRegistry().GetDirtyQueues()[queueCode]
 	if !has {
-		return errors.Errorf("unknown dirty queue '%s'", queueCode)
+		panic(errors.NotValidf("unknown dirty queue '%s'", queueCode))
 	}
 	channel := e.GetRabbitMQQueue("dirty_queue_" + queueCode)
 	entityName := initIfNeeded(e, entity).tableSchema.t.String()
 	for _, id := range ids {
 		val := &DirtyQueueValue{Updated: true, ID: id, EntityName: entityName}
 		asJSON, _ := json.Marshal(val)
-		err := channel.Publish(asJSON)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		channel.Publish(asJSON)
 	}
-	return nil
 }
 
 func (e *Engine) Loaded(entity Entity) bool {
@@ -289,85 +314,82 @@ func (e *Engine) GetLocker(code ...string) *Locker {
 	return locker
 }
 
-func (e *Engine) SearchWithCount(where *Where, pager *Pager, entities interface{}, references ...string) (totalRows int, err error) {
+func (e *Engine) SearchWithCount(where *Where, pager *Pager, entities interface{}, references ...string) (totalRows int) {
 	return search(true, e, where, pager, true, reflect.ValueOf(entities).Elem(), references...)
 }
 
-func (e *Engine) Search(where *Where, pager *Pager, entities interface{}, references ...string) error {
-	_, err := search(true, e, where, pager, false, reflect.ValueOf(entities).Elem(), references...)
-	return errors.Trace(err)
+func (e *Engine) Search(where *Where, pager *Pager, entities interface{}, references ...string) {
+	search(true, e, where, pager, false, reflect.ValueOf(entities).Elem(), references...)
 }
 
-func (e *Engine) SearchIDsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int, err error) {
+func (e *Engine) SearchIDsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int) {
 	return searchIDsWithCount(true, e, where, pager, reflect.TypeOf(entity))
 }
 
-func (e *Engine) SearchIDs(where *Where, pager *Pager, entity Entity) ([]uint64, error) {
-	results, _, err := searchIDs(true, e, where, pager, false, reflect.TypeOf(entity).Elem())
-	return results, errors.Trace(err)
+func (e *Engine) SearchIDs(where *Where, pager *Pager, entity Entity) []uint64 {
+	results, _ := searchIDs(true, e, where, pager, false, reflect.TypeOf(entity).Elem())
+	return results
 }
 
-func (e *Engine) SearchOne(where *Where, entity Entity, references ...string) (bool, error) {
+func (e *Engine) SearchOne(where *Where, entity Entity, references ...string) (found bool) {
 	return searchOne(true, e, where, entity, references)
 }
 
-func (e *Engine) CachedSearchOne(entity Entity, indexName string, arguments ...interface{}) (has bool, err error) {
+func (e *Engine) CachedSearchOne(entity Entity, indexName string, arguments ...interface{}) (found bool) {
 	return cachedSearchOne(e, entity, indexName, arguments, nil)
 }
 
-func (e *Engine) CachedSearchOneWithReferences(entity Entity, indexName string, arguments []interface{}, references []string) (has bool, err error) {
+func (e *Engine) CachedSearchOneWithReferences(entity Entity, indexName string, arguments []interface{}, references []string) (found bool) {
 	return cachedSearchOne(e, entity, indexName, arguments, references)
 }
 
-func (e *Engine) CachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, err error) {
+func (e *Engine) CachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int) {
 	return cachedSearch(e, entities, indexName, pager, arguments, nil)
 }
 
 func (e *Engine) CachedSearchWithReferences(entities interface{}, indexName string, pager *Pager,
-	arguments []interface{}, references []string) (totalRows int, err error) {
+	arguments []interface{}, references []string) (totalRows int) {
 	return cachedSearch(e, entities, indexName, pager, arguments, references)
 }
 
-func (e *Engine) ClearByIDs(entity Entity, ids ...uint64) error {
-	return clearByIDs(e, entity, ids...)
+func (e *Engine) ClearByIDs(entity Entity, ids ...uint64) {
+	clearByIDs(e, entity, ids...)
 }
 
-func (e *Engine) FlushInCache(entities ...Entity) error {
-	return flushInCache(e, entities...)
+func (e *Engine) FlushInCache(entities ...Entity) {
+	flushInCache(e, entities...)
 }
 
-func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found bool, err error) {
+func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found bool) {
 	return loadByID(e, id, entity, true, references...)
 }
 
-func (e *Engine) Load(entity Entity, references ...string) error {
+func (e *Engine) Load(entity Entity, references ...string) {
 	if e.Loaded(entity) {
 		if len(references) > 0 {
 			orm := entity.getORM()
-			return warmUpReferences(e, orm.tableSchema, orm.attributes.elem, references, false)
+			warmUpReferences(e, orm.tableSchema, orm.attributes.elem, references, false)
 		}
-		return nil
+		return
 	}
 	orm := initIfNeeded(e, entity)
 	id := orm.GetID()
 	if id > 0 {
-		_, err := loadByID(e, id, entity, true, references...)
-		return errors.Trace(err)
+		loadByID(e, id, entity, true, references...)
 	}
-	return nil
 }
 
-func (e *Engine) LoadByIDs(ids []uint64, entities interface{}, references ...string) (missing []uint64, err error) {
+func (e *Engine) LoadByIDs(ids []uint64, entities interface{}, references ...string) (missing []uint64) {
 	return tryByIDs(e, ids, reflect.ValueOf(entities).Elem(), references)
 }
 
-func (e *Engine) GetAlters() (alters []Alter, err error) {
+func (e *Engine) GetAlters() (alters []Alter) {
 	return getAlters(e)
 }
 
-func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
+func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) {
 	if e.trackedEntitiesCounter == 0 {
-		return nil
+		return
 	}
 	var dbPools map[string]*DB
 	if transaction {
@@ -377,10 +399,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 			dbPools[db.code] = db
 		}
 		for _, db := range dbPools {
-			err := db.Begin()
-			if err != nil {
-				return errors.Trace(err)
-			}
+			db.Begin()
 		}
 	}
 	defer func() {
@@ -389,32 +408,22 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) error {
 		}
 	}()
 
-	err := flush(e, lazy, transaction, e.trackedEntities...)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	flush(e, lazy, transaction, e.trackedEntities...)
 	if transaction {
 		for _, db := range dbPools {
-			err := db.Commit()
-			if err != nil {
-				return errors.Trace(err)
-			}
+			db.Commit()
 		}
 	}
 	e.trackedEntities = make([]Entity, 0)
 	e.trackedEntitiesCounter = 0
-	return nil
 }
 
-func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) error {
+func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
 	locker := e.GetLocker(lockerPool)
-	lock, has, err := locker.Obtain(lockName, ttl, waitTimeout)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	lock, has := locker.Obtain(lockName, ttl, waitTimeout)
 	if !has {
-		return errors.Errorf("lock wait timeout")
+		panic(errors.Timeoutf("lock wait timeout"))
 	}
 	defer lock.Release()
-	return e.flushTrackedEntities(false, transaction)
+	e.flushTrackedEntities(false, transaction)
 }

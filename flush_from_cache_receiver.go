@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
-
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -31,12 +29,9 @@ func (r *FlushFromCacheReceiver) SetHeartBeat(beat func()) {
 	r.heartBeat = beat
 }
 
-func (r *FlushFromCacheReceiver) Digest() error {
+func (r *FlushFromCacheReceiver) Digest() {
 	channel := r.engine.GetRabbitMQQueue(flushCacheQueueName)
-	consumer, err := channel.NewConsumer("default consumer")
-	if err != nil {
-		return errors.Trace(err)
-	}
+	consumer := channel.NewConsumer("default consumer")
 	defer consumer.Close()
 	if r.disableLoop {
 		consumer.DisableLoop()
@@ -44,7 +39,7 @@ func (r *FlushFromCacheReceiver) Digest() error {
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeat)
 	}
-	err = consumer.Consume(func(items [][]byte) error {
+	consumer.Consume(func(items [][]byte) {
 		for _, item := range items {
 			val := strings.Split(string(item), ":")
 			id, _ := strconv.ParseUint(val[1], 10, 64)
@@ -55,7 +50,7 @@ func (r *FlushFromCacheReceiver) Digest() error {
 			schema := getTableSchema(r.engine.registry, t)
 			cacheEntity, _ := schema.GetRedisCache(r.engine)
 			cacheKey := schema.getCacheKey(id)
-			inCache, has, _ := cacheEntity.Get(cacheKey)
+			inCache, has := cacheEntity.Get(cacheKey)
 			if !has {
 				continue
 			}
@@ -67,10 +62,7 @@ func (r *FlushFromCacheReceiver) Digest() error {
 
 			fillFromDBRow(id, r.engine, decoded, entity)
 			entityDBValue := reflect.New(schema.t).Interface().(Entity)
-			found, err := searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue, nil)
-			if err != nil || !found {
-				return errors.Trace(err)
-			}
+			_ = searchRow(false, r.engine, NewWhere("`ID` = ?", id), entityDBValue, nil)
 			newData := make(map[string]interface{}, len(entity.getORM().dBData))
 			for k, v := range entity.getORM().dBData {
 				newData[k] = v
@@ -80,7 +72,7 @@ func (r *FlushFromCacheReceiver) Digest() error {
 			}
 			is, bind := getDirtyBind(entity)
 			if !is {
-				return errors.Trace(err)
+				return
 			}
 
 			bindLength := len(bind)
@@ -97,25 +89,14 @@ func (r *FlushFromCacheReceiver) Digest() error {
 
 			/* #nosec */
 			sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.tableName, strings.Join(fields, ","))
-			_, err = db.Exec(sql, attributes...)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			_ = db.Exec(sql, attributes...)
 			cacheKeys := getCacheQueriesKeys(schema, bind, entity.getORM().dBData, false)
 
 			keys := getCacheQueriesKeys(schema, bind, newData, false)
 			cacheKeys = append(cacheKeys, keys...)
 			if len(cacheKeys) > 0 {
-				err = cacheEntity.Del(cacheKeys...)
-				if err != nil {
-					return errors.Trace(err)
-				}
+				cacheEntity.Del(cacheKeys...)
 			}
 		}
-		return nil
 	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }

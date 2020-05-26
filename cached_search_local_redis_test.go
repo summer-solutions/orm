@@ -4,8 +4,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/juju/errors"
-
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
 
@@ -32,11 +30,6 @@ type testEntityIndexTestLocalRedisRef struct {
 	IndexOne *CachedQuery `queryOne:""`
 }
 
-type testEntityIndexTestLocalRedisUnregistered struct {
-	ORM
-	ID uint
-}
-
 func TestCachedSearchLocalRedis(t *testing.T) {
 	var entity *testEntityIndexTestLocalRedis
 	var entityRef *testEntityIndexTestLocalRedisRef
@@ -46,9 +39,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 		e := &testEntityIndexTestLocalRedisRef{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(e)
 	}
-	err := engine.Flush()
-	assert.Nil(t, err)
-
+	engine.Flush()
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
 		e := &testEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
@@ -56,19 +47,16 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 		e.ReferenceOne = &testEntityIndexTestLocalRedisRef{ID: uint(i)}
 		entities[i-1] = e
 	}
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	for i := 6; i <= 10; i++ {
 		e := &testEntityIndexTestLocalRedis{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		engine.Track(e)
 		entities[i-1] = e
 	}
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	pager := &Pager{CurrentPage: 1, PageSize: 100}
 	var rows []*testEntityIndexTestLocalRedis
-	totalRows, err := engine.CachedSearch(&rows, "IndexAge", pager, 10)
-	assert.Nil(t, err)
+	totalRows := engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 5, totalRows)
 	assert.True(t, engine.Loaded(rows[0]))
 
@@ -84,8 +72,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	DBLogger := memory.New()
 	engine.AddLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
 
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
 
@@ -96,8 +83,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, uint(10), rows[4].ID)
 	assert.Len(t, DBLogger.Entries, 1)
 
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
 	assert.Equal(t, uint(6), rows[0].ID)
@@ -108,16 +94,14 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 1)
 
 	pager = &Pager{CurrentPage: 2, PageSize: 4}
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, uint(10), rows[0].ID)
 	assert.Len(t, DBLogger.Entries, 1)
 
 	pager = &Pager{CurrentPage: 1, PageSize: 5}
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
 	assert.Equal(t, uint(1), rows[0].ID)
@@ -125,86 +109,71 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 
 	engine.Track(rows[0])
 	rows[0].Age = 18
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	pager = &Pager{CurrentPage: 1, PageSize: 10}
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 6, totalRows)
 	assert.Len(t, rows, 6)
 	assert.Equal(t, uint(1), rows[0].ID)
 	assert.Equal(t, uint(6), rows[1].ID)
 	assert.Len(t, DBLogger.Entries, 3)
 
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 4, totalRows)
 	assert.Len(t, rows, 4)
 	assert.Equal(t, uint(2), rows[0].ID)
 	assert.Len(t, DBLogger.Entries, 4)
 
-	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Entries, 5)
 
 	engine.MarkToDelete(rows[1])
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 10)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 3, totalRows)
 	assert.Len(t, rows, 3)
 	assert.Equal(t, uint(3), rows[0].ID)
 	assert.Len(t, DBLogger.Entries, 7)
 
-	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Equal(t, 9, totalRows)
 	assert.Len(t, rows, 9)
 	assert.Len(t, DBLogger.Entries, 8)
 
 	entity = &testEntityIndexTestLocalRedis{Name: "Name 11", Age: uint16(18)}
 	engine.Track(entity)
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
-	totalRows, err = engine.CachedSearch(&rows, "IndexAge", pager, 18)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 7, totalRows)
 	assert.Len(t, rows, 7)
 	assert.Equal(t, uint(11), rows[6].ID)
 	assert.Len(t, DBLogger.Entries, 10)
 
-	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Entries, 11)
 
-	err = engine.ClearByIDs(entity, 1, 3)
-	assert.Nil(t, err)
-	totalRows, err = engine.CachedSearch(&rows, "IndexAll", pager)
-	assert.Nil(t, err)
+	engine.ClearByIDs(entity, 1, 3)
+	totalRows = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Entries, 12)
 
 	var row testEntityIndexTestLocalRedis
-	has, err := engine.CachedSearchOne(&row, "IndexName", "Name 6")
-	assert.Nil(t, err)
+	has := engine.CachedSearchOne(&row, "IndexName", "Name 6")
 	assert.True(t, has)
 	assert.Equal(t, uint(6), row.ID)
 
-	has, err = engine.CachedSearchOne(&row, "IndexName", "Name 99")
-	assert.Nil(t, err)
+	has = engine.CachedSearchOne(&row, "IndexName", "Name 99")
 	assert.False(t, has)
 
-	totalRows, err = engine.CachedSearchWithReferences(&rows, "IndexAll", pager, []interface{}{}, []string{"*"})
-	assert.Nil(t, err)
+	totalRows = engine.CachedSearchWithReferences(&rows, "IndexAll", pager, []interface{}{}, []string{"*"})
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Entries, 15)
@@ -212,45 +181,4 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 	assert.Equal(t, "Name 3", rows[1].ReferenceOne.Name)
 	assert.True(t, engine.Loaded(rows[0].ReferenceOne))
 	assert.True(t, engine.Loaded(rows[1].ReferenceOne))
-
-	var rows2 []*testEntityIndexTestLocalRedisUnregistered
-	_, err = engine.CachedSearch(&rows2, "IndexAll", pager)
-	assert.EqualError(t, err, "entity 'orm.testEntityIndexTestLocalRedisUnregistered' is not registered")
-
-	var row2 testEntityIndexTestLocalRedisUnregistered
-	_, err = engine.CachedSearchOne(&row2, "IndexAll")
-	assert.EqualError(t, err, "entity 'orm.testEntityIndexTestLocalRedisUnregistered' is not registered")
-
-	_, err = engine.CachedSearch(&rows, "IndexAll2", pager)
-	assert.EqualError(t, err, "unknown index IndexAll2")
-
-	_, err = engine.CachedSearchOne(&row, "IndexAll2", pager)
-	assert.EqualError(t, err, "unknown index IndexAll2")
-
-	var rows3 []*testEntityIndexTestLocalRedisRef
-	_, err = engine.CachedSearch(&rows3, "IndexAll", pager)
-	assert.EqualError(t, err, "cache search not allowed for entity without cache: 'orm.testEntityIndexTestLocalRedisRef'")
-
-	row3 := &testEntityIndexTestLocalRedisRef{}
-	_, err = engine.CachedSearchOne(row3, "IndexOne")
-	assert.EqualError(t, err, "cache search not allowed for entity without cache: 'orm.testEntityIndexTestLocalRedisRef'")
-
-	engine.GetLocalCache().Clear()
-	r := engine.GetRedis()
-	_ = r.FlushDB()
-	mockClient := &mockRedisClient{client: r.client}
-	r.client = mockClient
-	mockClient.HMGetMock = func(key string, fields ...string) ([]interface{}, error) {
-		return nil, errors.Errorf("redis error")
-	}
-	_, err = engine.CachedSearch(&rows, "IndexAll", pager)
-	assert.EqualError(t, err, "redis error")
-
-	mockClient.HMGetMock = nil
-	_ = r.FlushDB()
-	mockClient.HMSetMock = func(key string, fields map[string]interface{}) (bool, error) {
-		return false, errors.Errorf("redis error")
-	}
-	_, err = engine.CachedSearch(&rows, "IndexAll", pager)
-	assert.EqualError(t, err, "redis error")
 }

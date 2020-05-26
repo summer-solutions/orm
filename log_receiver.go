@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	jsoniter "github.com/json-iterator/go"
-	"github.com/juju/errors"
 )
 
 const logQueueName = "orm_log"
@@ -12,7 +11,7 @@ const logQueueName = "orm_log"
 type LogReceiver struct {
 	engine      *Engine
 	disableLoop bool
-	Logger      func(log *LogQueueValue) error
+	Logger      func(log *LogQueueValue)
 	heartBeat   func()
 }
 
@@ -28,12 +27,9 @@ func (r *LogReceiver) DisableLoop() {
 	r.disableLoop = true
 }
 
-func (r *LogReceiver) Digest() error {
+func (r *LogReceiver) Digest() {
 	channel := r.engine.GetRabbitMQQueue(logQueueName)
-	consumer, err := channel.NewConsumer("default consumer")
-	if err != nil {
-		return errors.Trace(err)
-	}
+	consumer := channel.NewConsumer("default consumer")
 	defer consumer.Close()
 	if r.disableLoop {
 		consumer.DisableLoop()
@@ -42,7 +38,7 @@ func (r *LogReceiver) Digest() error {
 		consumer.SetHeartBeat(r.heartBeat)
 	}
 	var value LogQueueValue
-	err = consumer.Consume(func(items [][]byte) error {
+	consumer.Consume(func(items [][]byte) {
 		for _, item := range items {
 			_ = jsoniter.ConfigFastest.Unmarshal(item, &value)
 			poolDB := r.engine.GetMysql(value.PoolName)
@@ -58,23 +54,15 @@ func (r *LogReceiver) Digest() error {
 			if value.Changes != nil {
 				changes, _ = jsoniter.ConfigFastest.Marshal(value.Changes)
 			}
-			res, err := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			res := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
 			if r.Logger != nil {
 				id, err := res.LastInsertId()
 				if err != nil {
-					return errors.Trace(err)
+					panic(err)
 				}
 				value.ID = uint64(id)
-				return r.Logger(&value)
+				r.Logger(&value)
 			}
 		}
-		return nil
 	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }

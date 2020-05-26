@@ -153,10 +153,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.enums[k] = v
 	}
 	for name, entityType := range r.entities {
-		tableSchema, err := initTableSchema(r, entityType)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		tableSchema := initTableSchema(r, entityType)
 		registry.tableSchemas[entityType] = tableSchema
 		registry.entities[name] = entityType
 	}
@@ -213,34 +210,25 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if config.config.Router == "" {
 			if config.config.Delayed {
 				r := engine.GetRabbitMQDelayedQueue(code)
-				receiver, err := r.initChannel(config.config.Name, false)
+				receiver := r.initChannel(config.config.Name, false)
+				err := receiver.Close()
 				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				err = receiver.Close()
-				if err != nil {
-					return nil, errors.Trace(err)
+					panic(err)
 				}
 			} else {
 				r := engine.GetRabbitMQQueue(code)
-				receiver, err := r.initChannel(config.config.Name, false)
+				receiver := r.initChannel(config.config.Name, false)
+				err := receiver.Close()
 				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				err = receiver.Close()
-				if err != nil {
-					return nil, errors.Trace(err)
+					panic(err)
 				}
 			}
 		} else {
 			r := engine.GetRabbitMQRouter(code)
-			receiver, err := r.initChannel(config.config.Name, false)
+			receiver := r.initChannel(config.config.Name, false)
+			err := receiver.Close()
 			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			err = receiver.Close()
-			if err != nil {
-				return nil, errors.Trace(err)
+				panic(err)
 			}
 		}
 	}

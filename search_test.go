@@ -30,21 +30,18 @@ func TestSearch(t *testing.T) {
 		r := &testEntitySearchRef{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(r)
 		refs[i-1] = r
-		err := engine.Flush()
-		assert.Nil(t, err)
+		engine.Flush()
 		e := &testEntitySearch{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(e)
 		e.ReferenceOne = r
 		entities[i-1] = e
-		err = engine.Flush()
-		assert.Nil(t, err)
+		engine.Flush()
 	}
 	pager := &Pager{CurrentPage: 1, PageSize: 100}
 	where := NewWhere("`ID` > ?", 1)
 	where.Append("AND `ID` < ?", 8)
 	var rows []*testEntitySearch
-	err := engine.Search(where, pager, &rows, "ReferenceOne")
-	assert.Nil(t, err)
+	engine.Search(where, pager, &rows, "ReferenceOne")
 	assert.True(t, engine.Loaded(rows[0].ReferenceOne))
 	assert.Len(t, rows, 6)
 	assert.Equal(t, uint(2), rows[0].ID)
@@ -53,8 +50,7 @@ func TestSearch(t *testing.T) {
 	pager = &Pager{CurrentPage: 1, PageSize: 4}
 
 	rows = make([]*testEntitySearch, 0)
-	totalRows, err := engine.SearchWithCount(where, pager, &rows)
-	assert.Nil(t, err)
+	totalRows := engine.SearchWithCount(where, pager, &rows)
 	assert.Len(t, rows, 4)
 	assert.Equal(t, 6, totalRows)
 	assert.Equal(t, uint(2), rows[0].ID)
@@ -62,8 +58,7 @@ func TestSearch(t *testing.T) {
 
 	pager = &Pager{CurrentPage: 2, PageSize: 4}
 	rows = make([]*testEntitySearch, 0)
-	totalRows, err = engine.SearchWithCount(where, pager, &rows)
-	assert.Nil(t, err)
+	totalRows = engine.SearchWithCount(where, pager, &rows)
 	assert.Len(t, rows, 2)
 	assert.Equal(t, 6, totalRows)
 	assert.Equal(t, uint(6), rows[0].ID)
@@ -71,41 +66,35 @@ func TestSearch(t *testing.T) {
 
 	pager = &Pager{CurrentPage: 1, PageSize: 6}
 	rows = make([]*testEntitySearch, 0)
-	totalRows, err = engine.SearchWithCount(where, pager, &rows)
-	assert.Nil(t, err)
+	totalRows = engine.SearchWithCount(where, pager, &rows)
 	assert.Len(t, rows, 6)
 	assert.Equal(t, 6, totalRows)
 	assert.Equal(t, uint(2), rows[0].ID)
 	assert.Equal(t, uint(7), rows[5].ID)
 
 	pager = &Pager{CurrentPage: 1, PageSize: 3}
-	ids, err := engine.SearchIDs(where, pager, &entity)
-	assert.Nil(t, err)
+	ids := engine.SearchIDs(where, pager, &entity)
 	assert.Len(t, ids, 3)
 	assert.Equal(t, uint64(2), ids[0])
 
 	pager.IncrementPage()
 	assert.Equal(t, 2, pager.CurrentPage)
-	ids, err = engine.SearchIDs(where, pager, &entity)
-	assert.Nil(t, err)
+	ids = engine.SearchIDs(where, pager, &entity)
 	assert.Len(t, ids, 3)
 	assert.Equal(t, uint64(5), ids[0])
 
 	pager = &Pager{CurrentPage: 1, PageSize: 100}
 	rows = make([]*testEntitySearch, 0)
 	where = NewWhere("(`ID` IN ? OR `ID` IN ?)", []uint{5, 6}, []uint{7, 8})
-	totalRows, err = engine.SearchWithCount(where, pager, &rows)
-	assert.Nil(t, err)
+	totalRows = engine.SearchWithCount(where, pager, &rows)
 	assert.Len(t, rows, 4)
 	assert.Equal(t, 4, totalRows)
 
-	res, total, err := engine.SearchIDsWithCount(where, pager, entity)
-	assert.Nil(t, err)
+	res, total := engine.SearchIDsWithCount(where, pager, entity)
 	assert.Equal(t, 4, total)
 	assert.Equal(t, []uint64{5, 6, 7, 8}, res)
 
-	has, err := engine.SearchOne(NewWhere("`ID` = 1"), &entity, "ReferenceOne")
-	assert.Nil(t, err)
+	has := engine.SearchOne(NewWhere("`ID` = 1"), &entity, "ReferenceOne")
 	assert.True(t, has)
 	assert.NotNil(t, entity.ReferenceOne)
 	assert.Equal(t, "Name 1", entity.ReferenceOne.Name)

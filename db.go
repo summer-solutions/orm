@@ -129,7 +129,7 @@ func (db *DB) GetPoolCode() string {
 	return db.code
 }
 
-func (db *DB) Begin() error {
+func (db *DB) Begin() {
 	start := time.Now()
 	err := db.client.Begin()
 	if db.engine.loggers[LoggerSourceDB] != nil {
@@ -138,12 +138,11 @@ func (db *DB) Begin() error {
 		db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	}
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
-	return nil
 }
 
-func (db *DB) Commit() error {
+func (db *DB) Commit() {
 	start := time.Now()
 	err := db.client.Commit()
 	if db.engine.loggers[LoggerSourceDB] != nil {
@@ -152,7 +151,7 @@ func (db *DB) Commit() error {
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
 	db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	if err != nil {
-		return errors.Trace(err)
+		panic(err)
 	}
 	if db.engine.afterCommitLocalCacheSets != nil {
 		for cacheCode, pairs := range db.engine.afterCommitLocalCacheSets {
@@ -164,14 +163,10 @@ func (db *DB) Commit() error {
 	if db.engine.afterCommitRedisCacheDeletes != nil {
 		for cacheCode, keys := range db.engine.afterCommitRedisCacheDeletes {
 			cache := db.engine.GetRedis(cacheCode)
-			err := cache.Del(keys...)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			cache.Del(keys...)
 		}
 	}
 	db.engine.afterCommitRedisCacheDeletes = nil
-	return nil
 }
 
 func (db *DB) Rollback() {
@@ -189,47 +184,61 @@ func (db *DB) Rollback() {
 	db.engine.afterCommitRedisCacheDeletes = nil
 }
 
-func (db *DB) Exec(query string, args ...interface{}) (rows sql.Result, err error) {
+func (db *DB) Exec(query string, args ...interface{}) sql.Result {
 	start := time.Now()
-	rows, err = db.client.Exec(query, args...)
+	rows, err := db.client.Exec(query, args...)
 	if db.engine.loggers[LoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][EXEC]", start, "exec", query, args, err)
 	}
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
 	db.engine.dataDog.incrementCounter(counterDBExec, 1)
 	if err != nil {
-		return nil, errors.Trace(err)
+		panic(convertToError(err))
 	}
-	return rows, nil
+	return rows
 }
 
-func (db *DB) QueryRow(query string, args ...interface{}) SQLRow {
+func (db *DB) QueryRow(query *Where, toFill ...interface{}) (found bool) {
 	start := time.Now()
-	row := db.client.QueryRow(query, args...)
-	if db.engine.loggers[LoggerSourceDB] != nil {
-		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query, args, nil)
-	}
+	row := db.client.QueryRow(query.String(), query.GetParameters()...)
+
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
 	db.engine.dataDog.incrementCounter(counterDBQuery, 1)
-	return row
+	err := row.Scan(toFill...)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			if db.engine.loggers[LoggerSourceDB] != nil {
+				db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query.String(), query.GetParameters(), nil)
+			}
+			return false
+		}
+		if db.engine.loggers[LoggerSourceDB] != nil {
+			db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query.String(), query.GetParameters(), err)
+		}
+		panic(err)
+	}
+	if db.engine.loggers[LoggerSourceDB] != nil {
+		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query.String(), query.GetParameters(), nil)
+	}
+	return true
 }
 
-func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF func(), err error) {
+func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF func()) {
 	start := time.Now()
-	rows, err = db.client.Query(query, args...)
+	rows, err := db.client.Query(query, args...)
 	if db.engine.loggers[LoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query, args, err)
 	}
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
 	db.engine.dataDog.incrementCounter(counterDBQuery, 1)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		panic(err)
 	}
 	return rows, func() {
 		if rows != nil {
 			_ = rows.Close()
 		}
-	}, nil
+	}
 }
 
 func (db *DB) fillLogFields(message string, start time.Time, typeCode string, query string, args []interface{}, err error) {

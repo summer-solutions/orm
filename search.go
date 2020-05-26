@@ -8,16 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
-
 	jsoniter "github.com/json-iterator/go"
 )
 
-func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int, err error) {
+func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int) {
 	return searchIDs(skipFakeDelete, engine, where, pager, true, entityType)
 }
 
-func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) (bool, error) {
+func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) bool {
 	orm := initIfNeeded(engine, entity)
 	schema := orm.tableSchema
 	whereQuery := where.String()
@@ -28,17 +26,14 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", schema.fieldsQuery, schema.tableName, whereQuery)
 
 	pool := schema.GetMysql(engine)
-	results, def, err := pool.Query(query, where.GetParameters()...)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
+	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
 	if !results.Next() {
-		err = results.Err()
+		err := results.Err()
 		if err != nil {
-			return false, errors.Trace(err)
+			panic(err)
 		}
-		return false, nil
+		return false
 	}
 
 	count := len(schema.columnNames)
@@ -48,13 +43,13 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	for i := 0; i < count; i++ {
 		valuePointers[i] = &values[i]
 	}
-	err = results.Scan(valuePointers...)
+	err := results.Scan(valuePointers...)
 	if err != nil {
-		return false, errors.Trace(err)
+		panic(err)
 	}
 	err = results.Err()
 	if err != nil {
-		return false, errors.Trace(err)
+		panic(err)
 	}
 	def()
 	id := uint64(0)
@@ -68,22 +63,19 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	}
 	fillFromDBRow(id, engine, finalValues[1:], entity)
 	if len(references) > 0 {
-		err = warmUpReferences(engine, schema, entity.getORM().attributes.elem, references, false)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
+		warmUpReferences(engine, schema, entity.getORM().attributes.elem, references, false)
 	}
-	return true, nil
+	return true
 }
 
-func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
+func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) int {
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
 	}
 	entities.SetLen(0)
 	entityType, has := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
-		return 0, EntityNotRegisteredError{Name: entities.String()}
+		panic(EntityNotRegisteredError{Name: entities.String()})
 	}
 	schema := getTableSchema(engine.registry, entityType)
 	whereQuery := where.String()
@@ -94,10 +86,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", schema.fieldsQuery, schema.tableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
-	results, def, err := pool.Query(query, where.GetParameters()...)
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
+	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
 
 	count := len(schema.columnNames)
@@ -112,9 +101,9 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	val := valOrigin
 	i := 0
 	for results.Next() {
-		err = results.Scan(valuePointers...)
+		err := results.Scan(valuePointers...)
 		if err != nil {
-			return 0, errors.Trace(err)
+			panic(err)
 		}
 		finalValues := make([]string, count)
 		for i, v := range values {
@@ -126,37 +115,27 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		val = reflect.Append(val, value)
 		i++
 	}
-	err = results.Err()
+	err := results.Err()
 	if err != nil {
-		return 0, errors.Trace(err)
+		panic(err)
 	}
 	def()
-	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, i)
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
+	totalRows := getTotalRows(engine, withCount, pager, where, schema, i)
 	if len(references) > 0 && i > 0 {
-		err = warmUpReferences(engine, schema, val, references, true)
-		if err != nil {
-			return 0, errors.Trace(err)
-		}
+		warmUpReferences(engine, schema, val, references, true)
 	}
 	valOrigin.Set(val)
-	return totalRows, nil
+	return totalRows
 }
 
-func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) (bool, error) {
-	has, err := searchRow(skipFakeDelete, engine, where, entity, references)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return has, nil
+func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) bool {
+	return searchRow(skipFakeDelete, engine, where, entity, references)
 }
 
-func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int, err error) {
+func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int) {
 	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
-		return nil, 0, EntityNotRegisteredError{Name: entityType.String()}
+		panic(EntityNotRegisteredError{Name: entityType.String()})
 	}
 	whereQuery := where.String()
 	if skipFakeDelete && schema.hasFakeDelete {
@@ -167,33 +146,27 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 	query := fmt.Sprintf("SELECT `ID` FROM `%s` WHERE %s %s", schema.tableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
-	results, def, err := pool.Query(query, where.GetParameters()...)
-	if err != nil {
-		return nil, 0, errors.Trace(err)
-	}
+	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
 	result := make([]uint64, 0, pager.GetPageSize())
 	for results.Next() {
 		var row uint64
-		err = results.Scan(&row)
+		err := results.Scan(&row)
 		if err != nil {
-			return nil, 0, errors.Trace(err)
+			panic(err)
 		}
 		result = append(result, row)
 	}
-	err = results.Err()
+	err := results.Err()
 	if err != nil {
-		return nil, 0, errors.Trace(err)
+		panic(err)
 	}
 	def()
-	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, len(result))
-	if err != nil {
-		return nil, 0, errors.Trace(err)
-	}
-	return result, totalRows, nil
+	totalRows := getTotalRows(engine, withCount, pager, where, schema, len(result))
+	return result, totalRows
 }
 
-func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *tableSchema, foundRows int) (int, error) {
+func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *tableSchema, foundRows int) int {
 	totalRows := 0
 	if withCount {
 		totalRows = foundRows
@@ -202,16 +175,13 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.tableName, where)
 			var foundTotal string
 			pool := schema.GetMysql(engine)
-			err := pool.QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
-			if err != nil {
-				return 0, errors.Trace(err)
-			}
+			pool.QueryRow(NewWhere(query, where.GetParameters()...), &foundTotal)
 			totalRows, _ = strconv.Atoi(foundTotal)
 		} else {
 			totalRows += (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 		}
 	}
-	return totalRows, nil
+	return totalRows
 }
 
 func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) {

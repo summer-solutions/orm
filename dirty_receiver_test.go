@@ -28,17 +28,15 @@ func TestDirtyReceiver(t *testing.T) {
 	//engine.EnableDebug()
 
 	engine.Track(entityAll)
-	err := engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	engine.Track(entityAge)
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	receiver := NewDirtyReceiver(engine)
 	receiver.DisableLoop()
 	queueName := "test"
 
-	err = receiver.Digest(queueName, func(data []*DirtyData) error {
+	receiver.Digest(queueName, func(data []*DirtyData) {
 		assert.Len(t, data, 2)
 		assert.Equal(t, uint64(1), data[0].ID)
 		assert.True(t, data[0].Added)
@@ -49,54 +47,43 @@ func TestDirtyReceiver(t *testing.T) {
 		assert.True(t, data[1].Added)
 		assert.False(t, data[1].Updated)
 		assert.False(t, data[1].Deleted)
-		return nil
 	})
-	assert.Nil(t, err)
 
 	engine.Track(entityAll)
 	entityAll.Name = "Name 2"
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
-	err = receiver.Digest(queueName, func(data []*DirtyData) error {
+	receiver.Digest(queueName, func(data []*DirtyData) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "testEntityDirtyQueueAll", data[0].TableSchema.GetTableName())
 		assert.Equal(t, uint64(1), data[0].ID)
 		assert.False(t, data[0].Added)
 		assert.True(t, data[0].Updated)
 		assert.False(t, data[0].Deleted)
-		return nil
 	})
-	assert.Nil(t, err)
 
 	engine.Track(entityAge)
 	entityAge.Age = 10
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
-	err = receiver.Digest(queueName, func(data []*DirtyData) error {
+	receiver.Digest(queueName, func(data []*DirtyData) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "testEntityDirtyQueueAge", data[0].TableSchema.GetTableName())
 		assert.Equal(t, uint64(1), data[0].ID)
 		assert.False(t, data[0].Added)
 		assert.True(t, data[0].Updated)
 		assert.False(t, data[0].Deleted)
-		return nil
 	})
-	assert.Nil(t, err)
 
 	engine.MarkToDelete(entityAge)
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
-	err = receiver.Digest(queueName, func(data []*DirtyData) error {
+	receiver.Digest(queueName, func(data []*DirtyData) {
 		assert.Len(t, data, 1)
 		assert.Equal(t, "testEntityDirtyQueueAge", data[0].TableSchema.GetTableName())
 		assert.Equal(t, uint64(1), data[0].ID)
 		assert.False(t, data[0].Added)
 		assert.False(t, data[0].Updated)
 		assert.True(t, data[0].Deleted)
-		return nil
 	})
-	assert.Nil(t, err)
 }

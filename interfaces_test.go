@@ -26,17 +26,15 @@ func (e *testEntityInterfaces) SetDefaults() {
 	e.ReferenceOne = &testEntityInterfacesRef{ID: 1}
 }
 
-func (e *testEntityInterfaces) AfterSaved(_ *Engine) error {
+func (e *testEntityInterfaces) AfterSaved(_ *Engine) {
 	e.Calculated = int(e.Uint) + int(e.ReferenceOne.ID)
-	return nil
 }
 
 func TestInterfaces(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, testEntityInterfaces{}, testEntityInterfacesRef{})
 
 	e := &testEntityInterfacesRef{}
-	err := engine.TrackAndFlush(e)
-	assert.Nil(t, err)
+	engine.TrackAndFlush(e)
 
 	entity := &testEntityInterfaces{}
 	engine.Track(entity)
@@ -45,13 +43,11 @@ func TestInterfaces(t *testing.T) {
 	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
 
 	entity.Uint = 5
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	assert.Equal(t, 6, entity.Calculated)
 
 	engine.Track(entity)
 	entity.Uint = 10
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	assert.Equal(t, 11, entity.Calculated)
 }

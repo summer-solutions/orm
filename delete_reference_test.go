@@ -3,8 +3,6 @@ package orm
 import (
 	"testing"
 
-	"github.com/juju/errors"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,24 +29,20 @@ func TestDeleteReference(t *testing.T) {
 		testEntityDeleteReferenceRefRestrict{}, testEntityDeleteReferenceRefCascade{})
 	entity1 := &testEntityDeleteReference{}
 	engine.Track(entity1)
-	err := engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	entity2 := &testEntityDeleteReference{}
 	engine.Track(entity2)
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	entityRestrict := &testEntityDeleteReferenceRefRestrict{}
 	engine.Track(entityRestrict)
 	entityRestrict.ReferenceOne = &testEntityDeleteReference{ID: 1}
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
 	engine.MarkToDelete(entity1)
-	err = engine.Flush()
+	err, _ := engine.FlushWithCheck()
 	assert.NotNil(t, err)
-	assert.IsType(t, &ForeignKeyError{}, errors.Cause(err))
-	assert.Equal(t, "test:testEntityDeleteReferenceRefRestrict:ReferenceOne", errors.Cause(err).(*ForeignKeyError).Constraint)
+	assert.Equal(t, "test:testEntityDeleteReferenceRefRestrict:ReferenceOne", err.Constraint)
 	engine.ClearTrackedEntities()
 
 	entityCascade := &testEntityDeleteReferenceRefCascade{}
@@ -57,18 +51,14 @@ func TestDeleteReference(t *testing.T) {
 	engine.Track(entityCascade2)
 	entityCascade.ReferenceOne = &testEntityDeleteReference{ID: 2}
 	entityCascade2.ReferenceOne = &testEntityDeleteReference{ID: 2}
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 	var rows []*testEntityDeleteReferenceRefCascade
-	total, err := engine.CachedSearch(&rows, "IndexReferenceOne", nil, 2)
-	assert.Nil(t, err)
+	total := engine.CachedSearch(&rows, "IndexReferenceOne", nil, 2)
 	assert.Equal(t, 2, total)
 
 	engine.MarkToDelete(entity2)
-	err = engine.Flush()
-	assert.Nil(t, err)
+	engine.Flush()
 
-	total, err = engine.CachedSearch(&rows, "IndexReferenceOne", nil, 2)
-	assert.Nil(t, err)
+	total = engine.CachedSearch(&rows, "IndexReferenceOne", nil, 2)
 	assert.Equal(t, 0, total)
 }

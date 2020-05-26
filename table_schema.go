@@ -66,17 +66,17 @@ func (enum *EnumModel) init(ref interface{}) {
 type TableSchema interface {
 	GetTableName() string
 	GetType() reflect.Type
-	DropTable(engine *Engine) error
-	TruncateTable(engine *Engine) error
-	UpdateSchema(engine *Engine) error
-	UpdateSchemaAndTruncateTable(engine *Engine) error
+	DropTable(engine *Engine)
+	TruncateTable(engine *Engine)
+	UpdateSchema(engine *Engine)
+	UpdateSchemaAndTruncateTable(engine *Engine)
 	GetMysql(engine *Engine) *DB
 	GetLocalCache(engine *Engine) (cache *LocalCache, has bool)
 	GetRedisCache(engine *Engine) (cache *RedisCache, has bool)
 	GetReferences() []string
 	GetColumns() []string
-	GetUsage(registry ValidatedRegistry) (map[reflect.Type][]string, error)
-	GetSchemaChanges(engine *Engine) (has bool, alters []Alter, err error)
+	GetUsage(registry ValidatedRegistry) map[reflect.Type][]string
+	GetSchemaChanges(engine *Engine) (has bool, alters []Alter)
 }
 
 type tableSchema struct {
@@ -134,55 +134,33 @@ func (tableSchema *tableSchema) GetType() reflect.Type {
 	return tableSchema.t
 }
 
-func (tableSchema *tableSchema) DropTable(engine *Engine) error {
+func (tableSchema *tableSchema) DropTable(engine *Engine) {
 	pool := tableSchema.GetMysql(engine)
-	_, err := pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.tableName))
-	return errors.Trace(err)
+	pool.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.tableName))
 }
 
-func (tableSchema *tableSchema) TruncateTable(engine *Engine) error {
+func (tableSchema *tableSchema) TruncateTable(engine *Engine) {
 	pool := tableSchema.GetMysql(engine)
-	_, err := pool.Exec("SET FOREIGN_KEY_CHECKS = 0")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;",
+	_ = pool.Exec("SET FOREIGN_KEY_CHECKS = 0")
+	_ = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;",
 		pool.GetDatabaseName(), tableSchema.tableName))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, err = pool.Exec("SET FOREIGN_KEY_CHECKS = 1")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	_ = pool.Exec("SET FOREIGN_KEY_CHECKS = 1")
 }
 
-func (tableSchema *tableSchema) UpdateSchema(engine *Engine) error {
+func (tableSchema *tableSchema) UpdateSchema(engine *Engine) {
 	pool := tableSchema.GetMysql(engine)
-	has, alters, err := tableSchema.GetSchemaChanges(engine)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	has, alters := tableSchema.GetSchemaChanges(engine)
 	if has {
 		for _, alter := range alters {
-			_, err := pool.Exec(alter.SQL)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			_ = pool.Exec(alter.SQL)
 		}
 	}
-	return nil
 }
 
-func (tableSchema *tableSchema) UpdateSchemaAndTruncateTable(engine *Engine) error {
-	err := tableSchema.UpdateSchema(engine)
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (tableSchema *tableSchema) UpdateSchemaAndTruncateTable(engine *Engine) {
+	tableSchema.UpdateSchema(engine)
 	pool := tableSchema.GetMysql(engine)
-	_, err = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.tableName))
-	return errors.Trace(err)
+	_ = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.tableName))
 }
 
 func (tableSchema *tableSchema) GetMysql(engine *Engine) *DB {
@@ -211,7 +189,7 @@ func (tableSchema *tableSchema) GetColumns() []string {
 	return tableSchema.columnNames
 }
 
-func (tableSchema *tableSchema) GetUsage(registry ValidatedRegistry) (map[reflect.Type][]string, error) {
+func (tableSchema *tableSchema) GetUsage(registry ValidatedRegistry) map[reflect.Type][]string {
 	vRegistry := registry.(*validatedRegistry)
 	results := make(map[reflect.Type][]string)
 	if vRegistry.entities != nil {
@@ -228,14 +206,14 @@ func (tableSchema *tableSchema) GetUsage(registry ValidatedRegistry) (map[reflec
 			}
 		}
 	}
-	return results, nil
+	return results
 }
 
-func (tableSchema *tableSchema) GetSchemaChanges(engine *Engine) (has bool, alters []Alter, err error) {
+func (tableSchema *tableSchema) GetSchemaChanges(engine *Engine) (has bool, alters []Alter) {
 	return getSchemaChanges(engine, tableSchema)
 }
 
-func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema, error) {
+func initTableSchema(registry *Registry, entityType reflect.Type) *tableSchema {
 	tags := extractTags(registry, entityType, "")
 	oneRefs := make([]string, 0)
 	mysql, has := tags["ORM"]["mysql"]
@@ -244,7 +222,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	}
 	_, has = registry.sqlClients[mysql]
 	if !has {
-		return nil, errors.Errorf("unknown mysql pool '%s'", mysql)
+		panic(errors.NotFoundf("mysql pool '%s'", mysql))
 	}
 	table, has := tags["ORM"]["table"]
 	if !has {
@@ -262,7 +240,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	if localCache != "" {
 		_, has = registry.localCacheContainers[localCache]
 		if !has {
-			return nil, errors.Errorf("unknown local cache pool '%s'", localCache)
+			panic(errors.NotFoundf("local cache pool '%s'", localCache))
 		}
 	}
 	userValue, has = tags["ORM"]["redisCache"]
@@ -275,7 +253,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	if redisCache != "" {
 		_, has = registry.redisServers[redisCache]
 		if !has {
-			return nil, errors.Errorf("unknown redis pool '%s'", redisCache)
+			panic(errors.NotFoundf("redis pool '%s'", redisCache))
 		}
 	}
 
@@ -322,7 +300,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 				if has {
 					maxFromUser, err := strconv.Atoi(maxAttribute)
 					if err != nil {
-						return nil, errors.Trace(err)
+						panic(err)
 					}
 					max = maxFromUser
 				}
@@ -386,7 +364,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		hasLog:           logPoolName != "",
 		logPoolName:      logPoolName,
 		logTableName:     fmt.Sprintf("_log_%s_%s", mysql, table)}
-	return tableSchema, nil
+	return tableSchema
 }
 
 func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[string]map[string]string) *tableFields {
