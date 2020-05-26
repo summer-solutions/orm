@@ -109,7 +109,7 @@ func main() {
     
     var parsedYaml map[string]interface{}
     err = yaml.Unmarshal(yamlFileData, &parsedYaml)
-    registry, err := InitByYaml(parsedYaml)
+    registry := InitByYaml(parsedYaml)
 }
 
 ```
@@ -317,7 +317,7 @@ You should also run it once when your application starts.
     // register
     validatedRegistry, err := registry.Validate() 
     engine := validatatedRegistry.CreateEngine()
-    alters, err := engine.GetAlters()
+    alters := engine.GetAlters()
     
     /*optionally you can execute alters for each model*/
     var userEntity UserEntity
@@ -330,7 +330,7 @@ You should also run it once when your application starts.
     tableSchema.DropTable(engine) //it will drop table if exist
     tableSchema.TruncateTable(engine)
     tableSchema.UpdateSchemaAndTruncateTable(engine)
-    has, alters, err := tableSchema.GetSchemaChanges(engine)
+    has, alters := tableSchema.GetSchemaChanges(engine)
 
     /*getting table structure*/
     db := tableSchema.GetMysql(engine)
@@ -355,40 +355,41 @@ func main() {
      /* adding */
 
     entity := testEntity{Name: "Name 1"}
-    err := engine.TrackAndFlush(&entity)
+    engine.TrackAndFlush(&entity)
 
     entity2 := testEntity{Name: "Name 1"}
     engine.SetOnDuplicateKeyUpdate(NewWhere("`counter` = `counter` + 1"))
-    err := engine.TrackAndFlush(&entity)
+    engine.TrackAndFlush(&entity)
 
     entity2 = testEntity{Name: "Name 1"}
-    engine.SetOnDuplicateKeyUpdate(NewWhere("")) //it will chnage nothing un row
-    err := engine.TrackAndFlush(&entity)
+    engine.SetOnDuplicateKeyUpdate(NewWhere("")) //it will change nothing un row
+    engine.TrackAndFlush(&entity)
 
     /*if you need to add more than one entity*/
     entity = testEntity{Name: "Name 2"}
     entity2 := testEntity{Name: "Name 3"}
     engine.Track(&entity, &entity2) //it will also automatically run RegisterEntity()
     //it will execute only one query in MySQL adding two rows at once (atomic)
-    err = engine.Flush()
+    engine.Flush()
  
     /* editing */
 
     engine.Track(&entity, &entity2)
     entity.Name = "New name 2"
     //you can also use (but it's slower):
-    err = entity.SetField("Name", "New name 2")
+    entity.SetField("Name", "New name 2")
     engine.IsDirty(entity) //returns true
     engine.IsDirty(entity2) //returns false
-    err = entity.Flush() //it will save data in DB for all dirty tracked entities and untrack all of them
+    entity.Flush() //it will save data in DB for all dirty tracked entities and untrack all of them
     engine.IsDirty(entity) //returns false
     
     /* deleting */
     engine.MarkToDelete(entity2)
     engine.IsDirty(entity2) //returns true
-    err = engine.Flush()
+    engine.Flush()
 
-    /* flush can return 2 special errors */
+    /* flush will panic if there is any error. You can catch 2 special errors using this methid  */
+    foreighKeyError, cuplicatedKeyError := engine.FlushWithCheck()
     DuplicatedKeyError{} //when unique index is broken
     ForeignKeyError{} //when foreign key is broken
 }
@@ -408,11 +409,11 @@ func main() {
     engine.Track(&entity, &entity2)
 
     // DB transcation
-    err = engine.FlushInTransaction()
+    engine.FlushInTransaction()
     // or redis lock
-    err = engine.FlushWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
+    engine.FlushWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
     // or DB transcation nad redis lock
-    err = engine.FlushInTransactionWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
+    engine.FlushInTransactionWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
  
     //manual transaction
     db := engine.GetMysql()
@@ -432,10 +433,10 @@ import "github.com/summer-solutions/orm"
 func main() {
 
     var entity testEntity
-    has, err := engine.LoadByID(1, &entity)
+    has := engine.LoadByID(1, &entity)
 
     var entities []*testEntity
-    missing, err := engine.LoadByIDs([]uint64{1, 3, 4}, &entities) //missing contains IDs that are missing in database
+    missing := engine.LoadByIDs([]uint64{1, 3, 4}, &entities) //missing contains IDs that are missing in database
 
 }
 
@@ -453,21 +454,21 @@ func main() {
     var entities []*testEntity
     pager := Pager{CurrentPage: 1, PageSize: 100}
     where := NewWhere("`ID` > ? AND `ID` < ?", 1, 8)
-    err := engine.Search(where, pager, &entities)
+    engine.Search(where, pager, &entities)
     
     //or if you need number of total rows
-    totalRows, err := engine.SearchWithCount(where, pager, &entities)
+    totalRows := engine.SearchWithCount(where, pager, &entities)
     
     //or if you need only one row
     where := NewWhere("`Name` = ?", "Hello")
     var entity testEntity
-    found, err := engine.SearchOne(where, &entity)
+    found := engine.SearchOne(where, &entity)
     
     //or if you need only primary keys
-    ids, err := engine.SearchIDs(where, pager, entity)
+    ids := engine.SearchIDs(where, pager, entity)
     
     //or if you need only primary keys and total rows
-    ids, totalRows, err = engine.SearchIDsWithCount(where, pager, entity)
+    ids, totalRows = engine.SearchIDsWithCount(where, pager, entity)
 }
 
 ```
@@ -513,12 +514,12 @@ func main() {
 
     // loading references: 
 
-    _, err = engine.LoadById(1, &user)
+    _ = engine.LoadById(1, &user)
     user.School != nil //returns true, School has ID: 1 but other fields are nof filled
     user.School.ID == 1 //true
     user.School.Loaded() //false
     user.Name == "" //true
-    err = user.School.Load(engine) //it will load school from db
+    user.School.Load(engine) //it will load school from db
     user.School.Loaded() //now it's true, you can access school fields like user.School.Name
     user.Name == "Name of school" //true
     
@@ -571,9 +572,9 @@ func main() {
     pager := &Pager{CurrentPage: 1, PageSize: 100}
     var users []*UserEntity
     var user  UserEntity
-    totalRows, err := engine.CachedSearch(&users, "IndexAge", pager, 18)
-    totalRows, err = engine.CachedSearch(&users, "IndexAll", pager)
-    has, err := engine.CachedSearchOne(&user, "IndexName", "John")
+    totalRows := engine.CachedSearch(&users, "IndexAge", pager, 18)
+    totalRows = engine.CachedSearch(&users, "IndexAll", pager)
+    has := engine.CachedSearchOne(&user, "IndexName", "John")
 
 }
 
@@ -602,7 +603,7 @@ func main() {
     
     receiver := NewLazyReceiver(engine)
     //optionally 
-    err := receiver.Digest() //It will wait for new messages in queue, run receiver.DisableLoop() to run loop once
+    receiver.Digest() //It will wait for new messages in queue, run receiver.DisableLoop() to run loop once
 }
 
 ```
@@ -640,7 +641,7 @@ func main() {
     engine.SetEntityLogMeta("user_name", "john", entity)
     
     receiver := NewLogReceiver(engine)
-    err := receiver.Digets() //it will wait for new messages in queue
+    receiver.Digets() //it will wait for new messages in queue
 }
 
 ```
@@ -676,7 +677,7 @@ func main() {
     receiver := NewDirtyReceiver(engine)
     
     // in this case data length is max 100
-    err := receiver.Digest("user_changed", func(data []*DirtyData) error {
+    receiver.Digest("user_changed", func(data []*DirtyData) {
         for _, item := range data {
             // data.TableSchema is TableSchema of entity
             // data.ID has entity ID
@@ -684,7 +685,6 @@ func main() {
             // data.Updated is true if entity was updated
             // data.Deleted is true if entity was deleted
         }
-        return nil
     })
 }
 
@@ -780,13 +780,13 @@ func main() {
     config.RegisterRedis("localhost:6379", 0)
     
     //storing data in cached for x seconds
-    val, err := engine.GetRedis().GetSet("key", 1, func() interface{} {
+    val := engine.GetRedis().GetSet("key", 1, func() interface{} {
 		return "hello"
 	})
     
     //standard redis api
-    keys, err := engine.GetRedis().LRange("key", 1, 2)
-    err = engine.GetRedis().LPush("key", "a", "b")
+    keys := engine.GetRedis().LRange("key", 1, 2)
+    engine.GetRedis().LPush("key", "a", "b")
     //...
 }
 
@@ -852,18 +852,12 @@ func main() {
     // register mysql pool
     registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
 
-    res, err := engine.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `ID` = ?", "Hello", 2)
+    res := engine.GetMysql().Exec("UPDATE `table_name` SET `Name` = ? WHERE `ID` = ?", "Hello", 2)
 
     var row string
-    err = engine.GetMysql().QueryRow("SELECT * FROM `table_name` WHERE  `ID` = ?", 1).Scan(&row)
-    if err != nil {
-        if err != sql.ErrNoRows {
-            ///...
-        }
-        //no row found
-    }
+    found := engine.GetMysql().QueryRow(orm.NewWhere("SELECT * FROM `table_name` WHERE  `ID` = ?", 1), &row)
     
-    results, def, err := engine.GetMysql().Query("SELECT * FROM `table_name` WHERE  `ID` > ? LIMIT 100", 1)
+    results, def := engine.GetMysql().Query("SELECT * FROM `table_name` WHERE  `ID` > ? LIMIT 100", 1)
     //handle err
     defer def()
     for results.Next() {
@@ -893,15 +887,13 @@ func main() {
     registry.RegisterLocker("default", "my_pool")
     
     locker, _ := engine.GetLocker()
-    lock, err := locker.Obtain("my_lock", 5 * Time.Second, 1 * Time.Second)
-    if err != nil {
-        panic(err)
-    }
+    lock := locker.Obtain("my_lock", 5 * Time.Second, 1 * Time.Second)
+
     defer lock.Release()
     
     // do smth
     
-    ttl, err := lock.TTL()
+    ttl := lock.TTL()
     if ttl == 0 {
         panic("lock lost")
     }
@@ -934,39 +926,37 @@ func main() {
     //Simple queue
     channel := engine.GetRabbitMQQueue("test_queue") //provide Queue name
     defer channel.Close()
-    err = channel.Publish([]byte("hello"))
+    channel.Publish([]byte("hello"))
 
     //start consumer (you can add as many you want)
     consumer, err := channel.NewConsumer("test consumer")
     defer consumer.Close()
-    err := consumer.Consume(func(items [][]byte) error {
+    consumer.Consume(func(items [][]byte) {
     	//do staff
-    	return nil   
     })
 
     //Delayed queue
     channel := engine.GetRabbitMQDelayedQueue("test_queue_delayed") //provide Queue name
     defer channel.Close()
-    err = channel.Publish([]byte("hello"), time.Minute * 10)
+    channel.Publish([]byte("hello"), time.Minute * 10)
 
     //start consumer (you can add as many you want)
-    consumer, err := channel.NewConsumer("test consumer")
+    consumer := channel.NewConsumer("test consumer")
     defer consumer.Close()
-    err := consumer.Consume(func(items [][]byte) error {
+    consumer.Consume(func(items [][]byte) {
         //do staff
-    	return nil
     })
     
     // publish to router
 
     channel = engine.GetRabbitMQRouter("test_queue_router") 
     defer channel.Close()
-    err = channel.Publish("router.key", []byte("hello"))
+    channel.Publish("router.key", []byte("hello"))
 
     //start consumer
-   consumer, err := channel.NewConsumer("test consumer")
+   consumer := channel.NewConsumer("test consumer")
    defer consumer.Close()
-   err := consumer.Consume(func(items [][]byte) error {
+   consumer.Consume(func(items [][]byte) {
         //do staff
         return nil
    })
