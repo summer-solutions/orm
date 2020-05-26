@@ -10,6 +10,7 @@ const lazyQueueName = "lazy_queue"
 type LazyReceiver struct {
 	engine      *Engine
 	disableLoop bool
+	heartBeat   func()
 }
 
 func NewLazyReceiver(engine *Engine) *LazyReceiver {
@@ -18,6 +19,10 @@ func NewLazyReceiver(engine *Engine) *LazyReceiver {
 
 func (r *LazyReceiver) DisableLoop() {
 	r.disableLoop = true
+}
+
+func (r *LazyReceiver) SetHeartBeat(beat func()) {
+	r.heartBeat = beat
 }
 
 func (r *LazyReceiver) Digest() error {
@@ -29,6 +34,9 @@ func (r *LazyReceiver) Digest() error {
 	defer consumer.Close()
 	if r.disableLoop {
 		consumer.DisableLoop()
+	}
+	if r.heartBeat != nil {
+		consumer.SetHeartBeat(r.heartBeat)
 	}
 	var data interface{}
 	err = consumer.Consume(func(items [][]byte) error {

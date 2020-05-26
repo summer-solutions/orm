@@ -152,6 +152,7 @@ func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
 		return &workSpan{}
 	}
 	span, _ := tracer.StartSpanFromContext(dd.ctx, name)
+	span.SetTag(ext.AnalyticsEvent, false)
 	return &workSpan{span}
 }
 

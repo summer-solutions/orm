@@ -13,10 +13,15 @@ type LogReceiver struct {
 	engine      *Engine
 	disableLoop bool
 	Logger      func(log *LogQueueValue) error
+	heartBeat   func()
 }
 
 func NewLogReceiver(engine *Engine) *LogReceiver {
 	return &LogReceiver{engine: engine}
+}
+
+func (r *LogReceiver) SetHeartBeat(beat func()) {
+	r.heartBeat = beat
 }
 
 func (r *LogReceiver) DisableLoop() {
@@ -32,6 +37,9 @@ func (r *LogReceiver) Digest() error {
 	defer consumer.Close()
 	if r.disableLoop {
 		consumer.DisableLoop()
+	}
+	if r.heartBeat != nil {
+		consumer.SetHeartBeat(r.heartBeat)
 	}
 	var value LogQueueValue
 	err = consumer.Consume(func(items [][]byte) error {

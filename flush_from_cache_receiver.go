@@ -16,6 +16,7 @@ const flushCacheQueueName = "orm_flush_cache"
 type FlushFromCacheReceiver struct {
 	engine      *Engine
 	disableLoop bool
+	heartBeat   func()
 }
 
 func NewFlushFromCacheReceiver(engine *Engine) *FlushFromCacheReceiver {
@@ -24,6 +25,10 @@ func NewFlushFromCacheReceiver(engine *Engine) *FlushFromCacheReceiver {
 
 func (r *FlushFromCacheReceiver) DisableLoop() {
 	r.disableLoop = true
+}
+
+func (r *FlushFromCacheReceiver) SetHeartBeat(beat func()) {
+	r.heartBeat = beat
 }
 
 func (r *FlushFromCacheReceiver) Digest() error {
@@ -35,6 +40,9 @@ func (r *FlushFromCacheReceiver) Digest() error {
 	defer consumer.Close()
 	if r.disableLoop {
 		consumer.DisableLoop()
+	}
+	if r.heartBeat != nil {
+		consumer.SetHeartBeat(r.heartBeat)
 	}
 	err = consumer.Consume(func(items [][]byte) error {
 		for _, item := range items {

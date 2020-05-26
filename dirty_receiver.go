@@ -9,6 +9,7 @@ import (
 type DirtyReceiver struct {
 	engine      *Engine
 	disableLoop bool
+	heartBeat   func()
 }
 
 type DirtyQueueValue struct {
@@ -35,6 +36,10 @@ func (r *DirtyReceiver) DisableLoop() {
 	r.disableLoop = true
 }
 
+func (r *DirtyReceiver) SetHeartBeat(beat func()) {
+	r.heartBeat = beat
+}
+
 type DirtyHandler func(data []*DirtyData) error
 
 func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) error {
@@ -46,6 +51,9 @@ func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) error {
 	defer consumer.Close()
 	if r.disableLoop {
 		consumer.DisableLoop()
+	}
+	if r.heartBeat != nil {
+		consumer.SetHeartBeat(r.heartBeat)
 	}
 	var value DirtyQueueValue
 	err = consumer.Consume(func(items [][]byte) error {

@@ -30,6 +30,7 @@ type RabbitMQConsumer interface {
 	Close()
 	Consume(handler func(items [][]byte) error) error
 	DisableLoop()
+	SetHeartBeat(beat func())
 }
 
 type rabbitMQReceiver struct {
