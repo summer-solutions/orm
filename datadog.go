@@ -81,7 +81,6 @@ type APM interface {
 type HTTPAPM interface {
 	APM
 	SetResponseStatus(status int)
-	GetContext() context.Context
 }
 
 type apm struct {
@@ -123,8 +122,8 @@ func (s *httpAPM) SetResponseStatus(status int) {
 	s.status = status
 }
 
-func (s *httpAPM) GetContext() context.Context {
-	return s.engine.dataDog.ctx
+func (dd *dataDog) GetContext() context.Context {
+	return dd.ctx
 }
 
 func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environment string) HTTPAPM {
