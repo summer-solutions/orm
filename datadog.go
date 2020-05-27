@@ -38,6 +38,7 @@ type DataDog interface {
 	DropAPM()
 	SetAPMTag(key string, value interface{})
 	StartWorkSpan(name string) WorkSpan
+	GetContext() context.Context
 }
 
 type WorkSpan interface {
