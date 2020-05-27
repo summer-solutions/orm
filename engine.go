@@ -85,9 +85,8 @@ func (e *Engine) Flush() {
 	e.flushTrackedEntities(false, false)
 }
 
-func (e *Engine) FlushWithCheck() (*ForeignKeyError, *DuplicatedKeyError) {
-	var err1 *ForeignKeyError
-	var err2 *DuplicatedKeyError
+func (e *Engine) FlushWithCheck() error {
+	var err error
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -98,12 +97,12 @@ func (e *Engine) FlushWithCheck() (*ForeignKeyError, *DuplicatedKeyError) {
 				source := errors.Cause(asErr)
 				assErr1, is := source.(*ForeignKeyError)
 				if is {
-					err1 = assErr1
+					err = assErr1
 					return
 				}
 				assErr2, is := source.(*DuplicatedKeyError)
 				if is {
-					err2 = assErr2
+					err = assErr2
 					return
 				}
 				panic(r)
@@ -111,14 +110,7 @@ func (e *Engine) FlushWithCheck() (*ForeignKeyError, *DuplicatedKeyError) {
 		}()
 		e.flushTrackedEntities(false, false)
 	}()
-	if err1 != nil && err2 != nil {
-		return err1, err2
-	} else if err1 != nil {
-		return err1, nil
-	} else if err2 != nil {
-		return nil, err2
-	}
-	return nil, nil
+	return err
 }
 
 func (e *Engine) FlushLazy() {

@@ -417,10 +417,10 @@ func main() {
     engine.IsDirty(entity2) //returns true
     engine.Flush()
 
-    /* flush will panic if there is any error. You can catch 2 special errors using this methid  */
-    foreighKeyError, cuplicatedKeyError := engine.FlushWithCheck()
-    DuplicatedKeyError{} //when unique index is broken
-    ForeignKeyError{} //when foreign key is broken
+    /* flush will panic if there is any error. You can catch 2 special errors using this method  */
+    err := engine.FlushWithCheck()
+    orm.DuplicatedKeyError{} //when unique index is broken
+    orm.ForeignKeyError{} //when foreign key is broken
 }
 ```
 

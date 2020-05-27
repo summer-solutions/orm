@@ -40,9 +40,9 @@ func TestDeleteReference(t *testing.T) {
 	engine.Flush()
 
 	engine.MarkToDelete(entity1)
-	err, _ := engine.FlushWithCheck()
+	err := engine.FlushWithCheck()
 	assert.NotNil(t, err)
-	assert.Equal(t, "test:testEntityDeleteReferenceRefRestrict:ReferenceOne", err.Constraint)
+	assert.Equal(t, "test:testEntityDeleteReferenceRefRestrict:ReferenceOne", err.(*ForeignKeyError).Constraint)
 	engine.ClearTrackedEntities()
 
 	entityCascade := &testEntityDeleteReferenceRefCascade{}

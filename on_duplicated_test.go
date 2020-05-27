@@ -24,7 +24,7 @@ func TestFlushOnDuplicated(t *testing.T) {
 
 	entity = testEntityOnDuplicated{Name: "test"}
 	engine.Track(&entity)
-	_, err := engine.FlushWithCheck()
+	err := engine.FlushWithCheck()
 	assert.EqualError(t, err, "Duplicate entry 'test' for key 'NameIndex'")
 	engine.ClearTrackedEntities()
 

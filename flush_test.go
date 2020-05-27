@@ -190,9 +190,9 @@ func TestFlushErrors(t *testing.T) {
 	engine.Track(entity)
 
 	entity.ReferenceOne = &testEntityErrors{ID: 2}
-	err, _ := engine.FlushWithCheck()
+	err := engine.FlushWithCheck()
 	assert.NotNil(t, err)
-	assert.Equal(t, "test:testEntityErrors:ReferenceOne", err.Constraint)
+	assert.Equal(t, "test:testEntityErrors:ReferenceOne", err.(*ForeignKeyError).Constraint)
 	assert.Equal(t, "Cannot add or update a child row: a foreign key constraint fails (`test`.`testEntityErrors`, CONSTRAINT `test:testEntityErrors:ReferenceOne` FOREIGN KEY (`ReferenceOne`) REFERENCES `testEntityErrors` (`ID`))", err.Error())
 	engine.ClearTrackedEntities()
 
@@ -202,8 +202,8 @@ func TestFlushErrors(t *testing.T) {
 
 	entity = &testEntityErrors{Name: "Name"}
 	engine.Track(entity)
-	_, duplicatedError := engine.FlushWithCheck()
+	duplicatedError := engine.FlushWithCheck()
 	assert.NotNil(t, duplicatedError)
-	assert.Equal(t, "NameIndex", duplicatedError.Index)
+	assert.Equal(t, "NameIndex", duplicatedError.(*DuplicatedKeyError).Index)
 	assert.Equal(t, "Duplicate entry 'Name' for key 'NameIndex'", duplicatedError.Error())
 }
