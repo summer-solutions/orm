@@ -24,7 +24,7 @@ import (
 type dataDog struct {
 	engine   *Engine
 	span     tracer.Span
-	ctx      context.Context
+	ctx      []context.Context
 	hasError bool
 	counters map[string]uint
 }
@@ -38,7 +38,6 @@ type DataDog interface {
 	DropAPM()
 	SetAPMTag(key string, value interface{})
 	StartWorkSpan(name string) WorkSpan
-	GetContext() context.Context
 }
 
 type WorkSpan interface {
@@ -47,12 +46,14 @@ type WorkSpan interface {
 }
 
 type workSpan struct {
-	span tracer.Span
+	span   tracer.Span
+	engine *Engine
 }
 
 func (s *workSpan) Finish() {
 	if s.span != nil {
 		s.span.Finish()
+		s.engine.dataDog.ctx = s.engine.dataDog.ctx[:len(s.engine.dataDog.ctx)-1]
 	}
 }
 
@@ -71,7 +72,7 @@ func (dd *dataDog) StartAPM(service string, environment string) APM {
 	span.SetTag(ext.AnalyticsEvent, true)
 	span.SetTag(ext.Environment, environment)
 	dd.span = span
-	dd.ctx = ctx
+	dd.ctx = []context.Context{ctx}
 	return &apm{engine: dd.engine}
 }
 
@@ -123,10 +124,6 @@ func (s *httpAPM) SetResponseStatus(status int) {
 	s.status = status
 }
 
-func (dd *dataDog) GetContext() context.Context {
-	return dd.ctx
-}
-
 func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environment string) HTTPAPM {
 	resource := request.Method + " " + request.URL.Path
 	opts := []ddtrace.StartSpanOption{
@@ -148,7 +145,7 @@ func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environme
 	}
 	span.SetTag(ext.Environment, environment)
 	dd.span = span
-	dd.ctx = ctx
+	dd.ctx = []context.Context{ctx}
 	return &httpAPM{apm{engine: dd.engine}, 0}
 }
 
@@ -156,9 +153,10 @@ func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
 	if dd.span == nil {
 		return &workSpan{}
 	}
-	span, _ := tracer.StartSpanFromContext(dd.ctx, name)
+	span, ctx := tracer.StartSpanFromContext(dd.ctx[len(dd.ctx)-1], name)
+	dd.ctx = append(dd.ctx, ctx)
 	span.SetTag(ext.AnalyticsEvent, false)
-	return &workSpan{span}
+	return &workSpan{span, dd.engine}
 }
 
 func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source ...LoggerSource) {
@@ -170,11 +168,11 @@ func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source .
 	}
 	for _, s := range source {
 		if s == LoggerSourceDB {
-			dd.engine.AddLogger(newDBDataDogHandler(dd.ctx, withAnalytics, dd.engine), level, s)
+			dd.engine.AddLogger(newDBDataDogHandler(withAnalytics, dd.engine), level, s)
 		} else if s == LoggerSourceRabbitMQ {
-			dd.engine.AddLogger(newRabbitMQDataDogHandler(dd.ctx, withAnalytics, dd.engine), level, s)
+			dd.engine.AddLogger(newRabbitMQDataDogHandler(withAnalytics, dd.engine), level, s)
 		} else if s == LoggerSourceRedis {
-			dd.engine.AddLogger(newRedisDataDogHandler(dd.ctx, withAnalytics, dd.engine), level, s)
+			dd.engine.AddLogger(newRedisDataDogHandler(withAnalytics, dd.engine), level, s)
 		}
 	}
 }

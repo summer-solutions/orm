@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"context"
 	"strings"
 	"time"
 
@@ -35,18 +34,17 @@ func (e *Engine) newLogger(handler log.Handler, level log.Level) *logger {
 }
 
 type dbDataDogHandler struct {
-	ctx           context.Context
 	withAnalytics bool
 	engine        *Engine
 }
 
-func newDBDataDogHandler(ctx context.Context, withAnalytics bool, engine *Engine) *dbDataDogHandler {
-	return &dbDataDogHandler{ctx, withAnalytics, engine}
+func newDBDataDogHandler(withAnalytics bool, engine *Engine) *dbDataDogHandler {
+	return &dbDataDogHandler{withAnalytics, engine}
 }
 
 func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 	started := time.Unix(0, e.Fields.Get("started").(int64))
-	span, _ := tracer.StartSpanFromContext(h.ctx, "mysql.query", tracer.StartTime(started))
+	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], "mysql.query", tracer.StartTime(started))
 	queryType := e.Fields.Get("type")
 	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
 	span.SetTag(ext.ServiceName, "mysql.db."+e.Fields.Get("pool").(string))
@@ -62,19 +60,18 @@ func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
 }
 
 type rabbitMQDataDogHandler struct {
-	ctx           context.Context
 	withAnalytics bool
 	engine        *Engine
 }
 
-func newRabbitMQDataDogHandler(ctx context.Context, withAnalytics bool, engine *Engine) *rabbitMQDataDogHandler {
-	return &rabbitMQDataDogHandler{ctx, withAnalytics, engine}
+func newRabbitMQDataDogHandler(withAnalytics bool, engine *Engine) *rabbitMQDataDogHandler {
+	return &rabbitMQDataDogHandler{withAnalytics, engine}
 }
 
 func (h *rabbitMQDataDogHandler) HandleLog(e *log.Entry) error {
 	started := time.Unix(0, e.Fields.Get("started").(int64))
 	operationName := e.Fields.Get("operation").(string)
-	span, _ := tracer.StartSpanFromContext(h.ctx, operationName, tracer.StartTime(started))
+	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], operationName, tracer.StartTime(started))
 	span.SetTag(ext.SpanType, ext.AppTypeDB)
 	span.SetTag(ext.ServiceName, "rabbitMQ.default")
 	queue := e.Fields.Get("Queue")
@@ -96,19 +93,18 @@ func (h *rabbitMQDataDogHandler) HandleLog(e *log.Entry) error {
 }
 
 type redisDataDogHandler struct {
-	ctx           context.Context
 	withAnalytics bool
 	engine        *Engine
 }
 
-func newRedisDataDogHandler(ctx context.Context, withAnalytics bool, engine *Engine) *redisDataDogHandler {
-	return &redisDataDogHandler{ctx, withAnalytics, engine}
+func newRedisDataDogHandler(withAnalytics bool, engine *Engine) *redisDataDogHandler {
+	return &redisDataDogHandler{withAnalytics, engine}
 }
 
 func (h *redisDataDogHandler) HandleLog(e *log.Entry) error {
 	started := time.Unix(0, e.Fields.Get("started").(int64))
 	operation := e.Fields.Get("operation").(string)
-	span, _ := tracer.StartSpanFromContext(h.ctx, operation, tracer.StartTime(started))
+	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], operation, tracer.StartTime(started))
 	span.SetTag(ext.SpanType, ext.SpanTypeRedis)
 	span.SetTag(ext.ServiceName, "redis."+e.Fields.Get("pool").(string))
 	span.SetTag(ext.ResourceName, operation)
