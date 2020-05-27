@@ -16,6 +16,34 @@ ORM that delivers support for full stack data access:
  * ClickHouse - time series database
  * RabbitMQ - message broker 
  * DataDog - monitoring
+ 
+Menu:
+
+ * [Configuration](https://github.com/summer-solutions/orm#configuration) 
+ * [Defining entities](https://github.com/summer-solutions/orm#defining-entities) 
+ * [Creating registry](https://github.com/summer-solutions/orm#validated-registry) 
+ * [Creating engine](https://github.com/summer-solutions/orm#creating-engine) 
+ * [Checking and updating table schema](https://github.com/summer-solutions/orm#checking-and-updating-table-schema) 
+ * [Adding, editing, deleting entities](https://github.com/summer-solutions/orm#adding-editing-deleting-entities) 
+ * [Transactions](https://github.com/summer-solutions/orm#transactions) 
+ * [Loading entities using primary key](https://github.com/summer-solutions/orm#loading-entities-using-primary-key) 
+ * [Loading entities using search](https://github.com/summer-solutions/orm#loading-entities-using-search) 
+ * [Reference one to one](https://github.com/summer-solutions/orm#reference-one-to-one) 
+ * [Cached queries](https://github.com/summer-solutions/orm#cached-queries) 
+ * [Lazy flush](https://github.com/summer-solutions/orm#lazy-flush) 
+ * [Log entity changes](https://github.com/summer-solutions/orm#log-entity-changes) 
+ * [Dirty queues](https://github.com/summer-solutions/orm#dirty-queues) 
+ * [Set defaults](https://github.com/summer-solutions/orm#set-defaults) 
+ * [Fake delete](https://github.com/summer-solutions/orm#fake-delete) 
+ * [After saved](https://github.com/summer-solutions/orm#after-saved) 
+ * [Working with Redis](https://github.com/summer-solutions/orm#working-with-redis) 
+ * [Working with local cache](https://github.com/summer-solutions/orm#working-with-local-cache) 
+ * [Working with mysql](https://github.com/summer-solutions/orm#working-with-mysql) 
+ * [Working with Locker](https://github.com/summer-solutions/orm#working-with-locker) 
+ * [Working with RabbitMQ](https://github.com/summer-solutions/orm#working-with-rabbitmq) 
+ * [Logging](https://github.com/summer-solutions/orm#logging) 
+ * [DataDog Profiler](https://github.com/summer-solutions/orm#datadog-profiler) 
+ * [DataDog APM](https://github.com/summer-solutions/orm#datadog-apm) 
 
 ## Configuration
 
