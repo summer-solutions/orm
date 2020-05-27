@@ -111,7 +111,14 @@ func (e *Engine) FlushWithCheck() (*ForeignKeyError, *DuplicatedKeyError) {
 		}()
 		e.flushTrackedEntities(false, false)
 	}()
-	return err1, err2
+	if err1 != nil && err2 != nil {
+		return err1, err2
+	} else if err1 != nil {
+		return err1, nil
+	} else if err2 != nil {
+		return nil, err2
+	}
+	return nil, nil
 }
 
 func (e *Engine) FlushLazy() {
