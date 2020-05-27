@@ -43,9 +43,7 @@ func TestLog(t *testing.T) {
 	}
 	getLogs := func() []*logRow {
 		rows, def := logDB.Query("SELECT * FROM `_log_default_testEntityLog` ORDER BY `ID`")
-		if def != nil {
-			defer def()
-		}
+		defer def()
 		logs := make([]*logRow, 0)
 		for rows.Next() {
 			l := &logRow{}
