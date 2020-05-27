@@ -33,8 +33,7 @@ type DataDog interface {
 	StartAPM(service string, environment string) APM
 	StartHTTPAPM(request *http.Request, service string, environment string) HTTPAPM
 	EnableORMAPMLog(level log.Level, withAnalytics bool, source ...LoggerSource)
-	RegisterAPMError(err error)
-	RegisterAPMRecovery(err interface{})
+	RegisterAPMError(err interface{})
 	DropAPM()
 	SetAPMTag(key string, value interface{})
 	StartWorkSpan(name string) WorkSpan
@@ -177,30 +176,13 @@ func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source .
 	}
 }
 
-func (dd *dataDog) RegisterAPMError(err error) {
-	if dd.span == nil {
-		return
-	}
-	stackParts := strings.Split(errors.ErrorStack(err), "\n")
-	details := strings.Join(stackParts[1:], "\n")
-	lines := strings.Split(string(debug.Stack()), "\n")[2:]
-	fullStack := strings.Join(lines, "\n")
-	dd.span.SetTag(ext.Error, true)
-	dd.span.SetTag(ext.ErrorMsg, err.Error())
-	dd.span.SetTag(ext.ErrorDetails, details)
-	dd.span.SetTag(ext.ErrorStack, fullStack)
-	dd.span.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
-	dd.hasError = true
-	dd.span.SetTag(ext.ManualKeep, true)
-}
-
-func (dd *dataDog) RegisterAPMRecovery(err interface{}) {
+func (dd *dataDog) RegisterAPMError(err interface{}) {
 	if dd.span == nil {
 		return
 	}
 	asErr, ok := err.(error)
 	if ok {
-		dd.RegisterAPMError(asErr)
+		dd.registerAPMError(asErr)
 		return
 	}
 	lines := strings.Split(string(debug.Stack()), "\n")[2:]
@@ -237,6 +219,23 @@ func (dd *dataDog) incrementCounter(key string, value uint) {
 		}
 		dd.counters[key] = value
 	}
+}
+
+func (dd *dataDog) registerAPMError(err error) {
+	if dd.span == nil {
+		return
+	}
+	stackParts := strings.Split(errors.ErrorStack(err), "\n")
+	details := strings.Join(stackParts[1:], "\n")
+	lines := strings.Split(string(debug.Stack()), "\n")[2:]
+	fullStack := strings.Join(lines, "\n")
+	dd.span.SetTag(ext.Error, true)
+	dd.span.SetTag(ext.ErrorMsg, err.Error())
+	dd.span.SetTag(ext.ErrorDetails, details)
+	dd.span.SetTag(ext.ErrorStack, fullStack)
+	dd.span.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
+	dd.hasError = true
+	dd.span.SetTag(ext.ManualKeep, true)
 }
 
 func StartDataDogTracer(rate float64) (def func()) {

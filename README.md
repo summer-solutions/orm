@@ -15,6 +15,7 @@ ORM that delivers support for full stack data access:
  * Local Cache - in memory local (not shared) cache
  * ClickHouse - time series database
  * RabbitMQ - message broker 
+ * DataDog - monitoring
 
 ## Configuration
 
@@ -984,5 +985,150 @@ func main() {
     //adding custom logger example:
     engine.AddLogger(json.New(os.Stdout), log.LevelWarn) //MySQL, redis, rabbitMQ warnings and above
     engine.AddLogger(es.New(os.Stdout), log.LevelError, orm.LoggerSourceRedis, orm. LoggerSourceRabbitMQ)
+}    
+```
+
+## DataDog Profiler
+
+To enable DataDog profiler simply add two lines of code in your main function.
+Provide your service name, datadog API key, environment name (production, test, ..n) and
+interval how often system should send profiler data to Datadog 
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+	
+    def := orm.StartDataDogProfiler("my-app-name", "DATADOG-API-KEY", "production", time.Minute)
+    defer def()
+
+}    
+```
+
+## DataDog APM
+
+First you need to register it in your main function
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+    
+   //provide rate, 1 - 100% traces are reported, 0.1 - 10% traces are reported (and all with errors)
+   // if you provide zero only traces with errors will be reported
+   def := orm.StartDataDogTracer(1.0) 
+   defer def()
+
+}    
+```
+
+Start trace for HTTP request. Example in Gin framework:
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+    
+    router := gin.New()
+    //you should define it as first middleware
+    router.Use(func(c *gin.Context) {
+        engine := // create orm.Engine
+        apm := engine.DataDog().StartHTTPAPM(c.Request, "my-app-name", "production")
+        defer apm.Finish()
+    
+        //optionally enable ORM APM services
+        engine.DataDog().EnableORMAPMLog(log.InfoLevel, true) //log ORM requests (MySQl, RabbitMQ, Redis queries) as services
+
+        c.Next()
+        apm.SetResponseStatus(c.Writer.Status())
+    })
+
+}    
+```
+
+Start trace in scripts (for example in cron scripts):
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+    
+    apm := engine.DataDog().StartAPM("my-script-name", "production")
+    defer apm.Finish()
+    //optionally enable ORM APM services
+    engine.DataDog().EnableORMAPMLog(log.InfoLevel, true)
+    //execute your code
+}    
+```
+
+Start trace in intermediate scripts:
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+    
+    engine := //
+    apm := engine.DataDog().StartAPM("my-script-name", "production")
+    defer apm.Finish()
+    engine.DataDog().EnableORMAPMLog(log.InfoLevel, true)
+
+    heartBeat := func() {
+        span.Finish()
+        apm = engine.DataDog().StartAPM("my-script-name", "production")
+    }
+    receiver := orm.NewLogReceiver(engine)
+    receiver.SetHeartBeat(heartBeat) //receiver will execute this method every minute
+    receiver.Digest()
+
+}    
+```
+
+You should always assign unexpected error to APM trace
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+    
+    if r := recover(); r != nil {
+        engine.DataDog().RegisterAPMError(r)
+    }
+}    
+```
+
+Extra operations:
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+
+	engine.DataDog().DropAPM() //it will drop trace. Only traces with errors will be recorded
+    
+    engine.DataDog().SetAPMTag("user_id", 12)
+    
+    //sub tasks
+    func() {
+    	span := engine.DataDog().StartWorkSpan("logging user")
+        span.setTag("user_name", "Tom")
+        defer.span.Finish()
+        //some work
+    }()
+
 }    
 ```
