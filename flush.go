@@ -680,14 +680,14 @@ func getCacheQueriesKeys(schema *tableSchema, bind map[string]interface{}, data 
 		if !addedDeleted && schema.hasFakeDelete {
 			_, addedDeleted = bind["FakeDelete"]
 		}
-		if addedDeleted && len(definition.Fields) == 0 {
+		if addedDeleted && len(definition.TrackedFields) == 0 {
 			keys = append(keys, getCacheKeySearch(schema, indexName))
 		}
-		for _, trackedField := range definition.Fields {
+		for _, trackedField := range definition.TrackedFields {
 			_, has := bind[trackedField]
 			if has {
 				attributes := make([]interface{}, 0)
-				for _, trackedFieldSub := range definition.Fields {
+				for _, trackedFieldSub := range definition.QueryFields {
 					val := data[trackedFieldSub]
 					if !schema.hasFakeDelete || trackedFieldSub != "FakeDelete" {
 						attributes = append(attributes, val)

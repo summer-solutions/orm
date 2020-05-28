@@ -3,6 +3,7 @@ package orm
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
@@ -13,10 +14,11 @@ import (
 type testEntityIndexTestLocal struct {
 	ORM          `orm:"localCache"`
 	ID           uint
-	Name         string `orm:"length=100;index=FirstIndex"`
-	Age          uint16
+	Name         string `orm:"length=100;unique=FirstIndex"`
+	Age          uint16 `orm:"index=SecondIndex"`
+	Added        *time.Time
 	Ignore       uint16       `orm:"ignore"`
-	IndexAge     *CachedQuery `query:":Age = ? ORDER BY :ID"`
+	IndexAge     *CachedQuery `query:":Age = ? ORDER BY :Age"`
 	IndexAll     *CachedQuery `query:""`
 	IndexName    *CachedQuery `queryOne:":Name = ?"`
 	ReferenceOne *testEntityIndexTestLocalRef

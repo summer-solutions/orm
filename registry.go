@@ -153,7 +153,10 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.enums[k] = v
 	}
 	for name, entityType := range r.entities {
-		tableSchema := initTableSchema(r, entityType)
+		tableSchema, err := initTableSchema(r, entityType)
+		if err != nil {
+			return nil, err
+		}
 		registry.tableSchemas[entityType] = tableSchema
 		registry.entities[name] = entityType
 	}

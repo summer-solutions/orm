@@ -15,9 +15,11 @@ import (
 type CachedQuery struct{}
 
 type cachedQueryDefinition struct {
-	Max    int
-	Query  string
-	Fields []string
+	Max           int
+	Query         string
+	TrackedFields []string
+	QueryFields   []string
+	OrderFields   []string
 }
 
 type Enum interface {
@@ -213,7 +215,7 @@ func (tableSchema *tableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 	return getSchemaChanges(engine, tableSchema)
 }
 
-func initTableSchema(registry *Registry, entityType reflect.Type) *tableSchema {
+func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema, error) {
 	tags := extractTags(registry, entityType, "")
 	oneRefs := make([]string, 0)
 	mysql, has := tags["ORM"]["mysql"]
@@ -222,7 +224,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) *tableSchema {
 	}
 	_, has = registry.sqlClients[mysql]
 	if !has {
-		panic(errors.NotFoundf("mysql pool '%s'", mysql))
+		return nil, errors.NotFoundf("mysql pool '%s'", mysql)
 	}
 	table, has := tags["ORM"]["table"]
 	if !has {
@@ -240,7 +242,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) *tableSchema {
 	if localCache != "" {
 		_, has = registry.localCacheContainers[localCache]
 		if !has {
-			panic(errors.NotFoundf("local cache pool '%s'", localCache))
+			return nil, errors.NotFoundf("local cache pool '%s'", localCache)
 		}
 	}
 	userValue, has = tags["ORM"]["redisCache"]
@@ -253,7 +255,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) *tableSchema {
 	if redisCache != "" {
 		_, has = registry.redisServers[redisCache]
 		if !has {
-			panic(errors.NotFoundf("redis pool '%s'", redisCache))
+			return nil, errors.NotFoundf("redis pool '%s'", redisCache)
 		}
 	}
 
@@ -277,13 +279,24 @@ func initTableSchema(registry *Registry, entityType reflect.Type) *tableSchema {
 			query, has = values["queryOne"]
 			isOne = true
 		}
+		queryOrigin := query
 		fields := make([]string, 0)
+		fieldsTracked := make([]string, 0)
+		fieldsQuery := make([]string, 0)
+		fieldsOrder := make([]string, 0)
 		if has {
 			re := regexp.MustCompile(":([A-Za-z0-9])+")
 			variables := re.FindAllString(query, -1)
 			for _, variable := range variables {
 				fieldName := variable[1:]
-				if fieldName != "ID" {
+				has := false
+				for _, v := range fields {
+					if v == fieldName {
+						has = true
+						break
+					}
+				}
+				if !has {
 					fields = append(fields, fieldName)
 				}
 				query = strings.Replace(query, variable, fmt.Sprintf("`%s`", fieldName), 1)
@@ -294,21 +307,40 @@ func initTableSchema(registry *Registry, entityType reflect.Type) *tableSchema {
 			if query == "" {
 				query = "1 ORDER BY `ID`"
 			}
+			queryLower := strings.ToLower(queryOrigin)
+			posOrderBy := strings.Index(queryLower, "order by")
+			for _, f := range fields {
+				if f != "ID" {
+					fieldsTracked = append(fieldsTracked, f)
+				}
+				pos := strings.Index(queryOrigin, ":"+f)
+				if pos < posOrderBy || posOrderBy == -1 {
+					fieldsQuery = append(fieldsQuery, f)
+				}
+			}
+			if posOrderBy > -1 {
+				variables = re.FindAllString(queryOrigin[posOrderBy:], -1)
+				for _, variable := range variables {
+					fieldName := variable[1:]
+					fieldsOrder = append(fieldsOrder, fieldName)
+				}
+			}
+
 			if !isOne {
 				max := 50000
 				maxAttribute, has := values["max"]
 				if has {
 					maxFromUser, err := strconv.Atoi(maxAttribute)
 					if err != nil {
-						panic(err)
+						return nil, errors.Trace(err)
 					}
 					max = maxFromUser
 				}
-				def := &cachedQueryDefinition{max, query, fields}
+				def := &cachedQueryDefinition{max, query, fieldsTracked, fieldsQuery, fieldsOrder}
 				cachedQueries[key] = def
 				cachedQueriesAll[key] = def
 			} else {
-				def := &cachedQueryDefinition{1, query, fields}
+				def := &cachedQueryDefinition{1, query, fieldsTracked, fieldsQuery, fieldsOrder}
 				cachedQueriesOne[key] = def
 				cachedQueriesAll[key] = def
 			}
@@ -322,17 +354,42 @@ func initTableSchema(registry *Registry, entityType reflect.Type) *tableSchema {
 	if logPoolName == "true" {
 		logPoolName = mysql
 	}
-	uniqueIndices := make(map[string][]string)
+	uniqueIndices := make(map[string]map[int]string)
+	uniqueIndicesSimple := make(map[string][]string)
+	indices := make(map[string]map[int]string)
 	for k, v := range tags {
 		keys, has := v["unique"]
 		if has {
 			values := strings.Split(keys, ",")
 			for _, indexName := range values {
 				parts := strings.Split(indexName, ":")
-				if uniqueIndices[parts[0]] == nil {
-					uniqueIndices[parts[0]] = make([]string, 0)
+				id := int64(1)
+				if len(parts) > 1 {
+					id, _ = strconv.ParseInt(parts[1], 10, 64)
 				}
-				uniqueIndices[parts[0]] = append(uniqueIndices[parts[0]], k)
+				if uniqueIndices[parts[0]] == nil {
+					uniqueIndices[parts[0]] = make(map[int]string)
+				}
+				uniqueIndices[parts[0]][int(id)] = k
+				if uniqueIndicesSimple[parts[0]] == nil {
+					uniqueIndicesSimple[parts[0]] = make([]string, 0)
+				}
+				uniqueIndicesSimple[parts[0]] = append(uniqueIndicesSimple[parts[0]], k)
+			}
+		}
+		keys, has = v["index"]
+		if has {
+			values := strings.Split(keys, ",")
+			for _, indexName := range values {
+				parts := strings.Split(indexName, ":")
+				id := int64(1)
+				if len(parts) > 1 {
+					id, _ = strconv.ParseInt(parts[1], 10, 64)
+				}
+				if indices[parts[0]] == nil {
+					indices[parts[0]] = make(map[int]string)
+				}
+				indices[parts[0]][int(id)] = k
 			}
 		}
 	}
@@ -359,12 +416,102 @@ func initTableSchema(registry *Registry, entityType reflect.Type) *tableSchema {
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
 		cachePrefix:      cachePrefix,
-		uniqueIndices:    uniqueIndices,
+		uniqueIndices:    uniqueIndicesSimple,
 		hasFakeDelete:    hasFakeDelete,
 		hasLog:           logPoolName != "",
 		logPoolName:      logPoolName,
 		logTableName:     fmt.Sprintf("_log_%s_%s", mysql, table)}
-	return tableSchema
+
+	if table == "testEntityIndexTestLocal" {
+		all := make(map[string]map[int]string)
+		for k, v := range uniqueIndices {
+			all[k] = v
+		}
+		for k, v := range indices {
+			all[k] = v
+		}
+		for k, v := range all {
+			for k2, v2 := range all {
+				if k == k2 {
+					continue
+				}
+				same := 0
+				for i := 1; i <= len(v); i++ {
+					right, has := v2[i]
+					if has && right == v[i] {
+						same++
+						continue
+					}
+					break
+				}
+				if same == len(v) {
+					return nil, errors.Errorf("duplicated index %s with %s in %s", k, k2, entityType.String())
+				}
+			}
+		}
+		for k, v := range tableSchema.cachedIndexesOne {
+			ok := false
+			for _, columns := range uniqueIndices {
+				if len(columns) != len(v.QueryFields) {
+					continue
+				}
+				valid := 0
+				for _, field1 := range v.QueryFields {
+					for _, field2 := range columns {
+						if field1 == field2 {
+							valid++
+						}
+					}
+				}
+				if valid == len(columns) {
+					ok = true
+				}
+			}
+			if !ok {
+				return nil, errors.Errorf("missing unique index for cached query '%s' in %s", k, entityType.String())
+			}
+		}
+		for k, v := range tableSchema.cachedIndexes {
+			if v.Query == "1 ORDER BY `ID`" {
+				continue
+			}
+			//first do we have query fields
+			ok := false
+			for _, columns := range all {
+				valid := 0
+				for _, field1 := range v.QueryFields {
+					for _, field2 := range columns {
+						if field1 == field2 {
+							valid++
+						}
+					}
+				}
+				if valid == len(v.QueryFields) {
+					if len(v.OrderFields) == 0 {
+						ok = true
+						break
+					}
+					valid := 0
+					key := len(columns)
+					for i := len(v.OrderFields); i > 0; i-- {
+						if columns[key] == v.OrderFields[i-1] {
+							valid++
+							key--
+							continue
+						}
+						break
+					}
+					if valid == len(v.OrderFields) {
+						ok = true
+					}
+				}
+			}
+			if !ok {
+				return nil, errors.Errorf("missing index for cached query '%s' in %s", k, entityType.String())
+			}
+		}
+	}
+	return tableSchema, nil
 }
 
 func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[string]map[string]string) *tableFields {
