@@ -402,6 +402,12 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 			}
 		}
 		if !has {
+			for _, v := range uniqueIndices {
+				if v[0] == ref {
+					has = true
+					break
+				}
+			}
 			indices["_"+ref] = map[int]string{1: ref}
 		}
 	}
