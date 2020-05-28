@@ -113,6 +113,23 @@ func (e *Engine) FlushWithCheck() error {
 	return err
 }
 
+func (e *Engine) FlushWithFullCheck() error {
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				asErr, is := r.(error)
+				if !is {
+					panic(r)
+				}
+				err = asErr
+			}
+		}()
+		e.flushTrackedEntities(false, false)
+	}()
+	return err
+}
+
 func (e *Engine) FlushLazy() {
 	e.flushTrackedEntities(true, false)
 }

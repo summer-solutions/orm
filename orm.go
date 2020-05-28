@@ -93,7 +93,11 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		}
 		f.SetInt(val)
 	case "string":
-		f.SetString(fmt.Sprintf("%v", value))
+		if value == nil {
+			f.Set(reflect.Zero(f.Type()))
+		} else {
+			f.SetString(fmt.Sprintf("%v", value))
+		}
 	case "[]string":
 		_, ok := value.([]string)
 		if !ok {
