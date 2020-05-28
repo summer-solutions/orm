@@ -408,7 +408,9 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 					break
 				}
 			}
-			indices["_"+ref] = map[int]string{1: ref}
+			if !has {
+				indices["_"+ref] = map[int]string{1: ref}
+			}
 		}
 	}
 	fields := buildTableFields(entityType, 1, "", tags)
