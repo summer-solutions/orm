@@ -156,9 +156,13 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 						if err != nil {
 							return errors.NotValidf("%s", field)
 						}
-						ref := reflect.New(f.Type().Elem()).Interface().(Entity)
-						_ = ref.SetField("ID", id)
-						f.Set(reflect.ValueOf(ref))
+						if id == 0 {
+							f.Set(reflect.ValueOf(asEntity))
+						} else {
+							val := reflect.New(f.Type().Elem())
+							val.Elem().FieldByName("ID").SetUint(id)
+							f.Set(val)
+						}
 					}
 				}
 			}
