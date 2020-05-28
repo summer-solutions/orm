@@ -58,12 +58,11 @@ func TestFlush(t *testing.T) {
 
 	var entities = make([]*testEntityFlush, 10)
 	for i := 1; i <= 10; i++ {
-		e := testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: "Red", Set: []string{"Red", "Blue"}}
-		engine.Track(&e)
-		entities[i-1] = &e
+		e := &testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: "Red", Set: []string{"Red", "Blue"}}
+		engine.Track(e)
+		entities[i-1] = e
 	}
 	engine.Flush()
-
 	for i := 1; i < 10; i++ {
 		testEntity := entities[i-1]
 		assert.Equal(t, uint16(i), testEntity.ID)

@@ -45,6 +45,13 @@ func (orm *ORM) GetID() uint64 {
 }
 
 func (orm *ORM) SetField(field string, value interface{}) error {
+	asString, isString := value.(string)
+	if isString {
+		asString = strings.ToLower(asString)
+		if asString == "nil" || asString == "null" {
+			value = nil
+		}
+	}
 	if orm.attributes == nil {
 		return errors.NotValidf("entity is not loaded")
 	}
@@ -138,7 +145,22 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		} else if k == "ptr" {
 			modelType := reflect.TypeOf((*Entity)(nil)).Elem()
 			if f.Type().Implements(modelType) {
-				f.Set(reflect.ValueOf(value))
+				if value == nil || (isString && (value == "" || value == "0")) {
+					f.Set(reflect.Zero(f.Type()))
+				} else {
+					asEntity, ok := value.(Entity)
+					if ok {
+						f.Set(reflect.ValueOf(asEntity))
+					} else {
+						id, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
+						if err != nil {
+							return errors.NotValidf("%s", field)
+						}
+						ref := reflect.New(f.Type().Elem()).Interface().(Entity)
+						_ = ref.SetField("ID", id)
+						f.Set(reflect.ValueOf(ref))
+					}
+				}
 			}
 		} else {
 			return errors.NotSupportedf("%s", field)
