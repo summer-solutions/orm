@@ -384,6 +384,8 @@ func (r *Registry) registerSQLPool(dataSourceName string, code ...string) {
 		r.sqlClients = make(map[string]*DBConfig)
 	}
 	parts := strings.Split(dataSourceName, "/")
-	db.databaseName = parts[len(parts)-1]
+	dbName := strings.Split(parts[len(parts)-1], "?")[0]
+
+	db.databaseName = dbName
 	r.sqlClients[dbCode] = db
 }
