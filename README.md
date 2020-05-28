@@ -421,6 +421,9 @@ func main() {
     err := engine.FlushWithCheck()
     orm.DuplicatedKeyError{} //when unique index is broken
     orm.ForeignKeyError{} //when foreign key is broken
+    
+    /* You can catch all errors using this method  */
+    err := engine.FlushWithFullCheck()
 }
 ```
 
