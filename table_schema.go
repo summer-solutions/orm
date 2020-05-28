@@ -396,14 +396,14 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	for _, ref := range oneRefs {
 		has := false
 		for _, v := range indices {
-			if v[0] == ref {
+			if v[1] == ref {
 				has = true
 				break
 			}
 		}
 		if !has {
 			for _, v := range uniqueIndices {
-				if v[0] == ref {
+				if v[1] == ref {
 					has = true
 					break
 				}
