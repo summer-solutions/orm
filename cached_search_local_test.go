@@ -12,16 +12,17 @@ import (
 )
 
 type testEntityIndexTestLocal struct {
-	ORM          `orm:"localCache"`
-	ID           uint
-	Name         string `orm:"length=100;unique=FirstIndex"`
-	Age          uint16 `orm:"index=SecondIndex"`
-	Added        *time.Time
-	Ignore       uint16       `orm:"ignore"`
-	IndexAge     *CachedQuery `query:":Age = ? ORDER BY :Age"`
-	IndexAll     *CachedQuery `query:""`
-	IndexName    *CachedQuery `queryOne:":Name = ?"`
-	ReferenceOne *testEntityIndexTestLocalRef
+	ORM            `orm:"localCache"`
+	ID             uint
+	Name           string `orm:"length=100;unique=FirstIndex"`
+	Age            uint16 `orm:"index=SecondIndex"`
+	Added          *time.Time
+	ReferenceOne   *testEntityIndexTestLocalRef
+	Ignore         uint16       `orm:"ignore"`
+	IndexAge       *CachedQuery `query:":Age = ? ORDER BY :Age"`
+	IndexAll       *CachedQuery `query:""`
+	IndexName      *CachedQuery `queryOne:":Name = ?"`
+	IndexReference *CachedQuery `query:":ReferenceOne = ?"`
 }
 
 type testEntityIndexTestLocalRef struct {

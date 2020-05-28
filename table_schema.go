@@ -393,6 +393,18 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 			}
 		}
 	}
+	for _, ref := range oneRefs {
+		has := false
+		for _, v := range indices {
+			if v[0] == ref {
+				has = true
+				break
+			}
+		}
+		if !has {
+			indices["_"+ref] = map[int]string{1: ref}
+		}
+	}
 	fields := buildTableFields(entityType, 1, "", tags)
 	columns := fields.getColumnNames()
 	fieldsQuery := ""
