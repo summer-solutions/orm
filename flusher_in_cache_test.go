@@ -14,8 +14,8 @@ type testEntityFlusherInCacheRedis struct {
 	ORM      `orm:"redisCache"`
 	ID       uint
 	Name     string
-	Age      uint16
-	IndexAge *CachedQuery `query:":Age = ? ORDER BY :ID"`
+	Age      uint16       `orm:"index=AgeIndex"`
+	IndexAge *CachedQuery `query:":Age = ?"`
 }
 
 type testEntityFlusherInCacheLocal struct {

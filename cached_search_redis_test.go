@@ -12,9 +12,9 @@ import (
 
 type testEntityIndexTestRedis struct {
 	ORM       `orm:"redisCache"`
-	ID        uint
-	Name      string `orm:"length=100;index=FirstIndex"`
-	Age       uint16
+	ID        uint         `orm:"index=AgeIndex:2"`
+	Name      string       `orm:"length=100;unique=FirstIndex"`
+	Age       uint16       `orm:"index=AgeIndex"`
 	IndexAge  *CachedQuery `query:":Age = ? ORDER BY :ID"`
 	IndexName *CachedQuery `queryOne:":Name = ?"`
 	IndexAll  *CachedQuery `query:""`

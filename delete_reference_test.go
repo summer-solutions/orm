@@ -20,7 +20,7 @@ type testEntityDeleteReferenceRefRestrict struct {
 type testEntityDeleteReferenceRefCascade struct {
 	ORM               `orm:"localCache"`
 	ID                uint
-	ReferenceOne      *testEntityDeleteReference `orm:"cascade"`
+	ReferenceOne      *testEntityDeleteReference `orm:"cascade;index=TestIndex"`
 	IndexReferenceOne *CachedQuery               `query:":ReferenceOne = ?"`
 }
 

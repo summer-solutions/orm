@@ -422,93 +422,91 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		logPoolName:      logPoolName,
 		logTableName:     fmt.Sprintf("_log_%s_%s", mysql, table)}
 
-	if table == "testEntityIndexTestLocal" {
-		all := make(map[string]map[int]string)
-		for k, v := range uniqueIndices {
-			all[k] = v
-		}
-		for k, v := range indices {
-			all[k] = v
-		}
-		for k, v := range all {
-			for k2, v2 := range all {
-				if k == k2 {
+	all := make(map[string]map[int]string)
+	for k, v := range uniqueIndices {
+		all[k] = v
+	}
+	for k, v := range indices {
+		all[k] = v
+	}
+	for k, v := range all {
+		for k2, v2 := range all {
+			if k == k2 {
+				continue
+			}
+			same := 0
+			for i := 1; i <= len(v); i++ {
+				right, has := v2[i]
+				if has && right == v[i] {
+					same++
 					continue
 				}
-				same := 0
-				for i := 1; i <= len(v); i++ {
-					right, has := v2[i]
-					if has && right == v[i] {
-						same++
+				break
+			}
+			if same == len(v) {
+				return nil, errors.Errorf("duplicated index %s with %s in %s", k, k2, entityType.String())
+			}
+		}
+	}
+	for k, v := range tableSchema.cachedIndexesOne {
+		ok := false
+		for _, columns := range uniqueIndices {
+			if len(columns) != len(v.QueryFields) {
+				continue
+			}
+			valid := 0
+			for _, field1 := range v.QueryFields {
+				for _, field2 := range columns {
+					if field1 == field2 {
+						valid++
+					}
+				}
+			}
+			if valid == len(columns) {
+				ok = true
+			}
+		}
+		if !ok {
+			return nil, errors.Errorf("missing unique index for cached query '%s' in %s", k, entityType.String())
+		}
+	}
+	for k, v := range tableSchema.cachedIndexes {
+		if v.Query == "1 ORDER BY `ID`" {
+			continue
+		}
+		//first do we have query fields
+		ok := false
+		for _, columns := range all {
+			valid := 0
+			for _, field1 := range v.QueryFields {
+				for _, field2 := range columns {
+					if field1 == field2 {
+						valid++
+					}
+				}
+			}
+			if valid == len(v.QueryFields) {
+				if len(v.OrderFields) == 0 {
+					ok = true
+					break
+				}
+				valid := 0
+				key := len(columns)
+				for i := len(v.OrderFields); i > 0; i-- {
+					if columns[key] == v.OrderFields[i-1] {
+						valid++
+						key--
 						continue
 					}
 					break
 				}
-				if same == len(v) {
-					return nil, errors.Errorf("duplicated index %s with %s in %s", k, k2, entityType.String())
-				}
-			}
-		}
-		for k, v := range tableSchema.cachedIndexesOne {
-			ok := false
-			for _, columns := range uniqueIndices {
-				if len(columns) != len(v.QueryFields) {
-					continue
-				}
-				valid := 0
-				for _, field1 := range v.QueryFields {
-					for _, field2 := range columns {
-						if field1 == field2 {
-							valid++
-						}
-					}
-				}
-				if valid == len(columns) {
+				if valid == len(v.OrderFields) {
 					ok = true
 				}
 			}
-			if !ok {
-				return nil, errors.Errorf("missing unique index for cached query '%s' in %s", k, entityType.String())
-			}
 		}
-		for k, v := range tableSchema.cachedIndexes {
-			if v.Query == "1 ORDER BY `ID`" {
-				continue
-			}
-			//first do we have query fields
-			ok := false
-			for _, columns := range all {
-				valid := 0
-				for _, field1 := range v.QueryFields {
-					for _, field2 := range columns {
-						if field1 == field2 {
-							valid++
-						}
-					}
-				}
-				if valid == len(v.QueryFields) {
-					if len(v.OrderFields) == 0 {
-						ok = true
-						break
-					}
-					valid := 0
-					key := len(columns)
-					for i := len(v.OrderFields); i > 0; i-- {
-						if columns[key] == v.OrderFields[i-1] {
-							valid++
-							key--
-							continue
-						}
-						break
-					}
-					if valid == len(v.OrderFields) {
-						ok = true
-					}
-				}
-			}
-			if !ok {
-				return nil, errors.Errorf("missing index for cached query '%s' in %s", k, entityType.String())
-			}
+		if !ok {
+			return nil, errors.Errorf("missing index for cached query '%s' in %s", k, entityType.String())
 		}
 	}
 	return tableSchema, nil

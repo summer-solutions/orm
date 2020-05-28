@@ -12,9 +12,9 @@ import (
 
 type testEntityIndexTestLocalRedis struct {
 	ORM          `orm:"localCache;redisCache"`
-	ID           uint
-	Name         string `orm:"length=100;index=FirstIndex"`
-	Age          uint16
+	ID           uint         `orm:"index=AgeIndex:2"`
+	Name         string       `orm:"length=100;unique=FirstIndex"`
+	Age          uint16       `orm:"index=AgeIndex"`
 	Ignore       uint16       `orm:"ignore"`
 	IndexAge     *CachedQuery `query:":Age = ? ORDER BY :ID"`
 	IndexAll     *CachedQuery `query:""`
@@ -27,7 +27,6 @@ type testEntityIndexTestLocalRedisRef struct {
 	ID       uint
 	Name     string
 	IndexAll *CachedQuery `query:""`
-	IndexOne *CachedQuery `queryOne:""`
 }
 
 func TestCachedSearchLocalRedis(t *testing.T) {

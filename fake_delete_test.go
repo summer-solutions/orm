@@ -9,8 +9,8 @@ import (
 type testEntityFakeDelete struct {
 	ORM        `orm:"localCache"`
 	ID         uint16
-	Name       string
-	FakeDelete bool
+	Name       string `orm:"index=NameIndex"`
+	FakeDelete bool   `orm:"index=NameIndex:2"`
 	Uint       uint
 	IndexAll   *CachedQuery `query:""`
 	IndexName  *CachedQuery `query:":Name = ?"`
