@@ -21,7 +21,7 @@ func TestFlushLazyRedis(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, entity)
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 10; i++ {

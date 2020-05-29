@@ -26,7 +26,7 @@ type Engine struct {
 	logMetaData                  map[string]interface{}
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
-	loggers                      map[LoggerSource]*logger
+	loggers                      map[QueryLoggerSource]*logger
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
 	dataDog                      *dataDog
@@ -36,12 +36,12 @@ func (e *Engine) DataDog() DataDog {
 	return e.dataDog
 }
 
-func (e *Engine) AddQueryLogger(handler log.Handler, level log.Level, source ...LoggerSource) {
+func (e *Engine) AddQueryLogger(handler log.Handler, level log.Level, source ...QueryLoggerSource) {
 	if e.loggers == nil {
-		e.loggers = make(map[LoggerSource]*logger)
+		e.loggers = make(map[QueryLoggerSource]*logger)
 	}
 	if len(source) == 0 {
-		source = []LoggerSource{LoggerSourceDB, LoggerSourceRedis, LoggerSourceRabbitMQ}
+		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ}
 	}
 	newHandler := levelHandler.New(handler, level)
 	for _, source := range source {
@@ -54,7 +54,7 @@ func (e *Engine) AddQueryLogger(handler log.Handler, level log.Level, source ...
 	}
 }
 
-func (e *Engine) EnableQueryDebug(source ...LoggerSource) {
+func (e *Engine) EnableQueryDebug(source ...QueryLoggerSource) {
 	e.AddQueryLogger(text.New(os.Stdout), log.DebugLevel, source...)
 }
 

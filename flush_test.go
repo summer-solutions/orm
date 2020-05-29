@@ -153,7 +153,7 @@ func TestFlushInTransaction(t *testing.T) {
 	var entity2 testEntityFlushTransactionRedis
 	engine := PrepareTables(t, registry, entity, entity2)
 	logger := memory.New()
-	engine.AddQueryLogger(logger, log.InfoLevel, LoggerSourceRedis, LoggerSourceDB, LoggerSourceLocalCache)
+	engine.AddQueryLogger(logger, log.InfoLevel, QueryLoggerSourceRedis, QueryLoggerSourceDB, QueryLoggerSourceLocalCache)
 
 	for i := 1; i <= 10; i++ {
 		e := testEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}

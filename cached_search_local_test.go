@@ -69,7 +69,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, uint(5), rows[4].ReferenceOne.ID)
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
 
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)

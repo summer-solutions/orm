@@ -132,7 +132,7 @@ func (db *DB) GetPoolCode() string {
 func (db *DB) Begin() {
 	start := time.Now()
 	err := db.client.Begin()
-	if db.engine.loggers[LoggerSourceDB] != nil {
+	if db.engine.loggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][BEGIN]", start, "transaction", "START TRANSACTION", nil, err)
 		db.engine.dataDog.incrementCounter(counterDBAll, 1)
 		db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
@@ -145,7 +145,7 @@ func (db *DB) Begin() {
 func (db *DB) Commit() {
 	start := time.Now()
 	err := db.client.Commit()
-	if db.engine.loggers[LoggerSourceDB] != nil {
+	if db.engine.loggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][COMMIT]", start, "transaction", "COMMIT", nil, err)
 	}
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
@@ -172,7 +172,7 @@ func (db *DB) Commit() {
 func (db *DB) Rollback() {
 	start := time.Now()
 	has, err := db.client.Rollback()
-	if has && db.engine.loggers[LoggerSourceDB] != nil {
+	if has && db.engine.loggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][ROLLBACK]", start, "transaction", "ROLLBACK", nil, err)
 	}
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
@@ -187,7 +187,7 @@ func (db *DB) Rollback() {
 func (db *DB) Exec(query string, args ...interface{}) sql.Result {
 	start := time.Now()
 	rows, err := db.client.Exec(query, args...)
-	if db.engine.loggers[LoggerSourceDB] != nil {
+	if db.engine.loggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][EXEC]", start, "exec", query, args, err)
 	}
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
@@ -207,17 +207,17 @@ func (db *DB) QueryRow(query *Where, toFill ...interface{}) (found bool) {
 	err := row.Scan(toFill...)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
-			if db.engine.loggers[LoggerSourceDB] != nil {
+			if db.engine.loggers[QueryLoggerSourceDB] != nil {
 				db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query.String(), query.GetParameters(), nil)
 			}
 			return false
 		}
-		if db.engine.loggers[LoggerSourceDB] != nil {
+		if db.engine.loggers[QueryLoggerSourceDB] != nil {
 			db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query.String(), query.GetParameters(), err)
 		}
 		panic(err)
 	}
-	if db.engine.loggers[LoggerSourceDB] != nil {
+	if db.engine.loggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query.String(), query.GetParameters(), nil)
 	}
 	return true
@@ -226,7 +226,7 @@ func (db *DB) QueryRow(query *Where, toFill ...interface{}) (found bool) {
 func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF func()) {
 	start := time.Now()
 	rows, err := db.client.Query(query, args...)
-	if db.engine.loggers[LoggerSourceDB] != nil {
+	if db.engine.loggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query, args, err)
 	}
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
@@ -244,7 +244,7 @@ func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF fun
 func (db *DB) fillLogFields(message string, start time.Time, typeCode string, query string, args []interface{}, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	e := db.engine.loggers[LoggerSourceDB].log.
+	e := db.engine.loggers[QueryLoggerSourceDB].log.
 		WithField("pool", db.code).
 		WithField("db", db.databaseName).
 		WithField("Query", query).

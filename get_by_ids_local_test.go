@@ -28,9 +28,9 @@ func TestGetByIDsLocal(t *testing.T) {
 	engine.Flush()
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
 	CacheLogger := memory.New()
-	engine.AddQueryLogger(CacheLogger, log.InfoLevel, LoggerSourceLocalCache)
+	engine.AddQueryLogger(CacheLogger, log.InfoLevel, QueryLoggerSourceLocalCache)
 
 	var found []*testEntityByIDsLocal
 	missing := engine.LoadByIDs([]uint64{2, 3, 1}, &found)

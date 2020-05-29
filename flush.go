@@ -85,9 +85,6 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 			}
 			deleteBinds[t][currentID] = dbData
 		} else if len(dbData) == 0 {
-			if currentID > 0 {
-				panic(errors.NotValidf("unloaded entity %s with ID %d", t.String(), currentID))
-			}
 			onUpdate := entity.getORM().attributes.onDuplicateKeyUpdate
 			if onUpdate != nil {
 				values := make([]string, bindLength)

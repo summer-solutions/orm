@@ -50,14 +50,14 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 		if err == redislock.ErrNotObtained {
 			return nil, false
 		}
-		if l.engine.loggers[LoggerSourceRedis] != nil {
+		if l.engine.loggers[QueryLoggerSourceRedis] != nil {
 			l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", err)
 		}
 		l.engine.dataDog.incrementCounter(counterRedisAll, 1)
 		l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
 		panic(err)
 	}
-	if l.engine.loggers[LoggerSourceRedis] != nil {
+	if l.engine.loggers[QueryLoggerSourceRedis] != nil {
 		l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", nil)
 	}
 	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
@@ -79,7 +79,7 @@ func (l *Lock) Release() {
 	}
 	start := time.Now()
 	err := l.lock.Release()
-	if l.engine.loggers[LoggerSourceRedis] != nil {
+	if l.engine.loggers[QueryLoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release lock", err)
 	}
 	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
@@ -90,7 +90,7 @@ func (l *Lock) Release() {
 func (l *Lock) TTL() time.Duration {
 	start := time.Now()
 	d, err := l.lock.TTL()
-	if l.engine.loggers[LoggerSourceRedis] != nil {
+	if l.engine.loggers[QueryLoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][TTL]", start, l.key, "ttl lock", err)
 	}
 	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
@@ -104,7 +104,7 @@ func (l *Lock) TTL() time.Duration {
 func (l *Locker) fillLogFields(message string, start time.Time, key string, operation string, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	e := l.engine.loggers[LoggerSourceRedis].log.
+	e := l.engine.loggers[QueryLoggerSourceRedis].log.
 		WithField("Key", key).
 		WithField("microseconds", stop).
 		WithField("operation", operation).

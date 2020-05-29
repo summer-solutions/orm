@@ -1010,12 +1010,12 @@ func main() {
 	
     //enable human friendly console log
     engine.EnableQueryDebug() //MySQL, redis, rabbitMQ queries (local cache in excluded bt default)
-    engine.EnableQueryDebug(orm.LoggerSourceRedis, orm.LoggerSourceLocalCache)
-    engine.EnableQueryDebug(orm.LoggerSourceDB, orm.LoggerSourceRedis, orm. LoggerSourceRabbitMQ, orm.LoggerSourceLocalCache) //all sources
+    engine.EnableQueryDebug(orm.QueryLoggerSourceRedis, orm.QueryLoggerSourceLocalCache)
+    engine.EnableQueryDebug(orm.QueryLoggerSourceDB, orm.QueryLoggerSourceRedis, orm. QueryLoggerSourceRabbitMQ, orm.QueryLoggerSourceLocalCache) //all sources
 
     //adding custom logger example:
     engine.AddQueryLogger(json.New(os.Stdout), log.LevelWarn) //MySQL, redis, rabbitMQ warnings and above
-    engine.AddQueryLogger(es.New(os.Stdout), log.LevelError, orm.LoggerSourceRedis, orm. LoggerSourceRabbitMQ)
+    engine.AddQueryLogger(es.New(os.Stdout), log.LevelError, orm.QueryLoggerSourceRedis, orm. QueryLoggerSourceRabbitMQ)
 }    
 ```
 

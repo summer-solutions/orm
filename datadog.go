@@ -32,7 +32,7 @@ type dataDog struct {
 type DataDog interface {
 	StartAPM(service string, environment string) APM
 	StartHTTPAPM(request *http.Request, service string, environment string) HTTPAPM
-	EnableORMAPMLog(level log.Level, withAnalytics bool, source ...LoggerSource)
+	EnableORMAPMLog(level log.Level, withAnalytics bool, source ...QueryLoggerSource)
 	RegisterAPMError(err interface{})
 	DropAPM()
 	SetAPMTag(key string, value interface{})
@@ -158,19 +158,19 @@ func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
 	return &workSpan{span, dd.engine}
 }
 
-func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source ...LoggerSource) {
+func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source ...QueryLoggerSource) {
 	if dd.span == nil {
 		return
 	}
 	if len(source) == 0 {
-		source = []LoggerSource{LoggerSourceDB, LoggerSourceRedis, LoggerSourceRabbitMQ}
+		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ}
 	}
 	for _, s := range source {
-		if s == LoggerSourceDB {
+		if s == QueryLoggerSourceDB {
 			dd.engine.AddQueryLogger(newDBDataDogHandler(withAnalytics, dd.engine), level, s)
-		} else if s == LoggerSourceRabbitMQ {
+		} else if s == QueryLoggerSourceRabbitMQ {
 			dd.engine.AddQueryLogger(newRabbitMQDataDogHandler(withAnalytics, dd.engine), level, s)
-		} else if s == LoggerSourceRedis {
+		} else if s == QueryLoggerSourceRedis {
 			dd.engine.AddQueryLogger(newRedisDataDogHandler(withAnalytics, dd.engine), level, s)
 		}
 	}

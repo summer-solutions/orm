@@ -77,7 +77,7 @@ func TestGetByIDRedis(t *testing.T) {
 	assert.False(t, engine.IsDirty(&entity))
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
 
 	found = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.True(t, found)

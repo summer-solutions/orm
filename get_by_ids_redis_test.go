@@ -37,10 +37,10 @@ func TestEntityByIDsRedis(t *testing.T) {
 	engine.Flush()
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
 	CacheLogger := memory.New()
 	cache := engine.GetRedis()
-	engine.AddQueryLogger(CacheLogger, log.InfoLevel, LoggerSourceRedis)
+	engine.AddQueryLogger(CacheLogger, log.InfoLevel, QueryLoggerSourceRedis)
 
 	var found []*testEntityByIDsRedisCache
 	missing := engine.LoadByIDs([]uint64{2, 13, 1}, &found)

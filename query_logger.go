@@ -12,13 +12,13 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-type LoggerSource int
+type QueryLoggerSource int
 
 const (
-	LoggerSourceDB = iota
-	LoggerSourceRedis
-	LoggerSourceRabbitMQ
-	LoggerSourceLocalCache
+	QueryLoggerSourceDB = iota
+	QueryLoggerSourceRedis
+	QueryLoggerSourceRabbitMQ
+	QueryLoggerSourceLocalCache
 )
 
 type logger struct {
