@@ -13,7 +13,7 @@ import (
 func TestBasicRedis(t *testing.T) {
 	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 
@@ -35,7 +35,7 @@ func TestBasicRedis(t *testing.T) {
 func TestList(t *testing.T) {
 	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 }
@@ -43,7 +43,7 @@ func TestList(t *testing.T) {
 func TestHash(t *testing.T) {
 	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 }
@@ -57,7 +57,7 @@ func TestSet(t *testing.T) {
 func TestSortedSet(t *testing.T) {
 	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 }

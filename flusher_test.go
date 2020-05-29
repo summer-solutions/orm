@@ -22,7 +22,7 @@ func TestFlusherManual(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, entity)
 
 	DBLogger := memory.New()
-	engine.AddLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
 
 	for i := 1; i <= 3; i++ {
 		e := testEntityFlusherManual{Name: "Name " + strconv.Itoa(i)}

@@ -167,11 +167,11 @@ func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source .
 	}
 	for _, s := range source {
 		if s == LoggerSourceDB {
-			dd.engine.AddLogger(newDBDataDogHandler(withAnalytics, dd.engine), level, s)
+			dd.engine.AddQueryLogger(newDBDataDogHandler(withAnalytics, dd.engine), level, s)
 		} else if s == LoggerSourceRabbitMQ {
-			dd.engine.AddLogger(newRabbitMQDataDogHandler(withAnalytics, dd.engine), level, s)
+			dd.engine.AddQueryLogger(newRabbitMQDataDogHandler(withAnalytics, dd.engine), level, s)
 		} else if s == LoggerSourceRedis {
-			dd.engine.AddLogger(newRedisDataDogHandler(withAnalytics, dd.engine), level, s)
+			dd.engine.AddQueryLogger(newRedisDataDogHandler(withAnalytics, dd.engine), level, s)
 		}
 	}
 }

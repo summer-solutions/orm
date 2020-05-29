@@ -21,7 +21,7 @@ func TestLocker(t *testing.T) {
 	locker := engine.GetLocker()
 
 	testLogger := memory.New()
-	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log.InfoLevel, LoggerSourceRedis)
 
 	lock, has := locker.Obtain("test", 10*time.Second, 0*time.Second)
 	assert.True(t, has)

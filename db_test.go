@@ -19,7 +19,7 @@ func TestDB(t *testing.T) {
 	db := engine.GetMysql()
 	assert.NotNil(t, db)
 	testLogger := memory.New()
-	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceDB)
+	engine.AddQueryLogger(testLogger, log.InfoLevel, LoggerSourceDB)
 
 	db.Begin()
 

@@ -131,7 +131,7 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, "Name 11", new11.Name)
 
 	logger := memory.New()
-	engine.AddLogger(logger, log.InfoLevel)
+	engine.AddQueryLogger(logger, log.InfoLevel)
 	for i := 100; i <= 110; i++ {
 		e := testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: "Red"}
 		assert.Equal(t, uint64(0), e.GetID())
@@ -153,7 +153,7 @@ func TestFlushInTransaction(t *testing.T) {
 	var entity2 testEntityFlushTransactionRedis
 	engine := PrepareTables(t, registry, entity, entity2)
 	logger := memory.New()
-	engine.AddLogger(logger, log.InfoLevel, LoggerSourceRedis, LoggerSourceDB, LoggerSourceLocalCache)
+	engine.AddQueryLogger(logger, log.InfoLevel, LoggerSourceRedis, LoggerSourceDB, LoggerSourceLocalCache)
 
 	for i := 1; i <= 10; i++ {
 		e := testEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}

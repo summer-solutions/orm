@@ -73,7 +73,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.False(t, engine.IsDirty(&entity))
 
 	DBLogger := memory.New()
-	engine.AddLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
 
 	found = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.True(t, found)

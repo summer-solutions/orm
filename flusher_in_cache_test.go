@@ -41,9 +41,9 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, rows, 0)
 
 	DBLogger := memory.New()
-	engine.AddLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log.InfoLevel, LoggerSourceDB)
 	LoggerRedisCache := memory.New()
-	engine.AddLogger(LoggerRedisCache, log.InfoLevel, LoggerSourceRedis)
+	engine.AddQueryLogger(LoggerRedisCache, log.InfoLevel, LoggerSourceRedis)
 
 	entityRedis.Name = "Name 2"
 	entityRedis.Age = 10

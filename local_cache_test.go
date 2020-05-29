@@ -20,7 +20,7 @@ func TestLocalCache(t *testing.T) {
 
 	testLogger := memory.New()
 	cache := engine.GetLocalCache()
-	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceLocalCache)
+	engine.AddQueryLogger(testLogger, log.InfoLevel, LoggerSourceLocalCache)
 
 	val := cache.GetSet("test", 1, func() interface{} {
 		return "hello"

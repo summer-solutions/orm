@@ -19,7 +19,7 @@ func TestRabbitMQQueue(t *testing.T) {
 
 	r := engine.GetRabbitMQQueue("test_queue")
 	testLogger := memory.New()
-	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRabbitMQ)
+	engine.AddQueryLogger(testLogger, log.InfoLevel, LoggerSourceRabbitMQ)
 
 	assert.NotNil(t, r)
 	r.Publish([]byte("hello"))
@@ -49,7 +49,7 @@ func TestRabbitMQQueueRouter(t *testing.T) {
 	engine := validatedRegistry.CreateEngine()
 	r := engine.GetRabbitMQRouter("test_queue_router")
 	testLogger := memory.New()
-	engine.AddLogger(testLogger, log.InfoLevel, LoggerSourceRabbitMQ)
+	engine.AddQueryLogger(testLogger, log.InfoLevel, LoggerSourceRabbitMQ)
 
 	consumer := r.NewConsumer("test consumer 1")
 	consumer.DisableLoop()

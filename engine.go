@@ -36,7 +36,7 @@ func (e *Engine) DataDog() DataDog {
 	return e.dataDog
 }
 
-func (e *Engine) AddLogger(handler log.Handler, level log.Level, source ...LoggerSource) {
+func (e *Engine) AddQueryLogger(handler log.Handler, level log.Level, source ...LoggerSource) {
 	if e.loggers == nil {
 		e.loggers = make(map[LoggerSource]*logger)
 	}
@@ -54,8 +54,8 @@ func (e *Engine) AddLogger(handler log.Handler, level log.Level, source ...Logge
 	}
 }
 
-func (e *Engine) EnableDebug(source ...LoggerSource) {
-	e.AddLogger(text.New(os.Stdout), log.DebugLevel, source...)
+func (e *Engine) EnableQueryDebug(source ...LoggerSource) {
+	e.AddQueryLogger(text.New(os.Stdout), log.DebugLevel, source...)
 }
 
 func (e *Engine) SetLogMetaData(key string, value interface{}) {
