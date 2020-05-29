@@ -161,6 +161,11 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 				}
 				continue
 			}
+			forcedID := entity.GetID()
+			if forcedID > 0 {
+				bind["ID"] = forcedID
+				bindLength++
+			}
 
 			values := make([]interface{}, bindLength)
 			valuesKeys := make([]string, bindLength)
