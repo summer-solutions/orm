@@ -4,7 +4,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apex/log"
+	apexLox "github.com/apex/log"
+
 	"github.com/apex/log/handlers/multi"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
@@ -22,13 +23,13 @@ const (
 )
 
 type logger struct {
-	log     *log.Entry
+	log     *apexLox.Entry
 	handler *multi.Handler
 }
 
-func (e *Engine) newLogger(handler log.Handler, level log.Level) *logger {
+func (e *Engine) newLogger(handler apexLox.Handler, level apexLox.Level) *logger {
 	multiHandler := multi.New(handler)
-	l := log.Logger{Handler: multiHandler, Level: level}
+	l := apexLox.Logger{Handler: multiHandler, Level: level}
 	entry := l.WithField("from", "orm")
 	return &logger{log: entry, handler: multiHandler}
 }
@@ -42,7 +43,7 @@ func newDBDataDogHandler(withAnalytics bool, engine *Engine) *dbDataDogHandler {
 	return &dbDataDogHandler{withAnalytics, engine}
 }
 
-func (h *dbDataDogHandler) HandleLog(e *log.Entry) error {
+func (h *dbDataDogHandler) HandleLog(e *apexLox.Entry) error {
 	started := time.Unix(0, e.Fields.Get("started").(int64))
 	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], "mysql.query", tracer.StartTime(started))
 	queryType := e.Fields.Get("type")
@@ -68,7 +69,7 @@ func newRabbitMQDataDogHandler(withAnalytics bool, engine *Engine) *rabbitMQData
 	return &rabbitMQDataDogHandler{withAnalytics, engine}
 }
 
-func (h *rabbitMQDataDogHandler) HandleLog(e *log.Entry) error {
+func (h *rabbitMQDataDogHandler) HandleLog(e *apexLox.Entry) error {
 	started := time.Unix(0, e.Fields.Get("started").(int64))
 	operationName := e.Fields.Get("operation").(string)
 	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], operationName, tracer.StartTime(started))
@@ -101,7 +102,7 @@ func newRedisDataDogHandler(withAnalytics bool, engine *Engine) *redisDataDogHan
 	return &redisDataDogHandler{withAnalytics, engine}
 }
 
-func (h *redisDataDogHandler) HandleLog(e *log.Entry) error {
+func (h *redisDataDogHandler) HandleLog(e *apexLox.Entry) error {
 	started := time.Unix(0, e.Fields.Get("started").(int64))
 	operation := e.Fields.Get("operation").(string)
 	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], operation, tracer.StartTime(started))
@@ -125,7 +126,7 @@ func (h *redisDataDogHandler) HandleLog(e *log.Entry) error {
 	return nil
 }
 
-func injectError(e *log.Entry, span tracer.Span) {
+func injectError(e *apexLox.Entry, span tracer.Span) {
 	err := e.Fields.Get("error")
 	if err != nil {
 		span.SetTag(ext.Error, 1)

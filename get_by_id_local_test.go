@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
 
 	"github.com/apex/log/handlers/memory"
 
@@ -73,7 +73,7 @@ func TestGetByIDLocal(t *testing.T) {
 	assert.False(t, engine.IsDirty(&entity))
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log2.InfoLevel, QueryLoggerSourceDB)
 
 	found = engine.LoadByID(1, &entity, "ReferenceOne")
 	assert.True(t, found)

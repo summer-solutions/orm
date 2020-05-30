@@ -4,7 +4,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
+
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
@@ -39,9 +40,9 @@ func TestCachedSearchRedis(t *testing.T) {
 	engine.Flush()
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log2.InfoLevel, QueryLoggerSourceDB)
 	RedisLogger := memory.New()
-	engine.AddQueryLogger(RedisLogger, log.InfoLevel, QueryLoggerSourceRedis)
+	engine.AddQueryLogger(RedisLogger, log2.InfoLevel, QueryLoggerSourceRedis)
 
 	pager := &Pager{CurrentPage: 1, PageSize: 100}
 	var rows []*testEntityIndexTestRedis
@@ -138,7 +139,7 @@ func TestCachedSearchRedis(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Entries, 16)
 
-	RedisLogger.Entries = make([]*log.Entry, 0)
+	RedisLogger.Entries = make([]*log2.Entry, 0)
 	_ = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Len(t, DBLogger.Entries, 16)
 	assert.Len(t, RedisLogger.Entries, 2)
@@ -148,13 +149,13 @@ func TestCachedSearchRedis(t *testing.T) {
 	engine.Flush()
 
 	pager = &Pager{CurrentPage: 1, PageSize: 100}
-	RedisLogger.Entries = make([]*log.Entry, 0)
+	RedisLogger.Entries = make([]*log2.Entry, 0)
 	totalRows = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Equal(t, 11, totalRows)
 	assert.Len(t, rows, 11)
 	assert.Len(t, DBLogger.Entries, 19)
 
-	RedisLogger.Entries = make([]*log.Entry, 0)
+	RedisLogger.Entries = make([]*log2.Entry, 0)
 	var entityOne testEntityIndexTestRedis
 	has := engine.CachedSearchOne(&entityOne, "IndexName", "Name 10")
 	assert.True(t, has)

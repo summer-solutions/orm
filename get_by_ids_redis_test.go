@@ -5,7 +5,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
+
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
@@ -37,10 +38,10 @@ func TestEntityByIDsRedis(t *testing.T) {
 	engine.Flush()
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log2.InfoLevel, QueryLoggerSourceDB)
 	CacheLogger := memory.New()
 	cache := engine.GetRedis()
-	engine.AddQueryLogger(CacheLogger, log.InfoLevel, QueryLoggerSourceRedis)
+	engine.AddQueryLogger(CacheLogger, log2.InfoLevel, QueryLoggerSourceRedis)
 
 	var found []*testEntityByIDsRedisCache
 	missing := engine.LoadByIDs([]uint64{2, 13, 1}, &found)
@@ -67,10 +68,10 @@ func TestEntityByIDsRedis(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 2)
 
 	cache.FlushDB()
-	DBLogger.Entries = make([]*log.Entry, 0)
-	CacheLogger.Entries = make([]*log.Entry, 0)
+	DBLogger.Entries = make([]*log2.Entry, 0)
+	CacheLogger.Entries = make([]*log2.Entry, 0)
 
-	DBLogger.Entries = make([]*log.Entry, 0)
+	DBLogger.Entries = make([]*log2.Entry, 0)
 	missing = engine.LoadByIDs([]uint64{8, 9, 10}, &found)
 	assert.Len(t, found, 3)
 	assert.Len(t, missing, 0)

@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apex/log"
+	apexLog "github.com/apex/log"
+
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
@@ -69,7 +70,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Equal(t, uint(5), rows[4].ReferenceOne.ID)
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, apexLog.InfoLevel, QueryLoggerSourceDB)
 
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)

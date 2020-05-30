@@ -3,7 +3,8 @@ package orm
 import (
 	"testing"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
+
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,7 @@ func TestRabbitMQQueue(t *testing.T) {
 
 	r := engine.GetRabbitMQQueue("test_queue")
 	testLogger := memory.New()
-	engine.AddQueryLogger(testLogger, log.InfoLevel, QueryLoggerSourceRabbitMQ)
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceRabbitMQ)
 
 	assert.NotNil(t, r)
 	r.Publish([]byte("hello"))
@@ -49,7 +50,7 @@ func TestRabbitMQQueueRouter(t *testing.T) {
 	engine := validatedRegistry.CreateEngine()
 	r := engine.GetRabbitMQRouter("test_queue_router")
 	testLogger := memory.New()
-	engine.AddQueryLogger(testLogger, log.InfoLevel, QueryLoggerSourceRabbitMQ)
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceRabbitMQ)
 
 	consumer := r.NewConsumer("test consumer 1")
 	consumer.DisableLoop()

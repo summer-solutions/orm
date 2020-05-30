@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
+
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
@@ -131,13 +132,13 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, "Name 11", new11.Name)
 
 	logger := memory.New()
-	engine.AddQueryLogger(logger, log.InfoLevel)
+	engine.AddQueryLogger(logger, log2.InfoLevel)
 	for i := 100; i <= 110; i++ {
 		e := testEntityFlush{Name: "Name " + strconv.Itoa(i), EnumNotNull: "Red"}
 		assert.Equal(t, uint64(0), e.GetID())
 		engine.Track(&e)
 	}
-	logger.Entries = make([]*log.Entry, 0)
+	logger.Entries = make([]*log2.Entry, 0)
 	engine.FlushWithLock("default", "test", time.Second, time.Second)
 	assert.Len(t, logger.Entries, 3)
 	assert.Equal(t, "[ORM][LOCKER][OBTAIN]", logger.Entries[0].Message)
@@ -153,7 +154,7 @@ func TestFlushInTransaction(t *testing.T) {
 	var entity2 testEntityFlushTransactionRedis
 	engine := PrepareTables(t, registry, entity, entity2)
 	logger := memory.New()
-	engine.AddQueryLogger(logger, log.InfoLevel, QueryLoggerSourceRedis, QueryLoggerSourceDB, QueryLoggerSourceLocalCache)
+	engine.AddQueryLogger(logger, log2.InfoLevel, QueryLoggerSourceRedis, QueryLoggerSourceDB, QueryLoggerSourceLocalCache)
 
 	for i := 1; i <= 10; i++ {
 		e := testEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}
@@ -176,7 +177,7 @@ func TestFlushInTransaction(t *testing.T) {
 		e := testEntityFlushTransactionLocal{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(&e)
 	}
-	logger.Entries = make([]*log.Entry, 0)
+	logger.Entries = make([]*log2.Entry, 0)
 	engine.FlushInTransactionWithLock("default", "test", time.Second, time.Second)
 	assert.Len(t, logger.Entries, 6)
 	assert.Equal(t, "[ORM][LOCKER][OBTAIN]", logger.Entries[0].Message)

@@ -3,9 +3,10 @@ package orm
 import (
 	"testing"
 
+	log2 "github.com/apex/log"
+
 	"github.com/apex/log/handlers/memory"
 
-	"github.com/apex/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +20,7 @@ func TestDB(t *testing.T) {
 	db := engine.GetMysql()
 	assert.NotNil(t, db)
 	testLogger := memory.New()
-	engine.AddQueryLogger(testLogger, log.InfoLevel, QueryLoggerSourceDB)
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceDB)
 
 	db.Begin()
 

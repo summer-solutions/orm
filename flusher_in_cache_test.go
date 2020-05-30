@@ -3,7 +3,7 @@ package orm
 import (
 	"testing"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
 
 	"github.com/apex/log/handlers/memory"
 
@@ -41,9 +41,9 @@ func TestFlushInCache(t *testing.T) {
 	assert.Len(t, rows, 0)
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log2.InfoLevel, QueryLoggerSourceDB)
 	LoggerRedisCache := memory.New()
-	engine.AddQueryLogger(LoggerRedisCache, log.InfoLevel, QueryLoggerSourceRedis)
+	engine.AddQueryLogger(LoggerRedisCache, log2.InfoLevel, QueryLoggerSourceRedis)
 
 	entityRedis.Name = "Name 2"
 	entityRedis.Age = 10

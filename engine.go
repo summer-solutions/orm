@@ -6,10 +6,11 @@ import (
 	"reflect"
 	"time"
 
+	logApex "github.com/apex/log"
+
 	levelHandler "github.com/apex/log/handlers/level"
 	"github.com/juju/errors"
 
-	"github.com/apex/log"
 	"github.com/apex/log/handlers/text"
 )
 
@@ -26,7 +27,8 @@ type Engine struct {
 	logMetaData                  map[string]interface{}
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
-	queryLoggers                     map[QueryLoggerSource]*logger
+	queryLoggers                 map[QueryLoggerSource]*logger
+	log                          Log
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
 	dataDog                      *dataDog
@@ -36,7 +38,14 @@ func (e *Engine) DataDog() DataDog {
 	return e.dataDog
 }
 
-func (e *Engine) AddQueryLogger(handler log.Handler, level log.Level, source ...QueryLoggerSource) {
+func (e *Engine) Log() Log {
+	if e.log == nil {
+		e.log = newLog(e)
+	}
+	return e.log
+}
+
+func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, source ...QueryLoggerSource) {
 	if e.queryLoggers == nil {
 		e.queryLoggers = make(map[QueryLoggerSource]*logger)
 	}
@@ -55,7 +64,7 @@ func (e *Engine) AddQueryLogger(handler log.Handler, level log.Level, source ...
 }
 
 func (e *Engine) EnableQueryDebug(source ...QueryLoggerSource) {
-	e.AddQueryLogger(text.New(os.Stdout), log.DebugLevel, source...)
+	e.AddQueryLogger(text.New(os.Stdout), logApex.DebugLevel, source...)
 }
 
 func (e *Engine) SetLogMetaData(key string, value interface{}) {

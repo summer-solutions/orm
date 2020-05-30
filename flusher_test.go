@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
 
 	"github.com/apex/log/handlers/memory"
 
@@ -22,7 +22,7 @@ func TestFlusherManual(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, entity)
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log2.InfoLevel, QueryLoggerSourceDB)
 
 	for i := 1; i <= 3; i++ {
 		e := testEntityFlusherManual{Name: "Name " + strconv.Itoa(i)}

@@ -3,7 +3,7 @@ package orm
 import (
 	"testing"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
 
 	"github.com/apex/log/handlers/memory"
 
@@ -28,9 +28,9 @@ func TestGetByIDsLocal(t *testing.T) {
 	engine.Flush()
 
 	DBLogger := memory.New()
-	engine.AddQueryLogger(DBLogger, log.InfoLevel, QueryLoggerSourceDB)
+	engine.AddQueryLogger(DBLogger, log2.InfoLevel, QueryLoggerSourceDB)
 	CacheLogger := memory.New()
-	engine.AddQueryLogger(CacheLogger, log.InfoLevel, QueryLoggerSourceLocalCache)
+	engine.AddQueryLogger(CacheLogger, log2.InfoLevel, QueryLoggerSourceLocalCache)
 
 	var found []*testEntityByIDsLocal
 	missing := engine.LoadByIDs([]uint64{2, 3, 1}, &found)

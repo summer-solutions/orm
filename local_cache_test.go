@@ -3,7 +3,7 @@ package orm
 import (
 	"testing"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
 
 	"github.com/apex/log/handlers/memory"
 
@@ -20,7 +20,7 @@ func TestLocalCache(t *testing.T) {
 
 	testLogger := memory.New()
 	cache := engine.GetLocalCache()
-	engine.AddQueryLogger(testLogger, log.InfoLevel, QueryLoggerSourceLocalCache)
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceLocalCache)
 
 	val := cache.GetSet("test", 1, func() interface{} {
 		return "hello"

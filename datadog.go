@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	apexLog "github.com/apex/log"
+
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
@@ -17,8 +19,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/juju/errors"
-
-	"github.com/apex/log"
 )
 
 type dataDog struct {
@@ -32,7 +32,7 @@ type dataDog struct {
 type DataDog interface {
 	StartAPM(service string, environment string) APM
 	StartHTTPAPM(request *http.Request, service string, environment string) HTTPAPM
-	EnableORMAPMLog(level log.Level, withAnalytics bool, source ...QueryLoggerSource)
+	EnableORMAPMLog(level apexLog.Level, withAnalytics bool, source ...QueryLoggerSource)
 	RegisterAPMError(err interface{})
 	DropAPM()
 	SetAPMTag(key string, value interface{})
@@ -158,7 +158,7 @@ func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
 	return &workSpan{span, dd.engine}
 }
 
-func (dd *dataDog) EnableORMAPMLog(level log.Level, withAnalytics bool, source ...QueryLoggerSource) {
+func (dd *dataDog) EnableORMAPMLog(level apexLog.Level, withAnalytics bool, source ...QueryLoggerSource) {
 	if dd.span == nil {
 		return
 	}

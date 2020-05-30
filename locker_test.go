@@ -4,7 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apex/log"
+	log2 "github.com/apex/log"
+
 	"github.com/apex/log/handlers/memory"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +22,7 @@ func TestLocker(t *testing.T) {
 	locker := engine.GetLocker()
 
 	testLogger := memory.New()
-	engine.AddQueryLogger(testLogger, log.InfoLevel, QueryLoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceRedis)
 
 	lock, has := locker.Obtain("test", 10*time.Second, 0*time.Second)
 	assert.True(t, has)

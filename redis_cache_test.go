@@ -3,9 +3,9 @@ package orm
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	log2 "github.com/apex/log"
 
-	"github.com/apex/log"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/apex/log/handlers/memory"
 )
@@ -13,7 +13,7 @@ import (
 func TestBasicRedis(t *testing.T) {
 	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	engine.AddQueryLogger(testLogger, log.InfoLevel, QueryLoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 
@@ -35,7 +35,7 @@ func TestBasicRedis(t *testing.T) {
 func TestList(t *testing.T) {
 	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	engine.AddQueryLogger(testLogger, log.InfoLevel, QueryLoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 }
@@ -43,7 +43,7 @@ func TestList(t *testing.T) {
 func TestHash(t *testing.T) {
 	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	engine.AddQueryLogger(testLogger, log.InfoLevel, QueryLoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 }
@@ -57,7 +57,7 @@ func TestSet(t *testing.T) {
 func TestSortedSet(t *testing.T) {
 	r, engine := prepareRedis(t)
 	testLogger := memory.New()
-	engine.AddQueryLogger(testLogger, log.InfoLevel, QueryLoggerSourceRedis)
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceRedis)
 	mockClient := &mockRedisClient{client: r.client}
 	r.client = mockClient
 }
