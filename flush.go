@@ -161,9 +161,8 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 				}
 				continue
 			}
-			forcedID := entity.GetID()
-			if forcedID > 0 {
-				bind["ID"] = forcedID
+			if currentID > 0 {
+				bind["ID"] = currentID
 				bindLength++
 			}
 
@@ -291,10 +290,19 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 		for key, entity := range insertReflectValues[typeOf] {
 			bind := insertBinds[typeOf][key]
 			injectBind(entity, bind)
-			entity.getORM().attributes.idElem.SetUint(id)
-			logQueues = updateCacheForInserted(entity, lazy, id, bind, localCacheSets, localCacheDeletes,
+			insertedID := entity.GetID()
+			if insertedID == 0 {
+				entity.getORM().attributes.idElem.SetUint(id)
+				insertedID = id
+				id++
+			}
+
+			logQueues = updateCacheForInserted(entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,
 				redisKeysToDelete, dirtyQueues, logQueues)
-			id++
+			localCache, hasLocalCache := schema.GetLocalCache(engine)
+			if hasLocalCache {
+				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(insertedID), buildLocalCacheValue(entity))
+			}
 			afterSaveInterface, is := entity.(AfterSavedInterface)
 			if is {
 				afterSaveInterface.AfterSaved(engine)
