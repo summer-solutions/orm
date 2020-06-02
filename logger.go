@@ -1,9 +1,11 @@
 package orm
 
 import (
+	"os"
+
 	apexLog "github.com/apex/log"
-	levelHandler "github.com/apex/log/handlers/level"
 	"github.com/apex/log/handlers/multi"
+	jsoniter "github.com/json-iterator/go"
 )
 
 type log struct {
@@ -12,7 +14,6 @@ type log struct {
 }
 
 type Log interface {
-	AddLogger(handler apexLog.Handler, level apexLog.Level)
 	AddFields(fields apexLog.Fielder)
 	Debug(message string, fields apexLog.Fielder)
 	Info(message string, fields apexLog.Fielder)
@@ -26,10 +27,6 @@ func newLog(engine *Engine) *log {
 	l := &apexLog.Logger{Handler: multiHandler, Level: apexLog.DebugLevel}
 	entry := apexLog.NewEntry(l)
 	return &log{engine, &logger{log: entry, handler: multiHandler}}
-}
-
-func (l *log) AddLogger(handler apexLog.Handler, level apexLog.Level) {
-	l.logger.handler.Handlers = append(l.logger.handler.Handlers, levelHandler.New(handler, level))
 }
 
 func (l *log) AddFields(fields apexLog.Fielder) {
@@ -74,4 +71,19 @@ func (l *log) Fatal(message string, err error, fields apexLog.Fielder) {
 		return
 	}
 	l.logger.log.WithError(err).Fatal(message)
+}
+
+type jsonHandler struct{}
+
+func (h *jsonHandler) HandleLog(e *apexLog.Entry) error {
+	fields := e.Fields
+	fields["level"] = e.Level
+	fields["timestamp"] = e.Timestamp
+	fields["message"] = e.Message
+	b, err := jsoniter.ConfigFastest.Marshal(fields)
+	if err != nil {
+		return err
+	}
+	_, _ = os.Stderr.Write(b)
+	return nil
 }

@@ -28,7 +28,7 @@ type Engine struct {
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
 	queryLoggers                 map[QueryLoggerSource]*logger
-	log                          Log
+	log                          *log
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
 	dataDog                      *dataDog
@@ -43,6 +43,20 @@ func (e *Engine) Log() Log {
 		e.log = newLog(e)
 	}
 	return e.log
+}
+
+func (e *Engine) EnableLogger(level logApex.Level) {
+	if e.log == nil {
+		e.log = newLog(e)
+	}
+	e.log.logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(&jsonHandler{}, level))
+}
+
+func (e *Engine) EnableDebug() {
+	if e.log == nil {
+		e.log = newLog(e)
+	}
+	e.log.logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(text.New(os.Stderr), logApex.DebugLevel))
 }
 
 func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, source ...QueryLoggerSource) {
