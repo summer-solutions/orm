@@ -70,6 +70,7 @@ func (dd *dataDog) StartAPM(service string, environment string) APM {
 	span, ctx := tracer.StartSpanFromContext(context.Background(), "service.run", opts...)
 	span.SetTag(ext.AnalyticsEvent, true)
 	span.SetTag(ext.Environment, environment)
+	dd.engine.Log().AddFields(apexLog.Fields{"dd.trace_id": span.Context().TraceID(), "dd.span_id": span.Context().SpanID()})
 	dd.span = span
 	dd.ctx = []context.Context{ctx}
 	return &apm{engine: dd.engine}
@@ -143,6 +144,7 @@ func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environme
 		span.SetTag("url.query", request.URL.RawQuery)
 	}
 	span.SetTag(ext.Environment, environment)
+	dd.engine.Log().AddFields(apexLog.Fields{"dd.trace_id": span.Context().TraceID(), "dd.span_id": span.Context().SpanID()})
 	dd.span = span
 	dd.ctx = []context.Context{ctx}
 	return &httpAPM{apm{engine: dd.engine}, 0}
