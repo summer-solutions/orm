@@ -80,10 +80,10 @@ func (h *jsonHandler) HandleLog(e *apexLog.Entry) error {
 	fields["level"] = e.Level
 	fields["timestamp"] = e.Timestamp
 	fields["message"] = e.Message
-	b, err := jsoniter.ConfigFastest.Marshal(fields)
+	b, err := jsoniter.ConfigFastest.MarshalToString(fields)
 	if err != nil {
 		return err
 	}
-	_, _ = os.Stderr.Write(b)
+	_, _ = os.Stderr.WriteString(b + "\n")
 	return nil
 }
