@@ -19,6 +19,7 @@ type Engine struct {
 	dbs                          map[string]*DB
 	localCache                   map[string]*LocalCache
 	redis                        map[string]*RedisCache
+	elastic                      map[string]*Elastic
 	locks                        map[string]*Locker
 	rabbitMQChannels             map[string]*rabbitMQChannel
 	rabbitMQQueues               map[string]*RabbitMQQueue
@@ -64,7 +65,7 @@ func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, so
 		e.queryLoggers = make(map[QueryLoggerSource]*logger)
 	}
 	if len(source) == 0 {
-		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ}
+		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic}
 	}
 	newHandler := levelHandler.New(handler, level)
 	for _, source := range source {
@@ -276,6 +277,18 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 		panic(errors.Errorf("unregistered redis cache pool '%s'", dbCode))
 	}
 	return cache
+}
+
+func (e *Engine) GetElastic(code ...string) *Elastic {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	elastic, has := e.elastic[dbCode]
+	if !has {
+		panic(errors.Errorf("unregistered elastic pool '%s'", dbCode))
+	}
+	return elastic
 }
 
 func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {

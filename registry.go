@@ -11,12 +11,14 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/errors"
+	"github.com/olivere/elastic/v7"
 )
 
 type Registry struct {
 	sqlClients           map[string]*DBConfig
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
+	elasticServers       map[string]*ElasticConfig
 	rabbitMQServers      map[string]*rabbitMQConfig
 	rabbitMQQueues       map[string][]*RabbitMQQueueConfig
 	rabbitMQRouters      map[string][]*RabbitMQRouterConfig
@@ -93,6 +95,14 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.redisServers {
 		registry.redisServers[k] = v
 	}
+
+	if registry.elasticServers == nil {
+		registry.elasticServers = make(map[string]*ElasticConfig)
+	}
+	for k, v := range r.elasticServers {
+		registry.elasticServers[k] = v
+	}
+
 	if registry.rabbitMQServers == nil {
 		registry.rabbitMQServers = make(map[string]*rabbitMQConnection)
 	}
@@ -293,6 +303,10 @@ func (r *Registry) RegisterMySQLPool(dataSourceName string, code ...string) {
 	r.registerSQLPool(dataSourceName, code...)
 }
 
+func (r *Registry) RegisterElasticPool(url string, code ...string) {
+	r.RegisterElastic(url, code...)
+}
+
 func (r *Registry) RegisterLocalCache(size int, code ...string) {
 	dbCode := "default"
 	if len(code) > 0 {
@@ -388,4 +402,35 @@ func (r *Registry) registerSQLPool(dataSourceName string, code ...string) {
 
 	db.databaseName = dbName
 	r.sqlClients[dbCode] = db
+}
+
+func (r *Registry) RegisterElastic(url string, code ...string) {
+	client, err := elastic.NewClient(
+		elastic.SetSniff(false),
+		elastic.SetURL(url),
+		elastic.SetHealthcheckInterval(5*time.Second),
+	)
+
+	if err != nil {
+		panic(err)
+	}
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	config := &ElasticConfig{code: dbCode, client: client}
+	if r.elasticServers == nil {
+		r.elasticServers = make(map[string]*ElasticConfig)
+	}
+	r.elasticServers[dbCode] = config
+}
+
+type RedisCacheConfig struct {
+	code   string
+	client *redis.Client
+}
+
+type ElasticConfig struct {
+	code   string
+	client *elastic.Client
 }

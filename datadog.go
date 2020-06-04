@@ -176,6 +176,8 @@ func (dd *dataDog) EnableORMAPMLog(level apexLog.Level, withAnalytics bool, sour
 			dd.engine.AddQueryLogger(newRabbitMQDataDogHandler(withAnalytics, dd.engine), level, s)
 		} else if s == QueryLoggerSourceRedis {
 			dd.engine.AddQueryLogger(newRedisDataDogHandler(withAnalytics, dd.engine), level, s)
+		} else if s == QueryLoggerSourceElastic {
+			dd.engine.AddQueryLogger(newElasticDataDogHandler(withAnalytics, dd.engine), level, s)
 		}
 	}
 }

@@ -29,6 +29,8 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 			switch dataKey {
 			case "mysql":
 				validateOrmMysqlURI(registry, value, key)
+			case "elastic":
+				validateElasticURI(registry, value, key)
 			case "redis":
 				validateRedisURI(registry, value, key)
 			case "rabbitmq":
@@ -63,6 +65,14 @@ func validateOrmMysqlURI(registry *Registry, value interface{}, key string) {
 		panic(errors.NotValidf("mysql uri: %v", value))
 	}
 	registry.RegisterMySQLPool(asString, key)
+}
+
+func validateElasticURI(registry *Registry, value interface{}, key string) {
+	asString, ok := value.(string)
+	if !ok {
+		panic(errors.NotValidf("elastic uri: %v", value))
+	}
+	registry.RegisterElastic(asString, key)
 }
 
 func validateRedisURI(registry *Registry, value interface{}, key string) {

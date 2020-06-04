@@ -30,6 +30,7 @@ type validatedRegistry struct {
 	dirtyQueues             map[string]int
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
+	elasticServers          map[string]*ElasticConfig
 	rabbitMQServers         map[string]*rabbitMQConnection
 	rabbitMQChannelsToQueue map[string]*rabbitMQChannelToQueue
 	rabbitMQRouterConfigs   map[string]*RabbitMQRouterConfig
@@ -58,6 +59,12 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 	if e.registry.redisServers != nil {
 		for key, val := range e.registry.redisServers {
 			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{val.client}}
+		}
+	}
+	e.elastic = make(map[string]*Elastic)
+	if e.registry.elasticServers != nil {
+		for key, val := range e.registry.elasticServers {
+			e.elastic[key] = &Elastic{engine: e, code: val.code, client: val.client}
 		}
 	}
 
