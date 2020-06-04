@@ -28,6 +28,7 @@ type Log interface {
 	Warn(message string, fields apexLog.Fielder)
 	Error(err interface{}, fields apexLog.Fielder)
 	ErrorMessage(message string, fields apexLog.Fielder)
+	AddFieldsFromHTTPRequest(r *http.Request, ip string)
 }
 
 func newLog(engine *Engine) *log {
