@@ -108,7 +108,7 @@ func (l *log) Error(err interface{}, fields apexLog.Fielder) {
 	errorFields := apexLog.Fields{"error.message": message}
 	errorFields["error.stack"] = fullStack
 	errorFields["error.kind"] = "panicRecovery"
-	log.Error(message)
+	log.WithFields(errorFields).Error(message)
 }
 
 type jsonHandler struct{}
