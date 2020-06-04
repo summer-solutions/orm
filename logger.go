@@ -97,8 +97,9 @@ func (l *log) Error(err interface{}, fields apexLog.Fielder) {
 		stackParts := strings.Split(errors.ErrorStack(asErr), "\n")
 		details := strings.Join(stackParts[1:], "\n")
 		errorFields := apexLog.Fields{"error.message": asErr.Error()}
+
+		fullStack += "\n\n Details:\n\n" + details
 		errorFields["error.stack"] = fullStack
-		errorFields["error.details"] = details
 		errorFields["error.kind"] = reflect.TypeOf(errors.Cause(asErr)).String()
 		log = log.WithFields(errorFields)
 		log.Error(asErr.Error())
