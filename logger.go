@@ -104,7 +104,7 @@ func (l *log) Error(err interface{}, fields apexLog.Fielder) {
 		errorFields := apexLog.Fields{"error.message": asErr.Error()}
 
 		stackParts := strings.Split(errors.ErrorStack(asErr), "\n")[1:]
-		if len(stackParts) > 0 {
+		if len(stackParts) > 1 {
 			details := strings.Join(stackParts, "\n")
 			fullStack += "\n\n Details:\n\n" + details
 		}
