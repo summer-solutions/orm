@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/segmentio/fasthash/fnv1a"
+
 	apexLog "github.com/apex/log"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
@@ -187,12 +189,14 @@ func (dd *dataDog) RegisterAPMError(err interface{}) {
 		dd.registerAPMError(asErr)
 		return
 	}
-	lines := strings.Split(string(debug.Stack()), "\n")[2:]
+	lines := clearStack(strings.Split(string(debug.Stack()), "\n")[2:])
 	fullStack := strings.Join(lines, "\n")
+	hash := fnv1a.HashString32(fullStack)
 	dd.span.SetTag(ext.Error, true)
 	dd.span.SetTag(ext.ErrorMsg, fmt.Sprintf("%v", err))
 	dd.span.SetTag(ext.ErrorStack, fullStack)
 	dd.span.SetTag(ext.ErrorType, "panicRecovery")
+	dd.span.SetTag("error.group", hash)
 	dd.hasError = true
 	dd.span.SetTag(ext.ManualKeep, true)
 }
@@ -229,13 +233,15 @@ func (dd *dataDog) registerAPMError(err error) {
 	}
 	stackParts := strings.Split(errors.ErrorStack(err), "\n")
 	details := strings.Join(stackParts[1:], "\n")
-	lines := strings.Split(string(debug.Stack()), "\n")[2:]
+	lines := clearStack(strings.Split(string(debug.Stack()), "\n")[2:])
 	fullStack := strings.Join(lines, "\n")
+	hash := fnv1a.HashString32(fullStack)
 	dd.span.SetTag(ext.Error, true)
 	dd.span.SetTag(ext.ErrorMsg, err.Error())
 	dd.span.SetTag(ext.ErrorDetails, details)
 	dd.span.SetTag(ext.ErrorStack, fullStack)
 	dd.span.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
+	dd.span.SetTag("error.group", hash)
 	dd.hasError = true
 	dd.span.SetTag(ext.ManualKeep, true)
 }

@@ -46,13 +46,17 @@ func (l *log) AddFields(fields apexLog.Fielder) {
 
 func (l *log) AddFieldsFromHTTPRequest(r *http.Request, ip string) {
 	fields := apexLog.Fields{"http.url": r.RequestURI}
-	fields["http.path"] = r.URL.Path
+	fields["http.url_details.path"] = r.URL.Path
 	fields["http.useragent"] = r.UserAgent()
 	fields["http.method"] = r.Method
 	fields["http.host"] = r.Host
 	fields["http.query"] = r.URL.Query()
 	fields["network.client.ip"] = ip
 	l.AddFields(fields)
+}
+
+func (l *log) SetHTTPResponseCode(code int) {
+	l.AddFields(apexLog.Fields{"http.status_code": code})
 }
 
 func (l *log) Debug(message string, fields apexLog.Fielder) {
@@ -92,7 +96,7 @@ func (l *log) Error(err interface{}, fields apexLog.Fielder) {
 	if fields != nil {
 		log = log.WithFields(fields)
 	}
-	lines := strings.Split(string(debug.Stack()), "\n")[5:]
+	lines := clearStack(strings.Split(string(debug.Stack()), "\n")[5:])
 	fullStack := strings.Join(lines, "\n")
 	hash := fnv1a.HashString32(fullStack)
 	asErr, ok := err.(error)
@@ -120,6 +124,23 @@ func (l *log) Error(err interface{}, fields apexLog.Fielder) {
 }
 
 type jsonHandler struct{}
+
+func clearStack(stack []string) []string {
+	cleared := make([]string, len(stack))
+	for i, line := range stack {
+		pos := strings.Index(line, "(0x")
+		if pos > -1 {
+			line = line[0:pos]
+		} else {
+			pos = strings.Index(line, " +0x")
+			if pos > -1 {
+				line = line[0:pos]
+			}
+		}
+		cleared[i] = line
+	}
+	return cleared
+}
 
 func (h *jsonHandler) HandleLog(e *apexLog.Entry) error {
 	fields := e.Fields
