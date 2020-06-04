@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/segmentio/fasthash/fnv1a"
+
 	"github.com/juju/errors"
 
 	apexLog "github.com/apex/log"
@@ -90,15 +92,19 @@ func (l *log) Error(err interface{}, fields apexLog.Fielder) {
 	if fields != nil {
 		log = log.WithFields(fields)
 	}
-	lines := strings.Split(string(debug.Stack()), "\n")[4:]
+	lines := strings.Split(string(debug.Stack()), "\n")[5:]
 	fullStack := strings.Join(lines, "\n")
+	hash := fnv1a.HashString32(fullStack)
 	asErr, ok := err.(error)
 	if ok {
-		stackParts := strings.Split(errors.ErrorStack(asErr), "\n")
-		details := strings.Join(stackParts[1:], "\n")
 		errorFields := apexLog.Fields{"error.message": asErr.Error()}
 
-		fullStack += "\n\n Details:\n\n" + details
+		stackParts := strings.Split(errors.ErrorStack(asErr), "\n")[1:]
+		if len(stackParts) > 0 {
+			details := strings.Join(stackParts, "\n")
+			fullStack += "\n\n Details:\n\n" + details
+		}
+		errorFields["error.group"] = hash
 		errorFields["error.stack"] = fullStack
 		errorFields["error.kind"] = reflect.TypeOf(errors.Cause(asErr)).String()
 		log = log.WithFields(errorFields)
@@ -107,6 +113,7 @@ func (l *log) Error(err interface{}, fields apexLog.Fielder) {
 	}
 	message := fmt.Sprintf("%v", err)
 	errorFields := apexLog.Fields{"error.message": message}
+	errorFields["error.group"] = hash
 	errorFields["error.stack"] = fullStack
 	errorFields["error.kind"] = "panicRecovery"
 	log.WithFields(errorFields).Error(message)
