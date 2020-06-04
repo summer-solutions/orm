@@ -41,7 +41,8 @@ Menu:
  * [Working with mysql](https://github.com/summer-solutions/orm#working-with-mysql) 
  * [Working with Locker](https://github.com/summer-solutions/orm#working-with-locker) 
  * [Working with RabbitMQ](https://github.com/summer-solutions/orm#working-with-rabbitmq) 
- * [Logging](https://github.com/summer-solutions/orm#logging) 
+ * [Query logging](https://github.com/summer-solutions/orm#query-logging) 
+ * [Logger](https://github.com/summer-solutions/orm#logger) 
  * [DataDog Profiler](https://github.com/summer-solutions/orm#datadog-profiler) 
  * [DataDog APM](https://github.com/summer-solutions/orm#datadog-apm) 
 
@@ -997,9 +998,13 @@ func main() {
 ```
 
 
-## Logging
+## Query logging
 
-Read more: [APEX Log](https://github.com/apex/log)
+You can log all queries:
+ 
+ * queries to MySQL database (insert, select, update)
+ * requests to Redis
+ * requests to rabbitMQ 
 
 ```go
 package main
@@ -1016,6 +1021,41 @@ func main() {
     //adding custom logger example:
     engine.AddQueryLogger(json.New(os.Stdout), log.LevelWarn) //MySQL, redis, rabbitMQ warnings and above
     engine.AddQueryLogger(es.New(os.Stdout), log.LevelError, orm.QueryLoggerSourceRedis, orm. QueryLoggerSourceRabbitMQ)
+}    
+```
+
+## Logger
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+	
+    //enable json logger with proper level
+    engine.EnableLogger(log.InfoLevel)
+    //or enable human friendly console logger
+    engine.EnableDebug()
+    
+    //you can add special fields to all logs
+    engine.Log().AddFields(log.Fields{"user_id": 12, "session_id": "skfjhfhhs1221"})
+
+    //printing logs
+    engine.Log().Warn("message", nil)
+    engine.Log().Debug("message", log.Fields{"user_id": 12})
+    engine.Log().Error(err, nil)
+    engine.Log().ErrorMessage("ups, that is strange", nil)
+
+
+    //handling recovery
+    if err := recover(); err != nil {
+    	engine.Log().Error(err, nil)
+    }
+
+    //filling log with data from http.Request
+    engine.Log().AddFieldsFromHTTPRequest(request, "197.21.34.22")
+
 }    
 ```
 
