@@ -90,7 +90,7 @@ func (l *log) Error(err interface{}, fields apexLog.Fielder) {
 	if fields != nil {
 		log = log.WithFields(fields)
 	}
-	lines := strings.Split(string(debug.Stack()), "\n")[2:]
+	lines := strings.Split(string(debug.Stack()), "\n")[4:]
 	fullStack := strings.Join(lines, "\n")
 	asErr, ok := err.(error)
 	if ok {
