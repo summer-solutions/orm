@@ -24,14 +24,16 @@ func (e *Elastic) Client() *elastic.Client {
 	return e.client
 }
 
-func (e *Elastic) Search(key string) (string, error) {
+func (e *Elastic) Search(callback func(*elastic.SearchService) *elastic.SearchResult, query elastic.Query) *elastic.SearchResult {
 	start := time.Now()
+	searchService := e.client.Search().Query(query)
+	result := callback(searchService)
 	if e.engine.queryLoggers[QueryLoggerSourceElastic] != nil {
 		e.fillLogFields("[ORM][ELASTIC][QUERY]", start, "query", nil)
 	}
 	e.engine.dataDog.incrementCounter(counterElasticAll, 1)
 	e.engine.dataDog.incrementCounter(counterElasticSearch, 1)
-	return "", nil
+	return result
 }
 
 func (e *Elastic) fillLogFields(message string, start time.Time, operation string, err error) {
