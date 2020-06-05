@@ -925,7 +925,7 @@ import (
 func main() {
     
     // register elastic search pool
-    registry.RegisterElastic("http://127.0.0.1:9207")
+    registry.RegisterElastic("http://127.0.0.1:9200")
 
     e := engine.GetElastic()
 
