@@ -39,6 +39,7 @@ Menu:
  * [Working with Redis](https://github.com/summer-solutions/orm#working-with-redis) 
  * [Working with local cache](https://github.com/summer-solutions/orm#working-with-local-cache) 
  * [Working with mysql](https://github.com/summer-solutions/orm#working-with-mysql) 
+ * [Working with elastic search](https://github.com/summer-solutions/orm#working-with-elastic-search)  
  * [Working with Locker](https://github.com/summer-solutions/orm#working-with-locker) 
  * [Working with RabbitMQ](https://github.com/summer-solutions/orm#working-with-rabbitmq) 
  * [Query logging](https://github.com/summer-solutions/orm#query-logging) 
@@ -84,6 +85,13 @@ func main() {
     /* Redis used to handle locks (explained later) */
     registry.RegisterRedis("localhost:6379", 4, "lockers_pool")
     registry.RegisterLocker("default", "lockers_pool")
+
+    /* ElasticSearch */
+    registry.RegisterElastic("http://127.0.0.1:9200")
+    //optionally you can define pool name as second argument
+    registry.RegisterElastic("http://127.0.0.1:9200", "second_pool")
+
+
 }
 
 ```
@@ -94,6 +102,7 @@ func main() {
 default:
     mysql: root:root@tcp(localhost:3310)/db
     redis: localhost:6379:0
+    elastic: http://127.0.0.1:9200
     locker: default
     dirty_queues:
         test: 10
@@ -904,6 +913,32 @@ func main() {
 
 ```
 
+## Working with elastic search
+
+```go
+package main
+
+import (
+    "github.com/summer-solutions/orm"
+)
+
+func main() {
+    
+    // register elastic search pool
+    registry.RegisterElastic("http://127.0.0.1:9207")
+
+    e := engine.GetElastic()
+
+    query := elastic.NewBoolQuery()
+	query.Must(elastic.NewTermQuery("user_id", 12))
+	results := e.Search("users", query, &Pager{CurrentPage: 1, PageSize: 10}, func(searchService *elastic.SearchService) (*elastic.SearchResult, error) {
+		//index and pager is set, add extra parameters like sort here
+        return searchService.Do(context.Background())
+	})
+}
+
+```
+
 ## Working with Locker
 
 Shared cached that is using redis
@@ -1005,6 +1040,7 @@ You can log all queries:
  * queries to MySQL database (insert, select, update)
  * requests to Redis
  * requests to rabbitMQ 
+ * requests to Elastic Search 
 
 ```go
 package main
@@ -1014,9 +1050,8 @@ import "github.com/summer-solutions/orm"
 func main() {
 	
     //enable human friendly console log
-    engine.EnableQueryDebug() //MySQL, redis, rabbitMQ queries (local cache in excluded bt default)
+    engine.EnableQueryDebug() //MySQL, redis, rabbitMQ, Elastic Search queries (local cache in excluded bt default)
     engine.EnableQueryDebug(orm.QueryLoggerSourceRedis, orm.QueryLoggerSourceLocalCache)
-    engine.EnableQueryDebug(orm.QueryLoggerSourceDB, orm.QueryLoggerSourceRedis, orm. QueryLoggerSourceRabbitMQ, orm.QueryLoggerSourceLocalCache) //all sources
 
     //adding custom logger example:
     engine.AddQueryLogger(json.New(os.Stdout), log.LevelWarn) //MySQL, redis, rabbitMQ warnings and above

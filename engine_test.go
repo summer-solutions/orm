@@ -21,8 +21,8 @@ type testEntityEngineUnregistered struct {
 func TestEngine(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterEntity(testEntityEngine{})
-	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test")
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3310)/test")
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()

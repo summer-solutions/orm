@@ -64,8 +64,8 @@ func TestSortedSet(t *testing.T) {
 
 func prepareRedis(t *testing.T) (*RedisCache, *Engine) {
 	registry := &Registry{}
-	registry.RegisterRedis("localhost:6379", 15)
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
+	registry.RegisterRedis("localhost:6380", 15)
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()

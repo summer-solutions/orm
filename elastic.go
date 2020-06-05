@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	log2 "github.com/apex/log"
+
 	"github.com/olivere/elastic/v7"
 
 	"github.com/juju/errors"
@@ -24,19 +26,26 @@ func (e *Elastic) Client() *elastic.Client {
 	return e.client
 }
 
-func (e *Elastic) Search(callback func(*elastic.SearchService) *elastic.SearchResult, query elastic.Query) *elastic.SearchResult {
+func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, callback func(*elastic.SearchService) (*elastic.SearchResult, error)) *elastic.SearchResult {
 	start := time.Now()
 	searchService := e.client.Search().Query(query)
-	result := callback(searchService)
+	searchService.Index(index).From((pager.CurrentPage - 1) * pager.PageSize).Size(pager.PageSize).StoredField("_id")
+	result, err := callback(searchService)
 	if e.engine.queryLoggers[QueryLoggerSourceElastic] != nil {
-		e.fillLogFields("[ORM][ELASTIC][QUERY]", start, "query", nil)
+		s, _ := query.Source()
+		queryType := strings.Split(reflect.TypeOf(query).Elem().String(), ".")
+		fields := log2.Fields{"Index": index, "post": s, "type": queryType[len(queryType)-1]}
+		e.fillLogFields("[ORM][ELASTIC][QUERY]", start, "query", fields, err)
 	}
 	e.engine.dataDog.incrementCounter(counterElasticAll, 1)
 	e.engine.dataDog.incrementCounter(counterElasticSearch, 1)
+	if err != nil {
+		panic(err)
+	}
 	return result
 }
 
-func (e *Elastic) fillLogFields(message string, start time.Time, operation string, err error) {
+func (e *Elastic) fillLogFields(message string, start time.Time, operation string, fields log2.Fielder, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
 	entry := e.engine.queryLoggers[QueryLoggerSourceRedis].log.
@@ -46,6 +55,9 @@ func (e *Elastic) fillLogFields(message string, start time.Time, operation strin
 		WithField("target", "elastic").
 		WithField("started", start.UnixNano()).
 		WithField("finished", now.UnixNano())
+	if fields != nil {
+		entry = entry.WithFields(fields)
+	}
 	if err != nil {
 		stackParts := strings.Split(errors.ErrorStack(err), "\n")
 		stack := strings.Join(stackParts[1:], "\\n")

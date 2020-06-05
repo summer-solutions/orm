@@ -11,11 +11,11 @@ import (
 )
 
 func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *Engine {
-	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test")
-	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_log", "log")
-	registry.RegisterRedis("localhost:6379", 15)
-	registry.RegisterRedis("localhost:6379", 14, "default_queue")
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3310)/test")
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3310)/test_log", "log")
+	registry.RegisterRedis("localhost:6380", 15)
+	registry.RegisterRedis("localhost:6380", 14, "default_queue")
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
 	registry.RegisterLocalCache(1000)
 
 	registry.RegisterEntity(entities...)

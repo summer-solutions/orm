@@ -76,14 +76,14 @@ type testEntitySchemaRef struct {
 
 func TestSchema(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_schema", "schema")
-	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test_log", "log")
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3310)/test_schema", "schema")
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3310)/test_log", "log")
 
 	var entity testEntitySchema
 	var entityRef testEntitySchemaRef
 	registry.RegisterEntity(entity, entityRef)
 	registry.RegisterEnumStruct("orm.colorEnum", colorEnum)
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
 
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)

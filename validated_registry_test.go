@@ -20,8 +20,8 @@ type testEntityValidatedRegistryUnregistered struct {
 func TestValidatedRegistry(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterEntity(&testEntityValidatedRegistry{})
-	registry.RegisterMySQLPool("root:root@tcp(localhost:3308)/test")
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test")
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3310)/test")
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
 	vr, err := registry.Validate()
 	assert.Nil(t, err)
 

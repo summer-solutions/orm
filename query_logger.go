@@ -140,11 +140,11 @@ func (h *elasticDataDogHandler) HandleLog(e *apexLox.Entry) error {
 	started := time.Unix(0, e.Fields.Get("started").(int64))
 	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], "elasticsearch.query", tracer.StartTime(started))
 	span.SetTag(ext.SpanType, ext.SpanTypeElasticSearch)
-	span.SetTag(ext.ServiceName, "elastic.db."+e.Fields.Get("pool").(string))
-	span.SetTag(ext.ResourceName, e.Fields.Get("Url"))
-	span.SetTag("elasticsearch.method", e.Fields.Get("method"))
-	span.SetTag("elasticsearch.url", e.Fields.Get("Url"))
-	span.SetTag("elasticsearch.params", e.Fields.Get("params"))
+	span.SetTag(ext.ServiceName, "elasticsearch."+e.Fields.Get("pool").(string))
+	span.SetTag(ext.ResourceName, e.Fields.Get("type").(string)+" "+e.Fields.Get("Index").(string))
+	span.SetTag("elasticsearch.index", e.Fields.Get("Index"))
+	span.SetTag("elasticsearch.type", e.Fields.Get("type"))
+	span.SetTag("elasticsearch.params", e.Fields.Get("post"))
 
 	if h.withAnalytics {
 		span.SetTag(ext.AnalyticsEvent, true)
