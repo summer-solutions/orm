@@ -10,12 +10,14 @@ import (
 
 	"github.com/go-redis/redis/v7"
 	"github.com/golang/groupcache/lru"
+	"github.com/jmoiron/sqlx"
 	"github.com/juju/errors"
 	"github.com/olivere/elastic/v7"
 )
 
 type Registry struct {
 	sqlClients           map[string]*DBConfig
+	clickHouseClients    map[string]*ClickHouseConfig
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
 	elasticServers       map[string]*ElasticConfig
@@ -70,6 +72,18 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		v.db = db
 		registry.sqlClients[k] = v
 	}
+	if registry.clickHouseClients == nil {
+		registry.clickHouseClients = make(map[string]*ClickHouseConfig)
+	}
+	for k, v := range r.clickHouseClients {
+		db, err := sqlx.Open("clickhouse", v.url)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		v.db = db
+		registry.clickHouseClients[k] = v
+	}
+
 	if registry.dirtyQueues == nil {
 		registry.dirtyQueues = make(map[string]int)
 	}
@@ -423,6 +437,18 @@ func (r *Registry) RegisterElastic(url string, code ...string) {
 		r.elasticServers = make(map[string]*ElasticConfig)
 	}
 	r.elasticServers[dbCode] = config
+}
+
+func (r *Registry) RegisterClickHouse(url string, code ...string) {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	db := &ClickHouseConfig{code: dbCode, url: url}
+	if r.clickHouseClients == nil {
+		r.clickHouseClients = make(map[string]*ClickHouseConfig)
+	}
+	r.clickHouseClients[dbCode] = db
 }
 
 type RedisCacheConfig struct {

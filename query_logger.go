@@ -1,8 +1,12 @@
 package orm
 
 import (
+	"reflect"
+	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/juju/errors"
 
 	apexLox "github.com/apex/log"
 
@@ -20,6 +24,7 @@ const (
 	QueryLoggerSourceRedis
 	QueryLoggerSourceRabbitMQ
 	QueryLoggerSourceElastic
+	QueryLoggerSourceClickHouse
 	QueryLoggerSourceLocalCache
 )
 
@@ -145,7 +150,35 @@ func (h *elasticDataDogHandler) HandleLog(e *apexLox.Entry) error {
 	span.SetTag("elasticsearch.index", e.Fields.Get("Index"))
 	span.SetTag("elasticsearch.type", e.Fields.Get("type"))
 	span.SetTag("elasticsearch.params", e.Fields.Get("post"))
+	span.SetTag("elasticsearch.page.from", e.Fields.Get("from"))
+	span.SetTag("elasticsearch.page.size", e.Fields.Get("size"))
 
+	if h.withAnalytics {
+		span.SetTag(ext.AnalyticsEvent, true)
+	}
+	injectError(e, span)
+	finished := time.Unix(0, e.Fields.Get("finished").(int64))
+	span.Finish(tracer.FinishTime(finished))
+	return nil
+}
+
+type clickHouseDataDogHandler struct {
+	withAnalytics bool
+	engine        *Engine
+}
+
+func newClickHouseDataDogHandler(withAnalytics bool, engine *Engine) *clickHouseDataDogHandler {
+	return &clickHouseDataDogHandler{withAnalytics, engine}
+}
+
+func (h *clickHouseDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	started := time.Unix(0, e.Fields.Get("started").(int64))
+	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], "clickhouse.query", tracer.StartTime(started))
+	queryType := e.Fields.Get("type")
+	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
+	span.SetTag(ext.ServiceName, "clickhouse."+e.Fields.Get("pool").(string))
+	span.SetTag(ext.ResourceName, e.Fields.Get("Query"))
+	span.SetTag(ext.SQLType, queryType)
 	if h.withAnalytics {
 		span.SetTag(ext.AnalyticsEvent, true)
 	}
@@ -164,4 +197,14 @@ func injectError(e *apexLox.Entry, span tracer.Span) {
 		span.SetTag(ext.ErrorStack, strings.ReplaceAll(e.Fields.Get("stack").(string), "\\n", "\n"))
 		span.SetTag(ext.ErrorType, e.Fields.Get("error_type"))
 	}
+}
+
+func injectLogError(err error, e *apexLox.Entry) *apexLox.Entry {
+	stackParts := strings.Split(errors.ErrorStack(err), "\n")
+	stack := strings.Join(stackParts[1:], "\\n")
+	fullStack := strings.Join(clearStack(strings.Split(string(debug.Stack()), "\n")[4:]), "\\n")
+	return e.WithError(err).
+		WithField("stack", stack).
+		WithField("stack_full", fullStack).
+		WithField("error_type", reflect.TypeOf(errors.Cause(err)).String())
 }

@@ -17,6 +17,7 @@ import (
 type Engine struct {
 	registry                     *validatedRegistry
 	dbs                          map[string]*DB
+	clickHouseDbs                map[string]*ClickHouse
 	localCache                   map[string]*LocalCache
 	redis                        map[string]*RedisCache
 	elastic                      map[string]*Elastic
@@ -65,7 +66,7 @@ func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, so
 		e.queryLoggers = make(map[QueryLoggerSource]*logger)
 	}
 	if len(source) == 0 {
-		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic}
+		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic, QueryLoggerSourceClickHouse}
 	}
 	newHandler := levelHandler.New(handler, level)
 	for _, source := range source {
@@ -289,6 +290,18 @@ func (e *Engine) GetElastic(code ...string) *Elastic {
 		panic(errors.Errorf("unregistered elastic pool '%s'", dbCode))
 	}
 	return elastic
+}
+
+func (e *Engine) GetClickHouse(code ...string) *ClickHouse {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	ch, has := e.clickHouseDbs[dbCode]
+	if !has {
+		panic(errors.Errorf("unregistered clickhouse pool '%s'", dbCode))
+	}
+	return ch
 }
 
 func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {

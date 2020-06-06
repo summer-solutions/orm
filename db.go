@@ -2,9 +2,6 @@ package orm
 
 import (
 	"database/sql"
-	"reflect"
-	"runtime/debug"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,6 +11,13 @@ const counterDBAll = "db.all"
 const counterDBTransaction = "db.transaction"
 const counterDBQuery = "db.query"
 const counterDBExec = "db.exec"
+
+type DBConfig struct {
+	dataSourceName string
+	code           string
+	databaseName   string
+	db             *sql.DB
+}
 
 type sqlClient interface {
 	Begin() error
@@ -257,14 +261,7 @@ func (db *DB) fillLogFields(message string, start time.Time, typeCode string, qu
 		e = e.WithField("args", args)
 	}
 	if err != nil {
-		stackParts := strings.Split(errors.ErrorStack(err), "\n")
-		stack := strings.Join(stackParts[1:], "\\n")
-		fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[4:], "\\n")
-		e.WithError(err).
-			WithField("stack", stack).
-			WithField("stack_full", fullStack).
-			WithField("error_type", reflect.TypeOf(errors.Cause(err)).String()).
-			Error(message)
+		injectLogError(err, e).Error(message)
 	} else {
 		e.Info(message)
 	}

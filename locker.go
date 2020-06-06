@@ -1,9 +1,6 @@
 package orm
 
 import (
-	"reflect"
-	"runtime/debug"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -113,14 +110,7 @@ func (l *Locker) fillLogFields(message string, start time.Time, key string, oper
 		WithField("started", start.UnixNano()).
 		WithField("finished", now.UnixNano())
 	if err != nil {
-		stackParts := strings.Split(errors.ErrorStack(err), "\n")
-		stack := strings.Join(stackParts[1:], "\\n")
-		fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[4:], "\\n")
-		e.WithError(err).
-			WithField("stack", stack).
-			WithField("stack_full", fullStack).
-			WithField("error_type", reflect.TypeOf(errors.Cause(err)).String()).
-			Error(message)
+		injectLogError(err, e).Error(message)
 	} else {
 		e.Info(message)
 	}

@@ -27,6 +27,7 @@ type validatedRegistry struct {
 	tableSchemas            map[reflect.Type]*tableSchema
 	entities                map[string]reflect.Type
 	sqlClients              map[string]*DBConfig
+	clickHouseClients       map[string]*ClickHouseConfig
 	dirtyQueues             map[string]int
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
@@ -47,6 +48,11 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 		for key, val := range e.registry.sqlClients {
 			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName,
 				client: &standardSQLClient{db: val.db}}
+		}
+	}
+	if e.registry.clickHouseClients != nil {
+		for key, val := range e.registry.clickHouseClients {
+			e.clickHouseDbs[key] = &ClickHouse{engine: e, code: val.code, client: val.db}
 		}
 	}
 	e.localCache = make(map[string]*LocalCache)

@@ -2,15 +2,12 @@ package orm
 
 import (
 	"reflect"
-	"runtime/debug"
 	"strings"
 	"time"
 
 	log2 "github.com/apex/log"
 
 	"github.com/olivere/elastic/v7"
-
-	"github.com/juju/errors"
 )
 
 const counterElasticAll = "elastic.all"
@@ -29,12 +26,13 @@ func (e *Elastic) Client() *elastic.Client {
 func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, callback func(*elastic.SearchService) (*elastic.SearchResult, error)) *elastic.SearchResult {
 	start := time.Now()
 	searchService := e.client.Search().Query(query)
-	searchService.Index(index).From((pager.CurrentPage - 1) * pager.PageSize).Size(pager.PageSize).StoredField("_id")
+	from := (pager.CurrentPage - 1) * pager.PageSize
+	searchService.Index(index).From(from).Size(pager.PageSize).StoredField("_id")
 	result, err := callback(searchService)
 	if e.engine.queryLoggers[QueryLoggerSourceElastic] != nil {
 		s, _ := query.Source()
 		queryType := strings.Split(reflect.TypeOf(query).Elem().String(), ".")
-		fields := log2.Fields{"Index": index, "post": s, "type": queryType[len(queryType)-1]}
+		fields := log2.Fields{"Index": index, "post": s, "type": queryType[len(queryType)-1], "from": from, "size": pager.PageSize}
 		e.fillLogFields("[ORM][ELASTIC][QUERY]", start, "query", fields, err)
 	}
 	e.engine.dataDog.incrementCounter(counterElasticAll, 1)
@@ -59,14 +57,7 @@ func (e *Elastic) fillLogFields(message string, start time.Time, operation strin
 		entry = entry.WithFields(fields)
 	}
 	if err != nil {
-		stackParts := strings.Split(errors.ErrorStack(err), "\n")
-		stack := strings.Join(stackParts[1:], "\\n")
-		fullStack := strings.Join(strings.Split(string(debug.Stack()), "\n")[4:], "\\n")
-		entry.WithError(err).
-			WithField("stack", stack).
-			WithField("stack_full", fullStack).
-			WithField("error_type", reflect.TypeOf(errors.Cause(err)).String()).
-			Error(message)
+		injectLogError(err, entry).Error(message)
 	} else {
 		entry.Info(message)
 	}
