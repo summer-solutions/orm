@@ -40,6 +40,7 @@ Menu:
  * [Working with local cache](https://github.com/summer-solutions/orm#working-with-local-cache) 
  * [Working with mysql](https://github.com/summer-solutions/orm#working-with-mysql) 
  * [Working with elastic search](https://github.com/summer-solutions/orm#working-with-elastic-search)  
+ * [Working with ClickHouse](https://github.com/summer-solutions/orm#working-with-clickhouse)  
  * [Working with Locker](https://github.com/summer-solutions/orm#working-with-locker) 
  * [Working with RabbitMQ](https://github.com/summer-solutions/orm#working-with-rabbitmq) 
  * [Query logging](https://github.com/summer-solutions/orm#query-logging) 
@@ -91,7 +92,10 @@ func main() {
     //optionally you can define pool name as second argument
     registry.RegisterElastic("http://127.0.0.1:9200", "second_pool")
 
-
+    /* ClickHouse */
+    registry.RegisterClickHouse("http://127.0.0.1:9000")
+    //optionally you can define pool name as second argument
+    registry.RegisterClickHouse("http://127.0.0.1:9000", "second_pool")
 }
 
 ```
@@ -103,6 +107,7 @@ default:
     mysql: root:root@tcp(localhost:3310)/db
     redis: localhost:6379:0
     elastic: http://127.0.0.1:9200
+    clickhouse: http://127.0.0.1:9000
     locker: default
     dirty_queues:
         test: 10
@@ -939,6 +944,44 @@ func main() {
 
 ```
 
+## Working with ClickHouse
+
+```go
+package main
+
+import (
+    "github.com/summer-solutions/orm"
+)
+
+func main() {
+    
+    // register elastic search pool
+    registry.RegisterClickHouse("http://127.0.0.1:9000")
+
+    ch := engine.GetClickHouse()
+
+    ch.Exec("INSERT INTO `table` (name) VALUES (?)", "hello")
+
+    statement, def := ch.Prepare("INSERT INTO `table` (name) VALUES (?)")
+    defer def()
+    statement.Exec("hello")
+    statement.Exec("hello ")
+
+    rows, def := ch.Queryx("SELECT FROM `table` WHERE x = ? AND y = ?", 1, "john")
+    defer def()
+    for rows.Next() {
+    	m := &MyStruct{}
+        err := rows.StructScan(m)
+    }
+
+    ch.Begin()
+    defer ch.Rollback()
+    // run queries
+    defer ch.Commit()
+}
+
+```
+
 ## Working with Locker
 
 Shared cached that is using redis
@@ -1041,6 +1084,7 @@ You can log all queries:
  * requests to Redis
  * requests to rabbitMQ 
  * requests to Elastic Search 
+ * queries to CickHouse 
 
 ```go
 package main
@@ -1050,7 +1094,7 @@ import "github.com/summer-solutions/orm"
 func main() {
 	
     //enable human friendly console log
-    engine.EnableQueryDebug() //MySQL, redis, rabbitMQ, Elastic Search queries (local cache in excluded bt default)
+    engine.EnableQueryDebug() //MySQL, redis, rabbitMQ, Elastic Search, ClickHouse queries (local cache in excluded bt default)
     engine.EnableQueryDebug(orm.QueryLoggerSourceRedis, orm.QueryLoggerSourceLocalCache)
 
     //adding custom logger example:

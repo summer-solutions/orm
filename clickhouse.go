@@ -100,7 +100,7 @@ func (c *ClickHouse) Commit() {
 
 func (c *ClickHouse) Rollback() {
 	if c.tx == nil {
-		panic(errors.Errorf("transaction not started"))
+		return
 	}
 	start := time.Now()
 	err := c.tx.Rollback()
