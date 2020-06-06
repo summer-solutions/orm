@@ -965,7 +965,7 @@ func main() {
     statement, def := ch.Prepare("INSERT INTO `table` (name) VALUES (?)")
     defer def()
     statement.Exec("hello")
-    statement.Exec("hello ")
+    statement.Exec("hello 2")
 
     rows, def := ch.Queryx("SELECT FROM `table` WHERE x = ? AND y = ?", 1, "john")
     defer def()
