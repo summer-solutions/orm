@@ -114,6 +114,51 @@ func (c *ClickHouse) Rollback() {
 	c.tx = nil
 }
 
+type PreparedStatement struct {
+	c         *ClickHouse
+	statement *sql.Stmt
+	query     string
+}
+
+func (p *PreparedStatement) Exec(args ...interface{}) sql.Result {
+	start := time.Now()
+	results, err := p.statement.Exec(args)
+	if p.c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+		p.c.fillLogFields("[ORM][CLICKHOUSE][EXEC]", start, "exec", p.query, args, err)
+		p.c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
+		p.c.engine.dataDog.incrementCounter(counterClickHouseExec, 1)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return results
+}
+
+func (c *ClickHouse) Prepare(query string) (prpeparedStatement *PreparedStatement, deferF func()) {
+	var err error
+	var statement *sql.Stmt
+	start := time.Now()
+	if c.tx != nil {
+		statement, err = c.tx.Prepare(query)
+	} else {
+		statement, err = c.client.Prepare(query)
+	}
+	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+		c.fillLogFields("[ORM][CLICKHOUSE][PREPARE]", start, "exec", query, nil, err)
+		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
+		c.engine.dataDog.incrementCounter(counterClickHouseExec, 1)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return &PreparedStatement{c: c, statement: statement, query: query}, func() {
+		err := statement.Close()
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
 func (c *ClickHouse) fillLogFields(message string, start time.Time, typeCode string, query string, args []interface{}, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
