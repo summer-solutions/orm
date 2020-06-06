@@ -4,12 +4,15 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/jmoiron/sqlx"
 )
 
 const counterClickHouseAll = "clickhouse.all"
 const counterClickHouseQuery = "clickhouse.query"
-const counterClickHouseExec = "clickhouse.query"
+const counterClickHouseExec = "clickhouse.exec"
+const counterClickHouseTransaction = "clickhouse.transaction"
 
 type ClickHouseConfig struct {
 	url  string
@@ -20,12 +23,19 @@ type ClickHouseConfig struct {
 type ClickHouse struct {
 	engine *Engine
 	client *sqlx.DB
+	tx     *sql.Tx
 	code   string
 }
 
 func (c *ClickHouse) Exec(query string, args ...interface{}) sql.Result {
 	start := time.Now()
-	rows, err := c.client.Exec(query, args...)
+	var rows sql.Result
+	var err error
+	if c.tx != nil {
+		rows, err = c.tx.Exec(query, args...)
+	} else {
+		rows, err = c.client.Exec(query, args...)
+	}
 	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		c.fillLogFields("[ORM][CLICKHOUSE][EXEC]", start, "exec", query, args, err)
 	}
@@ -53,6 +63,55 @@ func (c *ClickHouse) Queryx(query string, args ...interface{}) (rows *sqlx.Rows,
 			_ = rows.Close()
 		}
 	}
+}
+
+func (c *ClickHouse) Begin() {
+	if c.tx != nil {
+		panic(errors.Errorf("transaction already started"))
+	}
+	start := time.Now()
+	tx, err := c.client.Begin()
+	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+		c.fillLogFields("[ORM][CLICKHOUSE][BEGIN]", start, "transaction", "START TRANSACTION", nil, err)
+		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
+		c.engine.dataDog.incrementCounter(counterClickHouseTransaction, 1)
+	}
+	if err != nil {
+		panic(err)
+	}
+	c.tx = tx
+}
+
+func (c *ClickHouse) Commit() {
+	if c.tx == nil {
+		panic(errors.Errorf("transaction not started"))
+	}
+	start := time.Now()
+	err := c.tx.Commit()
+	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+		c.fillLogFields("[ORM][CLICKHOUSE][COMMIT]", start, "transaction", "COMMIT TRANSACTION", nil, err)
+		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
+	}
+	if err != nil {
+		panic(err)
+	}
+	c.tx = nil
+}
+
+func (c *ClickHouse) Rollback() {
+	if c.tx == nil {
+		panic(errors.Errorf("transaction not started"))
+	}
+	start := time.Now()
+	err := c.tx.Rollback()
+	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+		c.fillLogFields("[ORM][CLICKHOUSE][ROLLBACK]", start, "transaction", "ROLLBACK TRANSACTION", nil, err)
+		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
+	}
+	if err != nil {
+		panic(err)
+	}
+	c.tx = nil
 }
 
 func (c *ClickHouse) fillLogFields(message string, start time.Time, typeCode string, query string, args []interface{}, err error) {
