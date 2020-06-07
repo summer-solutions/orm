@@ -64,7 +64,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 	e.redis = make(map[string]*RedisCache)
 	if e.registry.redisServers != nil {
 		for key, val := range e.registry.redisServers {
-			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{val.client}}
+			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{val.client, val.ring}}
 		}
 	}
 	e.elastic = make(map[string]*Elastic)

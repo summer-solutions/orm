@@ -2,6 +2,7 @@ package orm
 
 import (
 	"database/sql"
+	"fmt"
 	"math"
 	"reflect"
 	"sort"
@@ -348,6 +349,26 @@ func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 	r.redisServers[dbCode] = redisCache
 }
 
+func (r *Registry) RegisterRedisPool(addresses []string, db int, code ...string) {
+	list := make(map[string]string, len(addresses))
+	for i, address := range addresses {
+		list[fmt.Sprintf("shard%d", i+1)] = address
+	}
+	ring := redis.NewRing(&redis.RingOptions{
+		Addrs: list,
+		DB:    db,
+	})
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	redisCache := &RedisCacheConfig{code: dbCode, ring: ring}
+	if r.redisServers == nil {
+		r.redisServers = make(map[string]*RedisCacheConfig)
+	}
+	r.redisServers[dbCode] = redisCache
+}
+
 func (r *Registry) RegisterRabbitMQServer(address string, code ...string) {
 	dbCode := "default"
 	if len(code) > 0 {
@@ -454,6 +475,7 @@ func (r *Registry) RegisterClickHouse(url string, code ...string) {
 type RedisCacheConfig struct {
 	code   string
 	client *redis.Client
+	ring   *redis.Ring
 }
 
 type ElasticConfig struct {
