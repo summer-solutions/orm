@@ -46,7 +46,7 @@ func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, callba
 func (e *Elastic) fillLogFields(message string, start time.Time, operation string, fields log2.Fielder, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	entry := e.engine.queryLoggers[QueryLoggerSourceRedis].log.
+	entry := e.engine.queryLoggers[QueryLoggerSourceElastic].log.
 		WithField("microseconds", stop).
 		WithField("operation", operation).
 		WithField("pool", e.code).
