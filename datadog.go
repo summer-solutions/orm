@@ -167,7 +167,7 @@ func (dd *dataDog) EnableORMAPMLog(level apexLog.Level, withAnalytics bool, sour
 		return
 	}
 	if len(source) == 0 {
-		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ}
+		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic, QueryLoggerSourceRabbitMQ}
 	}
 	for _, s := range source {
 		if s == QueryLoggerSourceDB {
