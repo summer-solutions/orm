@@ -88,12 +88,12 @@ func validateClickHouseURI(registry *Registry, value interface{}, key string) {
 func validateRedisURI(registry *Registry, value interface{}, key string) {
 	asString, ok := value.(string)
 	if !ok {
-		asStrings, ok := value.([]string)
+		asStrings, ok := value.([]interface{})
 		if ok {
 			uris := make([]string, len(asStrings))
 			db := uint64(0)
 			for i, row := range asStrings {
-				elements := strings.Split(row, ":")
+				elements := strings.Split(row.(string), ":")
 				if len(elements) < 2 {
 					panic(errors.NotValidf("redis uri: %v", value))
 				}
