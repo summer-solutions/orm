@@ -73,6 +73,9 @@ func main() {
     //optionally you can define pool name as second argument
     registry.RegisterRedis("localhost:6379", 1, "second_pool")
 
+    /* Redis ring */
+    registry.RegisterRedisRing([]string{"localhost:6379", "localhost:6380"}, 0)
+
     /* RabbitMQ */
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
     registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue"})
@@ -132,7 +135,10 @@ default:
               durable: false // optional, default true
 second_pool:
     mysql: root:root@tcp(localhost:3311)/db2
-    redis: localhost:6380:1 
+    redis:  // redis ring
+        - localhost:6380:0
+        - localhost:6381
+        - localhost:6382
 ```
 
 ```go

@@ -349,7 +349,7 @@ func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 	r.redisServers[dbCode] = redisCache
 }
 
-func (r *Registry) RegisterRedisPool(addresses []string, db int, code ...string) {
+func (r *Registry) RegisterRedisRing(addresses []string, db int, code ...string) {
 	list := make(map[string]string, len(addresses))
 	for i, address := range addresses {
 		list[fmt.Sprintf("shard%d", i+1)] = address

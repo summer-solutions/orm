@@ -106,7 +106,7 @@ func validateRedisURI(registry *Registry, value interface{}, key string) {
 				}
 				uris[i] = fmt.Sprintf("%s:%s", elements[0], elements[1])
 			}
-			registry.RegisterRedisPool(uris, int(db), key)
+			registry.RegisterRedisRing(uris, int(db), key)
 
 			return
 		}
