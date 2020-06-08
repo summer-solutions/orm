@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"time"
 
+	// driver
+	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/juju/errors"
 
 	"github.com/jmoiron/sqlx"
@@ -166,7 +168,7 @@ func (c *ClickHouse) fillLogFields(message string, start time.Time, typeCode str
 		WithField("pool", c.code).
 		WithField("Query", query).
 		WithField("microseconds", stop).
-		WithField("target", "mysql").
+		WithField("target", "clickhouse").
 		WithField("type", typeCode).
 		WithField("started", start.UnixNano()).
 		WithField("finished", now.UnixNano())

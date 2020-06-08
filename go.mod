@@ -3,6 +3,7 @@ module github.com/summer-solutions/orm
 go 1.14
 
 require (
+	github.com/ClickHouse/clickhouse-go v1.4.0
 	github.com/DataDog/datadog-go v3.7.1+incompatible // indirect
 	github.com/apex/log v1.3.0
 	github.com/bsm/redislock v0.5.0

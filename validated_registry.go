@@ -51,6 +51,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 		}
 	}
 	if e.registry.clickHouseClients != nil {
+		e.clickHouseDbs = make(map[string]*ClickHouse)
 		for key, val := range e.registry.clickHouseClients {
 			e.clickHouseDbs[key] = &ClickHouse{engine: e, code: val.code, client: val.db}
 		}
