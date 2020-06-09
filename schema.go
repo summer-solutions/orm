@@ -680,8 +680,7 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 	case "*time.Time":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = handleTime(attributes, true)
 	case "[]uint8":
-		definition = "blob"
-		addDefaultNullIfNullable = false
+		definition, addDefaultNullIfNullable = handleBlob(attributes)
 	case "*orm.CachedQuery":
 		return nil, nil
 	default:
@@ -739,6 +738,18 @@ func handleFloat(floatDefinition string, attributes map[string]string) (string, 
 		definition += " unsigned"
 	}
 	return definition, true, defaultValue
+}
+
+func handleBlob(attributes map[string]string) (string, bool) {
+	definition := "blob"
+	if attributes["mediumblob"] == "true" {
+		definition = "mediumblob"
+	}
+	if attributes["longblob"] == "true" {
+		definition = "longblob"
+	}
+
+	return definition, false
 }
 
 func handleString(registry *validatedRegistry, attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
