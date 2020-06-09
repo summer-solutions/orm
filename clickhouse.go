@@ -124,7 +124,7 @@ type PreparedStatement struct {
 
 func (p *PreparedStatement) Exec(args ...interface{}) sql.Result {
 	start := time.Now()
-	results, err := p.statement.Exec(args)
+	results, err := p.statement.Exec(args...)
 	if p.c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		p.c.fillLogFields("[ORM][CLICKHOUSE][EXEC]", start, "exec", p.query, args, err)
 		p.c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
