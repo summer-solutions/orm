@@ -3,122 +3,176 @@ package orm
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/juju/errors"
 )
 
 type Entity interface {
-	GetTableSchema() TableSchema
-	IsDirty() bool
-	Flush() error
-	FlushLazy() error
-	MarkToDelete()
-	Loaded() bool
-	Load(engine *Engine) error
-	ForceMarkToDelete()
-	getDBData() map[string]interface{}
-	getTableSchema() *tableSchema
-	getValue() reflect.Value
-	getElem() reflect.Value
+	getORM() *ORM
+	GetID() uint64
+	SetField(field string, value interface{}) error
+}
+
+type entityAttributes struct {
+	onDuplicateKeyUpdate *Where
+	loaded               bool
+	delete               bool
+	value                reflect.Value
+	elem                 reflect.Value
+	idElem               reflect.Value
+	logMeta              map[string]interface{}
 }
 
 type ORM struct {
 	dBData      map[string]interface{}
-	value       reflect.Value
-	elem        reflect.Value
 	tableSchema *tableSchema
 	engine      *Engine
+	attributes  *entityAttributes
 }
 
-func (orm ORM) GetTableSchema() TableSchema {
-	orm.checkIsRegistered()
-	return orm.tableSchema
+func (orm *ORM) getORM() *ORM {
+	return orm
 }
 
-// Returns true if at least one filed needs to be saved in database
-func (orm ORM) IsDirty() bool {
-	orm.checkIsRegistered()
-	is, _, _ := getDirtyBind(orm.elem)
-	return is
-}
-
-// Save data in database (only if IsDirty() is true)
-func (orm ORM) Flush() error {
-	orm.checkIsRegistered()
-	return flush(orm.engine, false, orm.value)
-}
-
-// Add changes to queue and all changes will be saved in database in separate thread
-func (orm ORM) FlushLazy() error {
-	orm.checkIsRegistered()
-	return flush(orm.engine, true, orm.value)
-}
-
-// Mark entity to be deleted from database.
-// Delete query is executed in Flush() method.
-// If entity has FakeDelete column row will be kept in database
-// with flag that is deleted.
-func (orm ORM) MarkToDelete() {
-	orm.checkIsRegistered()
-	if orm.tableSchema.hasFakeDelete {
-		orm.elem.FieldByName("FakeDelete").SetBool(true)
-		return
+func (orm *ORM) GetID() uint64 {
+	if orm.attributes == nil {
+		return 0
 	}
-	orm.dBData["_delete"] = true
+	return orm.attributes.idElem.Uint()
 }
 
-// Mark entity to be deleted from database even if it has FakeDelete column.
-func (orm ORM) ForceMarkToDelete() {
-	orm.checkIsRegistered()
-	orm.dBData["_delete"] = true
-}
-
-// Returns false if entity is not loaded from DB.
-// It can happen when you loaded entity and it's reference is not loaded from DB.
-func (orm ORM) Loaded() bool {
-	if orm.dBData == nil {
-		return false
+func (orm *ORM) SetField(field string, value interface{}) error {
+	asString, isString := value.(string)
+	if isString {
+		asString = strings.ToLower(asString)
+		if asString == "nil" || asString == "null" {
+			value = nil
+		}
 	}
-	_, has := orm.dBData["_loaded"]
-	return has
-}
-
-// You should execute it in references that are not loaded.
-// This method do nothing if entity is already loaded or reference has ID = 0
-// Example:
-// engine.LoadById(1, &user)
-// user.School.Load(engine)
-func (orm ORM) Load(engine *Engine) error {
-	if orm.Loaded() {
-		return nil
+	if orm.attributes == nil {
+		return errors.NotValidf("entity is not loaded")
 	}
-	if orm.tableSchema == nil {
-		return fmt.Errorf("unregistered entity. run RegisterEntity() or TrackEntity() before Load()")
+	f := orm.attributes.elem.FieldByName(field)
+	if !f.IsValid() {
+		return errors.NotFoundf("field %s", field)
 	}
-	id := orm.elem.Field(1).Uint()
-	if id == 0 {
-		return nil
+	if !f.CanSet() {
+		return errors.NotAssignedf("field %s", field)
 	}
-	_, err := engine.LoadByID(id, orm.value.Interface().(Entity))
-	return err
-}
-
-func (orm ORM) checkIsRegistered() {
-	if orm.tableSchema == nil {
-		panic(fmt.Errorf("unregistered struct. run engine.RegisterEntity(entity) before entity.Flush()"))
+	typeName := f.Type().String()
+	switch typeName {
+	case "uint",
+		"uint8",
+		"uint16",
+		"uint32",
+		"uint64":
+		val := uint64(0)
+		if value != nil {
+			parsed, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
+			if err != nil {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			val = parsed
+		}
+		f.SetUint(val)
+	case "int",
+		"int8",
+		"int16",
+		"int32",
+		"int64":
+		val := int64(0)
+		if value != nil {
+			parsed, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
+			if err != nil {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			val = parsed
+		}
+		f.SetInt(val)
+	case "string":
+		if value == nil {
+			f.Set(reflect.Zero(f.Type()))
+		} else {
+			f.SetString(fmt.Sprintf("%v", value))
+		}
+	case "[]string":
+		_, ok := value.([]string)
+		if !ok {
+			return errors.NotValidf("%s value %v", field, value)
+		}
+		f.Set(reflect.ValueOf(value))
+	case "[]uint8":
+		_, ok := value.([]uint8)
+		if !ok {
+			return errors.NotValidf("%s value %v", field, value)
+		}
+		f.Set(reflect.ValueOf(value))
+	case "bool":
+		val := false
+		asString := strings.ToLower(fmt.Sprintf("%v", value))
+		if asString == "true" || asString == "1" {
+			val = true
+		}
+		f.SetBool(val)
+	case "float32",
+		"float64":
+		val := float64(0)
+		if value != nil {
+			parsed, err := strconv.ParseFloat(fmt.Sprintf("%v", value), 64)
+			if err != nil {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			val = parsed
+		}
+		f.SetFloat(val)
+	case "*time.Time":
+		_, ok := value.(*time.Time)
+		if !ok {
+			return errors.NotValidf("%s value %v", field, value)
+		}
+		f.Set(reflect.ValueOf(value))
+	case "time.Time":
+		_, ok := value.(time.Time)
+		if !ok {
+			return errors.NotValidf("%s value %v", field, value)
+		}
+		f.Set(reflect.ValueOf(value))
+	case "interface {}":
+		f.Set(reflect.ValueOf(value))
+	default:
+		k := f.Type().Kind().String()
+		if k == "struct" {
+			return errors.NotSupportedf("%s", field)
+		} else if k == "ptr" {
+			modelType := reflect.TypeOf((*Entity)(nil)).Elem()
+			if f.Type().Implements(modelType) {
+				if value == nil || (isString && (value == "" || value == "0")) {
+					f.Set(reflect.Zero(f.Type()))
+				} else {
+					asEntity, ok := value.(Entity)
+					if ok {
+						f.Set(reflect.ValueOf(asEntity))
+					} else {
+						id, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
+						if err != nil {
+							return errors.NotValidf("%s", field)
+						}
+						if id == 0 {
+							f.Set(reflect.ValueOf(asEntity))
+						} else {
+							val := reflect.New(f.Type().Elem())
+							val.Elem().FieldByName("ID").SetUint(id)
+							f.Set(val)
+						}
+					}
+				}
+			}
+		} else {
+			return errors.NotSupportedf("%s", field)
+		}
 	}
-}
-
-func (orm ORM) getDBData() map[string]interface{} {
-	return orm.dBData
-}
-
-func (orm ORM) getTableSchema() *tableSchema {
-	return orm.tableSchema
-}
-
-func (orm ORM) getValue() reflect.Value {
-	return orm.value
-}
-
-func (orm ORM) getElem() reflect.Value {
-	return orm.elem
+	return nil
 }

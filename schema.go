@@ -46,7 +46,7 @@ type foreignKeyDB struct {
 	OnDelete              string
 }
 
-func getAlters(engine *Engine) (alters []Alter, err error) {
+func getAlters(engine *Engine) (alters []Alter) {
 	tablesInDB := make(map[string]map[string]bool)
 	tablesInEntities := make(map[string]map[string]bool)
 
@@ -55,10 +55,7 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 			poolName := pool.code
 			tablesInDB[poolName] = make(map[string]bool)
 			pool := engine.GetMysql(poolName)
-			tables, err := getAllTables(pool.db)
-			if err != nil {
-				return nil, err
-			}
+			tables := getAllTables(pool.client)
 			for _, table := range tables {
 				tablesInDB[poolName][table] = true
 			}
@@ -70,42 +67,25 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 		for _, t := range engine.registry.entities {
 			tableSchema := getTableSchema(engine.registry, t)
 			tablesInEntities[tableSchema.mysqlPoolName][tableSchema.tableName] = true
-			has, newAlters, err := tableSchema.GetSchemaChanges(engine)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			has, newAlters := tableSchema.GetSchemaChanges(engine)
 			if tableSchema.hasLog {
 				logPool := engine.GetMysql(tableSchema.logPoolName)
 				var tableDef string
-				err = logPool.QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.logTableName)).Scan(&tableDef)
-				hasLogTable := true
-				if err != nil {
-					if err.Error() == "sql: no rows in result set" {
-						hasLogTable = false
-					} else {
-						return nil, errors.Trace(err)
-					}
-				}
+				hasLogTable := logPool.QueryRow(NewWhere(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.logTableName)), &tableDef)
 				logTableSchema := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n  `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,\n  "+
-					"`entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `data` json DEFAULT NULL,\n  "+
+					"`entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `before` json DEFAULT NULL,\n  `changes` json DEFAULT NULL,\n  "+
 					"PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;",
 					logPool.databaseName, tableSchema.logTableName)
 				if !hasLogTable {
 					alters = append(alters, Alter{SQL: logTableSchema, Safe: true, Pool: tableSchema.logPoolName})
 				} else {
 					var skip, createTableDB string
-					err = logPool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.logTableName)).Scan(&skip, &createTableDB)
-					if err != nil {
-						return nil, errors.Trace(err)
-					}
+					logPool.QueryRow(NewWhere(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.logTableName)), &skip, &createTableDB)
 					createTableDB = strings.Replace(createTableDB, "CREATE TABLE ", fmt.Sprintf("CREATE TABLE `%s`.", logPool.databaseName), 1) + ";"
 					re := regexp.MustCompile(" AUTO_INCREMENT=[0-9]+ ")
 					createTableDB = re.ReplaceAllString(createTableDB, " ")
 					if logTableSchema != createTableDB {
-						isEmpty, err := isTableEmptyInPool(engine, tableSchema.logPoolName, tableSchema.logTableName)
-						if err != nil {
-							return nil, errors.Trace(err)
-						}
+						isEmpty := isTableEmptyInPool(engine, tableSchema.logPoolName, tableSchema.logTableName)
 						dropTableSQL := fmt.Sprintf("DROP TABLE `%s`.`%s`;", logPool.databaseName, tableSchema.logTableName)
 						alters = append(alters, Alter{SQL: dropTableSQL, Safe: isEmpty, Pool: tableSchema.logPoolName})
 						alters = append(alters, Alter{SQL: logTableSchema, Safe: true, Pool: tableSchema.logPoolName})
@@ -124,19 +104,13 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 		for tableName := range tables {
 			_, has := tablesInEntities[poolName][tableName]
 			if !has {
-				dropForeignKeyAlter, err := getDropForeignKeysAlter(engine, tableName, poolName)
-				if err != nil {
-					return nil, err
-				}
+				dropForeignKeyAlter := getDropForeignKeysAlter(engine, tableName, poolName)
 				if dropForeignKeyAlter != "" {
 					alters = append(alters, Alter{SQL: dropForeignKeyAlter, Safe: true, Pool: poolName})
 				}
 				pool := engine.GetMysql(poolName)
 				dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableName)
-				isEmpty, err := isTableEmptyInPool(engine, poolName, tableName)
-				if err != nil {
-					return nil, err
-				}
+				isEmpty := isTableEmptyInPool(engine, poolName, tableName)
 				if isEmpty {
 					alters = append(alters, Alter{SQL: dropSQL, Safe: true, Pool: poolName})
 				} else {
@@ -173,36 +147,38 @@ func getAlters(engine *Engine) (alters []Alter, err error) {
 	final := sortedDropForeign
 	final = append(final, sortedNormal...)
 	final = append(final, sortedAddForeign...)
-	return final, nil
+	return final
 }
 
-func isTableEmptyInPool(engine *Engine, poolName string, tableName string) (bool, error) {
-	return isTableEmpty(engine.GetMysql(poolName).db, tableName)
+func isTableEmptyInPool(engine *Engine, poolName string, tableName string) bool {
+	return isTableEmpty(engine.GetMysql(poolName).client, tableName)
 }
 
-func getAllTables(db sqlDB) ([]string, error) {
+func getAllTables(db sqlClient) []string {
 	tables := make([]string, 0)
 	results, err := db.Query("SHOW TABLES")
 	if err != nil {
-		return nil, errors.Trace(err)
+		panic(err)
 	}
-	defer results.Close()
+	defer func() {
+		_ = results.Close()
+	}()
 	for results.Next() {
 		var row string
 		err = results.Scan(&row)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 		tables = append(tables, row)
 	}
 	err = results.Err()
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return tables, nil
+	return tables
 }
 
-func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alters []Alter, err error) {
+func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alters []Alter) {
 	indexes := make(map[string]*index)
 	foreignKeys := make(map[string]*foreignIndex)
 	columns, _ := checkStruct(tableSchema, engine, tableSchema.t, indexes, foreignKeys, "")
@@ -234,11 +210,7 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 	createTableSQL += ") ENGINE=InnoDB DEFAULT CHARSET=utf8;"
 
 	var skip string
-	err = pool.QueryRow(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.tableName)).Scan(&skip)
-	hasTable := true
-	if err != nil {
-		hasTable = false
-	}
+	hasTable := pool.QueryRow(NewWhere(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.tableName)), &skip)
 
 	if !hasTable {
 		alters = []Alter{{SQL: createTableSQL, Safe: true, Pool: tableSchema.mysqlPoolName}}
@@ -247,7 +219,6 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 			alters = append(alters, Alter{SQL: createTableForiegnKeysSQL, Safe: true, Pool: tableSchema.mysqlPoolName})
 		}
 		has = true
-		err = nil
 		return
 	}
 	newIndexes = make([]string, 0)
@@ -255,10 +226,7 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 
 	var tableDBColumns = make([][2]string, 0)
 	var createTableDB string
-	err = pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.tableName)).Scan(&skip, &createTableDB)
-	if err != nil {
-		return false, nil, err
-	}
+	pool.QueryRow(NewWhere(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.tableName)), &skip, &createTableDB)
 	lines := strings.Split(createTableDB, "\n")
 	for x := 1; x < len(lines); x++ {
 		if lines[x][2] != 96 {
@@ -272,23 +240,21 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 
 	var rows []indexDB
 	/* #nosec */
-	results, def, err := pool.Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.tableName))
-	if err != nil {
-		return false, nil, errors.Trace(err)
-	}
+	results, def := pool.Query(fmt.Sprintf("SHOW INDEXES FROM `%s`", tableSchema.tableName))
 	defer def()
 	for results.Next() {
 		var row indexDB
-		err = results.Scan(&row.Skip, &row.NonUnique, &row.KeyName, &row.Seq, &row.Column, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip)
+		err := results.Scan(&row.Skip, &row.NonUnique, &row.KeyName, &row.Seq, &row.Column, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip)
 		if err != nil {
-			return false, nil, err
+			panic(err)
 		}
 		rows = append(rows, row)
 	}
-	err = results.Err()
+	err := results.Err()
 	if err != nil {
-		return false, nil, err
+		panic(err)
 	}
+	def()
 	var indexesDB = make(map[string]*index)
 	for _, value := range rows {
 		current, has := indexesDB[value.KeyName]
@@ -300,10 +266,7 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 		}
 	}
 
-	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableSchema.tableName, tableSchema.mysqlPoolName)
-	if err != nil {
-		return false, nil, err
-	}
+	foreignKeysDB := getForeignKeys(engine, createTableDB, tableSchema.tableName, tableSchema.mysqlPoolName)
 
 	var newColumns []string
 	var changedColumns [][2]string
@@ -501,10 +464,7 @@ OUTER:
 			safe = true
 		} else {
 			db := tableSchema.GetMysql(engine)
-			isEmpty, err := isTableEmpty(db.db, tableSchema.tableName)
-			if err != nil {
-				return false, nil, errors.Trace(err)
-			}
+			isEmpty := isTableEmpty(db.client, tableSchema.tableName)
 			safe = isEmpty
 		}
 		alters = append(alters, Alter{SQL: alterSQL, Safe: safe, Pool: tableSchema.mysqlPoolName})
@@ -519,25 +479,22 @@ OUTER:
 	}
 
 	has = true
-	return has, alters, nil
+	return has, alters
 }
 
-func getForeignKeys(engine *Engine, createTableDB string, tableName string, poolName string) (map[string]*foreignIndex, error) {
+func getForeignKeys(engine *Engine, createTableDB string, tableName string, poolName string) map[string]*foreignIndex {
 	var rows2 []foreignKeyDB
 	query := "SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_TABLE_SCHEMA " +
 		"FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA IS NOT NULL " +
 		"AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
 	pool := engine.GetMysql(poolName)
-	results, def, err := pool.Query(fmt.Sprintf(query, pool.GetDatabaseName(), tableName))
-	if err != nil {
-		return nil, err
-	}
+	results, def := pool.Query(fmt.Sprintf(query, pool.GetDatabaseName(), tableName))
 	defer def()
 	for results.Next() {
 		var row foreignKeyDB
-		err = results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
+		err := results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 		row.OnDelete = "RESTRICT"
 		for _, line := range strings.Split(createTableDB, "\n") {
@@ -551,34 +508,29 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 		}
 		rows2 = append(rows2, row)
 	}
-	err = results.Err()
+	err := results.Err()
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
+	def()
 	var foreignKeysDB = make(map[string]*foreignIndex)
 	for _, value := range rows2 {
 		foreignKey := &foreignIndex{ParentDatabase: value.ReferencedTableSchema, Table: value.ReferencedTableName,
 			Column: value.ColumnName, OnDelete: value.OnDelete}
 		foreignKeysDB[value.ConstraintName] = foreignKey
 	}
-	return foreignKeysDB, nil
+	return foreignKeysDB
 }
 
-func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) (string, error) {
+func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) string {
 	var skip string
 	var createTableDB string
 	pool := engine.GetMysql(poolName)
-	err := pool.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableName)).Scan(&skip, &createTableDB)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
+	pool.QueryRow(NewWhere(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableName)), &skip, &createTableDB)
 	alter := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableName)
-	foreignKeysDB, err := getForeignKeys(engine, createTableDB, tableName, poolName)
-	if err != nil {
-		return "", err
-	}
+	foreignKeysDB := getForeignKeys(engine, createTableDB, tableName, poolName)
 	if len(foreignKeysDB) == 0 {
-		return "", nil
+		return ""
 	}
 	droppedForeignKeys := make([]string, 0)
 	for keyName := range foreignKeysDB {
@@ -586,20 +538,20 @@ func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) 
 	}
 	alter += strings.Join(droppedForeignKeys, ",\t\n")
 	alter = strings.TrimRight(alter, ",") + ";"
-	return alter, nil
+	return alter
 }
 
-func isTableEmpty(db sqlDB, tableName string) (bool, error) {
+func isTableEmpty(db sqlClient, tableName string) bool {
 	var lastID uint64
 	/* #nosec */
 	err := db.QueryRow(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableName)).Scan(&lastID)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
-			return true, nil
+			return true
 		}
-		return false, errors.Trace(err)
+		panic(err)
 	}
-	return false, nil
+	return false
 }
 
 func buildCreateForeignKeySQL(keyName string, definition *foreignIndex) string {
@@ -712,12 +664,12 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 	case "string", "[]string":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	case "interface {}":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, true)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	case "float32":
 		definition, addNotNullIfNotSet, defaultValue = handleFloat("float", attributes)
@@ -738,7 +690,7 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 		if kind == "struct" {
 			structFields, err := checkStruct(schema, engine, field.Type, indexes, foreignKeys, field.Name)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			return structFields, nil
 		} else if kind == "ptr" {
@@ -751,7 +703,7 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 			}
 		}
 		if !valid {
-			return nil, fmt.Errorf("unsupported field type: %s %s in %s", field.Name, field.Type.String(), t.String())
+			return nil, errors.Errorf("unsupported field type: %s %s in %s", field.Name, field.Type.String(), t.String())
 		}
 	}
 	isNotNull := false
@@ -810,10 +762,10 @@ func handleString(registry *validatedRegistry, attributes map[string]string, for
 	} else {
 		i, err := strconv.Atoi(length)
 		if err != nil {
-			return "", false, false, "", err
+			return "", false, false, "", errors.Trace(err)
 		}
 		if i > 65535 {
-			return "", false, false, "", fmt.Errorf("length to heigh: %s", length)
+			return "", false, false, "", errors.Errorf("length to heigh: %s", length)
 		}
 		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	}
@@ -827,19 +779,15 @@ func handleString(registry *validatedRegistry, attributes map[string]string, for
 
 func handleSetEnum(registry *validatedRegistry, fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
 	if registry.enums == nil {
-		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
+		return "", false, false, "", errors.Errorf("unregistered enum %s", attribute)
 	}
 	enum, has := registry.enums[attribute]
 	if !has {
-		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
-	}
-	values := make([]string, 0)
-	for i := 0; i < enum.Type().NumField(); i++ {
-		values = append(values, enum.Field(i).String())
+		return "", false, false, "", errors.Errorf("unregistered enum %s", attribute)
 	}
 
 	var definition = fieldType + "("
-	for key, value := range values {
+	for key, value := range enum.GetFields() {
 		if key > 0 {
 			definition += ","
 		}
@@ -849,7 +797,7 @@ func handleSetEnum(registry *validatedRegistry, fieldType string, attribute stri
 	required, hasRequired := attributes["required"]
 	defaultValue := "nil"
 	if hasRequired && required == "true" {
-		defaultValue = fmt.Sprintf("'%s'", values[0])
+		defaultValue = fmt.Sprintf("'%s'", enum.GetDefault())
 	}
 	return definition, hasRequired && required == "true", true, defaultValue, nil
 }

@@ -3,124 +3,80 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 )
 
-func loadByID(engine *Engine, id uint64, entity interface{}, references ...string) (found bool, err error) {
-	val := reflect.ValueOf(entity)
-	if val.Kind() != reflect.Ptr {
-		panic(fmt.Errorf("entity '%s' is not a poninter", val.Type().String()))
-	}
-	elem := val.Elem()
-	if !elem.IsValid() {
-		panic(fmt.Errorf("entity '%s' is not a addressable", val.Type().String()))
-	}
-	entityType := elem.Type()
-	for {
-		if entityType.Kind() == reflect.Ptr {
-			entityType = entityType.Elem()
-			val = val.Elem()
-			elem = val.Elem()
-		} else {
-			break
-		}
-	}
-	schema := getTableSchema(engine.registry, entityType)
-	if schema == nil {
-		return false, EntityNotRegisteredError{Name: entityType.String()}
-	}
+func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, references ...string) (found bool) {
+	orm := initIfNeeded(engine, entity)
+	schema := orm.tableSchema
 	var cacheKey string
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 
-	if hasLocalCache {
+	if hasLocalCache && useCache {
 		cacheKey = schema.getCacheKey(id)
 		e, has := localCache.Get(cacheKey)
 		if has {
 			if e == "nil" {
-				return false, nil
+				return false
 			}
-			err = fillFromDBRow(id, engine, e.([]string), val, entityType)
-			if err != nil {
-				return false, err
-			}
+			fillFromDBRow(id, engine, e.([]string), entity)
 			if len(references) > 0 {
-				err = warmUpReferences(engine, schema, elem, references, false)
+				warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 			}
-			return true, err
+			return true
 		}
 	}
 	redisCache, hasRedis := schema.GetRedisCache(engine)
-	if hasRedis {
+	if hasRedis && useCache {
 		cacheKey = schema.getCacheKey(id)
-		row, has, err := redisCache.Get(cacheKey)
-		if err != nil {
-			return false, err
-		}
+		row, has := redisCache.Get(cacheKey)
 		if has {
 			if row == "nil" {
-				return false, nil
+				return false
 			}
 			var decoded []string
-			err = json.Unmarshal([]byte(row), &decoded)
-			if err != nil {
-				return true, err
-			}
-			err = fillFromDBRow(id, engine, decoded, val, entityType)
-			if err != nil {
-				return false, err
-			}
+			_ = json.Unmarshal([]byte(row), &decoded)
+			fillFromDBRow(id, engine, decoded, entity)
 			if len(references) > 0 {
-				err = warmUpReferences(engine, schema, elem, references, false)
+				warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 			}
-			return true, err
+			return true
 		}
 	}
-	found, err = searchRow(false, engine, NewWhere("`ID` = ?", id), val)
-	if err != nil {
-		return false, err
-	}
+	found = searchRow(false, engine, NewWhere("`ID` = ?", id), entity, nil)
 	if !found {
 		if localCache != nil {
 			localCache.Set(cacheKey, "nil")
 		}
 		if redisCache != nil {
-			err = redisCache.Set(cacheKey, "nil", 60)
-			if err != nil {
-				return false, err
-			}
+			redisCache.Set(cacheKey, "nil", 60)
 		}
-		return false, nil
+		return false
 	}
-	if localCache != nil {
-		localCache.Set(cacheKey, buildLocalCacheValue(elem, schema))
+	if localCache != nil && useCache {
+		localCache.Set(cacheKey, buildLocalCacheValue(entity))
 	}
-	if redisCache != nil {
-		err = redisCache.Set(cacheKey, buildRedisValue(elem, schema), 0)
-		if err != nil {
-			return false, err
-		}
+	if redisCache != nil && useCache {
+		redisCache.Set(cacheKey, buildRedisValue(entity), 0)
 	}
 	if len(references) > 0 {
-		err = warmUpReferences(engine, schema, elem, references, false)
-		if err != nil {
-			return true, err
-		}
+		warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 	}
-	return true, nil
+	return true
 }
 
-func buildRedisValue(elem reflect.Value, schema *tableSchema) string {
-	encoded, _ := json.Marshal(buildLocalCacheValue(elem, schema))
+func buildRedisValue(entity Entity) string {
+	encoded, _ := json.Marshal(buildLocalCacheValue(entity))
 	return string(encoded)
 }
 
-func buildLocalCacheValue(elem reflect.Value, schema *tableSchema) []string {
-	bind := elem.Interface().(Entity).getDBData()
-	length := len(schema.columnNames)
+func buildLocalCacheValue(entity Entity) []string {
+	bind := entity.getORM().dBData
+	columns := entity.getORM().tableSchema.columnNames
+	length := len(columns)
 	value := make([]string, length-1)
 	j := 0
 	for i := 1; i < length; i++ { //skip id
-		v := bind[schema.columnNames[i]]
+		v := bind[columns[i]]
 		if v == nil {
 			v = ""
 		}

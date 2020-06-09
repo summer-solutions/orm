@@ -1,34 +1,25 @@
 package orm
 
 import (
-	"fmt"
-	"reflect"
+	"strconv"
 )
 
-func flushInCache(engine *Engine, entities ...interface{}) error {
-	invalidEntities := make([]reflect.Value, 0)
-	validEntities := make([]interface{}, 0)
+func flushInCache(engine *Engine, entities ...Entity) {
+	invalidEntities := make([]Entity, 0)
+	validEntities := make([][]byte, 0)
 	redisValues := make(map[string][]interface{})
 
 	for _, entity := range entities {
-		value := reflect.ValueOf(entity)
-		elem := value.Elem()
-		orm := initIfNeeded(engine, value)
-		orm.value = value
-		orm.elem = elem
-		t := elem.Type()
+		orm := initIfNeeded(engine, entity)
 
-		id := elem.Field(1).Uint()
-		entityName := t.String()
+		id := entity.GetID()
+		entityName := orm.tableSchema.t.String()
 		schema := orm.tableSchema
 		cache, hasRedis := schema.GetRedisCache(engine)
 		if !hasRedis || id == 0 {
-			invalidEntities = append(invalidEntities, value)
+			invalidEntities = append(invalidEntities, entity)
 		} else {
-			isDirty, bind, err := getDirtyBind(elem)
-			if err != nil {
-				return err
-			}
+			isDirty, bind := getDirtyBind(entity.(Entity))
 			if !isDirty {
 				continue
 			}
@@ -36,9 +27,9 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 			for k, v := range orm.dBData {
 				old[k] = v
 			}
-			injectBind(elem, bind)
+			injectBind(entity, bind)
 			entityCacheKey := schema.getCacheKey(id)
-			entityCacheValue := buildRedisValue(elem, schema)
+			entityCacheValue := buildRedisValue(entity.(Entity))
 			if redisValues[cache.code] == nil {
 				redisValues[cache.code] = make([]interface{}, 0)
 			}
@@ -48,28 +39,19 @@ func flushInCache(engine *Engine, entities ...interface{}) error {
 		}
 	}
 	if len(invalidEntities) > 0 {
-		err := flush(engine, false, invalidEntities...)
-		if err != nil {
-			return err
-		}
+		flush(engine, false, false, invalidEntities...)
 	}
 	if len(validEntities) > 0 {
-		code := "default"
-		redis := engine.getRedisForQueue(code)
-		_, err := redis.SAdd("dirty_queue", validEntities...)
-		if err != nil {
-			return err
+		channel := engine.GetRabbitMQQueue(flushCacheQueueName)
+		for _, v := range validEntities {
+			channel.Publish(v)
 		}
 		for cacheCode, keys := range redisValues {
-			err = engine.GetRedis(cacheCode).MSet(keys...)
-			if err != nil {
-				return err
-			}
+			engine.GetRedis(cacheCode).MSet(keys...)
 		}
 	}
-	return nil
 }
 
-func createDirtyQueueMember(entityName string, id uint64) interface{} {
-	return fmt.Sprintf("%s:%d", entityName, id)
+func createDirtyQueueMember(entityName string, id uint64) []byte {
+	return []byte(entityName + ":" + strconv.FormatUint(id, 10))
 }

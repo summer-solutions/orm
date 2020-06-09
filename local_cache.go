@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -9,11 +8,10 @@ import (
 )
 
 type LocalCache struct {
-	engine  *Engine
-	code    string
-	lru     *lru.Cache
-	loggers []CacheLogger
-	ttl     int64
+	engine *Engine
+	code   string
+	lru    *lru.Cache
+	ttl    int64
 }
 
 type ttlValue struct {
@@ -42,7 +40,9 @@ func (c *LocalCache) Get(key string) (value interface{}, ok bool) {
 	if !ok {
 		misses = 1
 	}
-	c.log(key, "GET", time.Since(start).Microseconds(), misses)
+	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][GET]", start, "get", misses, map[string]interface{}{"Key": key})
+	}
 	return
 }
 
@@ -58,7 +58,9 @@ func (c *LocalCache) MGet(keys ...string) map[string]interface{} {
 		}
 		results[key] = value
 	}
-	c.log(fmt.Sprintf("%v", keys), "MGET", time.Since(start).Microseconds(), misses)
+	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][MGET]", start, "mget", misses, map[string]interface{}{"Keys": keys})
+	}
 	return results
 }
 
@@ -66,9 +68,11 @@ func (c *LocalCache) Set(key string, value interface{}) {
 	start := time.Now()
 	m := &sync.Mutex{}
 	m.Lock()
+	defer m.Unlock()
 	c.lru.Add(key, value)
-	m.Unlock()
-	c.log(key, "ADD", time.Since(start).Microseconds(), 0)
+	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][MGET]", start, "set", -1, map[string]interface{}{"Key": key, "value": value})
+	}
 }
 
 func (c *LocalCache) MSet(pairs ...interface{}) {
@@ -76,19 +80,12 @@ func (c *LocalCache) MSet(pairs ...interface{}) {
 	max := len(pairs)
 	m := &sync.Mutex{}
 	m.Lock()
+	defer m.Unlock()
 	for i := 0; i < max; i += 2 {
 		c.lru.Add(pairs[i], pairs[i+1])
 	}
-	m.Unlock()
-
-	if c.loggers != nil {
-		keys := make([]string, max/2)
-		j := 0
-		for i := 0; i < max; i += 2 {
-			keys[j] = pairs[i].(string)
-			j++
-		}
-		c.log(fmt.Sprintf("%v", keys), "MSET", time.Since(start).Microseconds(), 0)
+	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][MSET]", start, "mset", -1, map[string]interface{}{"Keys": pairs})
 	}
 }
 
@@ -112,8 +109,8 @@ func (c *LocalCache) HMget(key string, fields ...string) map[string]interface{} 
 			}
 		}
 	}
-	if c.loggers != nil {
-		c.log(key, fmt.Sprintf("HMGET %v", fields), time.Since(start).Microseconds(), misses)
+	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][HMGET]", start, "hmget", misses, map[string]interface{}{"Key": key, "fields": fields})
 	}
 	return results
 }
@@ -125,20 +122,14 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 		m = make(map[string]interface{})
 		mutex := &sync.Mutex{}
 		mutex.Lock()
+		defer mutex.Unlock()
 		c.lru.Add(key, m)
-		mutex.Unlock()
 	}
 	for k, v := range fields {
 		m.(map[string]interface{})[k] = v
 	}
-	if c.loggers != nil {
-		keys := make([]string, len(fields))
-		i := 0
-		for key := range fields {
-			keys[i] = key
-			i++
-		}
-		c.log(key, fmt.Sprintf("HMSET %v", keys), time.Since(start).Microseconds(), 0)
+	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][HMSET]", start, "hmset", -1, map[string]interface{}{"Key": key, "fields": fields})
 	}
 }
 
@@ -146,33 +137,39 @@ func (c *LocalCache) Remove(keys ...string) {
 	start := time.Now()
 	m := &sync.Mutex{}
 	m.Lock()
+	defer m.Unlock()
 	for _, v := range keys {
 		c.lru.Remove(v)
 	}
-	m.Unlock()
-	c.log("", fmt.Sprintf("REMOVE MANY %v", keys), time.Since(start).Microseconds(), 0)
+	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][REMOVE]", start, "remove", -1, map[string]interface{}{"Keys": keys})
+	}
 }
 
 func (c *LocalCache) Clear() {
 	start := time.Now()
 	m := &sync.Mutex{}
 	m.Lock()
+	defer m.Unlock()
 	c.lru.Clear()
-	m.Unlock()
-	c.log("", "CLEAR", time.Since(start).Microseconds(), 0)
+	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
+		c.fillLogFields("[ORM][LOCAL][CLEAR]", start, "clear", -1, nil)
+	}
 }
 
-func (c *LocalCache) RegisterLogger(logger CacheLogger) {
-	if c.loggers == nil {
-		c.loggers = make([]CacheLogger, 0)
+func (c *LocalCache) fillLogFields(message string, start time.Time, operation string, misses int, fields map[string]interface{}) {
+	stop := time.Since(start).Microseconds()
+	e := c.engine.queryLoggers[QueryLoggerSourceLocalCache].log.
+		WithField("microseconds", stop).
+		WithField("operation", operation).
+		WithField("pool", c.code).
+		WithField("target", "local_cache").
+		WithField("time", start.Unix())
+	if misses >= 0 {
+		e = e.WithField("misses", misses)
 	}
-	c.loggers = append(c.loggers, logger)
-}
-
-func (c *LocalCache) log(key string, operation string, microseconds int64, misses int) {
-	if c.loggers != nil {
-		for _, logger := range c.loggers {
-			logger.Log("LOCAL", c.code, key, operation, microseconds, misses)
-		}
+	for k, v := range fields {
+		e = e.WithField(k, v)
 	}
+	e.Info(message)
 }

@@ -1,0 +1,27 @@
+default:
+  mysql: root:root@tcp(localhost:3308)/test
+  redis: localhost:6379:0
+  rabbitmq:
+    server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test
+    queues:
+      - name: test
+        prefetchCount: 1
+      - name: test2
+        prefetchCount: 1
+        router: test
+        delayed: false
+        autodelete: false
+        durable: false
+        router_keys:
+          - aa
+          - bb
+    routers:
+      - name: test
+        type: fanout
+        durable: false
+  local_cache: 1000
+  dirty_queues:
+    default_queue: 10
+  locker: default
+default_queue:
+  redis: localhost:6379:1

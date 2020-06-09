@@ -2,23 +2,22 @@ package orm
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/juju/errors"
 )
 
-var nilValue = reflect.Value{}
-
-func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64, err error) {
+func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64) {
 	originalIDs := ids
 	lenIDs := len(ids)
 	if lenIDs == 0 {
 		entities.SetLen(0)
-		return make([]uint64, 0), nil
+		return make([]uint64, 0)
 	}
 	t, has := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
-		return nil, EntityNotRegisteredError{Name: entities.Type().String()}
+		panic(EntityNotRegisteredError{Name: entities.Type().String()})
 	}
 
 	schema := getTableSchema(engine.registry, t)
@@ -26,7 +25,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	var localCacheKeys []string
 	var redisCacheKeys []string
-	results := make(map[string]reflect.Value, lenIDs)
+	results := make(map[string]Entity, lenIDs)
 	keysMapping := make(map[string]uint64, lenIDs)
 	keysReversed := make(map[uint64]string, lenIDs)
 	cacheKeys := make([]string, lenIDs)
@@ -35,27 +34,18 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 		cacheKeys[index] = cacheKey
 		keysMapping[cacheKey] = id
 		keysReversed[id] = cacheKey
-		results[cacheKey] = nilValue
+		results[cacheKey] = nil
 	}
 
 	if hasLocalCache || hasRedis {
 		if hasLocalCache {
 			resultsLocalCache := localCache.MGet(cacheKeys...)
-			cacheKeys, err = getKeysForNils(engine, schema.t, resultsLocalCache, keysMapping, results, false)
-			if err != nil {
-				return nil, err
-			}
+			cacheKeys = getKeysForNils(engine, schema.t, resultsLocalCache, keysMapping, results, false)
 			localCacheKeys = cacheKeys
 		}
 		if hasRedis && len(cacheKeys) > 0 {
-			resultsRedis, err := redisCache.MGet(cacheKeys...)
-			if err != nil {
-				return nil, err
-			}
-			cacheKeys, err = getKeysForNils(engine, schema.t, resultsRedis, keysMapping, results, true)
-			if err != nil {
-				return nil, err
-			}
+			resultsRedis := redisCache.MGet(cacheKeys...)
+			cacheKeys = getKeysForNils(engine, schema.t, resultsRedis, keysMapping, results, true)
 			redisCacheKeys = cacheKeys
 		}
 		ids = make([]uint64, len(cacheKeys))
@@ -65,14 +55,10 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	}
 	l := len(ids)
 	if l > 0 {
-		_, err = search(false, engine, NewWhere("`ID` IN ?", ids), &Pager{1, l}, false, entities)
-		if err != nil {
-			return nil, err
-		}
+		_ = search(false, engine, NewWhere("`ID` IN ?", ids), &Pager{1, l}, false, entities)
 		for i := 0; i < entities.Len(); i++ {
-			e := entities.Index(i)
-			id := e.Elem().Field(1).Uint()
-			results[schema.getCacheKey(id)] = e
+			e := entities.Index(i).Interface().(Entity)
+			results[schema.getCacheKey(e.GetID())] = e
 		}
 	}
 	if hasLocalCache {
@@ -84,10 +70,10 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 				pairs[i] = key
 				val := results[key]
 				var toSet interface{}
-				if val == nilValue {
+				if val == nil {
 					toSet = "nil"
 				} else {
-					toSet = buildLocalCacheValue(val, schema)
+					toSet = buildLocalCacheValue(val)
 				}
 				pairs[i+1] = toSet
 				i += 2
@@ -105,18 +91,15 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 				pairs[i] = key
 				val := results[key]
 				var toSet interface{}
-				if val == nilValue {
+				if val == nil {
 					toSet = "nil"
 				} else {
-					toSet = buildRedisValue(val, schema)
+					toSet = buildRedisValue(val)
 				}
 				pairs[i+1] = toSet
 				i += 2
 			}
-			err = redisCache.MSet(pairs...)
-			if err != nil {
-				return nil, err
-			}
+			redisCache.MSet(pairs...)
 		}
 	}
 
@@ -127,57 +110,45 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	v := valOrigin
 	for _, id := range originalIDs {
 		val := results[keysReversed[id]]
-		if val == nilValue {
+		if val == nil {
 			missing = append(missing, id)
 		} else {
-			v = reflect.Append(v, val)
+			v = reflect.Append(v, reflect.ValueOf(val))
 		}
 	}
 	valOrigin.Set(v)
 	if len(references) > 0 && v.Len() > 0 {
-		err = warmUpReferences(engine, schema, entities, references, true)
-		if err != nil {
-			return nil, err
-		}
+		warmUpReferences(engine, schema, entities, references, true)
 	}
 	return
 }
 
 func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]interface{}, keysMapping map[string]uint64,
-	results map[string]reflect.Value, fromRedis bool) ([]string, error) {
+	results map[string]Entity, fromRedis bool) []string {
 	keys := make([]string, 0)
 	for k, v := range rows {
 		if v == nil {
 			keys = append(keys, k)
 		} else {
 			if v == "nil" {
-				results[k] = nilValue
+				results[k] = nil
 			} else if fromRedis {
-				value := reflect.New(entityType)
+				entity := reflect.New(entityType).Interface().(Entity)
 				var decoded []string
-				err := json.Unmarshal([]byte(v.(string)), &decoded)
-				if err != nil {
-					return nil, err
-				}
-				err = fillFromDBRow(keysMapping[k], engine, decoded, value, entityType)
-				if err != nil {
-					return nil, err
-				}
-				results[k] = value
+				_ = json.Unmarshal([]byte(v.(string)), &decoded)
+				fillFromDBRow(keysMapping[k], engine, decoded, entity)
+				results[k] = entity
 			} else {
-				value := reflect.New(entityType)
-				err := fillFromDBRow(keysMapping[k], engine, v.([]string), value, entityType)
-				if err != nil {
-					return nil, err
-				}
-				results[k] = value
+				entity := reflect.New(entityType).Interface().(Entity)
+				fillFromDBRow(keysMapping[k], engine, v.([]string), entity)
+				results[k] = entity
 			}
 		}
 	}
-	return keys, nil
+	return keys
 }
 
-func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Value, references []string, many bool) error {
+func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Value, references []string, many bool) {
 	warmUpRows := make(map[reflect.Type]map[uint64]bool)
 	warmUpRefs := make(map[reflect.Type]map[uint64][]reflect.Value)
 	warmUpRowsIDs := make(map[reflect.Type][]uint64)
@@ -193,15 +164,15 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 		parts := strings.Split(ref, "/")
 		_, has := tableSchema.tags[parts[0]]
 		if !has {
-			return fmt.Errorf("invalid reference %s in %s", ref, tableSchema.tableName)
+			panic(errors.NotValidf("reference %s in %s", ref, tableSchema.tableName))
 		}
 		parentRef, has := tableSchema.tags[parts[0]]["ref"]
 		if !has {
-			return fmt.Errorf("missing reference tag %s", ref)
+			panic(errors.NotValidf("reference tag %s", ref))
 		}
 		parentType, has := engine.registry.entities[parentRef]
 		if !has {
-			return EntityNotRegisteredError{Name: tableSchema.tags[parts[0]]["ref"]}
+			panic(EntityNotRegisteredError{Name: tableSchema.tags[parts[0]]["ref"]})
 		}
 		newSub := parts[1:]
 		if len(newSub) > 0 {
@@ -218,8 +189,8 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			if ref.IsZero() {
 				continue
 			}
-			ref = ref.Elem()
-			refID := ref.Field(1).Uint()
+			refEntity := ref.Interface().(Entity)
+			refID := refEntity.GetID()
 			ids := make([]uint64, 0)
 			if refID != 0 {
 				ids = append(ids, refID)
@@ -229,7 +200,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 				if warmUpRefs[parentType][refID] == nil {
 					warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
 				}
-				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
+				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], refEntity.getORM().attributes.elem)
 			}
 			if len(ids) == 0 {
 				continue
@@ -249,21 +220,17 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 	}
 	for t, ids := range warmUpRowsIDs {
 		sub := reflect.New(reflect.SliceOf(reflect.PtrTo(t))).Elem()
-		_, err := tryByIDs(engine, ids, sub, warmUpSubRefs[t])
-		if err != nil {
-			return err
-		}
+		_ = tryByIDs(engine, ids, sub, warmUpSubRefs[t])
 		subLen := sub.Len()
 		for i := 0; i < subLen; i++ {
-			v := sub.Index(i)
-			id := v.Elem().Field(1).Uint()
+			v := sub.Index(i).Interface().(Entity)
+			id := v.GetID()
 			refs, has := warmUpRefs[t][id]
 			if has {
 				for _, ref := range refs {
-					ref.Set(v.Elem())
+					ref.Set(v.getORM().attributes.elem)
 				}
 			}
 		}
 	}
-	return nil
 }

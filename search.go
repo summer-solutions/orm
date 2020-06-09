@@ -1,165 +1,141 @@
 package orm
 
 import (
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
-func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int, err error) {
+func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, entityType reflect.Type) (results []uint64, totalRows int) {
 	return searchIDs(skipFakeDelete, engine, where, pager, true, entityType)
 }
 
-func searchRow(skipFakeDelete bool, engine *Engine, where *Where, value reflect.Value) (bool, error) {
-	entityType := value.Elem().Type()
-	schema := getTableSchema(engine.registry, entityType)
-	if schema == nil {
-		return false, EntityNotRegisteredError{Name: entityType.String()}
-	}
-	fieldsList, err := buildFieldList(engine.registry, schema, entityType, "")
-	if err != nil {
-		return false, err
-	}
+func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) bool {
+	orm := initIfNeeded(engine, entity)
+	schema := orm.tableSchema
 	whereQuery := where.String()
 	if skipFakeDelete && schema.hasFakeDelete {
 		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
 	}
 	/* #nosec */
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", fieldsList, schema.tableName, whereQuery)
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", schema.fieldsQuery, schema.tableName, whereQuery)
 
 	pool := schema.GetMysql(engine)
-	results, def, err := pool.Query(query, where.GetParameters()...)
-	if err != nil {
-		return false, err
-	}
+	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
 	if !results.Next() {
-		err = results.Err()
+		err := results.Err()
 		if err != nil {
-			return false, err
+			panic(err)
 		}
-		return false, nil
+		return false
 	}
 
-	columns, err := results.Columns()
-	if err != nil {
-		return false, err
-	}
-	count := len(columns)
+	count := len(schema.columnNames)
 
-	values := make([]string, count)
+	values := make([]sql.NullString, count)
 	valuePointers := make([]interface{}, count)
-	for i := range columns {
+	for i := 0; i < count; i++ {
 		valuePointers[i] = &values[i]
 	}
-	err = results.Scan(valuePointers...)
+	err := results.Scan(valuePointers...)
 	if err != nil {
-		return false, err
+		panic(err)
 	}
 	err = results.Err()
 	if err != nil {
-		return false, err
+		panic(err)
 	}
-	id, _ := strconv.ParseUint(values[0], 10, 64)
-	err = fillFromDBRow(id, engine, values[1:], value, entityType)
-	if err != nil {
-		return false, err
+	def()
+	id := uint64(0)
+	if values[0].Valid {
+		id, _ = strconv.ParseUint(values[0].String, 10, 64)
 	}
-	return true, nil
+
+	finalValues := make([]string, count)
+	for i, v := range values {
+		finalValues[i] = v.String
+	}
+	fillFromDBRow(id, engine, finalValues[1:], entity)
+	if len(references) > 0 {
+		warmUpReferences(engine, schema, entity.getORM().attributes.elem, references, false)
+	}
+	return true
 }
 
-func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) (int, error) {
+func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) int {
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: 50000}
 	}
 	entities.SetLen(0)
 	entityType, has := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
-		return 0, EntityNotRegisteredError{Name: entities.String()}
+		panic(EntityNotRegisteredError{Name: entities.String()})
 	}
 	schema := getTableSchema(engine.registry, entityType)
-	fieldsList, err := buildFieldList(engine.registry, schema, entityType, "")
-	if err != nil {
-		return 0, err
-	}
 	whereQuery := where.String()
 	if skipFakeDelete && schema.hasFakeDelete {
 		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
 	}
 	/* #nosec */
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", fieldsList, schema.tableName, whereQuery,
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", schema.fieldsQuery, schema.tableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
-	results, def, err := pool.Query(query, where.GetParameters()...)
-	if err != nil {
-		return 0, err
-	}
+	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
 
-	columns, err := results.Columns()
-	if err != nil {
-		return 0, err
-	}
-	count := len(columns)
+	count := len(schema.columnNames)
 
-	values := make([]string, count)
+	values := make([]sql.NullString, count)
 	valuePointers := make([]interface{}, count)
+	for i := 0; i < count; i++ {
+		valuePointers[i] = &values[i]
+	}
 
 	valOrigin := entities
 	val := valOrigin
 	i := 0
 	for results.Next() {
-		for i := range columns {
-			valuePointers[i] = &values[i]
-		}
-		err = results.Scan(valuePointers...)
+		err := results.Scan(valuePointers...)
 		if err != nil {
-			return 0, err
+			panic(err)
+		}
+		finalValues := make([]string, count)
+		for i, v := range values {
+			finalValues[i] = v.String
 		}
 		value := reflect.New(entityType)
-		id, _ := strconv.ParseUint(values[0], 10, 64)
-		err = fillFromDBRow(id, engine, values[1:], value, entityType)
-		if err != nil {
-			return 0, err
-		}
+		id, _ := strconv.ParseUint(finalValues[0], 10, 64)
+		fillFromDBRow(id, engine, finalValues[1:], value.Interface().(Entity))
 		val = reflect.Append(val, value)
 		i++
 	}
-	err = results.Err()
+	err := results.Err()
 	if err != nil {
-		return 0, err
+		panic(err)
 	}
-
-	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, i)
-	if err != nil {
-		return 0, err
-	}
+	def()
+	totalRows := getTotalRows(engine, withCount, pager, where, schema, i)
 	if len(references) > 0 && i > 0 {
-		err = warmUpReferences(engine, schema, val, references, true)
-		if err != nil {
-			return 0, err
-		}
+		warmUpReferences(engine, schema, val, references, true)
 	}
 	valOrigin.Set(val)
-	return totalRows, nil
+	return totalRows
 }
 
-func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity interface{}) (bool, error) {
-	value := reflect.ValueOf(entity)
-	has, err := searchRow(skipFakeDelete, engine, where, value)
-	if err != nil {
-		return false, err
-	}
-	return has, nil
+func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) bool {
+	return searchRow(skipFakeDelete, engine, where, entity, references)
 }
 
-func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int, err error) {
+func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int) {
 	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
-		return nil, 0, EntityNotRegisteredError{Name: entityType.String()}
+		panic(EntityNotRegisteredError{Name: entityType.String()})
 	}
 	whereQuery := where.String()
 	if skipFakeDelete && schema.hasFakeDelete {
@@ -170,32 +146,27 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 	query := fmt.Sprintf("SELECT `ID` FROM `%s` WHERE %s %s", schema.tableName, whereQuery,
 		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
 	pool := schema.GetMysql(engine)
-	results, def, err := pool.Query(query, where.GetParameters()...)
-	if err != nil {
-		return nil, 0, err
-	}
+	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
 	result := make([]uint64, 0, pager.GetPageSize())
 	for results.Next() {
 		var row uint64
-		err = results.Scan(&row)
+		err := results.Scan(&row)
 		if err != nil {
-			return nil, 0, err
+			panic(err)
 		}
 		result = append(result, row)
 	}
-	err = results.Err()
+	err := results.Err()
 	if err != nil {
-		return nil, 0, err
+		panic(err)
 	}
-	totalRows, err := getTotalRows(engine, withCount, pager, where, schema, len(result))
-	if err != nil {
-		return nil, 0, err
-	}
-	return result, totalRows, nil
+	def()
+	totalRows := getTotalRows(engine, withCount, pager, where, schema, len(result))
+	return result, totalRows
 }
 
-func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *tableSchema, foundRows int) (int, error) {
+func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, schema *tableSchema, foundRows int) int {
 	totalRows := 0
 	if withCount {
 		totalRows = foundRows
@@ -204,225 +175,166 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.tableName, where)
 			var foundTotal string
 			pool := schema.GetMysql(engine)
-			err := pool.QueryRow(query, where.GetParameters()...).Scan(&foundTotal)
-			if err != nil {
-				return 0, err
-			}
+			pool.QueryRow(NewWhere(query, where.GetParameters()...), &foundTotal)
 			totalRows, _ = strconv.Atoi(foundTotal)
 		} else {
 			totalRows += (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 		}
 	}
-	return totalRows, nil
+	return totalRows
 }
 
-func fillFromDBRow(id uint64, engine *Engine, data []string, value reflect.Value, entityType reflect.Type) error {
-	orm := initIfNeeded(engine, value)
-	elem := value.Elem()
-	elem.Field(1).SetUint(id)
-	_, err := fillStruct(engine, orm.tableSchema, 0, data, entityType, elem, "")
-	if err != nil {
-		return err
-	}
+func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) {
+	orm := initIfNeeded(engine, entity)
+	elem := orm.attributes.elem
+	orm.attributes.idElem.SetUint(id)
+	_ = fillStruct(engine, 0, data, orm.tableSchema.fields, elem)
 	orm.dBData["ID"] = id
-	orm.dBData["_loaded"] = true
+	orm.attributes.loaded = true
 	for key, column := range orm.tableSchema.columnNames[1:] {
 		orm.dBData[column] = data[key]
 	}
-	return nil
 }
 
-func fillStruct(engine *Engine, schema *tableSchema, index uint16, data []string,
-	t reflect.Type, value reflect.Value, prefix string) (uint16, error) {
-	for i := 0; i < t.NumField(); i++ {
-		if index == 0 && i <= 1 { //skip id and orm
+func convertStringToUint(value string) uint64 {
+	if value == "" {
+		return 0
+	}
+	v, _ := strconv.ParseUint(value, 10, 64)
+	return v
+}
+
+func convertStringToInt(value string) int64 {
+	if value == "" {
+		return 0
+	}
+	v, _ := strconv.ParseInt(value, 10, 64)
+	return v
+}
+
+func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields, value reflect.Value) uint16 {
+	skip := 1
+	if fields.prefix != "" {
+		skip = -1
+	}
+	for _, i := range fields.uintegers {
+		if i == skip {
 			continue
 		}
-
+		value.Field(i).SetUint(convertStringToUint(data[index]))
+		index++
+	}
+	for _, i := range fields.integers {
+		value.Field(i).SetInt(convertStringToInt(data[index]))
+		index++
+	}
+	for _, i := range fields.strings {
+		value.Field(i).SetString(data[index])
+		index++
+	}
+	for _, i := range fields.sliceStrings {
 		field := value.Field(i)
-		name := prefix + t.Field(i).Name
-
-		tags := schema.tags[name]
-		_, has := tags["ignore"]
-		if has {
-			continue
+		if data[index] != "" {
+			var values = strings.Split(data[index], ",")
+			var length = len(values)
+			slice := reflect.MakeSlice(field.Type(), length, length)
+			for key, value := range values {
+				slice.Index(key).SetString(value)
+			}
+			field.Set(slice)
+		} else {
+			field.Set(reflect.Zero(field.Type()))
 		}
-
-		fieldType := field.Type().String()
-		switch fieldType {
-		case "uint":
-			integer, _ := strconv.ParseUint(data[index], 10, 32)
-			field.SetUint(integer)
-		case "uint8":
-			integer, _ := strconv.ParseUint(data[index], 10, 8)
-			field.SetUint(integer)
-		case "uint16":
-			integer, _ := strconv.ParseUint(data[index], 10, 16)
-			field.SetUint(integer)
-		case "uint32":
-			integer, _ := strconv.ParseUint(data[index], 10, 32)
-			field.SetUint(integer)
-		case "uint64":
-			integer, _ := strconv.ParseUint(data[index], 10, 64)
-			field.SetUint(integer)
-		case "int":
-			integer, _ := strconv.ParseInt(data[index], 10, 32)
-			field.SetInt(integer)
-		case "int8":
-			integer, _ := strconv.ParseInt(data[index], 10, 8)
-			field.SetInt(integer)
-		case "int16":
-			integer, _ := strconv.ParseInt(data[index], 10, 16)
-			field.SetInt(integer)
-		case "int32":
-			integer, _ := strconv.ParseInt(data[index], 10, 32)
-			field.SetInt(integer)
-		case "int64":
-			integer, _ := strconv.ParseInt(data[index], 10, 64)
-			field.SetInt(integer)
-		case "string":
-			field.SetString(data[index])
-		case "[]string":
-			if data[index] != "" {
-				var values = strings.Split(data[index], ",")
-				var length = len(values)
-				slice := reflect.MakeSlice(field.Type(), length, length)
-				for key, value := range values {
-					slice.Index(key).SetString(value)
-				}
-				field.Set(slice)
-			}
-		case "[]uint8":
-			bytes := data[index]
-			if bytes != "" {
-				field.SetBytes([]byte(bytes))
-			}
-		case "bool":
-			if schema.hasFakeDelete && name == "FakeDelete" {
-				val := true
-				if data[index] == "0" {
-					val = false
-				}
-				field.SetBool(val)
-				index++
-				continue
-			}
-			val := false
-			if data[index] == "1" {
-				val = true
-			}
-			field.SetBool(val)
-		case "float32":
-			float, _ := strconv.ParseFloat(data[index], 32)
-			field.SetFloat(float)
-		case "float64":
-			float, _ := strconv.ParseFloat(data[index], 64)
-			field.SetFloat(float)
-		case "*time.Time":
-			if data[index] == "" {
-				field.Set(reflect.Zero(field.Type()))
-			} else {
-				layout := "2006-01-02"
-				if len(data[index]) == 19 {
-					layout += " 15:04:05"
-				}
-				value, _ := time.Parse(layout, data[index])
-				field.Set(reflect.ValueOf(&value))
-			}
-		case "time.Time":
+		index++
+	}
+	for _, i := range fields.bytes {
+		bytes := data[index]
+		field := value.Field(i)
+		if bytes != "" {
+			field.SetBytes([]byte(bytes))
+		} else {
+			field.Set(reflect.Zero(field.Type()))
+		}
+		index++
+	}
+	if fields.fakeDelete > 0 {
+		val := true
+		if data[index] == "0" {
+			val = false
+		}
+		value.Field(fields.fakeDelete).SetBool(val)
+		index++
+	}
+	for _, i := range fields.booleans {
+		value.Field(i).SetBool(data[index] == "1")
+		index++
+	}
+	for _, i := range fields.floats {
+		float, _ := strconv.ParseFloat(data[index], 64)
+		value.Field(i).SetFloat(float)
+		index++
+	}
+	for _, i := range fields.timesNullable {
+		field := value.Field(i)
+		if data[index] == "" {
+			field.Set(reflect.Zero(field.Type()))
+		} else {
 			layout := "2006-01-02"
 			if len(data[index]) == 19 {
 				layout += " 15:04:05"
 			}
 			value, _ := time.Parse(layout, data[index])
-			field.Set(reflect.ValueOf(value))
-		case "*orm.CachedQuery":
-			continue
-		case "interface {}":
-			if data[index] != "" {
-				var f interface{}
-				err := json.Unmarshal([]byte(data[index]), &f)
-				if err != nil {
-					return 0, err
-				}
-				field.Set(reflect.ValueOf(f))
-			}
-		default:
-			k := field.Kind().String()
-			if k == "struct" {
-				newVal := reflect.New(field.Type())
-				value := newVal.Elem()
-				newIndex, err := fillStruct(engine, schema, index, data, field.Type(), value, name)
-				if err != nil {
-					return 0, err
-				}
-				index = newIndex
-				field.Set(value)
-				continue
-			} else if k == "ptr" {
-				integer, _ := strconv.ParseUint(data[index], 10, 64)
-				if integer > 0 {
-					n := reflect.New(field.Type().Elem())
-					initIfNeeded(engine, n)
-					n.Elem().Field(1).SetUint(integer)
-					field.Set(n)
-				} else {
-					field.Set(reflect.Zero(field.Type()))
-				}
-				index++
-				continue
-			}
-			return 0, fmt.Errorf("unsupported field type: %s", field.Type().String())
+			field.Set(reflect.ValueOf(&value))
 		}
 		index++
 	}
-	return index, nil
-}
-
-func buildFieldList(registry *validatedRegistry, schema *tableSchema, t reflect.Type, prefix string) (string, error) {
-	fieldsList := ""
-	for i := 0; i < t.NumField(); i++ {
-		var columnNameRaw string
-		field := t.Field(i)
-		tags := schema.tags[prefix+t.Field(i).Name]
-		_, has := tags["ignore"]
-		if has {
-			continue
+	for _, i := range fields.times {
+		field := value.Field(i)
+		layout := "2006-01-02"
+		if len(data[index]) == 19 {
+			layout += " 15:04:05"
 		}
-		if prefix == "" && (strings.ToLower(field.Name) == "id" || field.Name == "ORM") {
-			continue
-		}
-		if field.Type.String() == "*orm.CachedQuery" {
-			continue
-		}
-		switch field.Type.String() {
-		case "time.Time":
-			columnNameRaw = prefix + t.Field(i).Name
-			fieldsList += fmt.Sprintf(",`%s`", columnNameRaw)
-		case "string", "[]string", "[]uint8", "interface {}", "uint16", "*time.Time":
-			columnNameRaw = prefix + t.Field(i).Name
-			fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
-		default:
-			k := field.Type.Kind().String()
-			if k == "struct" {
-				f, err := buildFieldList(registry, schema, field.Type, field.Name)
-				if err != nil {
-					return "", err
-				}
-				fieldsList += f
-			} else if k == "ptr" {
-				columnNameRaw = prefix + t.Field(i).Name
-				fieldsList += fmt.Sprintf(",IFNULL(`%s`,'')", columnNameRaw)
-			} else {
-				columnNameRaw = prefix + t.Field(i).Name
-				fieldsList += fmt.Sprintf(",`%s`", columnNameRaw)
-			}
-		}
+		val, _ := time.Parse(layout, data[index])
+		field.Set(reflect.ValueOf(val))
+		index++
 	}
-	if prefix == "" {
-		fieldsList = "`ID`" + fieldsList
+	for _, i := range fields.jsons {
+		field := value.Field(i)
+		if data[index] != "" {
+			var f interface{}
+			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index]), &f)
+			field.Set(reflect.ValueOf(f))
+		} else {
+			field.Set(reflect.Zero(field.Type()))
+		}
+		index++
 	}
-	return fieldsList, nil
+	for k, i := range fields.refs {
+		field := value.Field(i)
+		integer := uint64(0)
+		if data[index] != "" {
+			integer, _ = strconv.ParseUint(data[index], 10, 64)
+		}
+		refType := fields.refsTypes[k]
+		if integer > 0 {
+			n := reflect.New(refType.Elem())
+			orm := initIfNeeded(engine, n.Interface().(Entity))
+			orm.attributes.idElem.SetUint(integer)
+			field.Set(n)
+		} else {
+			field.Set(reflect.Zero(refType))
+		}
+		index++
+	}
+	for i, subFields := range fields.structs {
+		field := value.Field(i)
+		newVal := reflect.New(field.Type())
+		value := newVal.Elem()
+		newIndex := fillStruct(engine, index, data, subFields, value)
+		field.Set(value)
+		index = newIndex
+	}
+	return index
 }
 
 func getEntityTypeForSlice(registry *validatedRegistry, sliceType reflect.Type) (reflect.Type, bool) {

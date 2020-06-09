@@ -1,20 +1,13 @@
 package orm
 
-import (
-	"reflect"
-)
-
-func getDirtyBind(value reflect.Value) (is bool, bind map[string]interface{}, err error) {
-	id := value.Field(1).Uint()
-	t := value.Type()
-	ormField := value.Field(0).Addr().Interface().(*ORM)
-	if ormField.dBData["_delete"] == true {
-		return true, nil, nil
+func getDirtyBind(entity Entity) (is bool, bind map[string]interface{}) {
+	orm := entity.getORM()
+	if orm.attributes.delete {
+		return true, nil
 	}
-	bind, err = createBind(id, ormField.tableSchema, t, value, ormField.dBData, "")
-	if err != nil {
-		return false, nil, err
-	}
+	id := orm.GetID()
+	t := orm.attributes.elem.Type()
+	bind = createBind(id, orm.tableSchema, t, orm.attributes.elem, orm.dBData, "")
 	is = id == 0 || len(bind) > 0
-	return is, bind, nil
+	return is, bind
 }

@@ -5,5 +5,5 @@ type DefaultValuesInterface interface {
 }
 
 type AfterSavedInterface interface {
-	AfterSaved(engine *Engine) error
+	AfterSaved(engine *Engine)
 }

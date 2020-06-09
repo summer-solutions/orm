@@ -1,55 +1,52 @@
 package orm
 
 import (
-	"encoding/json"
-	"fmt"
+	jsoniter "github.com/json-iterator/go"
 )
 
-const lazyQueueName = "_lazy_queue"
+const lazyQueueName = "lazy_queue"
 
 type LazyReceiver struct {
-	engine              *Engine
-	queueSenderReceiver QueueSenderReceiver
+	engine      *Engine
+	disableLoop bool
+	heartBeat   func()
 }
 
-func NewLazyReceiver(engine *Engine, queueSenderReceiver QueueSenderReceiver) *LazyReceiver {
-	return &LazyReceiver{engine: engine, queueSenderReceiver: queueSenderReceiver}
+func NewLazyReceiver(engine *Engine) *LazyReceiver {
+	return &LazyReceiver{engine: engine}
 }
 
-func (r *LazyReceiver) Size() (int64, error) {
-	return r.queueSenderReceiver.Size(r.engine, lazyQueueName)
+func (r *LazyReceiver) DisableLoop() {
+	r.disableLoop = true
 }
 
-func (r *LazyReceiver) Digest() (has bool, err error) {
-	has, asJSON, err := r.queueSenderReceiver.Receive(r.engine, lazyQueueName)
-	if err != nil {
-		return false, fmt.Errorf("%w", err)
+func (r *LazyReceiver) SetHeartBeat(beat func()) {
+	r.heartBeat = beat
+}
+
+func (r *LazyReceiver) Digest() {
+	channel := r.engine.GetRabbitMQQueue(lazyQueueName)
+	consumer := channel.NewConsumer("default consumer")
+	defer consumer.Close()
+	if r.disableLoop {
+		consumer.DisableLoop()
 	}
-	if !has {
-		return false, nil
+	if r.heartBeat != nil {
+		consumer.SetHeartBeat(r.heartBeat)
 	}
 	var data interface{}
-	err = json.Unmarshal([]byte(asJSON), &data)
-	if err != nil {
-		return true, err
-	}
-	validMap := data.(map[string]interface{})
-	err = r.handleQueries(r.engine, validMap)
-	if err != nil {
-		return true, err
-	}
-	err = r.handleClearCache(validMap, "cl")
-	if err != nil {
-		return true, err
-	}
-	err = r.handleClearCache(validMap, "cr")
-	if err != nil {
-		return true, err
-	}
-	return true, nil
+	consumer.Consume(func(items [][]byte) {
+		for _, item := range items {
+			_ = jsoniter.ConfigFastest.Unmarshal(item, &data)
+			validMap := data.(map[string]interface{})
+			r.handleQueries(r.engine, validMap)
+			r.handleClearCache(validMap, "cl")
+			r.handleClearCache(validMap, "cr")
+		}
+	})
 }
 
-func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interface{}) error {
+func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interface{}) {
 	queries, has := validMap["q"]
 	if has {
 		validQueries := queries.([]interface{})
@@ -59,16 +56,12 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 			db := engine.GetMysql(code)
 			sql := validInsert[1].(string)
 			attributes := validInsert[2].([]interface{})
-			_, err := db.Exec(sql, attributes...)
-			if err != nil {
-				return err
-			}
+			_ = db.Exec(sql, attributes...)
 		}
 	}
-	return nil
 }
 
-func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key string) error {
+func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key string) {
 	keys, has := validMap[key]
 	if has {
 		validKeys := keys.(map[string]interface{})
@@ -83,12 +76,8 @@ func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key str
 				cache.Remove(stringKeys...)
 			} else {
 				cache := r.engine.redis[cacheCode]
-				err := cache.Del(stringKeys...)
-				if err != nil {
-					return err
-				}
+				cache.Del(stringKeys...)
 			}
 		}
 	}
-	return nil
 }

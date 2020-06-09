@@ -1,25 +1,24 @@
 package orm
 
 import (
-	"fmt"
 	"reflect"
 )
 
-func initIfNeeded(engine *Engine, value reflect.Value) *ORM {
-	elem := value.Elem()
-	address := elem.Field(0).Addr()
-	orm := address.Interface().(*ORM)
+func initIfNeeded(engine *Engine, entity Entity) *ORM {
+	orm := entity.getORM()
 	if orm.dBData == nil {
-		tableSchema := getTableSchema(engine.registry, elem.Type())
+		value := reflect.ValueOf(entity)
+		elem := value.Elem()
+		t := elem.Type()
+		tableSchema := getTableSchema(engine.registry, t)
 		if tableSchema == nil {
-			panic(fmt.Errorf("entity '%s' is registered", value.Type().String()))
+			panic(EntityNotRegisteredError{Name: t.String()})
 		}
 		orm.engine = engine
-		orm.dBData = make(map[string]interface{})
-		orm.elem = elem
-		orm.value = value
 		orm.tableSchema = tableSchema
-		defaultInterface, is := value.Interface().(DefaultValuesInterface)
+		orm.dBData = make(map[string]interface{}, len(tableSchema.columnNames))
+		orm.attributes = &entityAttributes{nil, false, false, value, elem, elem.Field(1), nil}
+		defaultInterface, is := entity.(DefaultValuesInterface)
 		if is {
 			defaultInterface.SetDefaults()
 		}
