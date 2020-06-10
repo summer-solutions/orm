@@ -85,6 +85,15 @@ func TestFlush(t *testing.T) {
 	assert.True(t, engine.IsDirty(entities[7]))
 	engine.Flush()
 
+	e := &testEntityFlush{}
+	_ = engine.LoadByID(2, e, "ReferenceOne")
+	e.ReferenceOne.Name = "New name"
+	assert.True(t, engine.IsDirty(e.ReferenceOne))
+	engine.TrackAndFlush(e.ReferenceOne)
+	assert.False(t, engine.IsDirty(e.ReferenceOne))
+	engine.LoadByID(7, e)
+	assert.Equal(t, "New name", e.Name)
+
 	var edited1 testEntityFlush
 	var edited2 testEntityFlush
 	has := engine.LoadByID(2, &edited1)
@@ -102,7 +111,7 @@ func TestFlush(t *testing.T) {
 	assert.False(t, engine.Loaded(edited1.ReferenceOne))
 	engine.Load(edited1.ReferenceOne)
 	assert.True(t, engine.Loaded(edited1.ReferenceOne))
-	assert.Equal(t, "Name 7", edited1.ReferenceOne.Name)
+	assert.Equal(t, "New name", edited1.ReferenceOne.Name)
 
 	toDelete := edited2
 	engine.Track(&edited1)

@@ -200,7 +200,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 				if warmUpRefs[parentType][refID] == nil {
 					warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
 				}
-				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], refEntity.getORM().attributes.elem)
+				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
 			}
 			if len(ids) == 0 {
 				continue
@@ -228,7 +228,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			refs, has := warmUpRefs[t][id]
 			if has {
 				for _, ref := range refs {
-					ref.Set(v.getORM().attributes.elem)
+					ref.Set(v.getORM().attributes.value)
 				}
 			}
 		}
