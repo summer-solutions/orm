@@ -233,6 +233,8 @@ func main() {
         ReferenceOneCascade  *testEntitySchemaRef `orm:"cascade"`
         IgnoreField          []time.Time       `orm:"ignore"`
         Blob                 []byte
+        MediumBlob           []byte `orm:"mediumblob=true"`
+        LongBlob             []byte `orm:"longblob=true"` 
     }
     
     type testEntitySchemaRef struct {
