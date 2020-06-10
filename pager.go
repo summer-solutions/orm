@@ -5,6 +5,13 @@ type Pager struct {
 	PageSize    int
 }
 
+func NewPager(currentPage, pageSize int) *Pager {
+	return &Pager{
+		CurrentPage: currentPage,
+		PageSize:    pageSize,
+	}
+}
+
 func (pager *Pager) GetPageSize() int {
 	return pager.PageSize
 }
