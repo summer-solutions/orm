@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/segmentio/fasthash/fnv1a"
 
 	apexLog "github.com/apex/log"
@@ -19,8 +21,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
-	"github.com/juju/errors"
 )
 
 type dataDog struct {
@@ -219,16 +219,20 @@ func (dd *dataDog) SetAPMTag(key string, value interface{}) {
 	dd.span.SetTag(key, value)
 }
 
-func (dd *dataDog) incrementCounter(key string, value uint) {
-	before, has := dd.counters[key]
-	if has {
-		dd.counters[key] = before + value
-	} else {
-		if dd.counters == nil {
-			dd.counters = make(map[string]uint)
-		}
-		dd.counters[key] = value
-	}
+func StartDataDogTracer(rate float64) (def func()) {
+	tracer.Start(tracer.WithAnalyticsRate(rate))
+	return func() { tracer.Stop() }
+}
+
+func StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func()) {
+	_ = profiler.Start(
+		profiler.WithPeriod(duration),
+		profiler.WithEnv(environment),
+		profiler.WithAPIKey(apiKey),
+		profiler.WithURL("https://intake.profile.datadoghq.eu/v1/input"),
+		profiler.WithService(service),
+	)
+	return func() { profiler.Stop() }
 }
 
 func (dd *dataDog) registerAPMError(err error) {
@@ -250,18 +254,14 @@ func (dd *dataDog) registerAPMError(err error) {
 	dd.span.SetTag(ext.ManualKeep, true)
 }
 
-func StartDataDogTracer(rate float64) (def func()) {
-	tracer.Start(tracer.WithAnalyticsRate(rate))
-	return func() { tracer.Stop() }
-}
-
-func StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func()) {
-	_ = profiler.Start(
-		profiler.WithPeriod(duration),
-		profiler.WithEnv(environment),
-		profiler.WithAPIKey(apiKey),
-		profiler.WithURL("https://intake.profile.datadoghq.eu/v1/input"),
-		profiler.WithService(service),
-	)
-	return func() { profiler.Stop() }
+func (dd *dataDog) incrementCounter(key string, value uint) {
+	before, has := dd.counters[key]
+	if has {
+		dd.counters[key] = before + value
+	} else {
+		if dd.counters == nil {
+			dd.counters = make(map[string]uint)
+		}
+		dd.counters[key] = value
+	}
 }

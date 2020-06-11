@@ -2,11 +2,22 @@ package orm
 
 import (
 	"fmt"
+	"time"
 
 	jsoniter "github.com/json-iterator/go"
 )
 
 const logQueueName = "orm_log"
+
+type LogQueueValue struct {
+	PoolName  string
+	TableName string
+	ID        uint64
+	Meta      map[string]interface{}
+	Before    map[string]interface{}
+	Changes   map[string]interface{}
+	Updated   time.Time
+}
 
 type LogReceiver struct {
 	engine      *Engine
