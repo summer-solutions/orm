@@ -94,6 +94,8 @@ func main() {
     registry.RegisterElastic("http://127.0.0.1:9200")
     //optionally you can define pool name as second argument
     registry.RegisterElastic("http://127.0.0.1:9200", "second_pool")
+    // you can enable trace log
+    registry.RegisterElasticWithTraceLog("http://127.0.0.1:9200", "second_pool")
 
     /* ClickHouse */
     registry.RegisterClickHouse("http://127.0.0.1:9000")
@@ -110,6 +112,7 @@ default:
     mysql: root:root@tcp(localhost:3310)/db
     redis: localhost:6379:0
     elastic: http://127.0.0.1:9200
+    elastic_trace: http://127.0.0.1:9201 //with trace log
     clickhouse: http://127.0.0.1:9000
     locker: default
     dirty_queues:

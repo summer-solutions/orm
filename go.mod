@@ -24,7 +24,7 @@ require (
 	github.com/tinylib/msgp v1.1.2 // indirect
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
-	golang.org/x/tools v0.0.0-20200610160956-3e83d1e96d0e // indirect
+	golang.org/x/tools v0.0.0-20200611032120-1fdcbd130028 // indirect
 	gopkg.in/DataDog/dd-trace-go.v1 v1.24.1
 	gopkg.in/yaml.v2 v2.3.0
 )

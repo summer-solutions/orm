@@ -3,7 +3,9 @@ package orm
 import (
 	"database/sql"
 	"fmt"
+	log2 "log"
 	"math"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -321,8 +323,12 @@ func (r *Registry) RegisterMySQLPool(dataSourceName string, code ...string) {
 	r.registerSQLPool(dataSourceName, code...)
 }
 
-func (r *Registry) RegisterElasticPool(url string, code ...string) {
-	r.RegisterElastic(url, code...)
+func (r *Registry) RegisterElastic(url string, code ...string) {
+	r.registerElastic(url, false, code...)
+}
+
+func (r *Registry) RegisterElasticWithTraceLog(url string, code ...string) {
+	r.registerElastic(url, true, code...)
 }
 
 func (r *Registry) RegisterLocalCache(size int, code ...string) {
@@ -448,13 +454,27 @@ func (r *Registry) registerSQLPool(dataSourceName string, code ...string) {
 	r.sqlClients[dbCode] = db
 }
 
-func (r *Registry) RegisterElastic(url string, code ...string) {
-	client, err := elastic.NewClient(
-		elastic.SetSniff(false),
-		elastic.SetURL(url),
-		elastic.SetHealthcheckInterval(5*time.Second),
-	)
+func (r *Registry) RegisterClickHouse(url string, code ...string) {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	db := &ClickHouseConfig{code: dbCode, url: url}
+	if r.clickHouseClients == nil {
+		r.clickHouseClients = make(map[string]*ClickHouseConfig)
+	}
+	r.clickHouseClients[dbCode] = db
+}
 
+func (r *Registry) registerElastic(url string, withTrace bool, code ...string) {
+	clientOptions := []elastic.ClientOptionFunc{elastic.SetSniff(false), elastic.SetURL(url),
+		elastic.SetHealthcheckInterval(5 * time.Second)}
+	if withTrace {
+		clientOptions = append(clientOptions, elastic.SetTraceLog(log2.New(os.Stdout, "", log2.LstdFlags)))
+	}
+	client, err := elastic.NewClient(
+		clientOptions...,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -467,18 +487,6 @@ func (r *Registry) RegisterElastic(url string, code ...string) {
 		r.elasticServers = make(map[string]*ElasticConfig)
 	}
 	r.elasticServers[dbCode] = config
-}
-
-func (r *Registry) RegisterClickHouse(url string, code ...string) {
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	db := &ClickHouseConfig{code: dbCode, url: url}
-	if r.clickHouseClients == nil {
-		r.clickHouseClients = make(map[string]*ClickHouseConfig)
-	}
-	r.clickHouseClients[dbCode] = db
 }
 
 type RedisCacheConfig struct {
