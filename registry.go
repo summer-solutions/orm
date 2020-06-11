@@ -239,6 +239,13 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	engine = registry.CreateEngine()
 	for code, config := range registry.rabbitMQChannelsToQueue {
 		if config.config.Router == "" {
+			r := engine.GetRabbitMQQueue(code)
+			receiver := r.initChannel(config.config.Name, false)
+			err := receiver.Close()
+			if err != nil {
+				panic(err)
+			}
+		} else {
 			if config.config.Delayed {
 				r := engine.GetRabbitMQDelayedQueue(code)
 				receiver := r.initChannel(config.config.Name, false)
@@ -247,19 +254,12 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 					panic(err)
 				}
 			} else {
-				r := engine.GetRabbitMQQueue(code)
+				r := engine.GetRabbitMQRouter(code)
 				receiver := r.initChannel(config.config.Name, false)
 				err := receiver.Close()
 				if err != nil {
 					panic(err)
 				}
-			}
-		} else {
-			r := engine.GetRabbitMQRouter(code)
-			receiver := r.initChannel(config.config.Name, false)
-			err := receiver.Close()
-			if err != nil {
-				panic(err)
 			}
 		}
 	}
@@ -394,6 +394,12 @@ func (r *Registry) RegisterRabbitMQQueue(config *RabbitMQQueueConfig, serverPool
 	}
 	if r.rabbitMQQueues[dbCode] == nil {
 		r.rabbitMQQueues[dbCode] = make([]*RabbitMQQueueConfig, 0)
+	}
+	if config.Delayed {
+		routerName := config.Name + "_router"
+		rooterConfig := &RabbitMQRouterConfig{Name: routerName, Durable: true, Type: "direct"}
+		config.Router = routerName
+		r.RegisterRabbitMQRouter(rooterConfig, serverPool...)
 	}
 	r.rabbitMQQueues[dbCode] = append(r.rabbitMQQueues[dbCode], config)
 }

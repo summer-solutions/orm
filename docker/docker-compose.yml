@@ -1,0 +1,74 @@
+version: '3'
+services:
+  mysql:
+    image: percona:5.7.25
+    volumes:
+      - data_mysql:/var/lib/mysql
+      - logs_mysql:/var/log/mysql
+    ports:
+      - ${LOCAL_IP}:${MYSQL_PORT}:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+  redis:
+    image: redis
+    volumes:
+      - data_redis:/data
+    ports:
+      - ${LOCAL_IP}:${REDIS_PORT}:6379
+  rabbitmq:
+    build: rabbit
+    hostname: 'rabbitmq'
+    volumes:
+      - data_rabbitmq:/var/lib/rabbitmq
+    ports:
+      - ${LOCAL_IP}:${RABBITMQ_PORT}:5672
+      - ${LOCAL_IP}:${RABBITMQ_MANAGEMENT_WEB_PORT}:15672
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbitmq_user
+      - RABBITMQ_DEFAULT_PASS=rabbitmq_password
+      - RABBITMQ_DEFAULT_VHOST=test
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.6.1
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms${ELASTICSEARCH_MEMORY}m -Xmx${ELASTICSEARCH_MEMORY}m"
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+    ports:
+      - ${LOCAL_IP}:${ELASTICSEARCH_PORT}:9200
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+  kibana:
+    image: docker.elastic.co/kibana/kibana-oss:7.6.1
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+    ports:
+      - ${KIBANA_PORT}:5601
+    depends_on:
+      - elasticsearch
+  clickhouse-server:
+    image: yandex/clickhouse-server
+    restart: always
+    volumes:
+      - data_clickhouse:/var/lib/clickhouse
+    ports:
+      - ${LOCAL_IP}:${CLICKHOUSE_NATIVE_PORT}:9000
+      - ${LOCAL_IP}:${CLICKHOUS_HTTP_PORT}:8123
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+volumes:
+  data_mysql: {}
+  logs_mysql: {}
+  data_redis: {}
+  data_rabbitmq: {}
+  elasticsearch: {}
+  data_clickhouse: {}

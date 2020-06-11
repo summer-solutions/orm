@@ -311,8 +311,12 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) *amqp.Chann
 		err := channel.ExchangeDeclare(configRouter.Name, typeValue, configRouter.Durable, true,
 			false, false, args)
 		if r.engine.queryLoggers[QueryLoggerSourceRabbitMQ] != nil {
-			fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][REGISTER ROUTER]", start, "register",
-				map[string]interface{}{"Name": configRouter.Name, "type": configRouter.Type, "args": args}, err)
+			fields := map[string]interface{}{"Name": configRouter.Name, "type": configRouter.Type, "args": args}
+			if r.config.Delayed {
+				fields["x-delayed-type"] = fields["type"]
+				fields["type"] = "x-delayed-message"
+			}
+			fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][REGISTER ROUTER]", start, "register", fields, err)
 		}
 		r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 		r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)

@@ -124,14 +124,15 @@ default:
               durrable: false // optional, default true
               autodelete: false // optional, default false
               prefetchCount: 1 // optional, default 1
-              router: test // optional, default ""
+              router: test_router // optional, default ""
               router_keys: // optional, default []string
                 - aa
                 - bb
+            - name: test3
+              delayed: true    
         routers:
-            - name: test_delayed
+            - name: test_router
               type: direct  
-              delayed: true //optional, default false  
               durable: false // optional, default true
 second_pool:
     mysql: root:root@tcp(localhost:3311)/db2

@@ -2,6 +2,7 @@ package orm
 
 import (
 	"testing"
+	"time"
 
 	log2 "github.com/apex/log"
 
@@ -69,6 +70,20 @@ func TestRabbitMQQueueRouter(t *testing.T) {
 
 	assert.NotNil(t, r)
 	r.Publish("aa", []byte("hello"))
-
 	r.Publish("bb", []byte("hello2"))
+}
+
+func TestRabbitMQQueueDelayed(t *testing.T) {
+	registry := &Registry{}
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
+	registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_delayed", Delayed: true})
+
+	validatedRegistry, err := registry.Validate()
+	assert.Nil(t, err)
+	engine := validatedRegistry.CreateEngine()
+	r := engine.GetRabbitMQDelayedQueue("test_queue_delayed")
+	testLogger := memory.New()
+	engine.AddQueryLogger(testLogger, log2.InfoLevel, QueryLoggerSourceRabbitMQ)
+
+	r.Publish(time.Second, []byte("hello"))
 }

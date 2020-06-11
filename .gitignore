@@ -3,4 +3,3 @@
 /.gcloudignore
 go.sum
 /bin/
-/docker/

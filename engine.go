@@ -332,9 +332,6 @@ func (e *Engine) GetRabbitMQDelayedQueue(queueName string) *RabbitMQDelayedQueue
 	if !has {
 		panic(errors.Errorf("unregistered rabbitMQ delayed queue '%s'", queueName))
 	}
-	if channel.config.Router == "" {
-		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", queueName))
-	}
 	if !channel.config.Delayed {
 		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", queueName))
 	}
