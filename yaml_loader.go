@@ -135,7 +135,7 @@ func getBoolOptional(data map[interface{}]interface{}, key string, defaultValue 
 	if !has {
 		return defaultValue
 	}
-	return val == "true"
+	return val == true ||  val == "true"
 }
 
 func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
