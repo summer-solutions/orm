@@ -180,6 +180,12 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	assert.True(t, has)
 	assert.Equal(t, uint(6), row.ID)
 
+	DBLogger.Entries = make([]*apexLog.Entry, 0)
+	has = engine.CachedSearchOne(&row, "IndexName", "Name 6")
+	assert.True(t, has)
+	assert.Equal(t, uint(6), row.ID)
+	assert.Len(t, DBLogger.Entries, 0)
+
 	has = engine.CachedSearchOneWithReferences(&row, "IndexName", []interface{}{"Name 4"}, []string{"ReferenceOne"})
 	assert.True(t, has)
 	assert.Equal(t, uint(4), row.ID)
