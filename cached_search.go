@@ -178,13 +178,13 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	}
 	definition, has := schema.cachedIndexesOne[indexName]
 	if !has {
-		panic(errors.NotValidf("unknown index %s", indexName))
+		panic(errors.NotFoundf("index %s", indexName))
 	}
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && !hasRedis {
-		panic(errors.NotValidf("cache search not allowed for entity without cache: '%s'", entityType.String()))
+		panic(errors.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String()))
 	}
 	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
 	var fromCache map[string]interface{}
