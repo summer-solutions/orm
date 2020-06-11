@@ -201,12 +201,6 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
 			config := &RabbitMQQueueConfig{asString, int(prefetchCount), delayed, router, durable,
 				routerKeys, autoDeleted}
-			if delayed {
-				routerName := config.Name + "_router"
-				rooterConfig := &RabbitMQRouterConfig{Name: routerName, Durable: true, Type: "direct"}
-				config.Router = routerName
-				registry.RegisterRabbitMQRouter(rooterConfig, key)
-			}
 			registry.RegisterRabbitMQQueue(config, key)
 		}
 	}
