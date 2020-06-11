@@ -19,26 +19,26 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	value := reflect.ValueOf(entities)
 	entityType, has := getEntityTypeForSlice(engine.registry, value.Type())
 	if !has {
-		panic(EntityNotRegisteredError{Name: value.Type().String()})
+		panic(EntityNotRegisteredError{Name: strings.Trim(value.Type().String(), "*[]")})
 	}
 	schema := getTableSchema(engine.registry, entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
-		panic(errors.NotValidf("unknown index %s", indexName))
+		panic(errors.NotFoundf("index %s", indexName))
 	}
 	if pager == nil {
 		pager = &Pager{CurrentPage: 1, PageSize: definition.Max}
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
-		panic(errors.NotValidf("max cache index page size (%d) exceeded %s", definition.Max, indexName))
+		panic(errors.Errorf("max cache index page size (%d) exceeded %s", definition.Max, indexName))
 	}
 
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && !hasRedis {
-		panic(errors.NotValidf("cache search not allowed for entity without cache: '%s'", entityType.String()))
+		panic(errors.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String()))
 	}
 	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
 

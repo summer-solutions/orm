@@ -1,21 +1,22 @@
 package orm
 
 import (
-	apexLog "github.com/apex/log"
-	"github.com/apex/log/handlers/memory"
-	"github.com/tj/assert"
 	"strconv"
 	"testing"
 	"time"
+
+	apexLog "github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+	"github.com/stretchr/testify/assert"
 )
 
-type testEntityIndexTestLocal struct {
+type cachedSearchLocalEntity struct {
 	ORM            `orm:"localCache"`
 	ID             uint
 	Name           string `orm:"length=100;unique=FirstIndex"`
 	Age            uint16 `orm:"index=SecondIndex"`
 	Added          *time.Time
-	ReferenceOne   *testEntityIndexTestLocalRef
+	ReferenceOne   *cachedSearchRefLocalEntity
 	Ignore         uint16       `orm:"ignore"`
 	IndexAge       *CachedQuery `query:":Age = ? ORDER BY :Age"`
 	IndexAll       *CachedQuery `query:""`
@@ -23,42 +24,43 @@ type testEntityIndexTestLocal struct {
 	IndexReference *CachedQuery `query:":ReferenceOne = ?"`
 }
 
-type testEntityIndexTestLocalRef struct {
+type cachedSearchRefLocalEntity struct {
 	ORM
-	ID   uint
-	Name string
+	ID       uint
+	Name     string
+	IndexAll *CachedQuery `query:""`
 }
 
 func TestCachedSearchLocal(t *testing.T) {
-	var entity *testEntityIndexTestLocal
-	var entityRef *testEntityIndexTestLocalRef
+	var entity *cachedSearchLocalEntity
+	var entityRef *cachedSearchRefLocalEntity
 	engine := PrepareTables(t, &Registry{}, entityRef, entity)
 
 	for i := 1; i <= 5; i++ {
-		e := &testEntityIndexTestLocalRef{Name: "Name " + strconv.Itoa(i)}
+		e := &cachedSearchRefLocalEntity{Name: "Name " + strconv.Itoa(i)}
 		engine.Track(e)
 	}
 	engine.Flush()
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
-		e := &testEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
+		e := &cachedSearchLocalEntity{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
 		engine.Track(e)
-		e.ReferenceOne = &testEntityIndexTestLocalRef{ID: uint(i)}
+		e.ReferenceOne = &cachedSearchRefLocalEntity{ID: uint(i)}
 		entities[i-1] = e
 	}
 	engine.Flush()
 	for i := 6; i <= 10; i++ {
-		e := &testEntityIndexTestLocal{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
+		e := &cachedSearchLocalEntity{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		entities[i-1] = e
 		engine.Track(e)
 	}
 	engine.Flush()
 
 	pager := &Pager{CurrentPage: 1, PageSize: 100}
-	var rows []*testEntityIndexTestLocal
-	totalRows := engine.CachedSearch(&rows, "IndexAge", pager, 10)
-	assert.Equal(t, 5, totalRows)
+	var rows []*cachedSearchLocalEntity
+	totalRows := engine.CachedSearch(&rows, "IndexAge", nil, 10)
+	assert.EqualValues(t, 5, totalRows)
 	assert.Len(t, rows, 5)
 	assert.Equal(t, uint(1), rows[0].ReferenceOne.ID)
 	assert.Equal(t, uint(2), rows[1].ReferenceOne.ID)
@@ -141,7 +143,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, rows, 9)
 	assert.Len(t, DBLogger.Entries, 8)
 
-	entity = &testEntityIndexTestLocal{Name: "Name 11", Age: uint16(18)}
+	entity = &cachedSearchLocalEntity{Name: "Name 11", Age: uint16(18)}
 	engine.Track(entity)
 	engine.Flush()
 
@@ -162,7 +164,7 @@ func TestCachedSearchLocal(t *testing.T) {
 	assert.Len(t, rows, 10)
 	assert.Len(t, DBLogger.Entries, 12)
 
-	var row testEntityIndexTestLocal
+	var row cachedSearchLocalEntity
 	has := engine.CachedSearchOne(&row, "IndexName", "Name 6")
 	assert.True(t, has)
 	assert.Equal(t, uint(6), row.ID)
@@ -179,4 +181,29 @@ func TestCachedSearchLocal(t *testing.T) {
 	pager = &Pager{CurrentPage: 49, PageSize: 1000}
 	totalRows = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Equal(t, 10, totalRows)
+}
+
+func TestCachedSearchErrors(t *testing.T) {
+	engine := PrepareTables(t, &Registry{})
+	var rows []*cachedSearchLocalEntity
+	assert.PanicsWithValue(t, EntityNotRegisteredError{Name: "orm.cachedSearchLocalEntity"}, func() {
+		_ = engine.CachedSearch(&rows, "IndexAge", nil, 10)
+	})
+
+	var entity *cachedSearchLocalEntity
+	var entityRef *cachedSearchRefLocalEntity
+	engine = PrepareTables(t, &Registry{}, entity, entityRef)
+	assert.PanicsWithError(t, "index InvalidIndex not found", func() {
+		_ = engine.CachedSearch(&rows, "InvalidIndex", nil, 10)
+	})
+
+	pager := &Pager{CurrentPage: 51, PageSize: 1000}
+	assert.PanicsWithError(t, "max cache index page size (50000) exceeded IndexAge", func() {
+		_ = engine.CachedSearch(&rows, "IndexAge", pager, 10)
+	})
+
+	var rows2 []*cachedSearchRefLocalEntity
+	assert.PanicsWithError(t, "cache search not allowed for entity without cache: 'orm.cachedSearchRefLocalEntity'", func() {
+		_ = engine.CachedSearch(&rows2, "IndexAll", nil, 10)
+	})
 }
