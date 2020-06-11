@@ -61,10 +61,10 @@ jobs:
       - name: Create database
         run: |
           sudo apt-get install -y mysql-client
-          mysql -uroot -h127.0.0.1 --port=3308 -proot -e 'CREATE DATABASE IF NOT EXISTS test;'
-          mysql -uroot -h127.0.0.1 --port=3308 -proot -e 'CREATE DATABASE IF NOT EXISTS test_schema;'
-          mysql -uroot -h127.0.0.1 --port=3308 -proot -e 'CREATE DATABASE IF NOT EXISTS test_log;'
-          mysql -uroot -h127.0.0.1 --port=3308 -proot -e 'set global max_connections = 300;'
+          mysql -uroot -h127.0.0.1 --port=3310 -proot -e 'CREATE DATABASE IF NOT EXISTS test;'
+          mysql -uroot -h127.0.0.1 --port=3310 -proot -e 'CREATE DATABASE IF NOT EXISTS test_schema;'
+          mysql -uroot -h127.0.0.1 --port=3310 -proot -e 'CREATE DATABASE IF NOT EXISTS test_log;'
+          mysql -uroot -h127.0.0.1 --port=3310 -proot -e 'set global max_connections = 300;'
 
       - name: Run unit tests with coverage.
         run: |
