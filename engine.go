@@ -92,6 +92,9 @@ func (e *Engine) SetLogMetaData(key string, value interface{}) {
 
 func (e *Engine) Track(entity ...Entity) {
 	for _, entity := range entity {
+		if !e.Loaded(entity) && entity.GetID() > 0 {
+			panic(errors.Errorf("unloaded entity with ID > 0 is not allowed"))
+		}
 		initIfNeeded(e, entity)
 		e.trackedEntities = append(e.trackedEntities, entity)
 		e.trackedEntitiesCounter++
