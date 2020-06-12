@@ -39,6 +39,8 @@ type DataDog interface {
 	DropAPM()
 	SetAPMTag(key string, value interface{})
 	StartWorkSpan(name string) WorkSpan
+	StartDataDogTracer(rate float64) (def func())
+	StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func())
 }
 
 type WorkSpan interface {
@@ -153,9 +155,6 @@ func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environme
 }
 
 func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
-	if dd.span == nil {
-		return &workSpan{}
-	}
 	span, ctx := tracer.StartSpanFromContext(dd.ctx[len(dd.ctx)-1], name)
 	dd.ctx = append(dd.ctx, ctx)
 	span.SetTag(ext.AnalyticsEvent, false)
@@ -163,11 +162,9 @@ func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
 }
 
 func (dd *dataDog) EnableORMAPMLog(level apexLog.Level, withAnalytics bool, source ...QueryLoggerSource) {
-	if dd.span == nil {
-		return
-	}
 	if len(source) == 0 {
-		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic, QueryLoggerSourceRabbitMQ}
+		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic,
+			QueryLoggerSourceClickHouse}
 	}
 	for _, s := range source {
 		if s == QueryLoggerSourceDB {
@@ -185,46 +182,43 @@ func (dd *dataDog) EnableORMAPMLog(level apexLog.Level, withAnalytics bool, sour
 }
 
 func (dd *dataDog) RegisterAPMError(err interface{}) {
-	if dd.span == nil {
-		return
+	if dd.span != nil {
+		asErr, ok := err.(error)
+		if ok {
+			dd.registerAPMError(asErr)
+			return
+		}
+		lines := clearStack(strings.Split(string(debug.Stack()), "\n")[2:])
+		fullStack := strings.Join(lines, "\n")
+		hash := fnv1a.HashString32(fullStack)
+		dd.span.SetTag(ext.Error, true)
+		dd.span.SetTag(ext.ErrorMsg, fmt.Sprintf("%v", err))
+		dd.span.SetTag(ext.ErrorStack, fullStack)
+		dd.span.SetTag(ext.ErrorType, "panicRecovery")
+		dd.span.SetTag("error.group", hash)
+		dd.hasError = true
+		dd.span.SetTag(ext.ManualKeep, true)
 	}
-	asErr, ok := err.(error)
-	if ok {
-		dd.registerAPMError(asErr)
-		return
-	}
-	lines := clearStack(strings.Split(string(debug.Stack()), "\n")[2:])
-	fullStack := strings.Join(lines, "\n")
-	hash := fnv1a.HashString32(fullStack)
-	dd.span.SetTag(ext.Error, true)
-	dd.span.SetTag(ext.ErrorMsg, fmt.Sprintf("%v", err))
-	dd.span.SetTag(ext.ErrorStack, fullStack)
-	dd.span.SetTag(ext.ErrorType, "panicRecovery")
-	dd.span.SetTag("error.group", hash)
-	dd.hasError = true
-	dd.span.SetTag(ext.ManualKeep, true)
 }
 
 func (dd *dataDog) DropAPM() {
-	if dd.span == nil {
-		return
+	if dd.span != nil {
+		dd.span.SetTag(ext.ManualDrop, true)
 	}
-	dd.span.SetTag(ext.ManualDrop, true)
 }
 
 func (dd *dataDog) SetAPMTag(key string, value interface{}) {
-	if dd.span == nil {
-		return
+	if dd.span != nil {
+		dd.span.SetTag(key, value)
 	}
-	dd.span.SetTag(key, value)
 }
 
-func StartDataDogTracer(rate float64) (def func()) {
+func (dd *dataDog) StartDataDogTracer(rate float64) (def func()) {
 	tracer.Start(tracer.WithAnalyticsRate(rate))
 	return func() { tracer.Stop() }
 }
 
-func StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func()) {
+func (dd *dataDog) StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func()) {
 	_ = profiler.Start(
 		profiler.WithPeriod(duration),
 		profiler.WithEnv(environment),
@@ -236,22 +230,21 @@ func StartDataDogProfiler(service string, apiKey string, environment string, dur
 }
 
 func (dd *dataDog) registerAPMError(err error) {
-	if dd.span == nil {
-		return
+	if dd.span != nil {
+		stackParts := strings.Split(errors.ErrorStack(err), "\n")
+		details := strings.Join(stackParts[1:], "\n")
+		lines := clearStack(strings.Split(string(debug.Stack()), "\n")[2:])
+		fullStack := strings.Join(lines, "\n")
+		hash := fnv1a.HashString32(fullStack)
+		dd.span.SetTag(ext.Error, true)
+		dd.span.SetTag(ext.ErrorMsg, err.Error())
+		dd.span.SetTag(ext.ErrorDetails, details)
+		dd.span.SetTag(ext.ErrorStack, fullStack)
+		dd.span.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
+		dd.span.SetTag("error.group", hash)
+		dd.hasError = true
+		dd.span.SetTag(ext.ManualKeep, true)
 	}
-	stackParts := strings.Split(errors.ErrorStack(err), "\n")
-	details := strings.Join(stackParts[1:], "\n")
-	lines := clearStack(strings.Split(string(debug.Stack()), "\n")[2:])
-	fullStack := strings.Join(lines, "\n")
-	hash := fnv1a.HashString32(fullStack)
-	dd.span.SetTag(ext.Error, true)
-	dd.span.SetTag(ext.ErrorMsg, err.Error())
-	dd.span.SetTag(ext.ErrorDetails, details)
-	dd.span.SetTag(ext.ErrorStack, fullStack)
-	dd.span.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
-	dd.span.SetTag("error.group", hash)
-	dd.hasError = true
-	dd.span.SetTag(ext.ManualKeep, true)
 }
 
 func (dd *dataDog) incrementCounter(key string, value uint) {
