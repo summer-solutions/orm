@@ -81,5 +81,4 @@ func TestDB(t *testing.T) {
 
 	assert.Equal(t, "default", db.GetPoolCode())
 	assert.Equal(t, "test", db.GetDatabaseName())
-
 }
