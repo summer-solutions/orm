@@ -28,9 +28,26 @@ type sqlClient interface {
 	Query(query string, args ...interface{}) (SQLRows, error)
 }
 
+type dbClientQuery interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+}
+
+type dbClient interface {
+	dbClientQuery
+	Begin() (*sql.Tx, error)
+}
+
+type dbClientTX interface {
+	dbClientQuery
+	Commit() error
+	Rollback() error
+}
+
 type standardSQLClient struct {
-	db *sql.DB
-	tx *sql.Tx
+	db dbClient
+	tx dbClientTX
 }
 
 func (db *standardSQLClient) Begin() error {

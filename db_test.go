@@ -78,6 +78,7 @@ func TestDB(t *testing.T) {
 	assert.PanicsWithError(t, "transaction already started", func() {
 		db.Begin()
 	})
+	db.Commit()
 
 	assert.Equal(t, "default", db.GetPoolCode())
 	assert.Equal(t, "test", db.GetDatabaseName())
