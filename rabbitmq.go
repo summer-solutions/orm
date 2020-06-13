@@ -28,6 +28,8 @@ type RabbitMQConsumer interface {
 	Consume(handler func(items [][]byte))
 	DisableLoop()
 	SetHeartBeat(beat func())
+	SetMaxLoopDuration(duration time.Duration)
+	Purge()
 }
 
 type rabbitMQReceiver struct {
@@ -41,6 +43,13 @@ type rabbitMQReceiver struct {
 
 func (r *rabbitMQReceiver) DisableLoop() {
 	r.disableLoop = true
+}
+
+func (r *rabbitMQReceiver) Purge() {
+	_, err := r.channel.QueuePurge(r.parent.config.Name, false)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (r *rabbitMQReceiver) SetMaxLoopDuration(duration time.Duration) {

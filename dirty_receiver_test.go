@@ -2,6 +2,7 @@ package orm
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -20,10 +21,11 @@ func TestDirtyReceiver(t *testing.T) {
 	registry.RegisterDirtyQueue("name_changed", 1)
 	engine := PrepareTables(t, registry, entity)
 
-	receiverAll := NewDirtyReceiver(engine)
-	receiverAll.DisableLoop()
-	receiverName := NewDirtyReceiver(engine)
-	receiverName.DisableLoop()
+	receiver := NewDirtyReceiver(engine)
+	receiver.DisableLoop()
+	receiver.SetMaxLoopDuration(time.Millisecond)
+	receiver.Purge("entity_changed")
+	receiver.Purge("name_changed")
 
 	e := &dirtyReceiverEntity{Name: "John", Age: 18}
 	engine.Track(e)
@@ -33,10 +35,10 @@ func TestDirtyReceiver(t *testing.T) {
 
 	valid := false
 	validHeartBeat := false
-	receiverAll.SetHeartBeat(func() {
+	receiver.SetHeartBeat(func() {
 		validHeartBeat = true
 	})
-	receiverAll.Digest("entity_changed", func(data []*DirtyData) {
+	receiver.Digest("entity_changed", func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 2)
 		assert.Equal(t, uint64(1), data[0].ID)
@@ -52,4 +54,90 @@ func TestDirtyReceiver(t *testing.T) {
 	})
 	assert.True(t, valid)
 	assert.True(t, validHeartBeat)
+
+	valid = false
+	receiver.Digest("name_changed", func(data []*DirtyData) {
+		valid = true
+		assert.Len(t, data, 1)
+		assert.Equal(t, uint64(1), data[0].ID)
+		assert.True(t, data[0].Added)
+		assert.False(t, data[0].Updated)
+		assert.False(t, data[0].Deleted)
+		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
+	})
+	assert.True(t, valid)
+	valid = false
+	receiver.Digest("name_changed", func(data []*DirtyData) {
+		valid = true
+		assert.Len(t, data, 1)
+		assert.Equal(t, uint64(2), data[0].ID)
+	})
+	assert.True(t, valid)
+
+	e.Name = "Bob"
+	engine.TrackAndFlush(e)
+	valid = false
+	receiver.Digest("entity_changed", func(data []*DirtyData) {
+		valid = true
+		assert.Len(t, data, 1)
+		assert.Equal(t, uint64(2), data[0].ID)
+		assert.False(t, data[0].Added)
+		assert.True(t, data[0].Updated)
+		assert.False(t, data[0].Deleted)
+		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
+	})
+	assert.True(t, valid)
+	valid = false
+	receiver.Digest("name_changed", func(data []*DirtyData) {
+		valid = true
+		assert.Len(t, data, 1)
+		assert.Equal(t, uint64(2), data[0].ID)
+		assert.False(t, data[0].Added)
+		assert.True(t, data[0].Updated)
+		assert.False(t, data[0].Deleted)
+		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
+	})
+	assert.True(t, valid)
+
+	e.Age = 30
+	engine.TrackAndFlush(e)
+	valid = false
+	receiver.Digest("entity_changed", func(data []*DirtyData) {
+		valid = true
+		assert.Len(t, data, 1)
+		assert.Equal(t, uint64(2), data[0].ID)
+	})
+	assert.True(t, valid)
+	valid = true
+	receiver.Digest("name_changed", func(data []*DirtyData) {
+		valid = false
+	})
+	assert.True(t, valid)
+
+	engine.MarkToDelete(e)
+	engine.Flush()
+
+	valid = false
+	receiver.Digest("entity_changed", func(data []*DirtyData) {
+		valid = true
+		assert.Len(t, data, 1)
+		assert.Equal(t, uint64(2), data[0].ID)
+		assert.False(t, data[0].Added)
+		assert.False(t, data[0].Updated)
+		assert.True(t, data[0].Deleted)
+		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
+	})
+	assert.True(t, valid)
+
+	valid = false
+	receiver.Digest("name_changed", func(data []*DirtyData) {
+		valid = true
+		assert.Len(t, data, 1)
+		assert.Equal(t, uint64(2), data[0].ID)
+		assert.False(t, data[0].Added)
+		assert.False(t, data[0].Updated)
+		assert.True(t, data[0].Deleted)
+		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
+	})
+	assert.True(t, valid)
 }
