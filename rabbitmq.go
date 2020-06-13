@@ -100,6 +100,9 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 			counter = 0
 			timeOut = false
 			if r.disableLoop {
+				if r.heartBeat != nil {
+					r.heartBeat()
+				}
 				return
 			}
 		} else if timeOut && r.disableLoop {

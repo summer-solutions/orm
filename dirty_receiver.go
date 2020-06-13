@@ -56,18 +56,17 @@ func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) {
 		for i, item := range items {
 			_ = json.Unmarshal(item, &value)
 			t, has := r.engine.registry.entities[value.EntityName]
-			if !has {
-				return
+			if has {
+				tableSchema := getTableSchema(r.engine.registry, t)
+				v := &DirtyData{
+					TableSchema: tableSchema,
+					ID:          value.ID,
+					Added:       value.Added,
+					Updated:     value.Updated,
+					Deleted:     value.Deleted,
+				}
+				data[i] = v
 			}
-			tableSchema := getTableSchema(r.engine.registry, t)
-			v := &DirtyData{
-				TableSchema: tableSchema,
-				ID:          value.ID,
-				Added:       value.Added,
-				Updated:     value.Updated,
-				Deleted:     value.Deleted,
-			}
-			data[i] = v
 		}
 		handler(data)
 	})
