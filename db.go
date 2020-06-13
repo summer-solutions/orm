@@ -199,7 +199,7 @@ func (db *DB) Rollback() {
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
 	db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	if err != nil {
-		panic(errors.Annotate(err, "rollback failed"))
+		panic(errors.Trace(err))
 	}
 	db.engine.afterCommitLocalCacheSets = nil
 	db.engine.afterCommitRedisCacheDeletes = nil

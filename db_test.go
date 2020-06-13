@@ -1,7 +1,10 @@
 package orm
 
 import (
+	"database/sql"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	log2 "github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
@@ -63,13 +66,16 @@ func TestDB(t *testing.T) {
 	assert.Equal(t, "John", name)
 	def()
 
-	assert.PanicsWithError(t, "Error 1064: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INVALID QUERY' at line 1", func() {
-		db.QueryRow(NewWhere("INVALID QUERY"))
-	})
+	assert.Equal(t, "default", db.GetPoolCode())
+	assert.Equal(t, "test", db.GetDatabaseName())
+}
 
-	assert.PanicsWithError(t, "Error 1064: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INVALID QUERY' at line 1", func() {
-		db.Query("INVALID QUERY")
-	})
+func TestDBErrors(t *testing.T) {
+	var entity *dbEntity
+	engine := PrepareTables(t, &Registry{}, entity)
+	db := engine.GetMysql()
+	logger := memory.New()
+	engine.AddQueryLogger(logger, log2.DebugLevel, QueryLoggerSourceDB)
 
 	assert.PanicsWithError(t, "transaction not started", func() {
 		db.Commit()
@@ -80,6 +86,57 @@ func TestDB(t *testing.T) {
 	})
 	db.Commit()
 
-	assert.Equal(t, "default", db.GetPoolCode())
-	assert.Equal(t, "test", db.GetDatabaseName())
+	parent := db.client.(*standardSQLClient)
+	mock := &mockDBClient{db: parent.db}
+	parent.db = mock
+	mock.BeginMock = func() (*sql.Tx, error) {
+		return nil, errors.Errorf("test error")
+	}
+	assert.PanicsWithError(t, "test error", func() {
+		db.Begin()
+	})
+
+	mock.BeginMock = nil
+	mock.CommitMock = func() error {
+		return errors.Errorf("test error")
+	}
+	db.Begin()
+	parent.tx = mock
+	assert.PanicsWithError(t, "test error", func() {
+		db.Commit()
+	})
+	mock.RollbackMock = func() error {
+		return errors.Errorf("test error")
+	}
+	parent.tx = mock
+	assert.PanicsWithError(t, "test error", func() {
+		db.Rollback()
+	})
+
+	parent.tx = nil
+	mock.ExecMock = func(query string, args ...interface{}) (sql.Result, error) {
+		return nil, errors.Errorf("test error")
+	}
+	assert.PanicsWithError(t, "test error", func() {
+		db.Exec("")
+	})
+	parent.tx = mock
+	assert.PanicsWithError(t, "test error", func() {
+		db.Exec("")
+	})
+
+	mock.QueryMock = func(query string, args ...interface{}) (*sql.Rows, error) {
+		return nil, errors.Errorf("test error")
+	}
+	assert.PanicsWithError(t, "test error", func() {
+		db.Query("")
+	})
+	parent.tx = nil
+	assert.PanicsWithError(t, "test error", func() {
+		db.Query("")
+	})
+
+	assert.PanicsWithError(t, "Error 1064: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INVALID QUERY' at line 1", func() {
+		db.QueryRow(NewWhere("INVALID QUERY"))
+	})
 }

@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"database/sql"
 	"reflect"
 	"testing"
 
@@ -46,6 +47,59 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *E
 		}
 	}
 	return engine
+}
+
+type mockDBClient struct {
+	db           dbClient
+	tx           dbClientTX
+	ExecMock     func(query string, args ...interface{}) (sql.Result, error)
+	QueryRowMock func(query string, args ...interface{}) *sql.Row
+	QueryMock    func(query string, args ...interface{}) (*sql.Rows, error)
+	BeginMock    func() (*sql.Tx, error)
+	CommitMock   func() error
+	RollbackMock func() error
+}
+
+func (m *mockDBClient) Exec(query string, args ...interface{}) (sql.Result, error) {
+	if m.ExecMock != nil {
+		return m.ExecMock(query, args...)
+	}
+	return m.db.Exec(query, args...)
+}
+
+func (m *mockDBClient) QueryRow(query string, args ...interface{}) *sql.Row {
+	if m.QueryRowMock != nil {
+		return m.QueryRowMock(query, args...)
+	}
+	return m.db.QueryRow(query, args...)
+}
+
+func (m *mockDBClient) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	if m.QueryMock != nil {
+		return m.QueryMock(query, args...)
+	}
+	return m.db.Query(query, args...)
+}
+
+func (m *mockDBClient) Begin() (*sql.Tx, error) {
+	if m.BeginMock != nil {
+		return m.BeginMock()
+	}
+	return m.db.Begin()
+}
+
+func (m *mockDBClient) Rollback() error {
+	if m.RollbackMock != nil {
+		return m.RollbackMock()
+	}
+	return m.tx.Rollback()
+}
+
+func (m *mockDBClient) Commit() error {
+	if m.CommitMock != nil {
+		return m.CommitMock()
+	}
+	return m.tx.Commit()
 }
 
 //type mockRedisClient struct {
