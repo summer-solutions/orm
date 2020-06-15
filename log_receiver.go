@@ -74,11 +74,7 @@ func (r *LogReceiver) Digest() {
 			}
 			res := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
 			if r.Logger != nil {
-				id, err := res.LastInsertId()
-				if err != nil {
-					panic(err)
-				}
-				value.ID = uint64(id)
+				value.ID = res.LastInsertId()
 				r.Logger(&value)
 			}
 		}

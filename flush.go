@@ -111,16 +111,10 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, bindRow)
 				} else {
 					result := db.Exec(sql, bindRow...)
-					affected, err := result.RowsAffected()
-					if err != nil {
-						panic(err)
-					}
-					var lastID int64
+					affected := result.RowsAffected()
+					var lastID uint64
 					if affected > 0 {
-						lastID, err = result.LastInsertId()
-						if err != nil {
-							panic(err)
-						}
+						lastID = result.LastInsertId()
 					}
 					if affected > 0 {
 						injectBind(entity, bind)
@@ -281,11 +275,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, insertArguments[typeOf])
 		} else {
 			res := db.Exec(sql, insertArguments[typeOf]...)
-			insertID, err := res.LastInsertId()
-			if err != nil {
-				panic(err)
-			}
-			id = uint64(insertID)
+			id = res.LastInsertId()
 		}
 		for key, entity := range insertReflectValues[typeOf] {
 			bind := insertBinds[typeOf][key]

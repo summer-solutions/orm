@@ -17,6 +17,17 @@ type dbEntity struct {
 	Name string
 }
 
+type resultMock struct {
+}
+
+func (r *resultMock) LastInsertId() (int64, error) {
+	return 0, errors.New("test error")
+}
+
+func (r *resultMock) RowsAffected() (int64, error) {
+	return 0, errors.New("test error")
+}
+
 func TestDB(t *testing.T) {
 	var entity *dbEntity
 	engine := PrepareTables(t, &Registry{}, entity)
@@ -24,7 +35,9 @@ func TestDB(t *testing.T) {
 	engine.AddQueryLogger(logger, log2.DebugLevel, QueryLoggerSourceDB)
 
 	db := engine.GetMysql()
-	db.Exec("INSERT INTO `dbEntity` VALUES(?, ?)", 1, "Tom")
+	row := db.Exec("INSERT INTO `dbEntity` VALUES(?, ?)", 1, "Tom")
+	assert.Equal(t, uint64(1), row.LastInsertId())
+	assert.Equal(t, uint64(1), row.RowsAffected())
 
 	var id uint64
 	var name string
@@ -138,5 +151,16 @@ func TestDBErrors(t *testing.T) {
 
 	assert.PanicsWithError(t, "Error 1064: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'INVALID QUERY' at line 1", func() {
 		db.QueryRow(NewWhere("INVALID QUERY"))
+	})
+
+	mock.ExecMock = func(query string, args ...interface{}) (sql.Result, error) {
+		return &resultMock{}, nil
+	}
+	row := db.Exec("INSERT INTO `dbEntity` VALUES(?, ?)", 1, "Tom")
+	assert.PanicsWithError(t, "test error", func() {
+		row.LastInsertId()
+	})
+	assert.PanicsWithError(t, "test error", func() {
+		row.RowsAffected()
 	})
 }

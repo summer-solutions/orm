@@ -19,6 +19,31 @@ type DBConfig struct {
 	db             *sql.DB
 }
 
+type ExecResult interface {
+	LastInsertId() uint64
+	RowsAffected() uint64
+}
+
+type execResult struct {
+	r sql.Result
+}
+
+func (e *execResult) LastInsertId() uint64 {
+	id, err := e.r.LastInsertId()
+	if err != nil {
+		panic(err)
+	}
+	return uint64(id)
+}
+
+func (e *execResult) RowsAffected() uint64 {
+	id, err := e.r.RowsAffected()
+	if err != nil {
+		panic(err)
+	}
+	return uint64(id)
+}
+
 type sqlClient interface {
 	Begin() error
 	Commit() error
@@ -205,7 +230,7 @@ func (db *DB) Rollback() {
 	db.engine.afterCommitRedisCacheDeletes = nil
 }
 
-func (db *DB) Exec(query string, args ...interface{}) sql.Result {
+func (db *DB) Exec(query string, args ...interface{}) ExecResult {
 	start := time.Now()
 	rows, err := db.client.Exec(query, args...)
 	if db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
@@ -216,7 +241,7 @@ func (db *DB) Exec(query string, args ...interface{}) sql.Result {
 	if err != nil {
 		panic(convertToError(err))
 	}
-	return rows
+	return &execResult{r: rows}
 }
 
 func (db *DB) QueryRow(query *Where, toFill ...interface{}) (found bool) {
