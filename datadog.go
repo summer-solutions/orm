@@ -39,8 +39,6 @@ type DataDog interface {
 	DropAPM()
 	SetAPMTag(key string, value interface{})
 	StartWorkSpan(name string) WorkSpan
-	StartDataDogTracer(rate float64) (def func())
-	StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func())
 }
 
 type WorkSpan interface {
@@ -213,12 +211,12 @@ func (dd *dataDog) SetAPMTag(key string, value interface{}) {
 	}
 }
 
-func (dd *dataDog) StartDataDogTracer(rate float64) (def func()) {
+func StartDataDogTracer(rate float64) (def func()) {
 	tracer.Start(tracer.WithAnalyticsRate(rate))
 	return func() { tracer.Stop() }
 }
 
-func (dd *dataDog) StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func()) {
+func StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func()) {
 	_ = profiler.Start(
 		profiler.WithPeriod(duration),
 		profiler.WithEnv(environment),

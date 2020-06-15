@@ -35,9 +35,9 @@ func TestDataDog(t *testing.T) {
 	engine.DataDog().RegisterAPMError("test panic")
 	engine.DataDog().RegisterAPMError(errors.Errorf("test error"))
 	engine.DataDog().DropAPM()
-	f := engine.DataDog().StartDataDogTracer(1)
+	f := StartDataDogTracer(1)
 	f()
-	f2 := engine.DataDog().StartDataDogProfiler("test", "aa", "test", time.Minute)
+	f2 := StartDataDogProfiler("test", "aa", "test", time.Minute)
 	f2()
 	apm.Finish()
 }

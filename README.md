@@ -1182,7 +1182,7 @@ func main() {
     
    //provide rate, 1 - 100% traces are reported, 0.1 - 10% traces are reported (and all with errors)
    // if you provide zero only traces with errors will be reported
-   def := engine.DataDog().StartDataDogTracer(1.0) 
+   def := orm.StartDataDogTracer(1.0) 
    defer def()
 
 }    
