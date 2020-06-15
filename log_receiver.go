@@ -38,6 +38,13 @@ func (r *LogReceiver) DisableLoop() {
 	r.disableLoop = true
 }
 
+func (r *LogReceiver) Purge() {
+	channel := r.engine.GetRabbitMQQueue(logQueueName)
+	consumer := channel.NewConsumer("default consumer")
+	consumer.Purge()
+	consumer.Close()
+}
+
 func (r *LogReceiver) Digest() {
 	channel := r.engine.GetRabbitMQQueue(logQueueName)
 	consumer := channel.NewConsumer("default consumer")
@@ -48,9 +55,9 @@ func (r *LogReceiver) Digest() {
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeat)
 	}
-	var value LogQueueValue
 	consumer.Consume(func(items [][]byte) {
 		for _, item := range items {
+			var value LogQueueValue
 			_ = jsoniter.ConfigFastest.Unmarshal(item, &value)
 			poolDB := r.engine.GetMysql(value.PoolName)
 			/* #nosec */

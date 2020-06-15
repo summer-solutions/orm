@@ -50,6 +50,7 @@ func (r *DirtyReceiver) Purge(code string) {
 	channel := r.engine.GetRabbitMQQueue("dirty_queue_" + code)
 	consumer := channel.NewConsumer("default consumer")
 	consumer.Purge()
+	consumer.Close()
 }
 
 func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) {
@@ -65,10 +66,10 @@ func (r *DirtyReceiver) Digest(code string, handler DirtyHandler) {
 	if r.maxLoopDuration > 0 {
 		consumer.SetMaxLoopDuration(r.maxLoopDuration)
 	}
-	var value DirtyQueueValue
 	consumer.Consume(func(items [][]byte) {
 		data := make([]*DirtyData, len(items))
 		for i, item := range items {
+			var value DirtyQueueValue
 			_ = json.Unmarshal(item, &value)
 			t, has := r.engine.registry.entities[value.EntityName]
 			if has {

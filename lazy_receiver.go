@@ -34,9 +34,9 @@ func (r *LazyReceiver) Digest() {
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeat)
 	}
-	var data interface{}
 	consumer.Consume(func(items [][]byte) {
 		for _, item := range items {
+			var data interface{}
 			_ = jsoniter.ConfigFastest.Unmarshal(item, &data)
 			validMap := data.(map[string]interface{})
 			r.handleQueries(r.engine, validMap)
