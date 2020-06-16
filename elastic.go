@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"time"
@@ -23,16 +24,18 @@ func (e *Elastic) Client() *elastic.Client {
 	return e.client
 }
 
-func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, callback func(*elastic.SearchService) (*elastic.SearchResult, error)) *elastic.SearchResult {
+func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, sortField string, sortAscending bool) *elastic.SearchResult {
 	start := time.Now()
 	searchService := e.client.Search().Query(query)
 	from := (pager.CurrentPage - 1) * pager.PageSize
 	searchService.Index(index).From(from).Size(pager.PageSize).StoredField("_id")
-	result, err := callback(searchService)
+	searchService.Sort(sortField, sortAscending)
+	result, err := searchService.Do(context.Background())
 	if e.engine.queryLoggers[QueryLoggerSourceElastic] != nil {
 		s, _ := query.Source()
 		queryType := strings.Split(reflect.TypeOf(query).Elem().String(), ".")
-		fields := log2.Fields{"Index": index, "post": s, "type": queryType[len(queryType)-1], "from": from, "size": pager.PageSize}
+		fields := log2.Fields{"Index": index, "post": s, "type": queryType[len(queryType)-1], "from": from,
+			"size": pager.PageSize, "sort": sortField, "asc": sortAscending}
 		e.fillLogFields("[ORM][ELASTIC][QUERY]", start, "query", fields, err)
 	}
 	e.engine.dataDog.incrementCounter(counterElasticAll, 1)

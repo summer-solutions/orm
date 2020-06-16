@@ -925,10 +925,7 @@ func main() {
 
     query := elastic.NewBoolQuery()
 	query.Must(elastic.NewTermQuery("user_id", 12))
-	results := e.Search("users", query, &Pager{CurrentPage: 1, PageSize: 10}, func(searchService *elastic.SearchService) (*elastic.SearchResult, error) {
-        //index and pager is set, add extra parameters like sort here
-        return searchService.Do(context.Background())
-    })
+	results := e.Search("users", query, &Pager{CurrentPage: 1, PageSize: 10}, "created_at", true)
 }
 
 ```

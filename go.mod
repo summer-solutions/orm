@@ -26,7 +26,7 @@ require (
 	github.com/tj/assert v0.0.0-20171129193455-018094318fb0
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
-	golang.org/x/tools v0.0.0-20200615222825-6aa8f57aacd9 // indirect
+	golang.org/x/tools v0.0.0-20200616133436-c1934b75d054 // indirect
 	gopkg.in/DataDog/dd-trace-go.v1 v1.24.1
 	gopkg.in/yaml.v2 v2.3.0
 )
