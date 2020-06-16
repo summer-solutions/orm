@@ -319,6 +319,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		if integer > 0 {
 			n := reflect.New(refType.Elem())
 			orm := initIfNeeded(engine, n.Interface().(Entity))
+			orm.dBData["ID"] = integer
 			orm.attributes.idElem.SetUint(integer)
 			field.Set(n)
 		} else {

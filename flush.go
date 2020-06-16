@@ -118,14 +118,16 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 					}
 					if affected > 0 {
 						injectBind(entity, bind)
-						entity.getORM().attributes.idElem.SetUint(uint64(lastID))
-						logQueues = updateCacheForInserted(entity, lazy, uint64(lastID), bind, localCacheSets,
-							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
-						if affected == 2 {
-							_ = loadByID(engine, uint64(lastID), entity, false)
+						entity.getORM().attributes.idElem.SetUint(lastID)
+						if affected == 1 {
+							logQueues = updateCacheForInserted(entity, lazy, lastID, bind, localCacheSets,
+								localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
+						} else {
+							_ = loadByID(engine, lastID, entity, false)
+							logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
+								redisKeysToDelete, dirtyQueues, logQueues)
 						}
 					} else {
-						valid := false
 						for _, index := range schema.uniqueIndices {
 							allNotNil := true
 							fields := make([]string, 0)
@@ -140,16 +142,9 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 							}
 							if allNotNil {
 								findWhere := NewWhere(strings.Join(fields, " AND "), binds)
-								has := engine.SearchOne(findWhere, entity)
-								if !has {
-									panic(errors.NotValidf("missing unique index to find updated row"))
-								}
-								valid = true
+								engine.SearchOne(findWhere, entity)
 								break
 							}
-						}
-						if !valid {
-							panic(errors.NotValidf("missing unique index to find updated row"))
 						}
 					}
 				}
@@ -190,7 +185,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 		} else {
 			values := make([]interface{}, bindLength+1)
 			if !engine.Loaded(entity) {
-				panic(errors.NotValidf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().attributes.elem.Type().String(), currentID))
+				panic(errors.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().attributes.elem.Type().String(), currentID))
 			}
 			fields := make([]string, bindLength)
 			i := 0
@@ -207,34 +202,9 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 			} else {
 				_ = db.Exec(sql, values...)
-				afterSaved, is := entity.(AfterSavedInterface)
-				if is {
-					afterSaved.AfterSaved(engine)
-				}
 			}
-			old := make(map[string]interface{}, len(dbData))
-			for k, v := range dbData {
-				old[k] = v
-			}
-			injectBind(entity, bind)
-			localCache, hasLocalCache := schema.GetLocalCache(engine)
-			redisCache, hasRedis := schema.GetRedisCache(engine)
-			if hasLocalCache {
-				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(entity))
-				keys := getCacheQueriesKeys(schema, bind, dbData, false)
-				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
-				keys = getCacheQueriesKeys(schema, bind, old, false)
-				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
-			}
-			if hasRedis {
-				addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(currentID))
-				keys := getCacheQueriesKeys(schema, bind, dbData, false)
-				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
-				keys = getCacheQueriesKeys(schema, bind, old, false)
-				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
-			}
-			addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
-			logQueues = addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().attributes.logMeta)
+			logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, currentID,
+				redisKeysToDelete, dirtyQueues, logQueues)
 		}
 	}
 
@@ -292,10 +262,6 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 			localCache, hasLocalCache := schema.GetLocalCache(engine)
 			if hasLocalCache {
 				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(insertedID), buildLocalCacheValue(entity))
-			}
-			afterSaveInterface, is := entity.(AfterSavedInterface)
-			if is {
-				afterSaveInterface.AfterSaved(engine)
 			}
 		}
 	}
@@ -448,6 +414,35 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 		channel := engine.GetRabbitMQQueue(logQueueName)
 		channel.Publish(asJSON)
 	}
+}
+
+func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entity Entity, bind map[string]interface{},
+	schema *tableSchema, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
+	db *DB, currentID uint64, redisKeysToDelete map[string]map[string]bool,
+	dirtyQueues map[string][]*DirtyQueueValue, logQueues []*LogQueueValue) []*LogQueueValue {
+	old := make(map[string]interface{}, len(dbData))
+	for k, v := range dbData {
+		old[k] = v
+	}
+	injectBind(entity, bind)
+	localCache, hasLocalCache := schema.GetLocalCache(engine)
+	redisCache, hasRedis := schema.GetRedisCache(engine)
+	if hasLocalCache {
+		addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(entity))
+		keys := getCacheQueriesKeys(schema, bind, dbData, false)
+		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
+		keys = getCacheQueriesKeys(schema, bind, old, false)
+		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
+	}
+	if hasRedis {
+		addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(currentID))
+		keys := getCacheQueriesKeys(schema, bind, dbData, false)
+		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
+		keys = getCacheQueriesKeys(schema, bind, old, false)
+		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
+	}
+	addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
+	return addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().attributes.logMeta)
 }
 
 func serializeForLazyQueue(lazyMap map[string]interface{}) []byte {
@@ -787,7 +782,7 @@ func convertToError(err error) error {
 			var abortLabelReg, _ = regexp.Compile(" CONSTRAINT `(.*?)`")
 			labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
 			if len(labels) > 0 {
-				return &ForeignKeyError{Message: sqlErr.Message, Constraint: labels[1]}
+				return &ForeignKeyError{Message: fmt.Sprintf("foreign key error in key `%s`", labels[1]), Constraint: labels[1]}
 			}
 		}
 	}

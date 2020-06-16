@@ -35,7 +35,6 @@ Menu:
  * [Dirty queues](https://github.com/summer-solutions/orm#dirty-queues) 
  * [Set defaults](https://github.com/summer-solutions/orm#set-defaults) 
  * [Fake delete](https://github.com/summer-solutions/orm#fake-delete) 
- * [After saved](https://github.com/summer-solutions/orm#after-saved) 
  * [Working with Redis](https://github.com/summer-solutions/orm#working-with-redis) 
  * [Working with local cache](https://github.com/summer-solutions/orm#working-with-local-cache) 
  * [Working with mysql](https://github.com/summer-solutions/orm#working-with-mysql) 
@@ -802,28 +801,6 @@ func main() {
     engine.Flush(user)
 }
 
-
-```
-
-## After saved
-
-If you need to execute code after entity is added or updated simply extend AfterSavedInterface.
-
-```go
-func main() {
-
-    type UserEntity struct {
-        ORM
-        ID                   uint64
-        Value                int
-        Calculated           string `orm:"ignore"`
-    }
-
-    func (e *UserEntity) AfterSaved(engine *Engine) error {
-        e.Calculated = e.Value + 1
-        return nil
-    }
-}
 
 ```
 
