@@ -111,31 +111,11 @@ func (e *Engine) Flush() {
 }
 
 func (e *Engine) FlushWithCheck() error {
-	var err error
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				asErr, is := r.(error)
-				if !is {
-					panic(r)
-				}
-				source := errors.Cause(asErr)
-				assErr1, is := source.(*ForeignKeyError)
-				if is {
-					err = assErr1
-					return
-				}
-				assErr2, is := source.(*DuplicatedKeyError)
-				if is {
-					err = assErr2
-					return
-				}
-				panic(r)
-			}
-		}()
-		e.flushTrackedEntities(false, false)
-	}()
-	return err
+	return e.flushWithCheck(false)
+}
+
+func (e *Engine) FlushInTransactionWithCheck() error {
+	return e.flushWithCheck(true)
 }
 
 func (e *Engine) FlushWithFullCheck() error {
@@ -488,4 +468,32 @@ func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName str
 	}
 	defer lock.Release()
 	e.flushTrackedEntities(false, transaction)
+}
+
+func (e *Engine) flushWithCheck(transaction bool) error {
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				asErr, is := r.(error)
+				if !is {
+					panic(r)
+				}
+				source := errors.Cause(asErr)
+				assErr1, is := source.(*ForeignKeyError)
+				if is {
+					err = assErr1
+					return
+				}
+				assErr2, is := source.(*DuplicatedKeyError)
+				if is {
+					err = assErr2
+					return
+				}
+				panic(r)
+			}
+		}()
+		e.flushTrackedEntities(false, transaction)
+	}()
+	return err
 }

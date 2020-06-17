@@ -445,6 +445,8 @@ func main() {
 
     /* flush will panic if there is any error. You can catch 2 special errors using this method  */
     err := engine.FlushWithCheck()
+    //or
+    err := engine.FlushInTransactionWithCheck()
     orm.DuplicatedKeyError{} //when unique index is broken
     orm.ForeignKeyError{} //when foreign key is broken
     
