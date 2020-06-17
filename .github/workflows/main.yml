@@ -42,7 +42,8 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=5s --health-retries=3
 
       rabbitmq:
-        build: rabbit
+        using: 'docker'
+        image: 'Dockerfile'
         ports:
           - 5677:5672
         env:
