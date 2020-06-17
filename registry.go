@@ -170,7 +170,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 				if registry.rabbitMQRouterConfigs == nil {
 					registry.rabbitMQRouterConfigs = make(map[string]*RabbitMQRouterConfig)
 				}
-				registry.rabbitMQRouterConfigs[def.Name] = &RabbitMQRouterConfig{Name: def.Name + "_router", Type: "direct"}
+				registry.rabbitMQRouterConfigs[def.Name] = &RabbitMQRouterConfig{Name: def.Name + "_router", Type: "fanout"}
 			}
 			channel := &rabbitMQChannelToQueue{connection: connection, config: def}
 			registry.rabbitMQChannelsToQueue[def.Name] = channel
@@ -403,7 +403,7 @@ func (r *Registry) RegisterRabbitMQQueue(config *RabbitMQQueueConfig, serverPool
 	}
 	if config.Delayed {
 		routerName := config.Name + "_router"
-		rooterConfig := &RabbitMQRouterConfig{Name: routerName, Durable: true, Type: "direct"}
+		rooterConfig := &RabbitMQRouterConfig{Name: routerName, Durable: true, Type: "fanout"}
 		config.Router = routerName
 		r.RegisterRabbitMQRouter(rooterConfig, serverPool...)
 	}

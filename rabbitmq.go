@@ -320,7 +320,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) *amqp.Chann
 			typeValue = "x-delayed-message"
 		}
 		start = time.Now()
-		err := channel.ExchangeDeclare(configRouter.Name, typeValue, configRouter.Durable, true,
+		err := channel.ExchangeDeclare(configRouter.Name, typeValue, configRouter.Durable, r.config.AutoDelete,
 			false, false, args)
 		if r.engine.queryLoggers[QueryLoggerSourceRabbitMQ] != nil {
 			fields := map[string]interface{}{"Name": configRouter.Name, "type": configRouter.Type, "args": args}
