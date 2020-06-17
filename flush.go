@@ -649,14 +649,14 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				}
 				continue
 			} else if k == "ptr" {
-				valueAsString := "0"
+				valueAsString := ""
 				if !field.IsNil() {
 					valueAsString = strconv.FormatUint(field.Elem().Field(1).Uint(), 10)
 				}
-				if hasOld && (old == valueAsString || (old == nil && valueAsString == "0")) {
+				if hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
 					continue
 				}
-				if valueAsString == "0" {
+				if valueAsString == "" || valueAsString == "0" {
 					bind[name] = nil
 				} else {
 					bind[name] = valueAsString

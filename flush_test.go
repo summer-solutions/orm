@@ -11,8 +11,12 @@ type flushEntity struct {
 	ID           uint
 	City         string `orm:"unique=city"`
 	Name         string `orm:"unique=name"`
+	NameRequired string `orm:"required"`
 	Age          int
+	Uint         uint
+	Year         uint16 `orm:"year"`
 	ReferenceOne *flushEntityReference
+	ReferenceTwo *flushEntityReference
 }
 
 type flushEntityReference struct {
@@ -22,12 +26,20 @@ type flushEntityReference struct {
 	Age  int
 }
 
+type flushEntityReferenceCascade struct {
+	ORM
+	ID           uint
+	ReferenceOne *flushEntity
+	ReferenceTwo *flushEntity `orm:"cascade"`
+}
+
 func TestFlush(t *testing.T) {
 	var entity *flushEntity
 	var reference *flushEntityReference
-	engine := PrepareTables(t, &Registry{}, entity, reference)
+	var referenceCascade *flushEntityReferenceCascade
+	engine := PrepareTables(t, &Registry{}, entity, reference, referenceCascade)
 
-	entity = &flushEntity{Name: "Tom", Age: 12}
+	entity = &flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982, NameRequired: "required"}
 	entity.ReferenceOne = &flushEntityReference{Name: "John", Age: 30}
 	assert.True(t, engine.IsDirty(entity))
 	assert.True(t, engine.IsDirty(entity.ReferenceOne))
@@ -46,7 +58,11 @@ func TestFlush(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, "Tom", entity.Name)
 	assert.Equal(t, 12, entity.Age)
+	assert.Equal(t, uint(7), entity.Uint)
+	assert.Equal(t, uint16(1982), entity.Year)
+	assert.Equal(t, "required", entity.NameRequired)
 	assert.False(t, engine.IsDirty(entity))
+
 	assert.True(t, engine.Loaded(entity))
 	assert.False(t, engine.Loaded(entity.ReferenceOne))
 	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
@@ -89,6 +105,7 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint(1), entity2.ID)
 
 	entity2 = &flushEntity{Name: "Arthur", Age: 18}
+	entity2.ReferenceTwo = reference
 	engine.SetOnDuplicateKeyUpdate(NewWhere(""), entity2)
 	engine.TrackAndFlush(entity2)
 	assert.Equal(t, uint(7), entity2.ID)
@@ -104,4 +121,30 @@ func TestFlush(t *testing.T) {
 	assert.False(t, engine.IsDirty(entity2))
 	engine.LoadByID(10, entity2)
 	assert.Equal(t, 21, entity2.Age)
+
+	engine.MarkToDelete(entity2)
+	assert.True(t, engine.IsDirty(entity2))
+	engine.TrackAndFlush(entity2)
+	found = engine.LoadByID(10, entity2)
+	assert.False(t, found)
+
+	referenceCascade = &flushEntityReferenceCascade{ReferenceOne: entity}
+	engine.TrackAndFlush(referenceCascade)
+	engine.MarkToDelete(entity)
+	assert.True(t, engine.IsDirty(entity))
+	assert.PanicsWithError(t, "foreign key error in key `test:flushEntityReferenceCascade:ReferenceOne`", func() {
+		engine.TrackAndFlush(entity)
+	})
+	engine.ClearTrackedEntities()
+	referenceCascade.ReferenceOne = nil
+	referenceCascade.ReferenceTwo = entity
+	engine.TrackAndFlush(referenceCascade)
+	engine.LoadByID(1, referenceCascade)
+	assert.Nil(t, referenceCascade.ReferenceOne)
+	assert.NotNil(t, referenceCascade.ReferenceTwo)
+	assert.Equal(t, uint(1), referenceCascade.ReferenceTwo.ID)
+	engine.MarkToDelete(entity)
+	engine.TrackAndFlush(referenceCascade)
+	found = engine.LoadByID(1, referenceCascade)
+	assert.False(t, found)
 }
