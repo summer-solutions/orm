@@ -29,13 +29,8 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
 	if !results.Next() {
-		err := results.Err()
-		if err != nil {
-			panic(err)
-		}
 		return false
 	}
-
 	count := len(schema.columnNames)
 
 	values := make([]sql.NullString, count)
@@ -43,14 +38,7 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	for i := 0; i < count; i++ {
 		valuePointers[i] = &values[i]
 	}
-	err := results.Scan(valuePointers...)
-	if err != nil {
-		panic(err)
-	}
-	err = results.Err()
-	if err != nil {
-		panic(err)
-	}
+	results.Scan(valuePointers...)
 	def()
 	id := uint64(0)
 	if values[0].Valid {
@@ -101,10 +89,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	val := valOrigin
 	i := 0
 	for results.Next() {
-		err := results.Scan(valuePointers...)
-		if err != nil {
-			panic(err)
-		}
+		results.Scan(valuePointers...)
 		finalValues := make([]string, count)
 		for i, v := range values {
 			finalValues[i] = v.String
@@ -114,10 +99,6 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		fillFromDBRow(id, engine, finalValues[1:], value.Interface().(Entity))
 		val = reflect.Append(val, value)
 		i++
-	}
-	err := results.Err()
-	if err != nil {
-		panic(err)
 	}
 	def()
 	totalRows := getTotalRows(engine, withCount, pager, where, schema, i)
@@ -151,15 +132,8 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 	result := make([]uint64, 0, pager.GetPageSize())
 	for results.Next() {
 		var row uint64
-		err := results.Scan(&row)
-		if err != nil {
-			panic(err)
-		}
+		results.Scan(&row)
 		result = append(result, row)
-	}
-	err := results.Err()
-	if err != nil {
-		panic(err)
 	}
 	def()
 	totalRows := getTotalRows(engine, withCount, pager, where, schema, len(result))

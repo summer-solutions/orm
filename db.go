@@ -156,6 +156,35 @@ type SQLRows interface {
 	Columns() ([]string, error)
 }
 
+type Rows interface {
+	Next() bool
+	Scan(dest ...interface{})
+	Columns() []string
+}
+
+type rowsStruct struct {
+	sqlRows SQLRows
+}
+
+func (r *rowsStruct) Next() bool {
+	return r.sqlRows.Next()
+}
+
+func (r *rowsStruct) Columns() []string {
+	columns, err := r.sqlRows.Columns()
+	if err != nil {
+		panic(err)
+	}
+	return columns
+}
+
+func (r *rowsStruct) Scan(dest ...interface{}) {
+	err := r.sqlRows.Scan(dest...)
+	if err != nil {
+		panic(err)
+	}
+}
+
 type SQLRow interface {
 	Scan(dest ...interface{}) error
 }
@@ -269,9 +298,9 @@ func (db *DB) QueryRow(query *Where, toFill ...interface{}) (found bool) {
 	return true
 }
 
-func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF func()) {
+func (db *DB) Query(query string, args ...interface{}) (rows Rows, deferF func()) {
 	start := time.Now()
-	rows, err := db.client.Query(query, args...)
+	result, err := db.client.Query(query, args...)
 	if db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query, args, err)
 	}
@@ -280,9 +309,16 @@ func (db *DB) Query(query string, args ...interface{}) (rows SQLRows, deferF fun
 	if err != nil {
 		panic(err)
 	}
-	return rows, func() {
-		if rows != nil {
-			_ = rows.Close()
+	return &rowsStruct{result}, func() {
+		if result != nil {
+			err := result.Err()
+			if err != nil {
+				panic(err)
+			}
+			err = result.Close()
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 }

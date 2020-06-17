@@ -244,15 +244,8 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 	defer def()
 	for results.Next() {
 		var row indexDB
-		err := results.Scan(&row.Skip, &row.NonUnique, &row.KeyName, &row.Seq, &row.Column, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip)
-		if err != nil {
-			panic(err)
-		}
+		results.Scan(&row.Skip, &row.NonUnique, &row.KeyName, &row.Seq, &row.Column, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip, &row.Skip)
 		rows = append(rows, row)
-	}
-	err := results.Err()
-	if err != nil {
-		panic(err)
 	}
 	def()
 	var indexesDB = make(map[string]*index)
@@ -492,10 +485,7 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 	defer def()
 	for results.Next() {
 		var row foreignKeyDB
-		err := results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
-		if err != nil {
-			panic(err)
-		}
+		results.Scan(&row.ConstraintName, &row.ColumnName, &row.ReferencedTableName, &row.ReferencedTableSchema)
 		row.OnDelete = "RESTRICT"
 		for _, line := range strings.Split(createTableDB, "\n") {
 			line = strings.TrimSpace(strings.TrimRight(line, ","))
@@ -507,10 +497,6 @@ func getForeignKeys(engine *Engine, createTableDB string, tableName string, pool
 			}
 		}
 		rows2 = append(rows2, row)
-	}
-	err := results.Err()
-	if err != nil {
-		panic(err)
 	}
 	def()
 	var foreignKeysDB = make(map[string]*foreignIndex)
