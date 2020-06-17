@@ -896,15 +896,12 @@ func main() {
     found := engine.GetMysql().QueryRow(orm.NewWhere("SELECT * FROM `table_name` WHERE  `ID` = ?", 1), &row)
     
     results, def := engine.GetMysql().Query("SELECT * FROM `table_name` WHERE  `ID` > ? LIMIT 100", 1)
-    //handle err
     defer def()
     for results.Next() {
     	var row string
-        err = results.Scan(&row)
+        results.Scan(&row)
     }
-    err = results.Err()
-    //handle err
-
+    def() //if it's not last line in this method
 }
 
 ```
