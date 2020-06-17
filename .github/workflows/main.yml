@@ -42,7 +42,7 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=5s --health-retries=3
 
       rabbitmq:
-        image: rabbitmq:management
+        build: rabbit
         ports:
           - 5677:5672
         env:
