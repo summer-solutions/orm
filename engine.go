@@ -155,11 +155,8 @@ func (e *Engine) ClearTrackedEntities() {
 	e.trackedEntities = make([]Entity, 0)
 }
 
-func (e *Engine) SetOnDuplicateKeyUpdate(update *Where, entity ...Entity) {
-	for _, row := range entity {
-		orm := initIfNeeded(e, row)
-		orm.attributes.onDuplicateKeyUpdate = update
-	}
+func (e *Engine) SetOnDuplicateKeyUpdate(update *Where, entity Entity) {
+	initIfNeeded(e, entity).attributes.onDuplicateKeyUpdate = update
 }
 
 func (e *Engine) SetEntityLogMeta(key string, value interface{}, entity ...Entity) {

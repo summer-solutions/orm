@@ -413,11 +413,11 @@ func main() {
     engine.TrackAndFlush(&entity)
 
     entity2 := testEntity{Name: "Name 1"}
-    engine.SetOnDuplicateKeyUpdate(NewWhere("`counter` = `counter` + 1"))
+    engine.SetOnDuplicateKeyUpdate(NewWhere("`counter` = `counter` + 1"), entity2)
     engine.TrackAndFlush(&entity)
 
     entity2 = testEntity{Name: "Name 1"}
-    engine.SetOnDuplicateKeyUpdate(NewWhere("")) //it will change nothing un row
+    engine.SetOnDuplicateKeyUpdate(NewWhere(""), entity2) //it will change nothing un row
     engine.TrackAndFlush(&entity)
 
     /*if you need to add more than one entity*/
