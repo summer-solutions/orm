@@ -121,7 +121,9 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		"float64":
 		val := float64(0)
 		if value != nil {
-			parsed, err := strconv.ParseFloat(fmt.Sprintf("%v", value), 64)
+			valueString := fmt.Sprintf("%v", value)
+			valueString = strings.ReplaceAll(valueString, ",", ".")
+			parsed, err := strconv.ParseFloat(valueString, 64)
 			if err != nil {
 				return errors.NotValidf("%s value %v", field, value)
 			}
