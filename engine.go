@@ -123,6 +123,7 @@ func (e *Engine) FlushWithFullCheck() error {
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
+				e.ClearTrackedEntities()
 				asErr, is := r.(error)
 				if !is {
 					panic(r)
@@ -472,6 +473,7 @@ func (e *Engine) flushWithCheck(transaction bool) error {
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
+				e.ClearTrackedEntities()
 				asErr, is := r.(error)
 				if !is {
 					panic(r)
