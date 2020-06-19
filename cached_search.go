@@ -15,7 +15,7 @@ import (
 const idsOnCachePage = 1000
 
 func cachedSearch(engine *Engine, entities interface{}, indexName string, pager *Pager,
-	arguments []interface{}, references []string) (totalRows int) {
+	arguments []interface{}, references []string) (totalRows int, ids []uint64) {
 	value := reflect.ValueOf(entities)
 	entityType, has := getEntityTypeForSlice(engine.registry, value.Type())
 	if !has {
@@ -165,8 +165,11 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 			nonZero = append(nonZero, id)
 		}
 	}
-	engine.LoadByIDs(nonZero, entities, references...)
-	return totalRows
+	_, is := entities.(Entity)
+	if !is {
+		engine.LoadByIDs(nonZero, entities, references...)
+	}
+	return totalRows, nonZero
 }
 
 func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments []interface{}, references []string) (has bool) {

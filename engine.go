@@ -384,12 +384,18 @@ func (e *Engine) CachedSearchOneWithReferences(entity Entity, indexName string, 
 }
 
 func (e *Engine) CachedSearch(entities interface{}, indexName string, pager *Pager, arguments ...interface{}) (totalRows int) {
-	return cachedSearch(e, entities, indexName, pager, arguments, nil)
+	total, _ := cachedSearch(e, entities, indexName, pager, arguments, nil)
+	return total
+}
+
+func (e *Engine) CachedSearchIDs(entity Entity, indexName string, pager *Pager, arguments ...interface{}) (totalRows int, ids []uint64) {
+	return cachedSearch(e, entity, indexName, pager, arguments, nil)
 }
 
 func (e *Engine) CachedSearchWithReferences(entities interface{}, indexName string, pager *Pager,
 	arguments []interface{}, references []string) (totalRows int) {
-	return cachedSearch(e, entities, indexName, pager, arguments, references)
+	total, _ := cachedSearch(e, entities, indexName, pager, arguments, references)
+	return total
 }
 
 func (e *Engine) ClearByIDs(entity Entity, ids ...uint64) {
