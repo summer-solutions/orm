@@ -689,10 +689,11 @@ func main() {
         ORM  `orm:"log=log_db_pool"`
         ID   uint
         Name string
-        Age  int
+        Age  int `orm:"skip-log"` //Don't track this field
     }
 
     // Now every change of User will be saved in log table
+   
     
     // You can add extra data to log, simply use this methods before Flush():
     engine.SetLogMetaData("logged_user_id", 12) 

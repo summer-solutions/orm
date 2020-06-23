@@ -749,6 +749,18 @@ func addToLogQueue(keys []*LogQueueValue, tableSchema *tableSchema, id uint64,
 	if !tableSchema.hasLog {
 		return keys
 	}
+	if changes != nil && len(tableSchema.skipLogs) > 0 {
+		skipped := 0
+		for _, skip := range tableSchema.skipLogs {
+			_, has := changes[skip]
+			if has {
+				skipped++
+			}
+		}
+		if skipped == len(changes) {
+			return keys
+		}
+	}
 	val := &LogQueueValue{TableName: tableSchema.logTableName, ID: id,
 		PoolName: tableSchema.logPoolName, Before: before,
 		Changes: changes, Updated: time.Now(), Meta: entityMeta}

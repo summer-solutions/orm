@@ -12,6 +12,7 @@ type logReceiverEntity1 struct {
 	ID       uint
 	Name     string
 	LastName string
+	Country  string `orm:"skip-log"`
 }
 
 type logReceiverEntity2 struct {
@@ -33,7 +34,7 @@ func TestLogReceiver(t *testing.T) {
 	receiver.DisableLoop()
 	receiver.Purge()
 
-	e1 := &logReceiverEntity1{Name: "John", LastName: "Smith"}
+	e1 := &logReceiverEntity1{Name: "John", LastName: "Smith", Country: "Poland"}
 	engine.Track(e1)
 	e2 := &logReceiverEntity2{Name: "Tom", Age: 18}
 	engine.Track(e2)
@@ -64,7 +65,7 @@ func TestLogReceiver(t *testing.T) {
 	assert.Equal(t, 1, entityID)
 	assert.False(t, meta.Valid)
 	assert.False(t, before.Valid)
-	assert.Equal(t, "{\"Name\": \"John\", \"LastName\": \"Smith\"}", changes)
+	assert.Equal(t, "{\"Name\": \"John\", \"Country\": \"Poland\", \"LastName\": \"Smith\"}", changes)
 
 	where2 := NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity2` WHERE `ID` = 1")
 	engine.GetMysql().QueryRow(where2, &entityID, &meta, &before, &changes)
@@ -87,7 +88,7 @@ func TestLogReceiver(t *testing.T) {
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 2")
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
 	assert.Equal(t, 2, entityID)
-	assert.Equal(t, "{\"Name\": \"John2\", \"LastName\": null}", changes)
+	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": null, \"LastName\": null}", changes)
 	assert.False(t, before.Valid)
 	assert.Equal(t, "{\"user_id\": 12}", meta.String)
 
@@ -98,6 +99,13 @@ func TestLogReceiver(t *testing.T) {
 	assert.False(t, before.Valid)
 	assert.Equal(t, "{\"user_id\": 12, \"admin_id\": \"10\"}", meta.String)
 
+	e1.Country = "Germany"
+	engine.TrackAndFlush(e1)
+	receiver.Digest()
+	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 3")
+	found := engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
+	assert.False(t, found)
+
 	e1.LastName = "Summer"
 	engine.TrackAndFlush(e1)
 	receiver.Digest()
@@ -105,7 +113,7 @@ func TestLogReceiver(t *testing.T) {
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
 	assert.Equal(t, 2, entityID)
 	assert.Equal(t, "{\"LastName\": \"Summer\"}", changes)
-	assert.Equal(t, "{\"Name\": \"John2\", \"LastName\": null}", before.String)
+	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": \"Germany\", \"LastName\": null}", before.String)
 	assert.Equal(t, "{\"user_id\": 12}", meta.String)
 
 	engine.MarkToDelete(e1)
@@ -116,6 +124,6 @@ func TestLogReceiver(t *testing.T) {
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changesNullable)
 	assert.Equal(t, 2, entityID)
 	assert.False(t, changesNullable.Valid)
-	assert.Equal(t, "{\"Name\": \"John2\", \"LastName\": \"Summer\"}", before.String)
+	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": \"Germany\", \"LastName\": \"Summer\"}", before.String)
 	assert.Equal(t, "{\"user_id\": 12}", meta.String)
 }

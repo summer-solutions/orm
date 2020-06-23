@@ -102,6 +102,7 @@ type tableSchema struct {
 	hasLog           bool
 	logPoolName      string //name of redis or rabbitMQ
 	logTableName     string
+	skipLogs         []string
 }
 
 type tableFields struct {
@@ -357,6 +358,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	uniqueIndices := make(map[string]map[int]string)
 	uniqueIndicesSimple := make(map[string][]string)
 	indices := make(map[string]map[int]string)
+	skipLogs := make([]string, 0)
 	for k, v := range tags {
 		keys, has := v["unique"]
 		if has {
@@ -391,6 +393,10 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 				}
 				indices[parts[0]][int(id)] = k
 			}
+		}
+		_, has = v["skip-log"]
+		if has {
+			skipLogs = append(skipLogs, k)
 		}
 	}
 	for _, ref := range oneRefs {
@@ -440,7 +446,8 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		hasFakeDelete:    hasFakeDelete,
 		hasLog:           logPoolName != "",
 		logPoolName:      logPoolName,
-		logTableName:     fmt.Sprintf("_log_%s_%s", mysql, table)}
+		logTableName:     fmt.Sprintf("_log_%s_%s", mysql, table),
+		skipLogs:         skipLogs}
 
 	all := make(map[string]map[int]string)
 	for k, v := range uniqueIndices {
