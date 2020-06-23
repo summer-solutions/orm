@@ -54,6 +54,9 @@ func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, sort *
 		s, _ := query.Source()
 		queryType := strings.Split(reflect.TypeOf(query).Elem().String(), ".")
 		fields := log2.Fields{"Index": index, "post": s, "type": queryType[len(queryType)-1], "from": from, "size": pager.PageSize}
+		if result != nil {
+			fields["query_time"] = result.TookInMillis * 1000
+		}
 		if sort != nil {
 			sortFields := make([]string, len(sort.fields))
 			for i, v := range sort.fields {
