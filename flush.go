@@ -653,7 +653,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				if !field.IsNil() {
 					valueAsString = strconv.FormatUint(field.Elem().Field(1).Uint(), 10)
 				}
-				if hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
+				if hasOld && (old == valueAsString || ((old == nil || old == "0") && valueAsString == "")) {
 					continue
 				}
 				if valueAsString == "" || valueAsString == "0" {
