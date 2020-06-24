@@ -13,6 +13,7 @@ type LogQueueValue struct {
 	PoolName  string
 	TableName string
 	ID        uint64
+	LogID     uint64
 	Meta      map[string]interface{}
 	Before    map[string]interface{}
 	Changes   map[string]interface{}
@@ -74,7 +75,7 @@ func (r *LogReceiver) Digest() {
 			}
 			res := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
 			if r.Logger != nil {
-				value.ID = res.LastInsertId()
+				value.LogID = res.LastInsertId()
 				r.Logger(&value)
 			}
 		}
