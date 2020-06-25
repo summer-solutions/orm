@@ -47,7 +47,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 	if e.registry.sqlClients != nil {
 		for key, val := range e.registry.sqlClients {
 			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName,
-				client: &standardSQLClient{db: val.db}, autoincrementOffset: val.autoincrementOffset}
+				client: &standardSQLClient{db: val.db}, autoincrement: val.autoincrement}
 		}
 	}
 	if e.registry.clickHouseClients != nil {

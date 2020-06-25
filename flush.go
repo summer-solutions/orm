@@ -254,7 +254,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 			if insertedID == 0 {
 				entity.getORM().attributes.idElem.SetUint(id)
 				insertedID = id
-				id = id + db.autoincrementOffset
+				id = id + db.autoincrement
 			}
 
 			logQueues = updateCacheForInserted(entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,

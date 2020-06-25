@@ -13,11 +13,11 @@ const counterDBQuery = "db.query"
 const counterDBExec = "db.exec"
 
 type DBConfig struct {
-	dataSourceName      string
-	code                string
-	databaseName        string
-	db                  *sql.DB
-	autoincrementOffset uint64
+	dataSourceName string
+	code           string
+	databaseName   string
+	db             *sql.DB
+	autoincrement  uint64
 }
 
 type ExecResult interface {
@@ -191,11 +191,11 @@ type SQLRow interface {
 }
 
 type DB struct {
-	engine              *Engine
-	client              sqlClient
-	code                string
-	databaseName        string
-	autoincrementOffset uint64
+	engine        *Engine
+	client        sqlClient
+	code          string
+	databaseName  string
+	autoincrement uint64
 }
 
 func (db *DB) GetDatabaseName() string {

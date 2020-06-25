@@ -46,14 +46,14 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		var autoincrementOffset uint64
+		var autoincrement uint64
 		var maxConnections int
 		var skip string
-		err = db.QueryRow("SHOW VARIABLES LIKE 'auto_increment_offset'").Scan(&skip, &autoincrementOffset)
+		err = db.QueryRow("SHOW VARIABLES LIKE 'auto_increment_increment'").Scan(&skip, &autoincrement)
 		if err != nil {
 			return nil, errors.Annotatef(err, "can't connect to mysql '%s'", v.code)
 		}
-		v.autoincrementOffset = autoincrementOffset
+		v.autoincrement = autoincrement
 
 		err = db.QueryRow("SHOW VARIABLES LIKE 'max_connections'").Scan(&skip, &maxConnections)
 		if err != nil {
