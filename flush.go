@@ -112,11 +112,8 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 				} else {
 					result := db.Exec(sql, bindRow...)
 					affected := result.RowsAffected()
-					var lastID uint64
 					if affected > 0 {
-						lastID = result.LastInsertId()
-					}
-					if affected > 0 {
+						lastID := result.LastInsertId()
 						injectBind(entity, bind)
 						entity.getORM().attributes.idElem.SetUint(lastID)
 						if affected == 1 {

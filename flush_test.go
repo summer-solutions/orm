@@ -84,6 +84,8 @@ func TestFlush(t *testing.T) {
 	assert.PanicsWithError(t, "Duplicate entry 'Tom' for key 'name'", func() {
 		engine.TrackAndFlush(entity2)
 	})
+
+
 	entity2.Name = "Lucas"
 	entity2.ReferenceOne = &flushEntityReference{ID: 2}
 	assert.PanicsWithError(t, "foreign key error in key `test:flushEntity:ReferenceOne`", func() {
@@ -94,6 +96,7 @@ func TestFlush(t *testing.T) {
 	entity2.Name = "Tom"
 	engine.SetOnDuplicateKeyUpdate(NewWhere("Age = ?", 40), entity2)
 	engine.TrackAndFlush(entity2)
+
 	assert.Equal(t, uint(1), entity2.ID)
 	engine.LoadByID(1, entity)
 	assert.Equal(t, "Tom", entity.Name)
