@@ -6,6 +6,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis_rate/v8"
 )
 
 const counterRedisAll = "redis.all"
@@ -221,12 +222,24 @@ func (c *standardRedisClient) FlushDB() error {
 }
 
 type RedisCache struct {
-	engine *Engine
-	code   string
-	client redisClient
+	engine  *Engine
+	code    string
+	client  redisClient
+	limiter *redis_rate.Limiter
 }
 
 type GetSetProvider func() interface{}
+
+func (r *RedisCache) RateLimit(key string, limit *redis_rate.Limit) bool {
+	if r.limiter == nil {
+		r.limiter = redis_rate.NewLimiter(r.client.(*standardRedisClient).client)
+	}
+	res, err := r.limiter.Allow(key, limit)
+	if err != nil {
+		panic(err)
+	}
+	return res.Allowed
+}
 
 func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider) interface{} {
 	val, has := r.Get(key)

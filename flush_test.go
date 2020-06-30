@@ -85,7 +85,6 @@ func TestFlush(t *testing.T) {
 		engine.TrackAndFlush(entity2)
 	})
 
-
 	entity2.Name = "Lucas"
 	entity2.ReferenceOne = &flushEntityReference{ID: 2}
 	assert.PanicsWithError(t, "foreign key error in key `test:flushEntity:ReferenceOne`", func() {

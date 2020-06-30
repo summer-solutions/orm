@@ -827,6 +827,9 @@ func main() {
     keys := engine.GetRedis().LRange("key", 1, 2)
     engine.GetRedis().LPush("key", "a", "b")
     //...
+
+    //rete limiter
+    valid := engine.GetRedis().RateLimit("resource_name", redis_rate.PerMinute(10))
 }
 
 ```
