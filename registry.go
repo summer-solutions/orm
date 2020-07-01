@@ -475,7 +475,7 @@ func (r *Registry) RegisterClickHouse(url string, code ...string) {
 
 func (r *Registry) registerElastic(url string, withTrace bool, code ...string) {
 	clientOptions := []elastic.ClientOptionFunc{elastic.SetSniff(false), elastic.SetURL(url),
-		elastic.SetHealthcheckInterval(5 * time.Second)}
+		elastic.SetHealthcheckInterval(5 * time.Second), elastic.SetRetrier(elastic.NewBackoffRetrier(elastic.NewExponentialBackoff(10*time.Millisecond, 5*time.Second)))}
 	if withTrace {
 		clientOptions = append(clientOptions, elastic.SetTraceLog(log2.New(os.Stdout, "", log2.LstdFlags)))
 	}
