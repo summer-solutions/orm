@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"github.com/go-sql-driver/mysql"
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -56,7 +57,20 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 			db := engine.GetMysql(code)
 			sql := validInsert[1].(string)
 			attributes := validInsert[2].([]interface{})
-			_ = db.Exec(sql, attributes...)
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						err, is := r.(*mysql.MySQLError)
+						if is {
+							engine.Log().Error(err, nil)
+							engine.DataDog().RegisterAPMError(err)
+							return
+						}
+						panic(r)
+					}
+				}()
+				_ = db.Exec(sql, attributes...)
+			}()
 		}
 	}
 }
