@@ -249,11 +249,13 @@ func (db *DB) Commit() {
 func (db *DB) Rollback() {
 	start := time.Now()
 	has, err := db.client.Rollback()
-	if has && db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
-		db.fillLogFields("[ORM][MYSQL][ROLLBACK]", start, "transaction", "ROLLBACK", nil, err)
+	if has {
+		if db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
+			db.fillLogFields("[ORM][MYSQL][ROLLBACK]", start, "transaction", "ROLLBACK", nil, err)
+		}
+		db.engine.dataDog.incrementCounter(counterDBAll, 1)
+		db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	}
-	db.engine.dataDog.incrementCounter(counterDBAll, 1)
-	db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	if err != nil {
 		panic(errors.Trace(err))
 	}

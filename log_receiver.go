@@ -73,11 +73,18 @@ func (r *LogReceiver) Digest() {
 			if value.Changes != nil {
 				changes, _ = jsoniter.ConfigFastest.Marshal(value.Changes)
 			}
-			res := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
-			if r.Logger != nil {
-				value.LogID = res.LastInsertId()
-				r.Logger(&value)
-			}
+			func () {
+				if r.Logger != nil {
+					poolDB.Begin()
+				}
+				defer poolDB.Rollback()
+				res := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
+				if r.Logger != nil {
+					value.LogID = res.LastInsertId()
+					r.Logger(&value)
+					poolDB.Commit()
+				}
+			}()
 		}
 	})
 }
