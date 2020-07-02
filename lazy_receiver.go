@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"github.com/go-sql-driver/mysql"
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -60,11 +59,15 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						err, is := r.(*mysql.MySQLError)
+						err, is := r.(error)
 						if is {
-							engine.Log().Error(err, nil)
-							engine.DataDog().RegisterAPMError(err)
-							return
+							_, isDuplicatedError := err.(*DuplicatedKeyError)
+							_, isForeignError := err.(*ForeignKeyError)
+							if isDuplicatedError || isForeignError {
+								engine.Log().Error(err, nil)
+								engine.DataDog().RegisterAPMError(err)
+								return
+							}
 						}
 						panic(r)
 					}
