@@ -73,7 +73,7 @@ func (r *LogReceiver) Digest() {
 			if value.Changes != nil {
 				changes, _ = jsoniter.ConfigFastest.Marshal(value.Changes)
 			}
-			func () {
+			func() {
 				if r.Logger != nil {
 					poolDB.Begin()
 				}
