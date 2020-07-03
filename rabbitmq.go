@@ -195,7 +195,6 @@ func (r *rabbitMQConnection) connect(sender bool, engine *Engine) {
 type RabbitMQQueueConfig struct {
 	Name          string
 	PrefetchCount int
-	Delayed       bool
 	Router        string
 	Durable       bool
 	RouterKeys    []string
@@ -229,21 +228,6 @@ func (r *RabbitMQQueue) Publish(body []byte) {
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        body,
-	}
-	r.publish(false, false, r.config.Name, msg)
-}
-
-type RabbitMQDelayedQueue struct {
-	*rabbitMQChannel
-}
-
-func (r *RabbitMQDelayedQueue) Publish(delayed time.Duration, body []byte) {
-	msg := amqp.Publishing{
-		DeliveryMode: amqp.Persistent,
-		Timestamp:    time.Now(),
-		Headers:      amqp.Table{"x-delay": delayed.Milliseconds()},
-		ContentType:  "text/plain",
-		Body:         body,
 	}
 	r.publish(false, false, r.config.Name, msg)
 }
@@ -322,19 +306,11 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) *amqp.Chann
 		configRouter := r.engine.registry.rabbitMQRouterConfigs[r.config.Router]
 		typeValue := configRouter.Type
 		var args amqp.Table
-		if r.config.Delayed {
-			args = amqp.Table{"x-delayed-type": configRouter.Type}
-			typeValue = "x-delayed-message"
-		}
 		start = time.Now()
 		err := channel.ExchangeDeclare(configRouter.Name, typeValue, configRouter.Durable, r.config.AutoDelete,
 			false, false, args)
 		if r.engine.queryLoggers[QueryLoggerSourceRabbitMQ] != nil {
 			fields := map[string]interface{}{"Name": configRouter.Name, "type": configRouter.Type, "args": args}
-			if r.config.Delayed {
-				fields["x-delayed-type"] = fields["type"]
-				fields["type"] = "x-delayed-message"
-			}
 			fillRabbitMQLogFields(r.engine, "[ORM][RABBIT_MQ][REGISTER ROUTER]", start, "register", fields, err)
 		}
 		r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)

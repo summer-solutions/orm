@@ -232,7 +232,12 @@ type GetSetProvider func() interface{}
 
 func (r *RedisCache) RateLimit(key string, limit *redis_rate.Limit) bool {
 	if r.limiter == nil {
-		r.limiter = redis_rate.NewLimiter(r.client.(*standardRedisClient).client)
+		c := r.client.(*standardRedisClient)
+		if c.client != nil {
+			r.limiter = redis_rate.NewLimiter(c.client)
+		} else {
+			r.limiter = redis_rate.NewLimiter(c.ring)
+		}
 	}
 	res, err := r.limiter.Allow(key, limit)
 	if err != nil {

@@ -171,7 +171,6 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			if !ok {
 				panic(errors.NotValidf("rabbitMQ channel name: %s", key))
 			}
-			delayed := getBoolOptional(asMap, "delayed", false)
 			durable := getBoolOptional(asMap, "durable", true)
 			autoDeleted := getBoolOptional(asMap, "autodelete", false)
 			router := ""
@@ -199,7 +198,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 				}
 			}
 			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
-			config := &RabbitMQQueueConfig{asString, int(prefetchCount), delayed, router, durable,
+			config := &RabbitMQQueueConfig{asString, int(prefetchCount), router, durable,
 				routerKeys, autoDeleted}
 			registry.RegisterRabbitMQQueue(config, key)
 		}

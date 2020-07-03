@@ -130,8 +130,6 @@ default:
               router_keys: // optional, default []string
                 - aa
                 - bb
-            - name: test3
-              delayed: true    
         routers:
             - name: test_router
               type: direct  
@@ -1015,7 +1013,6 @@ func main() {
     // register rabbitMQ servers, queues and routers
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
     registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue"})
-    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_delayed", Delayed: true})
     registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_router", 
         Router: "test_router", RouteKeys: []string{"aa", "bb"}})
     registry.RegisterRabbitMQRoutere("default", &RabbitMQRouteConfig{Name: "test_router", Type: "fanout"})
@@ -1036,11 +1033,6 @@ func main() {
     consumer.Consume(func(items [][]byte) {
     	//do staff
     })
-
-    //Delayed queue
-    channel := engine.GetRabbitMQDelayedQueue("test_queue_delayed") //provide Queue name
-    defer channel.Close()
-    channel.Publish([]byte("hello"), time.Minute * 10)
 
     //start consumer (you can add as many you want)
     consumer := channel.NewConsumer("test consumer")

@@ -173,12 +173,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 					return nil, errors.Errorf("rabbitMQ router name '%s' is not registered", def.Router)
 				}
 			}
-			if def.Delayed && def.Router == "" {
-				if registry.rabbitMQRouterConfigs == nil {
-					registry.rabbitMQRouterConfigs = make(map[string]*RabbitMQRouterConfig)
-				}
-				registry.rabbitMQRouterConfigs[def.Name] = &RabbitMQRouterConfig{Name: def.Name + "_router", Type: "fanout"}
-			}
 			channel := &rabbitMQChannelToQueue{connection: connection, config: def}
 			registry.rabbitMQChannelsToQueue[def.Name] = channel
 		}
@@ -255,20 +249,11 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 				panic(err)
 			}
 		} else {
-			if config.config.Delayed {
-				r := engine.GetRabbitMQDelayedQueue(code)
-				receiver := r.initChannel(config.config.Name, false)
-				err := receiver.Close()
-				if err != nil {
-					panic(err)
-				}
-			} else {
-				r := engine.GetRabbitMQRouter(code)
-				receiver := r.initChannel(config.config.Name, false)
-				err := receiver.Close()
-				if err != nil {
-					panic(err)
-				}
+			r := engine.GetRabbitMQRouter(code)
+			receiver := r.initChannel(config.config.Name, false)
+			err := receiver.Close()
+			if err != nil {
+				panic(err)
 			}
 		}
 	}
@@ -407,12 +392,6 @@ func (r *Registry) RegisterRabbitMQQueue(config *RabbitMQQueueConfig, serverPool
 	}
 	if r.rabbitMQQueues[dbCode] == nil {
 		r.rabbitMQQueues[dbCode] = make([]*RabbitMQQueueConfig, 0)
-	}
-	if config.Delayed {
-		routerName := config.Name + "_router"
-		rooterConfig := &RabbitMQRouterConfig{Name: routerName, Durable: true, Type: "fanout"}
-		config.Router = routerName
-		r.RegisterRabbitMQRouter(rooterConfig, serverPool...)
 	}
 	r.rabbitMQQueues[dbCode] = append(r.rabbitMQQueues[dbCode], config)
 }

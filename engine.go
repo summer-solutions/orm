@@ -24,7 +24,6 @@ type Engine struct {
 	locks                        map[string]*Locker
 	rabbitMQChannels             map[string]*rabbitMQChannel
 	rabbitMQQueues               map[string]*RabbitMQQueue
-	rabbitMQDelayedQueues        map[string]*RabbitMQDelayedQueue
 	rabbitMQRouters              map[string]*RabbitMQRouter
 	logMetaData                  map[string]interface{}
 	trackedEntities              []Entity
@@ -301,25 +300,6 @@ func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {
 	return e.rabbitMQQueues[queueName]
 }
 
-func (e *Engine) GetRabbitMQDelayedQueue(queueName string) *RabbitMQDelayedQueue {
-	queue, has := e.rabbitMQDelayedQueues[queueName]
-	if has {
-		return queue
-	}
-	channel, has := e.rabbitMQChannels[queueName]
-	if !has {
-		panic(errors.Errorf("unregistered rabbitMQ delayed queue '%s'", queueName))
-	}
-	if !channel.config.Delayed {
-		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as delayed queue", queueName))
-	}
-	if e.rabbitMQDelayedQueues == nil {
-		e.rabbitMQDelayedQueues = make(map[string]*RabbitMQDelayedQueue)
-	}
-	e.rabbitMQDelayedQueues[queueName] = &RabbitMQDelayedQueue{channel}
-	return e.rabbitMQDelayedQueues[queueName]
-}
-
 func (e *Engine) GetRabbitMQRouter(channelName string) *RabbitMQRouter {
 	queue, has := e.rabbitMQRouters[channelName]
 	if has {
@@ -331,9 +311,6 @@ func (e *Engine) GetRabbitMQRouter(channelName string) *RabbitMQRouter {
 	}
 	if channel.config.Router == "" {
 		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as router", channelName))
-	}
-	if channel.config.Delayed {
-		panic(errors.Errorf("rabbitMQ queue '%s' is declared as delayed queue", channelName))
 	}
 	if e.rabbitMQRouters == nil {
 		e.rabbitMQRouters = make(map[string]*RabbitMQRouter)

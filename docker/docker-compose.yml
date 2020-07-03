@@ -16,7 +16,7 @@ services:
     ports:
       - ${LOCAL_IP}:${REDIS_PORT}:6379
   rabbitmq:
-    build: rabbit
+    image: rabbitmq:management
     hostname: 'rabbitmq'
     volumes:
       - data_rabbitmq:/var/lib/rabbitmq

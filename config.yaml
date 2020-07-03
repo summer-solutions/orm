@@ -9,7 +9,6 @@ default:
       - name: test2
         prefetchCount: 1
         router: test
-        delayed: false
         autodelete: false
         durable: false
         router_keys:
