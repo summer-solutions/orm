@@ -92,8 +92,9 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 	counter := 0
 	var last *amqp.Delivery
 	items := make([][]byte, 0)
-	ticker := time.NewTicker(time.Minute)
+	beatTime := time.Now()
 	for {
+		now := time.Now()
 		if counter > 0 && (timeOut || counter == max) {
 			handler(items)
 			items = nil
@@ -119,6 +120,10 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 		} else if timeOut && r.disableLoop {
 			return
 		}
+		if r.heartBeat != nil && now.Sub(beatTime).Minutes() >= 1 {
+			r.heartBeat()
+			beatTime = now
+		}
 		select {
 		case item := <-delivery:
 			last = &item
@@ -128,10 +133,6 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 			r.parent.engine.dataDog.incrementCounter(counterRabbitMQReceive, 1)
 		case <-time.After(r.maxLoopDuration):
 			timeOut = true
-		case <-ticker.C:
-			if r.heartBeat != nil {
-				r.heartBeat()
-			}
 		}
 	}
 }
