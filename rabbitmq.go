@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	log2 "github.com/apex/log"
+
 	"github.com/juju/errors"
 
 	"github.com/streadway/amqp"
@@ -158,6 +160,11 @@ func (r *rabbitMQConnection) getClient(sender bool) *amqp.Connection {
 
 func (r *rabbitMQConnection) keepConnection(sender bool, engine *Engine, errChannel chan *amqp.Error) {
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				engine.Log().Warn("rabbitMQ connection restarted", log2.Fields{"server": r.config.code})
+			}
+		}()
 		<-errChannel
 		r.connect(sender, engine)
 	}()
