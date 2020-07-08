@@ -138,6 +138,15 @@ func getBoolOptional(data map[interface{}]interface{}, key string, defaultValue 
 	return val == true || val == "true"
 }
 
+func getIntOptional(data map[interface{}]interface{}, key string, defaultValue int) int {
+	val, has := data[key]
+	if !has {
+		return defaultValue
+	}
+	valInt, _ := strconv.Atoi(fmt.Sprintf("%v", val))
+	return valInt
+}
+
 func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 	def, ok := value.(map[interface{}]interface{})
 	if !ok {
@@ -173,6 +182,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			}
 			durable := getBoolOptional(asMap, "durable", true)
 			autoDeleted := getBoolOptional(asMap, "autodelete", false)
+			ttl := getIntOptional(asMap, "ttl", 0)
 			router := ""
 			routerVal, has := asMap["router"]
 			if has {
@@ -199,7 +209,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			}
 			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
 			config := &RabbitMQQueueConfig{asString, int(prefetchCount), router, durable,
-				routerKeys, autoDeleted}
+				routerKeys, autoDeleted, ttl}
 			registry.RegisterRabbitMQQueue(config, key)
 		}
 	}

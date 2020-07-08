@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -202,6 +203,7 @@ type RabbitMQQueueConfig struct {
 	Durable       bool
 	RouterKeys    []string
 	AutoDelete    bool
+	TTL           int
 }
 
 type RabbitMQRouterConfig struct {
@@ -212,7 +214,11 @@ type RabbitMQRouterConfig struct {
 
 func (r *rabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*amqp.Queue, error) {
 	config := r.config
-	q, err := channel.QueueDeclare(name, config.Durable, config.AutoDelete, false, false, nil)
+	var args amqp.Table
+	if config.TTL > 0 {
+		args = amqp.Table{"x-message-ttl": fmt.Sprintf("%d", config.TTL*1000)}
+	}
+	q, err := channel.QueueDeclare(name, config.Durable, config.AutoDelete, false, false, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

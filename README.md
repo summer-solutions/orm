@@ -127,6 +127,7 @@ default:
               autodelete: false // optional, default false
               prefetchCount: 1 // optional, default 1
               router: test_router // optional, default ""
+              ttl: 60 //optional, as seconds, defalut 0 - no TTL  
               router_keys: // optional, default []string
                 - aa
                 - bb
@@ -1012,7 +1013,7 @@ func main() {
 
     // register rabbitMQ servers, queues and routers
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue"})
+    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue", TTL: 60}) //ttl set to 60 seconds
     registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_router", 
         Router: "test_router", RouteKeys: []string{"aa", "bb"}})
     registry.RegisterRabbitMQRoutere("default", &RabbitMQRouteConfig{Name: "test_router", Type: "fanout"})
