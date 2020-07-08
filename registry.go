@@ -35,6 +35,7 @@ type Registry struct {
 
 func (r *Registry) Validate() (ValidatedRegistry, error) {
 	registry := &validatedRegistry{}
+	registry.registry = r
 	l := len(r.entities)
 	registry.tableSchemas = make(map[reflect.Type]*tableSchema, l)
 	registry.entities = make(map[string]reflect.Type)

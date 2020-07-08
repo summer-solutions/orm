@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/bsm/redislock"
 )
 
@@ -21,9 +23,12 @@ type ValidatedRegistry interface {
 	GetTableSchema(entityName string) TableSchema
 	GetTableSchemaForEntity(entity Entity) TableSchema
 	GetDirtyQueues() map[string]int
+	RegisterRabbitMQQueue(config *RabbitMQQueueConfig, serverPool ...string)
+	RegisterRabbitMQRouter(config *RabbitMQRouterConfig, serverPool ...string)
 }
 
 type validatedRegistry struct {
+	registry                *Registry
 	tableSchemas            map[reflect.Type]*tableSchema
 	entities                map[string]reflect.Type
 	sqlClients              map[string]*DBConfig
@@ -37,6 +42,41 @@ type validatedRegistry struct {
 	rabbitMQRouterConfigs   map[string]*RabbitMQRouterConfig
 	lockServers             map[string]string
 	enums                   map[string]Enum
+}
+
+func (r *validatedRegistry) RegisterRabbitMQQueue(config *RabbitMQQueueConfig, serverPool ...string) {
+	dbCode := "default"
+	if len(serverPool) > 0 {
+		dbCode = serverPool[0]
+	}
+	connection, has := r.rabbitMQServers[dbCode]
+	if !has {
+		panic(errors.Errorf("rabbitMQ server '%s' is not registered", dbCode))
+	}
+	if config.Router != "" {
+		_, has := r.rabbitMQRouterConfigs[config.Router]
+		if !has {
+			panic(errors.Errorf("rabbitMQ router name '%s' is not registered", config.Router))
+		}
+	}
+	channel := &rabbitMQChannelToQueue{connection: connection, config: config}
+	r.rabbitMQChannelsToQueue[config.Name] = channel
+}
+
+func (r *validatedRegistry) RegisterRabbitMQRouter(config *RabbitMQRouterConfig, serverPool ...string) {
+	dbCode := "default"
+	if len(serverPool) > 0 {
+		dbCode = serverPool[0]
+	}
+	_, has := r.registry.rabbitMQServers[dbCode]
+	if !has {
+		panic(errors.Errorf("rabbitMQ server '%s' is not registered", dbCode))
+	}
+	_, has = r.rabbitMQRouterConfigs[config.Name]
+	if has {
+		panic(errors.Errorf("rabbitMQ router name '%s' already exists", config.Name))
+	}
+	r.rabbitMQRouterConfigs[config.Name] = config
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {
