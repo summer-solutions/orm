@@ -78,7 +78,7 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	}
 	engine.Flush()
 
-	pager := &Pager{CurrentPage: 1, PageSize: 100}
+	pager := NewPager(1, 100)
 	var rows []*cachedSearchEntity
 	totalRows := engine.CachedSearch(&rows, "IndexAge", nil, 10)
 	assert.EqualValues(t, 5, totalRows)
@@ -111,14 +111,14 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	assert.Equal(t, uint(10), rows[4].ID)
 	assert.Len(t, DBLogger.Entries, 0)
 
-	pager = &Pager{CurrentPage: 2, PageSize: 4}
+	pager = NewPager(2, 4)
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, uint(10), rows[0].ID)
 	assert.Len(t, DBLogger.Entries, 0)
 
-	pager = &Pager{CurrentPage: 1, PageSize: 5}
+	pager = NewPager(1, 5)
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)
@@ -129,7 +129,7 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	rows[0].Age = 18
 	engine.Flush()
 
-	pager = &Pager{CurrentPage: 1, PageSize: 10}
+	pager = NewPager(1, 10)
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 6, totalRows)
 	assert.Len(t, rows, 6)
@@ -195,7 +195,7 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	has = engine.CachedSearchOne(&row, "IndexName", "Name 99")
 	assert.False(t, has)
 
-	pager = &Pager{CurrentPage: 49, PageSize: 1000}
+	pager = NewPager(49, 1000)
 	totalRows = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Equal(t, 10, totalRows)
 }
@@ -222,7 +222,7 @@ func TestCachedSearchErrors(t *testing.T) {
 		_ = engine.CachedSearchOne(&row, "InvalidIndex", 10)
 	})
 
-	pager := &Pager{CurrentPage: 51, PageSize: 1000}
+	pager := NewPager(51, 1000)
 	assert.PanicsWithError(t, "max cache index page size (50000) exceeded IndexAge", func() {
 		_ = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	})

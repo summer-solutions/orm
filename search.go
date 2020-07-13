@@ -58,7 +58,7 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 
 func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entities reflect.Value, references ...string) int {
 	if pager == nil {
-		pager = &Pager{CurrentPage: 1, PageSize: 50000}
+		pager = NewPager(1, 50000)
 	}
 	entities.SetLen(0)
 	entityType, has := getEntityTypeForSlice(engine.registry, entities.Type())

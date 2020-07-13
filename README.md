@@ -511,15 +511,15 @@ import "github.com/summer-solutions/orm"
 func main() {
 
     var entities []*testEntity
-    pager := Pager{CurrentPage: 1, PageSize: 100}
-    where := NewWhere("`ID` > ? AND `ID` < ?", 1, 8)
+    pager := orm.NewPager(1, 1000)
+    where := orm.NewWhere("`ID` > ? AND `ID` < ?", 1, 8)
     engine.Search(where, pager, &entities)
     
     //or if you need number of total rows
     totalRows := engine.SearchWithCount(where, pager, &entities)
     
     //or if you need only one row
-    where := NewWhere("`Name` = ?", "Hello")
+    where := onm.NewWhere("`Name` = ?", "Hello")
     var entity testEntity
     found := engine.SearchOne(where, &entity)
     
@@ -628,7 +628,7 @@ func main() {
         IndexName            *CachedQuery `queryOne:":Name = ?" orm:"max=100"` // be default cached query can cache max 50 000 rows
     }
 
-    pager := &Pager{CurrentPage: 1, PageSize: 100}
+    pager := orm.NewPager(1, 1000)
     var users []*UserEntity
     var user  UserEntity
     totalRows := engine.CachedSearch(&users, "IndexAge", pager, 18)
@@ -929,7 +929,7 @@ func main() {
 	query.Must(elastic.NewTermQuery("user_id", 12))
     sort := &orm.ElasticSort{}
     sort.Add("created_at", true).Add("name", false)
-	results := e.Search("users", query, &Pager{CurrentPage: 1, PageSize: 10}, sort)
+	results := e.Search("users", query, orm.NewPager(1, 10), sort)
 }
 
 ```

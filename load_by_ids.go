@@ -55,7 +55,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	}
 	l := len(ids)
 	if l > 0 {
-		_ = search(false, engine, NewWhere("`ID` IN ?", ids), &Pager{1, l}, false, entities)
+		_ = search(false, engine, NewWhere("`ID` IN ?", ids), NewPager(1, l), false, entities)
 		for i := 0; i < entities.Len(); i++ {
 			e := entities.Index(i).Interface().(Entity)
 			results[schema.getCacheKey(e.GetID())] = e

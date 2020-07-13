@@ -286,7 +286,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 							subValue := reflect.New(reflect.SliceOf(reflect.PtrTo(refT)))
 							subElem := subValue.Elem()
 							sub := subValue.Interface()
-							pager := &Pager{CurrentPage: 1, PageSize: 1000}
+							pager := NewPager(1, 1000)
 							where := NewWhere(fmt.Sprintf("`%s` IN ?", refColumn), ids)
 							for {
 								engine.Search(where, pager, sub)

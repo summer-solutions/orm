@@ -27,7 +27,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 		panic(errors.NotFoundf("index %s", indexName))
 	}
 	if pager == nil {
-		pager = &Pager{CurrentPage: 1, PageSize: definition.Max}
+		pager = NewPager(1, definition.Max)
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
@@ -102,7 +102,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	}
 
 	if hasNil {
-		searchPager := &Pager{minPage, maxPage * idsOnCachePage}
+		searchPager := NewPager(minPage, maxPage*idsOnCachePage)
 		results, total := searchIDsWithCount(true, engine, Where, searchPager, entityType)
 		totalRows = total
 		cacheFields := make(map[string]interface{})
@@ -199,7 +199,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	}
 	var id uint64
 	if fromCache["1"] == nil {
-		results, _ := searchIDs(true, engine, Where, &Pager{CurrentPage: 1, PageSize: 1}, false, entityType)
+		results, _ := searchIDs(true, engine, Where, NewPager(1, 1), false, entityType)
 		l := len(results)
 		value := fmt.Sprintf("%d", l)
 		if l > 0 {
