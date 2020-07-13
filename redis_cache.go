@@ -594,6 +594,21 @@ func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
 	return results
 }
 
+func (r *RedisCache) SAdd(key string, members ...interface{}) int64 {
+	start := time.Now()
+	val, err := r.client.SAdd(key, members...)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][SADD]", start, "sadd", -1, len(members),
+			map[string]interface{}{"Key": key, "members": len(members)}, err)
+	}
+	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(members)))
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
 func (r *RedisCache) SCard(key string) int64 {
 	start := time.Now()
 	val, err := r.client.SCard(key)
@@ -612,23 +627,21 @@ func (r *RedisCache) SCard(key string) int64 {
 func (r *RedisCache) SPop(key string) (string, bool) {
 	start := time.Now()
 	val, err := r.client.SPop(key)
+	found := true
+	if err == redis.Nil {
+		err = nil
+		found = false
+	}
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		errToReport := err
-		if err == redis.Nil {
-			errToReport = nil
-		}
 		r.fillLogFields("[ORM][REDIS][SPOP]", start, "spop", -1, 1,
-			map[string]interface{}{"Key": key}, errToReport)
+			map[string]interface{}{"Key": key}, err)
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
-		if err == redis.Nil {
-			return "", false
-		}
 		panic(err)
 	}
-	return val, true
+	return val, found
 }
 
 func (r *RedisCache) SPopN(key string, max int64) []string {
@@ -640,21 +653,6 @@ func (r *RedisCache) SPopN(key string, max int64) []string {
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
-	if err != nil {
-		panic(err)
-	}
-	return val
-}
-
-func (r *RedisCache) SAdd(key string, members ...interface{}) int64 {
-	start := time.Now()
-	val, err := r.client.SAdd(key, members...)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][SADD]", start, "sadd", -1, len(members),
-			map[string]interface{}{"Key": key, "members": len(members)}, err)
-	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(members)))
 	if err != nil {
 		panic(err)
 	}

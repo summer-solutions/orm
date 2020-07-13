@@ -104,4 +104,15 @@ func testRedis(t *testing.T, engine *Engine) {
 	r.MSet("key_1", "a", "key_2", "b")
 	assert.Equal(t, map[string]interface{}{"key_1": "a", "key_2": "b", "missing": nil}, r.MGet("key_1", "key_2", "missing"))
 
+	added = r.SAdd("test_s", "a", "b", "c", "d", "a")
+	assert.Equal(t, int64(4), added)
+	assert.Equal(t, int64(4), r.SCard("test_s"))
+	val, has = r.SPop("test_s")
+	assert.NotEqual(t, "", val)
+	assert.True(t, has)
+	assert.Len(t, r.SPopN("test_s", 10), 3)
+	assert.Len(t, r.SPopN("test_s", 10), 0)
+	val, has = r.SPop("test_s")
+	assert.Equal(t, "", val)
+	assert.False(t, has)
 }
