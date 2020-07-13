@@ -3,6 +3,8 @@ package orm
 import (
 	"testing"
 
+	"github.com/go-redis/redis/v7"
+
 	apexLog "github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
 
@@ -31,10 +33,11 @@ func TestRedisRing(t *testing.T) {
 
 func testRedis(t *testing.T, engine *Engine) {
 	r := engine.GetRedis()
-	r.FlushDB()
 
 	testLogger := memory.New()
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceRedis)
+	r.FlushDB()
+	testLogger.Entries = make([]*apexLog.Entry, 0)
 
 	assert.True(t, r.RateLimit("test", redis_rate.PerSecond(2)))
 	assert.True(t, r.RateLimit("test", redis_rate.PerSecond(2)))
@@ -89,4 +92,16 @@ func testRedis(t *testing.T, engine *Engine) {
 	assert.Equal(t, map[string]string{"age": "16", "last": "Summer", "name": "Tom"}, r.HGetAll("test_map"))
 	assert.Equal(t, map[string]interface{}{"age": "16", "missing": nil, "name": "Tom"}, r.HMget("test_map",
 		"name", "age", "missing"))
+
+	added := r.ZAdd("test_z", &redis.Z{Member: "a", Score: 10}, &redis.Z{Member: "b", Score: 20})
+	assert.Equal(t, int64(2), added)
+	assert.Equal(t, int64(2), r.ZCard("test_z"))
+	assert.Equal(t, int64(2), r.ZCount("test_z", "10", "20"))
+	assert.Equal(t, int64(1), r.ZCount("test_z", "11", "20"))
+	r.Del("test_z")
+	assert.Equal(t, int64(0), r.ZCount("test_z", "10", "20"))
+
+	r.MSet("key_1", "a", "key_2", "b")
+	assert.Equal(t, map[string]interface{}{"key_1": "a", "key_2": "b", "missing": nil}, r.MGet("key_1", "key_2", "missing"))
+
 }
