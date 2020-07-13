@@ -434,6 +434,34 @@ func (r *RedisCache) Ltrim(key string, start, stop int64) {
 	}
 }
 
+func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
+	start := time.Now()
+	_, err := r.client.HMSet(key, fields)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][HMSET]", start, "hmset", -1, len(fields),
+			map[string]interface{}{"Key": key, "fields": fields}, err)
+	}
+	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(fields)))
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (r *RedisCache) HSet(key string, field string, value interface{}) {
+	start := time.Now()
+	_, err := r.client.HSet(key, field, value)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][HSET]", start, "hset", -1, 1,
+			map[string]interface{}{"Key": key, "field": field, "value": value}, err)
+	}
+	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} {
 	start := time.Now()
 	val, err := r.client.HMGet(key, fields...)
@@ -588,34 +616,6 @@ func (r *RedisCache) SAdd(key string, members ...interface{}) int64 {
 		panic(err)
 	}
 	return val
-}
-
-func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
-	start := time.Now()
-	_, err := r.client.HMSet(key, fields)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][HMSET]", start, "hmset", -1, len(fields),
-			map[string]interface{}{"Key": key, "fields": fields}, err)
-	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(fields)))
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (r *RedisCache) HSet(key string, field string, value interface{}) {
-	start := time.Now()
-	_, err := r.client.HSet(key, field, value)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][HSET]", start, "hset", -1, 1,
-			map[string]interface{}{"Key": key, "field": field, "value": value}, err)
-	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func (r *RedisCache) MGet(keys ...string) map[string]interface{} {

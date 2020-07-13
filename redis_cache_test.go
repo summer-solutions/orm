@@ -82,4 +82,11 @@ func testRedis(t *testing.T, engine *Engine) {
 	val, has = r.RPop("test_list")
 	assert.False(t, has)
 	assert.Equal(t, "", val)
+
+	r.HSet("test_map", "name", "Tom")
+	assert.Equal(t, map[string]string{"name": "Tom"}, r.HGetAll("test_map"))
+	r.HMset("test_map", map[string]interface{}{"last": "Summer", "age": "16"})
+	assert.Equal(t, map[string]string{"age": "16", "last": "Summer", "name": "Tom"}, r.HGetAll("test_map"))
+	assert.Equal(t, map[string]interface{}{"age": "16", "missing": nil, "name": "Tom"}, r.HMget("test_map",
+		"name", "age", "missing"))
 }
