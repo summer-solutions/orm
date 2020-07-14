@@ -241,24 +241,37 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	}
 	//init rabbitMQ channels
 	engine = registry.CreateEngine()
-	for code, config := range registry.rabbitMQChannelsToQueue {
-		if config.config.Router == "" {
-			r := engine.GetRabbitMQQueue(code)
-			receiver := r.initChannel(config.config.Name, false)
-			err := receiver.Close()
-			if err != nil {
-				panic(err)
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				asErr, ok := r.(error)
+				if ok {
+					err = asErr
+				} else {
+					err = errors.New(fmt.Sprintf("%v", r))
+				}
 			}
-		} else {
-			r := engine.GetRabbitMQRouter(code)
-			receiver := r.initChannel(config.config.Name, false)
-			err := receiver.Close()
-			if err != nil {
-				panic(err)
+		}()
+		for code, config := range registry.rabbitMQChannelsToQueue {
+			if config.config.Router == "" {
+				r := engine.GetRabbitMQQueue(code)
+				receiver := r.initChannel(config.config.Name, false)
+				err := receiver.Close()
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				r := engine.GetRabbitMQRouter(code)
+				receiver := r.initChannel(config.config.Name, false)
+				err := receiver.Close()
+				if err != nil {
+					panic(err)
+				}
 			}
 		}
-	}
-	return registry, nil
+	}()
+	return registry, err
 }
 
 func (r *Registry) RegisterEntity(entity ...interface{}) {
