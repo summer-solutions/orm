@@ -235,7 +235,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		}
 		for name, max := range registry.GetDirtyQueues() {
 			queueName := "dirty_queue_" + name
-			def := &RabbitMQQueueConfig{Name: queueName, Durable: false, PrefetchCount: max}
+			def := &RabbitMQQueueConfig{Name: queueName, Durable: true, PrefetchCount: max}
 			registry.rabbitMQChannelsToQueue[queueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 		}
 	}
