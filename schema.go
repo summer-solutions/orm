@@ -671,7 +671,6 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 		return nil, nil
 	default:
 		kind := field.Type.Kind().String()
-		valid := false
 		if kind == "struct" {
 			structFields, err := checkStruct(schema, engine, field.Type, indexes, foreignKeys, field.Name)
 			if err != nil {
@@ -684,11 +683,9 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 				definition = handleReferenceOne(subSchema, attributes)
 				addNotNullIfNotSet = false
 				addDefaultNullIfNullable = true
-				valid = true
 			}
-		}
-		if !valid {
-			return nil, errors.Errorf("unsupported field type: %s %s in %s", field.Name, field.Type.String(), t.String())
+		} else {
+			definition = "json"
 		}
 	}
 	isNotNull := false

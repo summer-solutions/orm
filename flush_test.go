@@ -7,16 +7,17 @@ import (
 )
 
 type flushEntity struct {
-	ORM          `orm:"localCache;redisCache"`
-	ID           uint
-	City         string `orm:"unique=city"`
-	Name         string `orm:"unique=name"`
-	NameRequired string `orm:"required"`
-	Age          int
-	Uint         uint
-	Year         uint16 `orm:"year"`
-	ReferenceOne *flushEntityReference
-	ReferenceTwo *flushEntityReference
+	ORM            `orm:"localCache;redisCache"`
+	ID             uint
+	City           string `orm:"unique=city"`
+	Name           string `orm:"unique=name"`
+	NameRequired   string `orm:"required"`
+	NameTranslated map[string]string
+	Age            int
+	Uint           uint
+	Year           uint16 `orm:"year"`
+	ReferenceOne   *flushEntityReference
+	ReferenceTwo   *flushEntityReference
 }
 
 type flushEntityReference struct {
@@ -40,6 +41,7 @@ func TestFlush(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, entity, reference, referenceCascade)
 
 	entity = &flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982, NameRequired: "required"}
+	entity.NameTranslated = map[string]string{"pl": "kot", "en": "cat"}
 	entity.ReferenceOne = &flushEntityReference{Name: "John", Age: 30}
 	assert.True(t, engine.IsDirty(entity))
 	assert.True(t, engine.IsDirty(entity.ReferenceOne))
@@ -61,6 +63,7 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint(7), entity.Uint)
 	assert.Equal(t, uint16(1982), entity.Year)
 	assert.Equal(t, "required", entity.NameRequired)
+	assert.Equal(t, map[string]string{"pl": "kot", "en": "cat"}, entity.NameTranslated)
 	assert.False(t, engine.IsDirty(entity))
 
 	assert.True(t, engine.Loaded(entity))

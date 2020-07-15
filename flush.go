@@ -659,6 +659,20 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 					bind[name] = valueAsString
 				}
 				continue
+			} else {
+				value := field.Interface()
+				var valString string
+				if value != nil && value != "" {
+					encoded, _ := jsoniter.ConfigFastest.Marshal(value)
+					asString := string(encoded)
+					if asString != "" {
+						valString = asString
+					}
+				}
+				if hasOld && old == valString {
+					continue
+				}
+				bind[name] = valString
 			}
 		}
 	}
