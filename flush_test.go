@@ -56,6 +56,7 @@ func TestFlush(t *testing.T) {
 	assert.True(t, engine.Loaded(entity))
 	assert.True(t, engine.Loaded(entity.ReferenceOne))
 
+	entity = &flushEntity{}
 	found := engine.LoadByID(1, entity)
 	assert.True(t, found)
 	assert.Equal(t, "Tom", entity.Name)

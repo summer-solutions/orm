@@ -236,7 +236,8 @@ func main() {
         IgnoreField          []time.Time       `orm:"ignore"`
         Blob                 []byte
         MediumBlob           []byte `orm:"mediumblob=true"`
-        LongBlob             []byte `orm:"longblob=true"` 
+        LongBlob             []byte `orm:"longblob=true"`
+        FieldAsJson          map[string]string
     }
     
     type testEntitySchemaRef struct {

@@ -275,9 +275,9 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	for _, i := range fields.jsons {
 		field := value.Field(i)
 		if data[index] != "" {
-			var f interface{}
-			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index]), &f)
-			field.Set(reflect.ValueOf(f))
+			f := reflect.New(field.Type()).Interface()
+			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index]), f)
+			field.Set(reflect.ValueOf(f).Elem())
 		} else {
 			field.Set(reflect.Zero(field.Type()))
 		}

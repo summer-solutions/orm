@@ -597,6 +597,8 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 					fields.refs = append(fields.refs, i)
 					fields.refsTypes = append(fields.refsTypes, f.Type)
 				}
+			} else {
+				fields.jsons = append(fields.jsons, i)
 			}
 		}
 	}
