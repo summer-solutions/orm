@@ -95,6 +95,7 @@ func testRedis(t *testing.T, engine *Engine) {
 
 	added := r.ZAdd("test_z", &redis.Z{Member: "a", Score: 10}, &redis.Z{Member: "b", Score: 20})
 	assert.Equal(t, int64(2), added)
+	assert.Equal(t, []string{"b", "a"}, r.ZRevRange("test_z", 0, 3))
 	assert.Equal(t, int64(2), r.ZCard("test_z"))
 	assert.Equal(t, int64(2), r.ZCount("test_z", "10", "20"))
 	assert.Equal(t, int64(1), r.ZCount("test_z", "11", "20"))

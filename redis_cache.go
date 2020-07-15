@@ -27,6 +27,7 @@ type redisClient interface {
 	ZCard(key string) (int64, error)
 	SCard(key string) (int64, error)
 	ZCount(key string, min, max string) (int64, error)
+	ZRevRange(key string, start, stop int64) ([]string, error)
 	SPop(key string) (string, error)
 	SPopN(key string, max int64) ([]string, error)
 	LLen(key string) (int64, error)
@@ -135,6 +136,13 @@ func (c *standardRedisClient) ZCount(key string, min, max string) (int64, error)
 		return c.ring.ZCount(key, min, max).Result()
 	}
 	return c.client.ZCount(key, min, max).Result()
+}
+
+func (c *standardRedisClient) ZRevRange(key string, start, stop int64) ([]string, error) {
+	if c.ring != nil {
+		return c.ring.ZRevRange(key, start, stop).Result()
+	}
+	return c.client.ZRevRange(key, start, stop).Result()
 }
 
 func (c *standardRedisClient) SPop(key string) (string, error) {
@@ -515,6 +523,21 @@ func (r *RedisCache) ZAdd(key string, members ...*redis.Z) int64 {
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(members)))
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
+func (r *RedisCache) ZRevRange(key string, start, stop int64) []string {
+	startTime := time.Now()
+	val, err := r.client.ZRevRange(key, start, stop)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][ZREVRANGE]", startTime, "zrevrange", -1, 1,
+			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
+	}
+	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	if err != nil {
 		panic(err)
 	}
