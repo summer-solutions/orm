@@ -213,64 +213,63 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	}
 	if registry.rabbitMQChannelsToQueue[lazyQueueName] == nil {
 		connection, has := registry.rabbitMQServers["default"]
-		if !has {
-			return nil, errors.Errorf("missing default rabbitMQ connection to handle lazyFlush")
+		if has {
+			def := &RabbitMQQueueConfig{Name: lazyQueueName, Durable: true}
+			registry.rabbitMQChannelsToQueue[lazyQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 		}
-		def := &RabbitMQQueueConfig{Name: lazyQueueName, Durable: true}
-		registry.rabbitMQChannelsToQueue[lazyQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 	}
 	if registry.rabbitMQChannelsToQueue[flushCacheQueueName] == nil {
 		connection, has := registry.rabbitMQServers["default"]
-		if !has {
-			return nil, errors.Errorf("missing default rabbitMQ connection to handle flushInCache")
+		if has {
+			def := &RabbitMQQueueConfig{Name: flushCacheQueueName, Durable: true}
+			registry.rabbitMQChannelsToQueue[flushCacheQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 		}
-		def := &RabbitMQQueueConfig{Name: flushCacheQueueName, Durable: true}
-		registry.rabbitMQChannelsToQueue[flushCacheQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 	}
 	queues := registry.GetDirtyQueues()
 	if len(queues) > 0 {
 		connection, has := registry.rabbitMQServers["default"]
-		if !has {
-			return nil, errors.Errorf("missing default rabbitMQ connection to handle flushInCache")
-		}
-		for name, max := range registry.GetDirtyQueues() {
-			queueName := "dirty_queue_" + name
-			def := &RabbitMQQueueConfig{Name: queueName, Durable: true, PrefetchCount: max}
-			registry.rabbitMQChannelsToQueue[queueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
+		if has {
+			for name, max := range registry.GetDirtyQueues() {
+				queueName := "dirty_queue_" + name
+				def := &RabbitMQQueueConfig{Name: queueName, Durable: true, PrefetchCount: max}
+				registry.rabbitMQChannelsToQueue[queueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
+			}
 		}
 	}
-	//init rabbitMQ channels
-	engine = registry.CreateEngine()
 	var err error
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				asErr, ok := r.(error)
-				if ok {
-					err = asErr
+	if len(registry.rabbitMQChannelsToQueue) > 0 {
+		//init rabbitMQ channels
+		engine = registry.CreateEngine()
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					asErr, ok := r.(error)
+					if ok {
+						err = asErr
+					} else {
+						err = errors.New(fmt.Sprintf("%v", r))
+					}
+				}
+			}()
+			for code, config := range registry.rabbitMQChannelsToQueue {
+				if config.config.Router == "" {
+					r := engine.GetRabbitMQQueue(code)
+					receiver := r.initChannel(config.config.Name, false)
+					err := receiver.Close()
+					if err != nil {
+						panic(err)
+					}
 				} else {
-					err = errors.New(fmt.Sprintf("%v", r))
+					r := engine.GetRabbitMQRouter(code)
+					receiver := r.initChannel(config.config.Name, false)
+					err := receiver.Close()
+					if err != nil {
+						panic(err)
+					}
 				}
 			}
 		}()
-		for code, config := range registry.rabbitMQChannelsToQueue {
-			if config.config.Router == "" {
-				r := engine.GetRabbitMQQueue(code)
-				receiver := r.initChannel(config.config.Name, false)
-				err := receiver.Close()
-				if err != nil {
-					panic(err)
-				}
-			} else {
-				r := engine.GetRabbitMQRouter(code)
-				receiver := r.initChannel(config.config.Name, false)
-				err := receiver.Close()
-				if err != nil {
-					panic(err)
-				}
-			}
-		}
-	}()
+	}
 	return registry, err
 }
 
