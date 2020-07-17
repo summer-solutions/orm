@@ -236,8 +236,9 @@ func (r *RabbitMQQueue) Publish(body []byte) {
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        body,
+		DeliveryMode: amqp.Persistent,
 	}
-	r.publish(false, false, r.config.Name, msg)
+	r.publish(true, false, r.config.Name, msg)
 }
 
 type RabbitMQRouter struct {
@@ -248,8 +249,9 @@ func (r *RabbitMQRouter) Publish(routerKey string, body []byte) {
 	msg := amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        body,
+		DeliveryMode: amqp.Persistent,
 	}
-	r.publish(false, false, routerKey, msg)
+	r.publish(true, false, routerKey, msg)
 }
 
 type rabbitMQChannel struct {
@@ -360,6 +362,8 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) *amqp.Chann
 			}
 		}
 	}
+	errChannel := make(chan amqp.Return)
+	channel.NotifyReturn(errChannel)
 	return channel
 }
 
