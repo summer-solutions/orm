@@ -93,14 +93,13 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 	var last *amqp.Delivery
 	items := make([][]byte, 0)
 	beatTime := time.Now()
-	loopTime := time.Now()
+	loopTime := time.Now().UnixNano()
 	for {
 		now := time.Now()
-		timeOut := now.Sub(loopTime).Nanoseconds() >= r.maxLoopDuration.Nanoseconds()
-		if timeOut {
-			loopTime = now
-		}
+		nowNano := now.UnixNano()
+		timeOut := (nowNano - loopTime) >= r.maxLoopDuration.Nanoseconds()
 		if counter > 0 && (timeOut || counter == max) {
+			loopTime = nowNano
 			handler(items)
 			items = nil
 			start := time.Now()
