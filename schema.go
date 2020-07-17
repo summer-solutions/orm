@@ -111,11 +111,7 @@ func getAlters(engine *Engine) (alters []Alter) {
 				pool := engine.GetMysql(poolName)
 				dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`;", pool.GetDatabaseName(), tableName)
 				isEmpty := isTableEmptyInPool(engine, poolName, tableName)
-				if isEmpty {
-					alters = append(alters, Alter{SQL: dropSQL, Safe: true, Pool: poolName})
-				} else {
-					alters = append(alters, Alter{SQL: dropSQL, Safe: false, Pool: poolName})
-				}
+				alters = append(alters, Alter{SQL: dropSQL, Safe: isEmpty, Pool: poolName})
 			}
 		}
 	}
@@ -759,7 +755,7 @@ func handleString(registry *validatedRegistry, attributes map[string]string, for
 			return "", false, false, "", errors.Trace(err)
 		}
 		if i > 65535 {
-			return "", false, false, "", errors.Errorf("length to heigh: %s", length)
+			return "", false, false, "", errors.Errorf("length to height: %s", length)
 		}
 		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	}
@@ -860,7 +856,7 @@ func checkStruct(tableSchema *tableSchema, engine *Engine, t reflect.Type, index
 			columns = append(columns, fieldColumns...)
 		}
 	}
-	if tableSchema.hasFakeDelete {
+	if tableSchema.hasFakeDelete && prefix == "" {
 		def := fmt.Sprintf("`FakeDelete` %s unsigned NOT NULL DEFAULT '0'", strings.Split(columns[0][1], " ")[1])
 		columns = append(columns, [2]string{"FakeDelete", def})
 	}
