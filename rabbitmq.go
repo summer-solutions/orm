@@ -99,7 +99,6 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 		nowNano := now.UnixNano()
 		timeOut := (nowNano - loopTime) >= r.maxLoopDuration.Nanoseconds()
 		if counter > 0 && (timeOut || counter == max) {
-			loopTime = nowNano
 			handler(items)
 			items = nil
 			start := time.Now()
@@ -108,8 +107,10 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 				fillRabbitMQLogFields(r.parent.engine, "[ORM][RABBIT_MQ][ACK]", start, "ack",
 					map[string]interface{}{"Queue": r.parent.config.Name, "consumer": r.name}, err)
 			}
+			loopTime = time.Now().UnixNano()
 			r.parent.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 			r.parent.engine.dataDog.incrementCounter(counterRabbitMQACK, 1)
+			r.parent.engine.dataDog.incrementCounter(counterRabbitMQReceive, uint(len(items)))
 			if err != nil {
 				panic(err)
 			}
@@ -132,8 +133,6 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 			last = &item
 			items = append(items, item.Body)
 			counter++
-			r.parent.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
-			r.parent.engine.dataDog.incrementCounter(counterRabbitMQReceive, 1)
 		case <-time.After(time.Second):
 		}
 	}
@@ -234,11 +233,11 @@ type RabbitMQQueue struct {
 
 func (r *RabbitMQQueue) Publish(body []byte) {
 	msg := amqp.Publishing{
-		ContentType: "text/plain",
-		Body:        body,
+		ContentType:  "text/plain",
+		Body:         body,
 		DeliveryMode: amqp.Persistent,
 	}
-	r.publish(true, false, r.config.Name, msg)
+	r.publish(false, false, r.config.Name, msg)
 }
 
 type RabbitMQRouter struct {
@@ -247,11 +246,11 @@ type RabbitMQRouter struct {
 
 func (r *RabbitMQRouter) Publish(routerKey string, body []byte) {
 	msg := amqp.Publishing{
-		ContentType: "text/plain",
-		Body:        body,
+		ContentType:  "text/plain",
+		Body:         body,
 		DeliveryMode: amqp.Persistent,
 	}
-	r.publish(true, false, routerKey, msg)
+	r.publish(false, false, routerKey, msg)
 }
 
 type rabbitMQChannel struct {
