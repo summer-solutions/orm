@@ -294,6 +294,16 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		value.Field(i).SetBool(data[index] == "1")
 		index++
 	}
+	for _, i := range fields.booleansNullable {
+		field := value.Field(i)
+		if data[index] == "" {
+			field.Set(reflect.Zero(field.Type()))
+		} else {
+			v := data[index] == "1"
+			field.Set(reflect.ValueOf(&v))
+		}
+		index++
+	}
 	for _, i := range fields.floats {
 		float, _ := strconv.ParseFloat(data[index], 64)
 		value.Field(i).SetFloat(float)

@@ -655,6 +655,8 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 			return nil, nil
 		}
 		definition, addNotNullIfNotSet, defaultValue = "tinyint(1)", true, "'0'"
+	case "*bool":
+		definition, addNotNullIfNotSet, defaultValue = "tinyint(1)", false, "nil"
 	case "string", "[]string":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false)
 		if err != nil {

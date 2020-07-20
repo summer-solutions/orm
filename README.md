@@ -208,6 +208,7 @@ func main() {
         Uint8                uint8  `orm:"unique=SecondIndex:2,ThirdIndex"`
         Uint24               uint32 `orm:"mediumint=true"`
         Uint32               uint32
+        Uint32Nullable       *uint32
         Uint64               uint64 `orm:"unique=SecondIndex"`
         Int8                 int8
         Int16                int16
@@ -215,7 +216,9 @@ func main() {
         Int64                int64
         Rune                 rune
         Int                  int
+        IntNullable          *int
         Bool                 bool
+        BoolNullable         *bool
         Float32              float32
         Float64              float64
         Float32Decimal       float32  `orm:"decimal=8,2"`
@@ -223,8 +226,8 @@ func main() {
         Enum                 string   `orm:"enum=orm.colorEnum"`
         EnumNotNull          string   `orm:"enum=orm.colorEnum;required"`
         Set                  []string `orm:"set=orm.colorEnum"`
-        Year                 uint16   `orm:"year=true"`
-        YearNotNull          uint16   `orm:"year=true;required"`
+        YearNullable         *uint16   `orm:"year=true"`
+        YearNotNull          uint16   `orm:"year=true"`
         Date                 *time.Time
         DateNotNull          time.Time
         DateTime             *time.Time `orm:"time=true"`

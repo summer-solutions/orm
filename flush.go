@@ -587,6 +587,22 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				continue
 			}
 			bind[name] = value
+		case "*bool":
+			if field.IsZero() {
+				if hasOld && (old == "" || old == nil) {
+					continue
+				}
+				bind[name] = nil
+				continue
+			}
+			value := "0"
+			if field.Elem().Bool() {
+				value = "1"
+			}
+			if hasOld && old == value {
+				continue
+			}
+			bind[name] = value
 		case "float32", "float64":
 			val := field.Float()
 			precision := 8
