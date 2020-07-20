@@ -668,9 +668,13 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 			return nil, errors.Trace(err)
 		}
 	case "float32":
-		definition, addNotNullIfNotSet, defaultValue = handleFloat("float", attributes)
+		definition, addNotNullIfNotSet, defaultValue = handleFloat("float", attributes, false)
 	case "float64":
-		definition, addNotNullIfNotSet, defaultValue = handleFloat("double", attributes)
+		definition, addNotNullIfNotSet, defaultValue = handleFloat("double", attributes, false)
+	case "*float32":
+		definition, addNotNullIfNotSet, defaultValue = handleFloat("float", attributes, true)
+	case "*float64":
+		definition, addNotNullIfNotSet, defaultValue = handleFloat("double", attributes, true)
 	case "time.Time":
 		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue = handleTime(attributes, false)
 	case "*time.Time":
@@ -719,7 +723,7 @@ func handleInt(typeAsString string, attributes map[string]string, nullable bool)
 	return convertIntToSchema(typeAsString, attributes), true, "'0'"
 }
 
-func handleFloat(floatDefinition string, attributes map[string]string) (string, bool, string) {
+func handleFloat(floatDefinition string, attributes map[string]string, nullable bool) (string, bool, string) {
 	decimal, hasDecimal := attributes["decimal"]
 	var definition string
 	defaultValue := "'0'"
@@ -733,6 +737,9 @@ func handleFloat(floatDefinition string, attributes map[string]string) (string, 
 	unsigned, hasUnsigned := attributes["unsigned"]
 	if !hasUnsigned || unsigned == "true" {
 		definition += " unsigned"
+	}
+	if nullable {
+		return definition, false, "nil"
 	}
 	return definition, true, defaultValue
 }

@@ -221,6 +221,7 @@ func main() {
         BoolNullable         *bool
         Float32              float32
         Float64              float64
+        Float64Nullable      *float64
         Float32Decimal       float32  `orm:"decimal=8,2"`
         Float64DecimalSigned float64  `orm:"decimal=8,2;unsigned=false"`
         Enum                 string   `orm:"enum=orm.colorEnum"`

@@ -309,6 +309,22 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		value.Field(i).SetFloat(float)
 		index++
 	}
+	for _, i := range fields.floatsNullable {
+		field := value.Field(i)
+		if data[index] == "" {
+			field.Set(reflect.Zero(field.Type()))
+		} else {
+			val, _ := strconv.ParseFloat(data[index], 64)
+			switch field.Type().String() {
+			case "*float32":
+				v := float32(val)
+				field.Set(reflect.ValueOf(&v))
+			default:
+				field.Set(reflect.ValueOf(&val))
+			}
+		}
+		index++
+	}
 	for _, i := range fields.timesNullable {
 		field := value.Field(i)
 		if data[index] == "" {

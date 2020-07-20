@@ -20,6 +20,7 @@ type flushEntity struct {
 	Year           uint16  `orm:"year"`
 	YearNullable   *uint16 `orm:"year"`
 	BoolNullable   *bool
+	FloatNullable  *float32
 	ReferenceOne   *flushEntityReference
 	ReferenceTwo   *flushEntityReference
 }
@@ -73,6 +74,7 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, entity.IntNullable)
 	assert.Nil(t, entity.YearNullable)
 	assert.Nil(t, entity.BoolNullable)
+	assert.Nil(t, entity.FloatNullable)
 	assert.False(t, engine.IsDirty(entity))
 
 	assert.True(t, engine.Loaded(entity))
@@ -88,10 +90,12 @@ func TestFlush(t *testing.T) {
 	i2 := uint(42)
 	i3 := uint16(1982)
 	i4 := false
+	i5 := float32(10.12)
 	entity.IntNullable = &i
 	entity.UintNullable = &i2
 	entity.YearNullable = &i3
 	entity.BoolNullable = &i4
+	entity.FloatNullable = &i5
 	engine.TrackAndFlush(entity)
 
 	reference = &flushEntityReference{}
@@ -106,6 +110,7 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint(42), *entity.UintNullable)
 	assert.Equal(t, uint16(1982), *entity.YearNullable)
 	assert.False(t, *entity.BoolNullable)
+	assert.Equal(t, float32(10.12), *entity.FloatNullable)
 	assert.False(t, engine.IsDirty(entity))
 
 	assert.False(t, engine.IsDirty(reference))
@@ -151,6 +156,7 @@ func TestFlush(t *testing.T) {
 	entity2.Age = 21
 	entity2.UintNullable = &i2
 	entity2.BoolNullable = &i4
+	entity2.FloatNullable = &i5
 	assert.True(t, engine.IsDirty(entity2))
 	engine.TrackAndFlush(entity2)
 	assert.False(t, engine.IsDirty(entity2))
@@ -159,9 +165,15 @@ func TestFlush(t *testing.T) {
 
 	entity2.UintNullable = nil
 	entity2.BoolNullable = nil
+	entity2.FloatNullable = nil
 	assert.True(t, engine.IsDirty(entity2))
 	engine.TrackAndFlush(entity2)
 	assert.False(t, engine.IsDirty(entity2))
+	entity2 = &flushEntity{}
+	engine.LoadByID(10, entity2)
+	assert.Nil(t, entity2.UintNullable)
+	assert.Nil(t, entity2.BoolNullable)
+	assert.Nil(t, entity2.FloatNullable)
 
 	engine.MarkToDelete(entity2)
 	assert.True(t, engine.IsDirty(entity2))

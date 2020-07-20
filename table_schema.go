@@ -120,6 +120,7 @@ type tableFields struct {
 	booleans          []int
 	booleansNullable  []int
 	floats            []int
+	floatsNullable    []int
 	timesNullable     []int
 	times             []int
 	jsons             []int
@@ -547,7 +548,7 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 		integers: make([]int, 0), integersNullable: make([]int, 0), strings: make([]int, 0), fields: make(map[int]reflect.StructField),
 		sliceStrings: make([]int, 0), bytes: make([]int, 0), booleans: make([]int, 0), booleansNullable: make([]int, 0), floats: make([]int, 0),
 		timesNullable: make([]int, 0), times: make([]int, 0), jsons: make([]int, 0), structs: make(map[int]*tableFields),
-		refs: make([]int, 0), refsTypes: make([]reflect.Type, 0)}
+		floatsNullable: make([]int, 0), refs: make([]int, 0), refsTypes: make([]reflect.Type, 0)}
 	for i := start; i < t.NumField(); i++ {
 		f := t.Field(i)
 		fields.fields[i] = f
@@ -599,6 +600,9 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 		case "float32",
 			"float64":
 			fields.floats = append(fields.floats, i)
+		case "*float32",
+			"*float64":
+			fields.floatsNullable = append(fields.floatsNullable, i)
 		case "*time.Time":
 			fields.timesNullable = append(fields.timesNullable, i)
 		case "time.Time":
@@ -711,6 +715,7 @@ func (fields *tableFields) getColumnNames() []string {
 	ids = append(ids, fields.booleans...)
 	ids = append(ids, fields.booleansNullable...)
 	ids = append(ids, fields.floats...)
+	ids = append(ids, fields.floatsNullable...)
 	ids = append(ids, fields.timesNullable...)
 	ids = append(ids, fields.times...)
 	ids = append(ids, fields.jsons...)
