@@ -473,8 +473,6 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		if has {
 			continue
 		}
-		required, hasRequired := attributes["required"]
-		isRequired := hasRequired && required == "true"
 		switch field.Type().String() {
 		case "uint", "uint8", "uint16", "uint32", "uint64":
 			val := field.Uint()
@@ -495,7 +493,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			if attributes["year"] == "true" {
 				isNil := field.IsZero()
 				if isNil {
-					if hasOld && (old == "" || old == nil) {
+					if hasOld && (old == "nil" || old == nil) {
 						continue
 					}
 					bind[name] = nil
@@ -511,7 +509,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			}
 			isNil := field.IsZero()
 			if isNil {
-				if hasOld && (old == "" || old == nil) {
+				if hasOld && (old == "nil" || old == nil) {
 					continue
 				}
 				bind[name] = nil
@@ -531,7 +529,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		case "*int", "*int8", "*int16", "*int32", "*int64":
 			isNil := field.IsZero()
 			if isNil {
-				if hasOld && (old == "" || old == nil) {
+				if hasOld && (old == "nil" || old == nil) {
 					continue
 				}
 				bind[name] = nil
@@ -544,18 +542,23 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			bind[name] = val
 		case "string":
 			value := field.String()
-			if hasOld && (old == value || (old == nil && value == "")) {
+			if hasOld && old == value {
 				continue
 			}
-			if value == "" {
-				if isRequired {
-					bind[name] = ""
-				} else {
-					bind[name] = nil
+			bind[name] = value
+		case "*string":
+			if field.IsZero() {
+				if hasOld && (old == "nil" || old == nil) {
+					continue
 				}
-			} else {
-				bind[name] = value
+				bind[name] = nil
+				continue
 			}
+			value := field.Elem().String()
+			if hasOld && old == value {
+				continue
+			}
+			bind[name] = value
 		case "[]uint8":
 			value := field.Bytes()
 			valueAsString := string(value)
@@ -589,7 +592,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			bind[name] = value
 		case "*bool":
 			if field.IsZero() {
-				if hasOld && (old == "" || old == nil) {
+				if hasOld && (old == "nil" || old == nil) {
 					continue
 				}
 				bind[name] = nil
@@ -629,7 +632,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			}
 			if hasOld {
 				if isZero {
-					if old == "" || old == nil {
+					if old == "nil" || old == nil {
 						continue
 					}
 				} else if old == valString {
@@ -676,7 +679,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			if value != nil {
 				valueAsString = value.Format(layout)
 			}
-			if hasOld && (old == valueAsString || (valueAsString == "" && (old == nil || old == ""))) {
+			if hasOld && (old == valueAsString || (valueAsString == "" && (old == nil || old == "nil"))) {
 				continue
 			}
 			if valueAsString == "" {
@@ -721,7 +724,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				if !field.IsNil() {
 					valueAsString = strconv.FormatUint(field.Elem().Field(1).Uint(), 10)
 				}
-				if hasOld && (old == valueAsString || ((old == nil || old == "0") && valueAsString == "")) {
+				if hasOld && (old == valueAsString || ((old == "nil" || old == nil || old == "0") && valueAsString == "")) {
 					continue
 				}
 				if valueAsString == "" || valueAsString == "0" {

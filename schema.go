@@ -658,12 +658,12 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 	case "*bool":
 		definition, addNotNullIfNotSet, defaultValue = "tinyint(1)", false, "nil"
 	case "string", "[]string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	case "interface {}":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, true)
+	case "*string":
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false, true)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -756,15 +756,15 @@ func handleBlob(attributes map[string]string) (string, bool) {
 	return definition, false
 }
 
-func handleString(registry *validatedRegistry, attributes map[string]string, forceMax bool) (string, bool, bool, string, error) {
+func handleString(registry *validatedRegistry, attributes map[string]string, forceMax bool, nullable bool) (string, bool, bool, string, error) {
 	var definition string
 	enum, hasEnum := attributes["enum"]
 	if hasEnum {
-		return handleSetEnum(registry, "enum", enum, attributes)
+		return handleSetEnum(registry, "enum", enum, attributes, nullable)
 	}
 	set, haSet := attributes["set"]
 	if haSet {
-		return handleSetEnum(registry, "set", set, attributes)
+		return handleSetEnum(registry, "set", set, attributes, nullable)
 	}
 	var addDefaultNullIfNullable = true
 	length, hasLength := attributes["length"]
@@ -785,14 +785,13 @@ func handleString(registry *validatedRegistry, attributes map[string]string, for
 		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	}
 	defaultValue := "nil"
-	required, hasRequired := attributes["required"]
-	if hasRequired && required == "true" {
+	if !nullable {
 		defaultValue = "''"
 	}
 	return definition, false, addDefaultNullIfNullable, defaultValue, nil
 }
 
-func handleSetEnum(registry *validatedRegistry, fieldType string, attribute string, attributes map[string]string) (string, bool, bool, string, error) {
+func handleSetEnum(registry *validatedRegistry, fieldType string, attribute string, attributes map[string]string, nullable bool) (string, bool, bool, string, error) {
 	if registry.enums == nil {
 		return "", false, false, "", errors.Errorf("unregistered enum %s", attribute)
 	}
@@ -809,12 +808,11 @@ func handleSetEnum(registry *validatedRegistry, fieldType string, attribute stri
 		definition += fmt.Sprintf("'%s'", value)
 	}
 	definition += ")"
-	required, hasRequired := attributes["required"]
 	defaultValue := "nil"
-	if hasRequired && required == "true" {
+	if !nullable {
 		defaultValue = fmt.Sprintf("'%s'", enum.GetDefault())
 	}
-	return definition, hasRequired && required == "true", true, defaultValue, nil
+	return definition, !nullable, true, defaultValue, nil
 }
 
 func handleTime(attributes map[string]string, nullable bool) (string, bool, bool, string) {

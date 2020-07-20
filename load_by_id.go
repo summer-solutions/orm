@@ -79,7 +79,7 @@ func buildLocalCacheValue(entity Entity) []string {
 	for i := 1; i < length; i++ { //skip id
 		v := bind[columns[i]]
 		if v == nil {
-			v = ""
+			v = "nil"
 		}
 		value[j] = fmt.Sprintf("%s", v)
 		j++

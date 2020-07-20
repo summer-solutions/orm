@@ -47,7 +47,11 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 
 	finalValues := make([]string, count)
 	for i, v := range values {
-		finalValues[i] = v.String
+		if v.Valid {
+			finalValues[i] = v.String
+		} else {
+			finalValues[i] = "nil"
+		}
 	}
 	fillFromDBRow(id, engine, finalValues[1:], entity)
 	if len(references) > 0 {
@@ -92,7 +96,11 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		results.Scan(valuePointers...)
 		finalValues := make([]string, count)
 		for i, v := range values {
-			finalValues[i] = v.String
+			if v.Valid {
+				finalValues[i] = v.String
+			} else {
+				finalValues[i] = "nil"
+			}
 		}
 		value := reflect.New(entityType)
 		id, _ := strconv.ParseUint(finalValues[0], 10, 64)
@@ -200,7 +208,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	}
 	for _, i := range fields.uintegersNullable {
 		field := value.Field(i)
-		if data[index] == "" {
+		if data[index] == "nil" {
 			field := value.Field(i)
 			field.Set(reflect.Zero(field.Type()))
 		} else {
@@ -230,7 +238,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	}
 	for _, i := range fields.integersNullable {
 		field := value.Field(i)
-		if data[index] == "" {
+		if data[index] == "nil" {
 			field.Set(reflect.Zero(field.Type()))
 		} else {
 			val := convertStringToInt(data[index])
@@ -257,9 +265,19 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		value.Field(i).SetString(data[index])
 		index++
 	}
+	for _, i := range fields.stringsNullable {
+		field := value.Field(i)
+		if data[index] == "nil" {
+			field.Set(reflect.Zero(field.Type()))
+		} else {
+			v := data[index]
+			field.Set(reflect.ValueOf(&v))
+		}
+		index++
+	}
 	for _, i := range fields.sliceStrings {
 		field := value.Field(i)
-		if data[index] != "" {
+		if data[index] != "nil" {
 			var values = strings.Split(data[index], ",")
 			var length = len(values)
 			slice := reflect.MakeSlice(field.Type(), length, length)
@@ -275,7 +293,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	for _, i := range fields.bytes {
 		bytes := data[index]
 		field := value.Field(i)
-		if bytes != "" {
+		if bytes != "nil" {
 			field.SetBytes([]byte(bytes))
 		} else {
 			field.Set(reflect.Zero(field.Type()))
@@ -296,7 +314,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	}
 	for _, i := range fields.booleansNullable {
 		field := value.Field(i)
-		if data[index] == "" {
+		if data[index] == "nil" {
 			field.Set(reflect.Zero(field.Type()))
 		} else {
 			v := data[index] == "1"
@@ -311,7 +329,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	}
 	for _, i := range fields.floatsNullable {
 		field := value.Field(i)
-		if data[index] == "" {
+		if data[index] == "nil" {
 			field.Set(reflect.Zero(field.Type()))
 		} else {
 			val, _ := strconv.ParseFloat(data[index], 64)
@@ -327,7 +345,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	}
 	for _, i := range fields.timesNullable {
 		field := value.Field(i)
-		if data[index] == "" {
+		if data[index] == "nil" {
 			field.Set(reflect.Zero(field.Type()))
 		} else {
 			layout := "2006-01-02"
@@ -351,7 +369,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	}
 	for _, i := range fields.jsons {
 		field := value.Field(i)
-		if data[index] != "" {
+		if data[index] != "nil" {
 			f := reflect.New(field.Type()).Interface()
 			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index]), f)
 			field.Set(reflect.ValueOf(f).Elem())
@@ -363,7 +381,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	for k, i := range fields.refs {
 		field := value.Field(i)
 		integer := uint64(0)
-		if data[index] != "" {
+		if data[index] != "nil" {
 			integer, _ = strconv.ParseUint(data[index], 10, 64)
 		}
 		refType := fields.refsTypes[k]

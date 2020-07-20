@@ -203,7 +203,7 @@ func main() {
         orm.ORM
         ID                   uint
         Name                 string `orm:"length=100;index=FirstIndex"`
-        NameNotNull          string `orm:"length=100;index=FirstIndex;required"`
+        NameNullable         *string `orm:"length=100;index=FirstIndex"`
         BigName              string `orm:"length=max"`
         Uint8                uint8  `orm:"unique=SecondIndex:2,ThirdIndex"`
         Uint24               uint32 `orm:"mediumint=true"`
