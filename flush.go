@@ -481,22 +481,63 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			valString := strconv.FormatUint(val, 10)
 			if attributes["year"] == "true" {
 				valString = fmt.Sprintf("%04d", val)
-				if hasOld && (old == valString || (valString == "0000" && (old == nil || old == ""))) {
+				if hasOld && old == valString {
 					continue
 				}
-				if !isRequired && val == 0 {
-					bind[name] = nil
-				} else {
-					bind[name] = valString
-				}
+				bind[name] = valString
 				continue
 			}
 			if hasOld && old == valString {
 				continue
 			}
 			bind[name] = valString
+		case "*uint", "*uint8", "*uint16", "*uint32", "*uint64":
+			if attributes["year"] == "true" {
+				isNil := field.IsZero()
+				if isNil {
+					if hasOld && (old == "" || old == nil) {
+						continue
+					}
+					bind[name] = nil
+					continue
+				}
+				val := field.Elem().Uint()
+				valString := fmt.Sprintf("%04d", val)
+				if hasOld && old == valString {
+					continue
+				}
+				bind[name] = valString
+				continue
+			}
+			isNil := field.IsZero()
+			if isNil {
+				if hasOld && (old == "" || old == nil) {
+					continue
+				}
+				bind[name] = nil
+				continue
+			}
+			val := strconv.FormatUint(field.Elem().Uint(), 10)
+			if hasOld && old == val {
+				continue
+			}
+			bind[name] = val
 		case "int", "int8", "int16", "int32", "int64":
 			val := strconv.FormatInt(field.Int(), 10)
+			if hasOld && old == val {
+				continue
+			}
+			bind[name] = val
+		case "*int", "*int8", "*int16", "*int32", "*int64":
+			isNil := field.IsZero()
+			if isNil {
+				if hasOld && (old == "" || old == nil) {
+					continue
+				}
+				bind[name] = nil
+				continue
+			}
+			val := strconv.FormatInt(field.Elem().Int(), 10)
 			if hasOld && old == val {
 				continue
 			}
@@ -663,6 +704,13 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				value := field.Interface()
 				var valString string
 				if value != nil && value != "" {
+					if field.Type().Kind().String() == "map" && hasOld && old != nil && old != "" {
+						oldMap := reflect.New(field.Type()).Interface()
+						_ = jsoniter.ConfigFastest.Unmarshal([]byte(old.(string)), oldMap)
+						if reflect.DeepEqual(value, reflect.ValueOf(oldMap).Elem().Interface()) {
+							continue
+						}
+					}
 					encoded, _ := jsoniter.ConfigFastest.Marshal(value)
 					asString := string(encoded)
 					if asString != "" {

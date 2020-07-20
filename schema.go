@@ -629,15 +629,27 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 		"int32",
 		"int64",
 		"int":
-		definition, addNotNullIfNotSet, defaultValue = handleInt(typeAsString, attributes)
+		definition, addNotNullIfNotSet, defaultValue = handleInt(typeAsString, attributes, false)
+	case "*uint",
+		"*uint8",
+		"*uint32",
+		"*uint64",
+		"*int8",
+		"*int16",
+		"*int32",
+		"*int64",
+		"*int":
+		definition, addNotNullIfNotSet, defaultValue = handleInt(typeAsString, attributes, true)
 	case "uint16":
 		if attributes["year"] == "true" {
-			if isRequired {
-				return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) NOT NULL DEFAULT '0000'", columnName)}}, nil
-			}
+			return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) NOT NULL DEFAULT '0000'", columnName)}}, nil
+		}
+		definition, addNotNullIfNotSet, defaultValue = handleInt(typeAsString, attributes, false)
+	case "*uint16":
+		if attributes["year"] == "true" {
 			return [][2]string{{columnName, fmt.Sprintf("`%s` year(4) DEFAULT NULL", columnName)}}, nil
 		}
-		definition, addNotNullIfNotSet, defaultValue = handleInt(typeAsString, attributes)
+		definition, addNotNullIfNotSet, defaultValue = handleInt(typeAsString, attributes, true)
 	case "bool":
 		if columnName == "FakeDelete" {
 			return nil, nil
@@ -697,7 +709,11 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 	return [][2]string{{columnName, fmt.Sprintf("`%s` %s", columnName, definition)}}, nil
 }
 
-func handleInt(typeAsString string, attributes map[string]string) (string, bool, string) {
+func handleInt(typeAsString string, attributes map[string]string, nullable bool) (string, bool, string) {
+	if nullable {
+		typeAsString = typeAsString[1:]
+		return convertIntToSchema(typeAsString, attributes), false, "nil"
+	}
 	return convertIntToSchema(typeAsString, attributes), true, "'0'"
 }
 

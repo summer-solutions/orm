@@ -106,23 +106,25 @@ type tableSchema struct {
 }
 
 type tableFields struct {
-	t             reflect.Type
-	fields        map[int]reflect.StructField
-	prefix        string
-	uintegers     []int
-	integers      []int
-	strings       []int
-	sliceStrings  []int
-	bytes         []int
-	fakeDelete    int
-	booleans      []int
-	floats        []int
-	timesNullable []int
-	times         []int
-	jsons         []int
-	structs       map[int]*tableFields
-	refs          []int
-	refsTypes     []reflect.Type
+	t                 reflect.Type
+	fields            map[int]reflect.StructField
+	prefix            string
+	uintegers         []int
+	uintegersNullable []int
+	integers          []int
+	integersNullable  []int
+	strings           []int
+	sliceStrings      []int
+	bytes             []int
+	fakeDelete        int
+	booleans          []int
+	floats            []int
+	timesNullable     []int
+	times             []int
+	jsons             []int
+	structs           map[int]*tableFields
+	refs              []int
+	refsTypes         []reflect.Type
 }
 
 func getTableSchema(registry *validatedRegistry, entityType reflect.Type) *tableSchema {
@@ -540,7 +542,8 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 }
 
 func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[string]map[string]string) *tableFields {
-	fields := &tableFields{t: t, prefix: prefix, uintegers: make([]int, 0), integers: make([]int, 0), strings: make([]int, 0),
+	fields := &tableFields{t: t, prefix: prefix, uintegers: make([]int, 0), uintegersNullable: make([]int, 0), integers: make([]int, 0),
+		integersNullable: make([]int, 0), strings: make([]int, 0),
 		fields: make(map[int]reflect.StructField), sliceStrings: make([]int, 0),
 		bytes: make([]int, 0), booleans: make([]int, 0), floats: make([]int, 0), timesNullable: make([]int, 0), times: make([]int, 0),
 		jsons: make([]int, 0), structs: make(map[int]*tableFields), refs: make([]int, 0), refsTypes: make([]reflect.Type, 0)}
@@ -560,12 +563,24 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 			"uint32",
 			"uint64":
 			fields.uintegers = append(fields.uintegers, i)
+		case "*uint",
+			"*uint8",
+			"*uint16",
+			"*uint32",
+			"*uint64":
+			fields.uintegersNullable = append(fields.uintegersNullable, i)
 		case "int",
 			"int8",
 			"int16",
 			"int32",
 			"int64":
 			fields.integers = append(fields.integers, i)
+		case "*int",
+			"*int8",
+			"*int16",
+			"*int32",
+			"*int64":
+			fields.integersNullable = append(fields.integersNullable, i)
 		case "string":
 			fields.strings = append(fields.strings, i)
 		case "[]string":
@@ -681,7 +696,9 @@ func (tableSchema *tableSchema) getCacheKey(id uint64) string {
 func (fields *tableFields) getColumnNames() []string {
 	columns := make([]string, 0)
 	ids := fields.uintegers
+	ids = append(ids, fields.uintegersNullable...)
 	ids = append(ids, fields.integers...)
+	ids = append(ids, fields.integersNullable...)
 	ids = append(ids, fields.strings...)
 	ids = append(ids, fields.sliceStrings...)
 	ids = append(ids, fields.bytes...)

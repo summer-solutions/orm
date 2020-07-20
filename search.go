@@ -198,8 +198,59 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		value.Field(i).SetUint(convertStringToUint(data[index]))
 		index++
 	}
+	for _, i := range fields.uintegersNullable {
+		field := value.Field(i)
+		if data[index] == "" {
+			field := value.Field(i)
+			field.Set(reflect.Zero(field.Type()))
+		} else {
+			val := convertStringToUint(data[index])
+			switch field.Type().String() {
+			case "*uint":
+				v := uint(val)
+				field.Set(reflect.ValueOf(&v))
+			case "*uint8":
+				v := uint8(val)
+				field.Set(reflect.ValueOf(&v))
+			case "*uint16":
+				v := uint16(val)
+				field.Set(reflect.ValueOf(&v))
+			case "*uint32":
+				v := uint32(val)
+				field.Set(reflect.ValueOf(&v))
+			default:
+				field.Set(reflect.ValueOf(&val))
+			}
+		}
+		index++
+	}
 	for _, i := range fields.integers {
 		value.Field(i).SetInt(convertStringToInt(data[index]))
+		index++
+	}
+	for _, i := range fields.integersNullable {
+		field := value.Field(i)
+		if data[index] == "" {
+			field.Set(reflect.Zero(field.Type()))
+		} else {
+			val := convertStringToInt(data[index])
+			switch field.Type().String() {
+			case "*int":
+				v := int(val)
+				field.Set(reflect.ValueOf(&v))
+			case "*int8":
+				v := int8(val)
+				field.Set(reflect.ValueOf(&v))
+			case "*int16":
+				v := int16(val)
+				field.Set(reflect.ValueOf(&v))
+			case "*int32":
+				v := int32(val)
+				field.Set(reflect.ValueOf(&v))
+			default:
+				field.Set(reflect.ValueOf(&val))
+			}
+		}
 		index++
 	}
 	for _, i := range fields.strings {
