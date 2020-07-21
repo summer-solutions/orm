@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/juju/errors"
 
@@ -144,6 +145,22 @@ func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environme
 	q := request.URL.Query()
 	if len(q) > 0 {
 		span.SetTag("url.query", request.URL.RawQuery)
+	}
+
+	if request.Method == http.MethodPost {
+		_ = request.ParseForm()
+		form := request.PostForm
+		if unsafe.Sizeof(form) > 5120 {
+			span.SetTag("post", "bigger than 5KiB")
+		} else {
+			postNice := make(map[string]string)
+			for key, val := range form {
+				if len(val) > 0 {
+					postNice[key] = val[0]
+				}
+			}
+			span.SetTag("post", postNice)
+		}
 	}
 	span.SetTag(ext.Environment, environment)
 	dd.engine.Log().AddFields(apexLog.Fields{"dd.trace_id": span.Context().TraceID(), "dd.span_id": span.Context().SpanID()})
