@@ -473,7 +473,8 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		if has {
 			continue
 		}
-		switch field.Type().String() {
+		fieldTypeString := field.Type().String()
+		switch fieldTypeString {
 		case "uint", "uint8", "uint16", "uint32", "uint64":
 			val := field.Uint()
 			valString := strconv.FormatUint(val, 10)
@@ -610,7 +611,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			var val float64
 			isZero := field.IsZero()
 			if !isZero {
-				val = field.Elem().Float()
+				val = reflect.Indirect(field).Float()
 			}
 			precision := 8
 			bitSize := 32

@@ -78,6 +78,22 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			val = parsed
 		}
 		f.SetUint(val)
+	case "*uint",
+		"*uint8",
+		"*uint16",
+		"*uint32",
+		"*uint64":
+		if value != nil {
+			val := uint64(0)
+			parsed, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
+			if err != nil {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			val = parsed
+			f.SetUint(val)
+		} else {
+			f.Set(reflect.Zero(f.Type()))
+		}
 	case "int",
 		"int8",
 		"int16",
@@ -92,7 +108,29 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			val = parsed
 		}
 		f.SetInt(val)
+	case "*int",
+		"*int8",
+		"*int16",
+		"*int32",
+		"*int64":
+		if value != nil {
+			val := int64(0)
+			parsed, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
+			if err != nil {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			val = parsed
+			f.SetInt(val)
+		} else {
+			f.Set(reflect.Zero(f.Type()))
+		}
 	case "string":
+		if value == nil {
+			f.SetString("")
+		} else {
+			f.SetString(fmt.Sprintf("%v", value))
+		}
+	case "*string":
 		if value == nil {
 			f.Set(reflect.Zero(f.Type()))
 		} else {
@@ -117,6 +155,17 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			val = true
 		}
 		f.SetBool(val)
+	case "*bool":
+		if value == nil {
+			f.Set(reflect.Zero(f.Type()))
+		} else {
+			val := false
+			asString := strings.ToLower(fmt.Sprintf("%v", value))
+			if asString == "true" || asString == "1" {
+				val = true
+			}
+			f.SetBool(val)
+		}
 	case "float32",
 		"float64":
 		val := float64(0)
@@ -130,6 +179,21 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			val = parsed
 		}
 		f.SetFloat(val)
+	case "*float32",
+		"*float64":
+		if value == nil {
+			f.Set(reflect.Zero(f.Type()))
+		} else {
+			val := float64(0)
+			valueString := fmt.Sprintf("%v", value)
+			valueString = strings.ReplaceAll(valueString, ",", ".")
+			parsed, err := strconv.ParseFloat(valueString, 64)
+			if err != nil {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			val = parsed
+			f.SetFloat(val)
+		}
 	case "*time.Time":
 		_, ok := value.(*time.Time)
 		if !ok {
