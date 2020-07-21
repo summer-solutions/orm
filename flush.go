@@ -607,15 +607,39 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				continue
 			}
 			bind[name] = value
-		case "float32", "float64", "*float32", "*float64":
+		case "float32", "float64":
+			val := field.Float()
+			precision := 8
+			bitSize := 32
+			if field.Type().String() == "float64" {
+				bitSize = 64
+				precision = 16
+			}
+			fieldAttributes := tableSchema.tags[name]
+			precisionAttribute, has := fieldAttributes["precision"]
+			if has {
+				userPrecision, _ := strconv.Atoi(precisionAttribute)
+				precision = userPrecision
+			}
+			valString := strconv.FormatFloat(val, 'g', precision, bitSize)
+			decimal, has := attributes["decimal"]
+			if has {
+				decimalArgs := strings.Split(decimal, ",")
+				valString = fmt.Sprintf("%."+decimalArgs[1]+"f", val)
+			}
+			if hasOld && old == valString {
+				continue
+			}
+			bind[name] = valString
+		case "*float32", "*float64":
 			var val float64
 			isZero := field.IsZero()
 			if !isZero {
-				val = reflect.Indirect(field).Float()
+				val = field.Elem().Float()
 			}
 			precision := 8
 			bitSize := 32
-			if field.Type().String() == "float64" || field.Type().String() == "*float64" {
+			if field.Type().String() == "*float64" {
 				bitSize = 64
 				precision = 16
 			}
