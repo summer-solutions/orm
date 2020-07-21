@@ -788,7 +788,7 @@ func handleString(registry *validatedRegistry, attributes map[string]string, for
 	if !nullable {
 		defaultValue = "''"
 	}
-	return definition, false, addDefaultNullIfNullable, defaultValue, nil
+	return definition, !nullable, addDefaultNullIfNullable, defaultValue, nil
 }
 
 func handleSetEnum(registry *validatedRegistry, fieldType string, attribute string, attributes map[string]string, nullable bool) (string, bool, bool, string, error) {
