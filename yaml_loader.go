@@ -45,12 +45,12 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 			case "dirty_queues":
 				def, ok := value.(map[interface{}]interface{})
 				if !ok {
-					panic(errors.NotValidf("dirty_queues definition: %s", value))
+					panic(errors.NotValidf("dirty_queues definition '%s'", value))
 				}
 				for k, v := range def {
 					asInt, ok := v.(int)
 					if !ok {
-						panic(errors.NotValidf("dirty_queues definition: %s", value))
+						panic(errors.NotValidf("dirty_queues definition '%s'", k))
 					}
 					registry.RegisterDirtyQueue(k.(string), asInt)
 				}
@@ -66,7 +66,7 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 func validateOrmMysqlURI(registry *Registry, value interface{}, key string) {
 	asString, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("mysql uri: %v", value))
+		panic(errors.NotValidf("mysql uri '%v'", value))
 	}
 	registry.RegisterMySQLPool(asString, key)
 }
@@ -74,7 +74,7 @@ func validateOrmMysqlURI(registry *Registry, value interface{}, key string) {
 func validateElasticURI(registry *Registry, value interface{}, key string, withTrace bool) {
 	asString, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("elastic uri: %v", value))
+		panic(errors.NotValidf("elastic uri '%v'", value))
 	}
 	if withTrace {
 		registry.RegisterElasticWithTraceLog(asString, key)
@@ -86,7 +86,7 @@ func validateElasticURI(registry *Registry, value interface{}, key string, withT
 func validateClickHouseURI(registry *Registry, value interface{}, key string) {
 	asString, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("click house uri: %v", value))
+		panic(errors.NotValidf("click house uri '%v'", value))
 	}
 	registry.RegisterClickHouse(asString, key)
 }
@@ -101,30 +101,29 @@ func validateRedisURI(registry *Registry, value interface{}, key string) {
 			for i, row := range asStrings {
 				elements := strings.Split(row.(string), ":")
 				if len(elements) < 2 {
-					panic(errors.NotValidf("redis uri: %v", value))
+					panic(errors.NotValidf("redis uri '%v'", row))
 				}
 				if len(elements) == 3 {
 					dbUser, err := strconv.ParseUint(elements[2], 10, 64)
 					if err != nil {
-						panic(errors.NotValidf("redis DB id: %v", value))
+						panic(errors.NotValidf("redis uri '%v'", row))
 					}
 					db = dbUser
 				}
 				uris[i] = fmt.Sprintf("%s:%s", elements[0], elements[1])
 			}
 			registry.RegisterRedisRing(uris, int(db), key)
-
 			return
 		}
-		panic(errors.NotValidf("redis uri: %v", value))
+		panic(errors.NotValidf("redis uri '%v'", value))
 	}
 	elements := strings.Split(asString, ":")
 	if len(elements) != 3 {
-		panic(errors.NotValidf("redis uri: %v", value))
+		panic(errors.NotValidf("redis uri '%v'", value))
 	}
 	db, err := strconv.ParseUint(elements[2], 10, 64)
 	if err != nil {
-		panic(errors.NotValidf("redis DB id: %v", value))
+		panic(errors.NotValidf("redis uri '%v'", value))
 	}
 	uri := fmt.Sprintf("%s:%s", elements[0], elements[1])
 	registry.RegisterRedis(uri, int(db), key)
@@ -150,35 +149,35 @@ func getIntOptional(data map[interface{}]interface{}, key string, defaultValue i
 func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 	def, ok := value.(map[interface{}]interface{})
 	if !ok {
-		panic(errors.NotValidf("rabbitMQ definition: %s", key))
+		panic(errors.NotValidf("rabbitMQ definition `%s`", key))
 	}
 	value, has := def["server"]
 	if !has {
-		panic(errors.NotFoundf("rabbitMQ server definition: %s", key))
+		panic(errors.NotFoundf("rabbitMQ server definition '%s'", key))
 	}
 	poolName, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("rabbitMQ server definition: %s", key))
+		panic(errors.NotValidf("rabbitMQ server definition '%s'", key))
 	}
 	registry.RegisterRabbitMQServer(poolName, key)
 	value, has = def["queues"]
 	if has {
 		asSlice, ok := value.([]interface{})
 		if !ok {
-			panic(errors.NotValidf("rabbitMQ queues definition: %s", key))
+			panic(errors.NotValidf("rabbitMQ queues definition '%s'", key))
 		}
 		for _, channel := range asSlice {
 			asMap, ok := channel.(map[interface{}]interface{})
 			if !ok {
-				panic(errors.NotValidf("rabbitMQ queues definition: %s", key))
+				panic(errors.NotValidf("rabbitMQ queues definition '%s'", key))
 			}
 			name, has := asMap["name"]
 			if !has {
-				panic(errors.NotFoundf("rabbitMQ channel name: %s", key))
+				panic(errors.NotFoundf("rabbitMQ channel name '%s'", key))
 			}
 			asString, ok := name.(string)
 			if !ok {
-				panic(errors.NotValidf("rabbitMQ channel name: %s", key))
+				panic(errors.NotValidf("rabbitMQ channel name '%s'", key))
 			}
 			durable := getBoolOptional(asMap, "durable", true)
 			autoDeleted := getBoolOptional(asMap, "autodelete", false)
@@ -188,7 +187,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			if has {
 				asString, ok := routerVal.(string)
 				if !ok {
-					panic(errors.NotValidf("rabbitMQ router name: %s", key))
+					panic(errors.NotValidf("rabbitMQ router name '%s'", key))
 				}
 				router = asString
 			}
@@ -197,12 +196,12 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			if has {
 				asSlice, ok := routerVal.([]interface{})
 				if !ok {
-					panic(errors.NotValidf("rabbitMQ router keys: %s", key))
+					panic(errors.NotValidf("rabbitMQ router keys '%s'", key))
 				}
 				for _, val := range asSlice {
 					asString, ok := val.(string)
 					if !ok {
-						panic(errors.NotValidf("rabbitMQ router key: %s", key))
+						panic(errors.NotValidf("rabbitMQ router key '%s'", key))
 					}
 					routerKeys = append(routerKeys, asString)
 				}
@@ -217,28 +216,28 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 	if has {
 		asSlice, ok := value.([]interface{})
 		if !ok {
-			panic(errors.NotValidf("rabbitMQ routers definition: %s", key))
+			panic(errors.NotValidf("rabbitMQ routers definition `%s`", key))
 		}
 		for _, router := range asSlice {
 			asMap, ok := router.(map[interface{}]interface{})
 			if !ok {
-				panic(errors.NotValidf("rabbitMQ router definition: %s", key))
+				panic(errors.NotValidf("rabbitMQ router definition '%s'", key))
 			}
 			value, has := asMap["name"]
 			if !has {
-				panic(errors.NotValidf("rabbitMQ router name: %s", key))
+				panic(errors.NotFoundf("rabbitMQ router name '%s'", key))
 			}
 			nameAsString, ok := value.(string)
 			if !ok {
-				panic(errors.NotValidf("rabbitMQ router name: %s", key))
+				panic(errors.NotValidf("rabbitMQ router name '%s'", key))
 			}
 			value, has = asMap["type"]
 			if !has {
-				panic(errors.NotFoundf("rabbitMQ router type: %s", key))
+				panic(errors.NotFoundf("rabbitMQ router type '%s'", key))
 			}
 			typeAsString, ok := value.(string)
 			if !ok {
-				panic(errors.NotValidf("rabbitMQ router type: %s", key))
+				panic(errors.NotValidf("rabbitMQ router type '%s'", key))
 			}
 			durable := getBoolOptional(asMap, "durable", true)
 			config := &RabbitMQRouterConfig{nameAsString, typeAsString, durable}
