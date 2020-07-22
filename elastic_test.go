@@ -9,7 +9,6 @@ import (
 )
 
 func TestElastic(t *testing.T) {
-	t.SkipNow()
 	registry := &Registry{}
 	registry.RegisterElastic("http://127.0.0.1:9207")
 	engine := PrepareTables(t, registry)
