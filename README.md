@@ -924,11 +924,44 @@ import (
 )
 
 func main() {
+
+    type TestIndex struct {
+    }
     
-    // register elastic search pool
+    func (i *TestIndex) GetName() string {
+    	return "test_index"
+    }
+    
+    func (i *TestIndex) GetDefinition() map[string]interface{} {
+        return map[string]interface{}{
+            "settings": map[string]interface{}{
+                "number_of_replicas": "1",
+                "number_of_shards":   "1",
+            },
+            "mappings": map[string]interface{}{
+                "properties": map[string]interface{}{
+                    "Name": map[string]interface{}{
+                        "type":       "keyword",
+                        "normalizer": "case_insensitive",
+                    },
+                },
+            },
+        }
+    }
+
+    
+    // register elastic search pool and index
     registry.RegisterElastic("http://127.0.0.1:9200")
+    registry.RegisterElasticIndex(&TestIndex{})
+
 
     e := engine.GetElastic()
+
+    // create indices
+	for _, alter := range engine.GetElasticIndexAlters() {
+        // alter.Safe is true if index does not exists or is not empty
+		engine.GetElastic(alter.Pool).CreateIndex(alter.Index)
+	}
 
     query := elastic.NewBoolQuery()
 	query.Must(elastic.NewTermQuery("user_id", 12))

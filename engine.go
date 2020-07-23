@@ -410,6 +410,10 @@ func (e *Engine) GetAlters() (alters []Alter) {
 	return getAlters(e)
 }
 
+func (e *Engine) GetElasticIndexAlters() (alters []ElasticIndexAlter) {
+	return getElasticIndexAlters(e)
+}
+
 func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) {
 	if e.trackedEntitiesCounter == 0 {
 		return

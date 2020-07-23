@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *Engine {
+func PrepareTables(t *testing.T, registry *Registry, entities ...Entity) *Engine {
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3310)/test")
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3310)/test_log", "log")
 	registry.RegisterRedis("localhost:6380", 15)
@@ -31,6 +31,12 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...interface{}) *E
 	for _, alter := range alters {
 		pool := engine.GetMysql(alter.Pool)
 		pool.Exec(alter.SQL)
+	}
+
+	altersElastic := engine.GetElasticIndexAlters()
+	for _, alter := range altersElastic {
+		pool := engine.GetElastic(alter.Pool)
+		pool.CreateIndex(alter.Index)
 	}
 
 	for _, entity := range entities {

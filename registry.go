@@ -28,6 +28,7 @@ type Registry struct {
 	rabbitMQQueues       map[string][]*RabbitMQQueueConfig
 	rabbitMQRouters      map[string][]*RabbitMQRouterConfig
 	entities             map[string]reflect.Type
+	elasticIndices       map[string]map[string]ElasticIndexDefinition
 	enums                map[string]Enum
 	dirtyQueues          map[string]int
 	locks                map[string]string
@@ -273,7 +274,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	return registry, err
 }
 
-func (r *Registry) RegisterEntity(entity ...interface{}) {
+func (r *Registry) RegisterEntity(entity ...Entity) {
 	if r.entities == nil {
 		r.entities = make(map[string]reflect.Type)
 	}
@@ -284,6 +285,20 @@ func (r *Registry) RegisterEntity(entity ...interface{}) {
 		}
 		r.entities[t.String()] = t
 	}
+}
+
+func (r *Registry) RegisterElasticIndex(index ElasticIndexDefinition, serverPool ...string) {
+	if r.elasticIndices == nil {
+		r.elasticIndices = make(map[string]map[string]ElasticIndexDefinition)
+	}
+	pool := "default"
+	if len(serverPool) > 0 {
+		pool = serverPool[0]
+	}
+	if r.elasticIndices[pool] == nil {
+		r.elasticIndices[pool] = make(map[string]ElasticIndexDefinition)
+	}
+	r.elasticIndices[pool][index.GetName()] = index
 }
 
 func (r *Registry) RegisterEnumStruct(code string, val Enum) {

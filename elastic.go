@@ -2,9 +2,12 @@ package orm
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	log2 "github.com/apex/log"
 
@@ -13,6 +16,17 @@ import (
 
 const counterElasticAll = "elastic.all"
 const counterElasticSearch = "elastic.search"
+
+type ElasticIndexDefinition interface {
+	GetName() string
+	GetDefinition() map[string]interface{}
+}
+
+type ElasticIndexAlter struct {
+	Index ElasticIndexDefinition
+	Safe  bool
+	Pool  string
+}
 
 type ElasticSort struct {
 	fields []string
@@ -79,6 +93,25 @@ func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, sort *
 	return result
 }
 
+func (e *Elastic) CreateIndex(index ElasticIndexDefinition) {
+	ctx := context.Background()
+
+	existService := elastic.NewIndicesExistsService(e.client)
+	existService.Index([]string{index.GetName()})
+	indexExists, err := existService.Do(ctx)
+	checkError(err)
+	if indexExists {
+		_, err := e.client.DeleteIndex(index.GetName()).Do(ctx)
+		checkError(err)
+	}
+
+	createIndex, err := e.client.CreateIndex(index.GetName()).BodyJson(index.GetDefinition()).Do(ctx)
+	checkError(err)
+	if !createIndex.Acknowledged {
+		panic(errors.New("create index  not acknowledged"))
+	}
+}
+
 func (e *Elastic) fillLogFields(message string, start time.Time, operation string, fields log2.Fielder, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
@@ -96,5 +129,45 @@ func (e *Elastic) fillLogFields(message string, start time.Time, operation strin
 		injectLogError(err, entry).Error(message)
 	} else {
 		entry.Info(message)
+	}
+}
+
+func getElasticIndexAlters(engine *Engine) (alters []ElasticIndexAlter) {
+	alters = make([]ElasticIndexAlter, 0)
+	if engine.registry.registry.elasticIndices == nil {
+		return alters
+	}
+	ctx := context.Background()
+	for pool, indices := range engine.registry.registry.elasticIndices {
+		existService := elastic.NewIndicesExistsService(engine.GetElastic(pool).client)
+		for name, index := range indices {
+			existService.Index([]string{name})
+			indexExists, err := existService.Do(ctx)
+			checkError(err)
+			if !indexExists {
+				alters = append(alters, ElasticIndexAlter{Index: index, Safe: true, Pool: pool})
+				continue
+			}
+			getIndexSettingService := elastic.NewIndicesGetSettingsService(engine.GetElastic(pool).client)
+			getIndexSettingService.Index(name)
+			currentSettings, err := getIndexSettingService.Do(ctx)
+			checkError(err)
+
+			delete(currentSettings[name].Settings["index"].(map[string]interface{}), "creation_date")
+			delete(currentSettings[name].Settings["index"].(map[string]interface{}), "provided_name")
+			delete(currentSettings[name].Settings["index"].(map[string]interface{}), "uuid")
+			delete(currentSettings[name].Settings["index"].(map[string]interface{}), "version")
+			def := index.GetDefinition()
+			if !cmp.Equal(def["mappings"], def["mappings"]) || !cmp.Equal(def["settings"], currentSettings[name].Settings["index"]) {
+				alters = append(alters, ElasticIndexAlter{Index: index, Safe: false, Pool: pool})
+			}
+		}
+	}
+	return alters
+}
+
+func checkError(err error) {
+	if err != nil {
+		panic(err)
 	}
 }
