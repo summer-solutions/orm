@@ -47,16 +47,11 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 		if err == redislock.ErrNotObtained {
 			return nil, false
 		}
-		if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-			l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", err)
-		}
-		l.engine.dataDog.incrementCounter(counterRedisAll, 1)
-		l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
-		panic(err)
 	}
 	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", nil)
+		l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", err)
 	}
+	checkError(err)
 	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
 	return &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}, true
