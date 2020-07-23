@@ -18,7 +18,6 @@ func TestLocker(t *testing.T) {
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
 	engine.GetRedis().FlushDB()
-
 	testLogger := memory.New()
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceRedis)
 
