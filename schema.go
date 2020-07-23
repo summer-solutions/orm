@@ -153,24 +153,18 @@ func isTableEmptyInPool(engine *Engine, poolName string, tableName string) bool 
 func getAllTables(db sqlClient) []string {
 	tables := make([]string, 0)
 	results, err := db.Query("SHOW TABLES")
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	defer func() {
 		_ = results.Close()
 	}()
 	for results.Next() {
 		var row string
 		err = results.Scan(&row)
-		if err != nil {
-			panic(err)
-		}
+		checkError(err)
 		tables = append(tables, row)
 	}
 	err = results.Err()
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return tables
 }
 

@@ -92,9 +92,7 @@ func (l *Lock) TTL() time.Duration {
 	}
 	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	l.engine.dataDog.incrementCounter(counterRedisLockTTL, 1)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return d
 }
 

@@ -257,16 +257,11 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 					r := engine.GetRabbitMQQueue(code)
 					receiver := r.initChannel(config.config.Name, false)
 					err := receiver.Close()
-					if err != nil {
-						panic(err)
-					}
+					checkError(err)
 				} else {
 					r := engine.GetRabbitMQRouter(code)
 					receiver := r.initChannel(config.config.Name, false)
-					err := receiver.Close()
-					if err != nil {
-						panic(err)
-					}
+					checkError(receiver.Close())
 				}
 			}
 		}()
@@ -489,9 +484,7 @@ func (r *Registry) registerElastic(url string, withTrace bool, code ...string) {
 	client, err := elastic.NewClient(
 		clientOptions...,
 	)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]

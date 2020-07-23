@@ -3,12 +3,16 @@ package orm
 import (
 	"testing"
 
+	apexLog "github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/olivere/elastic/v7"
 
 	"github.com/stretchr/testify/assert"
 )
 
 type TestIndex struct {
+	Definition map[string]interface{}
 }
 
 func (i *TestIndex) GetName() string {
@@ -16,7 +20,14 @@ func (i *TestIndex) GetName() string {
 }
 
 func (i *TestIndex) GetDefinition() map[string]interface{} {
-	return map[string]interface{}{
+	return i.Definition
+}
+
+func TestElastic(t *testing.T) {
+	registry := &Registry{}
+	registry.RegisterElastic("http://127.0.0.1:9207")
+	index := &TestIndex{}
+	index.Definition = map[string]interface{}{
 		"settings": map[string]interface{}{
 			"search": map[string]interface{}{
 				"idle": map[string]interface{}{
@@ -44,16 +55,47 @@ func (i *TestIndex) GetDefinition() map[string]interface{} {
 			},
 		},
 	}
-}
 
-func TestElastic(t *testing.T) {
-	registry := &Registry{}
-	registry.RegisterElastic("http://127.0.0.1:9207")
-	registry.RegisterElasticIndex(&TestIndex{})
+	registry.RegisterElasticIndex(index)
 	engine := PrepareTables(t, registry)
+
+	testLogger := memory.New()
+	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceElastic)
+
 	e := engine.GetElastic()
+	assert.NotNil(t, e.Client())
 	query := elastic.NewBoolQuery()
 	query.Must(elastic.NewTermQuery("category", "test"))
-	res := e.Search("test_index", query, NewPager(1, 10), nil)
+	sort := ElasticSort{}
+	sort.Add("Name", true)
+	res := e.Search("test_index", query, NewPager(1, 10), &sort)
 	assert.NotNil(t, res)
+
+	sort = ElasticSort{}
+	sort.Add("Name", false)
+	res = e.Search("test_index", query, NewPager(1, 10), &sort)
+	assert.NotNil(t, res)
+
+	sort = ElasticSort{}
+	sort.Add("Invalid", false)
+	assert.Panics(t, func() {
+		e.Search("test_index", query, NewPager(1, 10), &sort)
+	})
+
+	alters := engine.GetElasticIndexAlters()
+	assert.Len(t, alters, 0)
+	e.DropIndex(index)
+	alters = engine.GetElasticIndexAlters()
+	assert.Len(t, alters, 1)
+	assert.True(t, alters[0].Safe)
+	e.CreateIndex(index)
+	alters = engine.GetElasticIndexAlters()
+	assert.Len(t, alters, 0)
+
+	index.Definition["mappings"].(map[string]interface{})["properties"].(map[string]interface{})["LastName"] = map[string]interface{}{
+		"type":       "keyword",
+		"normalizer": "case_insensitive",
+	}
+	alters = engine.GetElasticIndexAlters()
+	assert.Len(t, alters, 1)
 }

@@ -57,9 +57,7 @@ func (c *ClickHouse) Queryx(query string, args ...interface{}) (rows *sqlx.Rows,
 	}
 	c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 	c.engine.dataDog.incrementCounter(counterClickHouseQuery, 1)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return rows, func() {
 		if rows != nil {
 			_ = rows.Close()
@@ -78,9 +76,7 @@ func (c *ClickHouse) Begin() {
 		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 		c.engine.dataDog.incrementCounter(counterClickHouseTransaction, 1)
 	}
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	c.tx = tx
 }
 
@@ -94,9 +90,7 @@ func (c *ClickHouse) Commit() {
 		c.fillLogFields("[ORM][CLICKHOUSE][COMMIT]", start, "transaction", "COMMIT TRANSACTION", nil, err)
 		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 	}
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	c.tx = nil
 }
 
@@ -110,9 +104,7 @@ func (c *ClickHouse) Rollback() {
 		c.fillLogFields("[ORM][CLICKHOUSE][ROLLBACK]", start, "transaction", "ROLLBACK TRANSACTION", nil, err)
 		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 	}
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	c.tx = nil
 }
 
@@ -130,9 +122,7 @@ func (p *PreparedStatement) Exec(args ...interface{}) sql.Result {
 		p.c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 		p.c.engine.dataDog.incrementCounter(counterClickHouseExec, 1)
 	}
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return results
 }
 
@@ -150,14 +140,10 @@ func (c *ClickHouse) Prepare(query string) (prpeparedStatement *PreparedStatemen
 		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 		c.engine.dataDog.incrementCounter(counterClickHouseExec, 1)
 	}
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return &PreparedStatement{c: c, statement: statement, query: query}, func() {
 		err := statement.Close()
-		if err != nil {
-			panic(err)
-		}
+		checkError(err)
 	}
 }
 

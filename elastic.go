@@ -2,7 +2,6 @@ package orm
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"strings"
 	"time"
@@ -87,13 +86,11 @@ func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, sort *
 	}
 	e.engine.dataDog.incrementCounter(counterElasticAll, 1)
 	e.engine.dataDog.incrementCounter(counterElasticSearch, 1)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return result
 }
 
-func (e *Elastic) CreateIndex(index ElasticIndexDefinition) {
+func (e *Elastic) DropIndex(index ElasticIndexDefinition) {
 	ctx := context.Background()
 
 	existService := elastic.NewIndicesExistsService(e.client)
@@ -104,12 +101,13 @@ func (e *Elastic) CreateIndex(index ElasticIndexDefinition) {
 		_, err := e.client.DeleteIndex(index.GetName()).Do(ctx)
 		checkError(err)
 	}
+}
 
-	createIndex, err := e.client.CreateIndex(index.GetName()).BodyJson(index.GetDefinition()).Do(ctx)
+func (e *Elastic) CreateIndex(index ElasticIndexDefinition) {
+	ctx := context.Background()
+	e.DropIndex(index)
+	_, err := e.client.CreateIndex(index.GetName()).BodyJson(index.GetDefinition()).Do(ctx)
 	checkError(err)
-	if !createIndex.Acknowledged {
-		panic(errors.New("create index  not acknowledged"))
-	}
 }
 
 func (e *Elastic) fillLogFields(message string, start time.Time, operation string, fields log2.Fielder, err error) {
@@ -134,32 +132,38 @@ func (e *Elastic) fillLogFields(message string, start time.Time, operation strin
 
 func getElasticIndexAlters(engine *Engine) (alters []ElasticIndexAlter) {
 	alters = make([]ElasticIndexAlter, 0)
-	if engine.registry.registry.elasticIndices == nil {
-		return alters
-	}
-	ctx := context.Background()
-	for pool, indices := range engine.registry.registry.elasticIndices {
-		existService := elastic.NewIndicesExistsService(engine.GetElastic(pool).client)
-		for name, index := range indices {
-			existService.Index([]string{name})
-			indexExists, err := existService.Do(ctx)
-			checkError(err)
-			if !indexExists {
-				alters = append(alters, ElasticIndexAlter{Index: index, Safe: true, Pool: pool})
-				continue
-			}
-			getIndexSettingService := elastic.NewIndicesGetSettingsService(engine.GetElastic(pool).client)
-			getIndexSettingService.Index(name)
-			currentSettings, err := getIndexSettingService.Do(ctx)
-			checkError(err)
+	if engine.registry.registry.elasticIndices != nil {
+		ctx := context.Background()
+		for pool, indices := range engine.registry.registry.elasticIndices {
+			existService := elastic.NewIndicesExistsService(engine.GetElastic(pool).client)
+			for name, index := range indices {
+				existService.Index([]string{name})
+				indexExists, err := existService.Do(ctx)
+				checkError(err)
+				if !indexExists {
+					alters = append(alters, ElasticIndexAlter{Index: index, Safe: true, Pool: pool})
+					continue
+				}
+				getMappingService := elastic.NewGetMappingService(engine.GetElastic(pool).client)
+				getMappingService.Index(name)
+				currentMapping, err := getMappingService.Do(ctx)
+				checkError(err)
 
-			delete(currentSettings[name].Settings["index"].(map[string]interface{}), "creation_date")
-			delete(currentSettings[name].Settings["index"].(map[string]interface{}), "provided_name")
-			delete(currentSettings[name].Settings["index"].(map[string]interface{}), "uuid")
-			delete(currentSettings[name].Settings["index"].(map[string]interface{}), "version")
-			def := index.GetDefinition()
-			if !cmp.Equal(def["mappings"], def["mappings"]) || !cmp.Equal(def["settings"], currentSettings[name].Settings["index"]) {
-				alters = append(alters, ElasticIndexAlter{Index: index, Safe: false, Pool: pool})
+				currentMappingIndex := currentMapping[name].(map[string]interface{})
+				getIndexSettingService := elastic.NewIndicesGetSettingsService(engine.GetElastic(pool).client)
+				getIndexSettingService.Index(name)
+				currentSettings, err := getIndexSettingService.Do(ctx)
+				checkError(err)
+
+				delete(currentSettings[name].Settings["index"].(map[string]interface{}), "creation_date")
+				delete(currentSettings[name].Settings["index"].(map[string]interface{}), "provided_name")
+				delete(currentSettings[name].Settings["index"].(map[string]interface{}), "uuid")
+				delete(currentSettings[name].Settings["index"].(map[string]interface{}), "version")
+				definition := index.GetDefinition()
+				if !cmp.Equal(definition["mappings"], currentMappingIndex["mappings"]) ||
+					!cmp.Equal(definition["settings"], currentSettings[name].Settings["index"]) {
+					alters = append(alters, ElasticIndexAlter{Index: index, Safe: false, Pool: pool})
+				}
 			}
 		}
 	}

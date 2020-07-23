@@ -50,9 +50,7 @@ func (r *rabbitMQReceiver) DisableLoop() {
 
 func (r *rabbitMQReceiver) Purge() {
 	_, err := r.channel.QueuePurge(r.parent.config.Name, false)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 }
 
 func (r *rabbitMQReceiver) SetMaxLoopDuration(duration time.Duration) {
@@ -81,9 +79,7 @@ func (r *rabbitMQReceiver) consume() (<-chan amqp.Delivery, error) {
 
 func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 	delivery, err := r.consume()
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 
 	max := r.parent.config.PrefetchCount
 	if max <= 0 {
@@ -111,9 +107,7 @@ func (r *rabbitMQReceiver) Consume(handler func(items [][]byte)) {
 			r.parent.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 			r.parent.engine.dataDog.incrementCounter(counterRabbitMQACK, 1)
 			r.parent.engine.dataDog.incrementCounter(counterRabbitMQReceive, uint(len(items)))
-			if err != nil {
-				panic(err)
-			}
+			checkError(err)
 			counter = 0
 			if r.disableLoop {
 				if r.heartBeat != nil {
@@ -180,9 +174,7 @@ func (r *rabbitMQConnection) connect(sender bool, engine *Engine) {
 	}
 	engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 	engine.dataDog.incrementCounter(counterRabbitMQConnect, 1)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	if sender {
 		r.clientSender = conn
 	} else {
@@ -324,9 +316,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) *amqp.Chann
 		}
 		r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 		r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
-		if err != nil {
-			panic(err)
-		}
+		checkError(err)
 		if sender {
 			return channel
 		}
@@ -339,9 +329,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) *amqp.Chann
 	}
 	r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 	r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	if hasRouter {
 		keys := r.config.RouterKeys
 		if len(keys) == 0 {
@@ -356,9 +344,7 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) *amqp.Chann
 			}
 			r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 			r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
-			if err != nil {
-				panic(err)
-			}
+			checkError(err)
 		}
 	}
 	errChannel := make(chan amqp.Return)
@@ -385,9 +371,7 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 			r.connection.muxSender = sync.Once{}
 			r.initChannelSender()
 			err = r.connection.channelSender.Publish(r.config.Router, routingKey, mandatory, immediate, msg)
-			if err != nil {
-				panic(err)
-			}
+			checkError(err)
 		}
 	}
 	if r.engine.queryLoggers[QueryLoggerSourceRabbitMQ] != nil {
@@ -401,9 +385,7 @@ func (r *rabbitMQChannel) publish(mandatory, immediate bool, routingKey string, 
 	}
 	r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 	r.engine.dataDog.incrementCounter(counterRabbitMQPublish, 1)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 }
 
 func fillRabbitMQLogFields(engine *Engine, message string, start time.Time, operation string, fields map[string]interface{}, err error) {

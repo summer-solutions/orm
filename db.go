@@ -31,17 +31,13 @@ type execResult struct {
 
 func (e *execResult) LastInsertId() uint64 {
 	id, err := e.r.LastInsertId()
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return uint64(id)
 }
 
 func (e *execResult) RowsAffected() uint64 {
 	id, err := e.r.RowsAffected()
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return uint64(id)
 }
 
@@ -173,17 +169,13 @@ func (r *rowsStruct) Next() bool {
 
 func (r *rowsStruct) Columns() []string {
 	columns, err := r.sqlRows.Columns()
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return columns
 }
 
 func (r *rowsStruct) Scan(dest ...interface{}) {
 	err := r.sqlRows.Scan(dest...)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 }
 
 type SQLRow interface {
@@ -214,9 +206,7 @@ func (db *DB) Begin() {
 		db.engine.dataDog.incrementCounter(counterDBAll, 1)
 		db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	}
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 }
 
 func (db *DB) Commit() {
@@ -227,9 +217,7 @@ func (db *DB) Commit() {
 	}
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
 	db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	if db.engine.afterCommitLocalCacheSets != nil {
 		for cacheCode, pairs := range db.engine.afterCommitLocalCacheSets {
 			cache := db.engine.GetLocalCache(cacheCode)
@@ -310,19 +298,13 @@ func (db *DB) Query(query string, args ...interface{}) (rows Rows, deferF func()
 	}
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
 	db.engine.dataDog.incrementCounter(counterDBQuery, 1)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 	return &rowsStruct{result}, func() {
 		if result != nil {
 			err := result.Err()
-			if err != nil {
-				panic(err)
-			}
+			checkError(err)
 			err = result.Close()
-			if err != nil {
-				panic(err)
-			}
+			checkError(err)
 		}
 	}
 }
