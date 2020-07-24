@@ -53,14 +53,14 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		}
 	}
 	if orm.attributes == nil {
-		return errors.NotValidf("entity is not loaded")
+		return errors.New("entity is not loaded")
 	}
 	f := orm.attributes.elem.FieldByName(field)
 	if !f.IsValid() {
 		return errors.NotFoundf("field %s", field)
 	}
 	if !f.CanSet() {
-		return errors.NotAssignedf("field %s", field)
+		return fmt.Errorf("field %s is not public", field)
 	}
 	typeName := f.Type().String()
 	switch typeName {
@@ -85,12 +85,27 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		"*uint64":
 		if value != nil {
 			val := uint64(0)
-			parsed, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
+			parsed, err := strconv.ParseUint(fmt.Sprintf("%v", reflect.Indirect(reflect.ValueOf(value)).Interface()), 10, 64)
 			if err != nil {
 				return errors.NotValidf("%s value %v", field, value)
 			}
 			val = parsed
-			f.SetUint(val)
+			switch typeName {
+			case "*uint":
+				v := uint(val)
+				f.Set(reflect.ValueOf(&v))
+			case "*uint8":
+				v := uint8(val)
+				f.Set(reflect.ValueOf(&v))
+			case "*uint16":
+				v := uint16(val)
+				f.Set(reflect.ValueOf(&v))
+			case "*uint32":
+				v := uint32(val)
+				f.Set(reflect.ValueOf(&v))
+			default:
+				f.Set(reflect.ValueOf(&val))
+			}
 		} else {
 			f.Set(reflect.Zero(f.Type()))
 		}
@@ -115,12 +130,27 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		"*int64":
 		if value != nil {
 			val := int64(0)
-			parsed, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
+			parsed, err := strconv.ParseInt(fmt.Sprintf("%v", reflect.Indirect(reflect.ValueOf(value)).Interface()), 10, 64)
 			if err != nil {
 				return errors.NotValidf("%s value %v", field, value)
 			}
 			val = parsed
-			f.SetInt(val)
+			switch typeName {
+			case "*int":
+				v := int(val)
+				f.Set(reflect.ValueOf(&v))
+			case "*int8":
+				v := int8(val)
+				f.Set(reflect.ValueOf(&v))
+			case "*int16":
+				v := int16(val)
+				f.Set(reflect.ValueOf(&v))
+			case "*int32":
+				v := int32(val)
+				f.Set(reflect.ValueOf(&v))
+			default:
+				f.Set(reflect.ValueOf(&val))
+			}
 		} else {
 			f.Set(reflect.Zero(f.Type()))
 		}
@@ -161,11 +191,11 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			f.Set(reflect.Zero(f.Type()))
 		} else {
 			val := false
-			asString := strings.ToLower(fmt.Sprintf("%v", value))
+			asString := strings.ToLower(fmt.Sprintf("%v", reflect.Indirect(reflect.ValueOf(value)).Interface()))
 			if asString == "true" || asString == "1" {
 				val = true
 			}
-			f.SetBool(val)
+			f.Set(reflect.ValueOf(&val))
 		}
 	case "float32",
 		"float64":
@@ -186,14 +216,14 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			f.Set(reflect.Zero(f.Type()))
 		} else {
 			val := float64(0)
-			valueString := fmt.Sprintf("%v", value)
+			valueString := fmt.Sprintf("%v", reflect.Indirect(reflect.ValueOf(value)).Interface())
 			valueString = strings.ReplaceAll(valueString, ",", ".")
 			parsed, err := strconv.ParseFloat(valueString, 64)
 			if err != nil {
 				return errors.NotValidf("%s value %v", field, value)
 			}
 			val = parsed
-			f.SetFloat(val)
+			f.Set(reflect.ValueOf(&val))
 		}
 	case "*time.Time":
 		_, ok := value.(*time.Time)
