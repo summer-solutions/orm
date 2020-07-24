@@ -219,11 +219,15 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			f.Set(reflect.ValueOf(&val))
 		}
 	case "*time.Time":
-		_, ok := value.(*time.Time)
-		if !ok {
-			return errors.NotValidf("%s value %v", field, value)
+		if value == nil {
+			f.Set(reflect.Zero(f.Type()))
+		} else {
+			_, ok := value.(*time.Time)
+			if !ok {
+				return errors.NotValidf("%s value %v", field, value)
+			}
+			f.Set(reflect.ValueOf(value))
 		}
-		f.Set(reflect.ValueOf(value))
 	case "time.Time":
 		_, ok := value.(time.Time)
 		if !ok {
@@ -231,11 +235,15 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		}
 		f.Set(reflect.ValueOf(value))
 	case "interface {}":
-		f.Set(reflect.ValueOf(value))
+		if value == nil {
+			f.Set(reflect.Zero(f.Type()))
+		} else {
+			f.Set(reflect.ValueOf(value))
+		}
 	default:
 		k := f.Type().Kind().String()
 		if k == "struct" {
-			return errors.NotSupportedf("%s", field)
+			return errors.NotSupportedf("field %s", field)
 		} else if k == "ptr" {
 			modelType := reflect.TypeOf((*Entity)(nil)).Elem()
 			if f.Type().Implements(modelType) {
@@ -248,10 +256,10 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 					} else {
 						id, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
 						if err != nil {
-							return errors.NotValidf("%s", field)
+							return errors.NotValidf("%s value %v", field, value)
 						}
 						if id == 0 {
-							f.Set(reflect.ValueOf(asEntity))
+							f.Set(reflect.Zero(f.Type()))
 						} else {
 							val := reflect.New(f.Type().Elem())
 							val.Elem().FieldByName("ID").SetUint(id)
@@ -259,9 +267,11 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 						}
 					}
 				}
+			} else {
+				return errors.NotSupportedf("field %s", field)
 			}
 		} else {
-			return errors.NotSupportedf("%s", field)
+			return errors.NotSupportedf("field %s", field)
 		}
 	}
 	return nil

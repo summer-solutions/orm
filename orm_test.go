@@ -2,9 +2,18 @@ package orm
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type ormEntityStruct struct {
+}
+
+type ormEntityRef struct {
+	ORM
+	ID uint
+}
 
 type ormEntity struct {
 	ORM
@@ -29,11 +38,18 @@ type ormEntity struct {
 	BoolNullable   *bool
 	Float          float32
 	FloatNullable  *float64
+	TimeNullable   *time.Time
+	Time           time.Time
+	Interface      interface{}
+	Ref            *ormEntityRef
+	NotSupported   map[string]string `orm:"ignore"`
+	Struct         ormEntityStruct   `orm:"ignore"`
+	StructPtr      *ormEntityStruct  `orm:"ignore"`
 }
 
 func TestORM(t *testing.T) {
 	var entity *ormEntity
-	engine := PrepareTables(t, &Registry{}, entity)
+	engine := PrepareTables(t, &Registry{}, entity, &ormEntityRef{})
 
 	entity = &ormEntity{nameUnset: ""}
 	id := entity.GetID()
@@ -174,4 +190,57 @@ func TestORM(t *testing.T) {
 	assert.Nil(t, entity.FloatNullable)
 	err = entity.SetField("FloatNullable", "hello")
 	assert.EqualError(t, err, "FloatNullable value hello not valid")
+
+	timeNullable := time.Now()
+	err = entity.SetField("TimeNullable", &timeNullable)
+	assert.NoError(t, err)
+	assert.Equal(t, &timeNullable, entity.TimeNullable)
+	err = entity.SetField("TimeNullable", nil)
+	assert.NoError(t, err)
+	assert.Nil(t, entity.TimeNullable)
+	err = entity.SetField("TimeNullable", "hello")
+	assert.EqualError(t, err, "TimeNullable value hello not valid")
+
+	timeNotNull := time.Now()
+	err = entity.SetField("Time", timeNotNull)
+	assert.NoError(t, err)
+	assert.Equal(t, timeNotNull, entity.Time)
+	err = entity.SetField("Time", "hello")
+	assert.EqualError(t, err, "Time value hello not valid")
+
+	val := map[string]string{"a": "b"}
+	err = entity.SetField("Interface", val)
+	assert.NoError(t, err)
+	assert.Equal(t, val, entity.Interface)
+	err = entity.SetField("Interface", nil)
+	assert.NoError(t, err)
+	assert.Nil(t, entity.Interface)
+
+	err = entity.SetField("NotSupported", "hello")
+	assert.EqualError(t, err, "field NotSupported not supported")
+
+	err = entity.SetField("Struct", "hello")
+	assert.EqualError(t, err, "field Struct not supported")
+
+	err = entity.SetField("StructPtr", "hello")
+	assert.EqualError(t, err, "field StructPtr not supported")
+
+	ref := &ormEntityRef{}
+	engine.TrackAndFlush(ref)
+
+	err = entity.SetField("Ref", ref)
+	assert.NoError(t, err)
+	assert.Equal(t, ref, entity.Ref)
+	err = entity.SetField("Ref", "hello")
+	assert.EqualError(t, err, "Ref value hello not valid")
+	err = entity.SetField("Ref", nil)
+	assert.NoError(t, err)
+	assert.Nil(t, entity.Ref)
+	err = entity.SetField("Ref", 0)
+	assert.NoError(t, err)
+	assert.Nil(t, entity.Ref)
+	err = entity.SetField("Ref", 1)
+	assert.NoError(t, err)
+	assert.NotNil(t, entity.Ref)
+	assert.Equal(t, uint(1), entity.Ref.ID)
 }
