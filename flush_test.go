@@ -204,4 +204,10 @@ func TestFlush(t *testing.T) {
 	engine.TrackAndFlush(referenceCascade)
 	found = engine.LoadByID(1, referenceCascade)
 	assert.False(t, found)
+
+	engine.TrackAndFlush(&flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982})
+	entity3 := &flushEntity{}
+	found = engine.LoadByID(11, entity3)
+	assert.True(t, found)
+	assert.Nil(t, entity3.NameTranslated)
 }

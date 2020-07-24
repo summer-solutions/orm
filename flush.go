@@ -722,7 +722,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		case "interface {}":
 			value := field.Interface()
 			var valString string
-			if value != nil && value != "" {
+			if !field.IsZero() {
 				encoded, _ := jsoniter.ConfigFastest.Marshal(value)
 				asString := string(encoded)
 				if asString != "" {
@@ -758,7 +758,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			} else {
 				value := field.Interface()
 				var valString string
-				if value != nil && value != "" {
+				if !field.IsZero() {
 					if field.Type().Kind().String() == "map" && hasOld && old != nil && old != "" {
 						oldMap := reflect.New(field.Type()).Interface()
 						_ = jsoniter.ConfigFastest.Unmarshal([]byte(old.(string)), oldMap)
@@ -771,11 +771,21 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 					if asString != "" {
 						valString = asString
 					}
+				} else if hasOld && (old == "nil" || old == nil) {
+					continue
 				}
 				if hasOld && old == valString {
 					continue
 				}
-				bind[name] = valString
+				if valString == "" {
+					if isRequired {
+						bind[name] = ""
+					} else {
+						bind[name] = nil
+					}
+				} else {
+					bind[name] = valString
+				}
 			}
 		}
 	}
