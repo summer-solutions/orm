@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/juju/errors"
 
@@ -147,10 +146,17 @@ func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environme
 		span.SetTag("url.query", request.URL.RawQuery)
 	}
 
-	if request.Method == http.MethodPost {
+	if request.Method == http.MethodPost && request.PostForm != nil {
 		_ = request.ParseForm()
 		form := request.PostForm
-		if unsafe.Sizeof(form) > 5120 {
+		size := 0
+		for key, v := range form {
+			size += len(key)
+			if len(v) > 0 {
+				size += len(v[0])
+			}
+		}
+		if size > 5120 {
 			span.SetTag("post", "bigger than 5KiB")
 		} else {
 			postNice := make(map[string]string)
