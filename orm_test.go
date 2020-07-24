@@ -10,7 +10,6 @@ type ormEntity struct {
 	ORM
 	ID             uint
 	Name           string
-	NameNullable   *string
 	nameUnset      string
 	Uint           uint
 	UintNullable   *uint
@@ -51,18 +50,6 @@ func TestORM(t *testing.T) {
 	err = entity.SetField("Name", "NIL")
 	assert.NoError(t, err)
 	assert.Equal(t, "", entity.Name)
-
-	err = entity.SetField("NameNullable", nil)
-	assert.NoError(t, err)
-	assert.Nil(t, entity.NameNullable)
-	err = entity.SetField("NameNullable", "hello")
-	assert.NoError(t, err)
-	validString := "hello"
-	assert.Equal(t, &validString, entity.NameNullable)
-
-	err = entity.SetField("NameNullable", "null")
-	assert.NoError(t, err)
-	assert.Nil(t, entity.NameNullable)
 
 	err = entity.SetField("Invalid", "hello")
 	assert.EqualError(t, err, "field Invalid not found")

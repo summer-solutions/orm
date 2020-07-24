@@ -262,16 +262,11 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		index++
 	}
 	for _, i := range fields.strings {
-		value.Field(i).SetString(data[index])
-		index++
-	}
-	for _, i := range fields.stringsNullable {
 		field := value.Field(i)
 		if data[index] == "nil" {
-			field.Set(reflect.Zero(field.Type()))
+			field.SetString("")
 		} else {
-			v := data[index]
-			field.Set(reflect.ValueOf(&v))
+			field.SetString(data[index])
 		}
 		index++
 	}

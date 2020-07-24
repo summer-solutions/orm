@@ -88,7 +88,7 @@ func TestLogReceiver(t *testing.T) {
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 2")
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
 	assert.Equal(t, 2, entityID)
-	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": \"\", \"LastName\": \"\"}", changes)
+	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": null, \"LastName\": null}", changes)
 	assert.False(t, before.Valid)
 	assert.Equal(t, "{\"user_id\": 12}", meta.String)
 
@@ -113,7 +113,7 @@ func TestLogReceiver(t *testing.T) {
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
 	assert.Equal(t, 2, entityID)
 	assert.Equal(t, "{\"LastName\": \"Summer\"}", changes)
-	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": \"Germany\", \"LastName\": \"\"}", before.String)
+	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": \"Germany\", \"LastName\": null}", before.String)
 	assert.Equal(t, "{\"user_id\": 12}", meta.String)
 
 	engine.MarkToDelete(e1)

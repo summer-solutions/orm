@@ -652,12 +652,12 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 	case "*bool":
 		definition, addNotNullIfNotSet, defaultValue = "tinyint(1)", false, "nil"
 	case "string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false, false)
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false, !isRequired)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	case "*string", "[]string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false, true)
+	case "[]string":
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false, !isRequired)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

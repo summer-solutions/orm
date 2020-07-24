@@ -160,13 +160,6 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		} else {
 			f.SetString(fmt.Sprintf("%v", value))
 		}
-	case "*string":
-		if value == nil {
-			f.Set(reflect.Zero(f.Type()))
-		} else {
-			v := fmt.Sprintf("%v", value)
-			f.Set(reflect.ValueOf(&v))
-		}
 	case "[]string":
 		_, ok := value.([]string)
 		if !ok {

@@ -9,8 +9,8 @@ import (
 type flushEntity struct {
 	ORM            `orm:"localCache;redisCache"`
 	ID             uint
-	City           *string `orm:"unique=city"`
-	Name           string  `orm:"unique=name"`
+	City           string `orm:"unique=city"`
+	Name           string `orm:"unique=name;required"`
 	NameTranslated map[string]string
 	Age            int
 	Uint           uint
@@ -68,7 +68,7 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint(7), entity.Uint)
 	assert.Equal(t, uint16(1982), entity.Year)
 	assert.Equal(t, map[string]string{"pl": "kot", "en": "cat"}, entity.NameTranslated)
-	assert.Nil(t, entity.City)
+	assert.Equal(t, "", entity.City)
 	assert.Nil(t, entity.UintNullable)
 	assert.Nil(t, entity.IntNullable)
 	assert.Nil(t, entity.YearNullable)
@@ -90,13 +90,12 @@ func TestFlush(t *testing.T) {
 	i3 := uint16(1982)
 	i4 := false
 	i5 := float32(10.12)
-	i6 := "New York"
 	entity.IntNullable = &i
 	entity.UintNullable = &i2
 	entity.YearNullable = &i3
 	entity.BoolNullable = &i4
 	entity.FloatNullable = &i5
-	entity.City = &i6
+	entity.City = "New York"
 	engine.TrackAndFlush(entity)
 
 	reference = &flushEntityReference{}
@@ -112,7 +111,7 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint16(1982), *entity.YearNullable)
 	assert.False(t, *entity.BoolNullable)
 	assert.Equal(t, float32(10.12), *entity.FloatNullable)
-	assert.Equal(t, "New York", *entity.City)
+	assert.Equal(t, "New York", entity.City)
 	assert.False(t, engine.IsDirty(entity))
 
 	assert.False(t, engine.IsDirty(reference))
@@ -159,8 +158,7 @@ func TestFlush(t *testing.T) {
 	entity2.UintNullable = &i2
 	entity2.BoolNullable = &i4
 	entity2.FloatNullable = &i5
-	i7 := "Warsaw"
-	entity2.City = &i7
+	entity2.City = "Warsaw"
 	assert.True(t, engine.IsDirty(entity2))
 	engine.TrackAndFlush(entity2)
 	assert.False(t, engine.IsDirty(entity2))
@@ -170,7 +168,7 @@ func TestFlush(t *testing.T) {
 	entity2.UintNullable = nil
 	entity2.BoolNullable = nil
 	entity2.FloatNullable = nil
-	entity2.City = nil
+	entity2.City = ""
 	assert.True(t, engine.IsDirty(entity2))
 	engine.TrackAndFlush(entity2)
 	assert.False(t, engine.IsDirty(entity2))
@@ -179,7 +177,7 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, entity2.UintNullable)
 	assert.Nil(t, entity2.BoolNullable)
 	assert.Nil(t, entity2.FloatNullable)
-	assert.Nil(t, entity2.City)
+	assert.Equal(t, "", entity2.City)
 
 	engine.MarkToDelete(entity2)
 	assert.True(t, engine.IsDirty(entity2))

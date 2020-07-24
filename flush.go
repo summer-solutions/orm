@@ -474,6 +474,8 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			continue
 		}
 		fieldTypeString := field.Type().String()
+		required, hasRequired := attributes["required"]
+		isRequired := hasRequired && required == "true"
 		switch fieldTypeString {
 		case "uint", "uint8", "uint16", "uint32", "uint64":
 			val := field.Uint()
@@ -543,23 +545,18 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			bind[name] = val
 		case "string":
 			value := field.String()
-			if hasOld && old == value {
+			if hasOld && (old == value || ((old == "nil" || old == nil) && value == "")) {
 				continue
 			}
-			bind[name] = value
-		case "*string":
-			if field.IsZero() {
-				if hasOld && (old == "nil" || old == nil) {
-					continue
+			if value == "" {
+				if isRequired {
+					bind[name] = ""
+				} else {
+					bind[name] = nil
 				}
-				bind[name] = nil
-				continue
+			} else {
+				bind[name] = value
 			}
-			value := field.Elem().String()
-			if hasOld && old == value {
-				continue
-			}
-			bind[name] = value
 		case "[]uint8":
 			value := field.Bytes()
 			valueAsString := string(value)

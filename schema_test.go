@@ -8,14 +8,14 @@ import (
 )
 
 type schemaSubFields struct {
-	Name string
+	Name string `orm:"required"`
 	Age  uint16
 }
 
 type schemaEntityRef struct {
 	ORM  `orm:"log"`
 	ID   uint
-	Name string
+	Name string `orm:"required"`
 }
 
 type testEnum struct {
@@ -34,8 +34,8 @@ var TestEnum = &testEnum{
 type schemaEntity struct {
 	ORM             `orm:"log"`
 	ID              uint
-	Name            string `orm:"index=TestIndex"`
-	NameNullable    *string
+	Name            string `orm:"index=TestIndex;required"`
+	NameNullable    string
 	Year            *uint16 `orm:"year"`
 	Uint8           uint8
 	Uint16          uint16 `orm:"index=TestIndex:2"`
@@ -69,8 +69,8 @@ type schemaEntity struct {
 	RefOne          *schemaEntityRef
 	RefOneCascade   *schemaEntityRef `orm:"cascade"`
 	Decimal         float32          `orm:"decimal=10,2"`
-	Enum            string           `orm:"enum=orm.TestEnum"`
-	Set             string           `orm:"set=orm.TestEnum"`
+	Enum            string           `orm:"enum=orm.TestEnum;required"`
+	Set             string           `orm:"set=orm.TestEnum;required"`
 	FakeDelete      bool
 }
 
