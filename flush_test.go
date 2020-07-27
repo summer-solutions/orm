@@ -19,7 +19,7 @@ type flushEntity struct {
 	Year               uint16  `orm:"year"`
 	YearNullable       *uint16 `orm:"year"`
 	BoolNullable       *bool
-	FloatNullable      *float32
+	FloatNullable      *float64 `orm:"precision=10"`
 	ReferenceOne       *flushEntityReference
 	ReferenceTwo       *flushEntityReference
 	StringSlice        []string
@@ -32,6 +32,9 @@ type flushEntity struct {
 	Blob               []uint8
 	Bool               bool
 	FakeDelete         bool
+	Float64            float64  `orm:"precision=10"`
+	Decimal            float64  `orm:"decimal=5,2"`
+	DecimalNullable    *float64 `orm:"decimal=5,2"`
 }
 
 type flushEntityReference struct {
@@ -110,7 +113,7 @@ func TestFlush(t *testing.T) {
 	i2 := uint(42)
 	i3 := uint16(1982)
 	i4 := false
-	i5 := float32(10.12)
+	i5 := 134.345
 	i6 := true
 	entity.IntNullable = &i
 	entity.UintNullable = &i2
@@ -121,6 +124,9 @@ func TestFlush(t *testing.T) {
 	entity.Blob = []uint8("Tom has a house")
 	entity.Bool = true
 	entity.BoolNullable = &i6
+	entity.Float64 = 134.345
+	entity.Decimal = 134.345
+	entity.DecimalNullable = &entity.Decimal
 	engine.TrackAndFlush(entity)
 
 	reference = &flushEntityReference{}
@@ -134,11 +140,14 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, 42, *entity.IntNullable)
 	assert.Equal(t, uint(42), *entity.UintNullable)
 	assert.Equal(t, uint16(1982), *entity.YearNullable)
-	assert.False(t, *entity.BoolNullable)
+	assert.True(t, *entity.BoolNullable)
 	assert.True(t, entity.Bool)
-	assert.Equal(t, float32(10.12), *entity.FloatNullable)
+	assert.Equal(t, 134.345, *entity.FloatNullable)
 	assert.Equal(t, "New York", entity.City)
 	assert.Equal(t, []uint8("Tom has a house"), entity.Blob)
+	assert.Equal(t, 134.345, entity.Float64)
+	assert.Equal(t, 134.35, entity.Decimal)
+	assert.Equal(t, 134.35, *entity.DecimalNullable)
 	assert.False(t, engine.IsDirty(entity))
 
 	assert.False(t, engine.IsDirty(reference))

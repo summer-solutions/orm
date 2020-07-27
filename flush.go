@@ -2,6 +2,7 @@ package orm
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -618,7 +619,10 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			decimal, has := attributes["decimal"]
 			if has {
 				decimalArgs := strings.Split(decimal, ",")
-				valString = fmt.Sprintf("%."+decimalArgs[1]+"f", val)
+				size, _ := strconv.ParseFloat(decimalArgs[1], 64)
+				sizeNumber := math.Pow(10, size)
+				val2 := math.Round(val*sizeNumber) / sizeNumber
+				valString = fmt.Sprintf("%."+decimalArgs[1]+"f", val2)
 			}
 			if hasOld && old == valString {
 				continue
@@ -646,7 +650,10 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			decimal, has := attributes["decimal"]
 			if has {
 				decimalArgs := strings.Split(decimal, ",")
-				valString = fmt.Sprintf("%."+decimalArgs[1]+"f", val)
+				size, _ := strconv.ParseFloat(decimalArgs[1], 64)
+				sizeNumber := math.Pow(10, size)
+				val2 := math.Round(val*sizeNumber) / sizeNumber
+				valString = fmt.Sprintf("%."+decimalArgs[1]+"f", val2)
 			}
 			if hasOld {
 				if isZero {
