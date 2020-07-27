@@ -351,7 +351,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 			if len(data[index]) == 19 {
 				layout += " 15:04:05"
 			}
-			value, _ := time.Parse(layout, data[index])
+			value, _ := time.ParseInLocation(layout, data[index], time.Local)
 			field.Set(reflect.ValueOf(&value))
 		}
 		index++
@@ -362,7 +362,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		if len(data[index]) == 19 {
 			layout += " 15:04:05"
 		}
-		val, _ := time.Parse(layout, data[index])
+		val, _ := time.ParseInLocation(layout, data[index], time.Local)
 		field.Set(reflect.ValueOf(val))
 		index++
 	}

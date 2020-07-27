@@ -2,39 +2,46 @@ package orm
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
 type flushEntity struct {
-	ORM                `orm:"localCache;redisCache"`
-	ID                 uint
-	City               string `orm:"unique=city"`
-	Name               string `orm:"unique=name;required"`
-	NameTranslated     map[string]string
-	Age                int
-	Uint               uint
-	UintNullable       *uint
-	IntNullable        *int
-	Year               uint16  `orm:"year"`
-	YearNullable       *uint16 `orm:"year"`
-	BoolNullable       *bool
-	FloatNullable      *float64 `orm:"precision=10"`
-	ReferenceOne       *flushEntityReference
-	ReferenceTwo       *flushEntityReference
-	StringSlice        []string
-	StringSliceNotNull []string `orm:"required"`
-	SetNullable        []string `orm:"set=orm.TestEnum"`
-	SetNotNull         []string `orm:"set=orm.TestEnum;required"`
-	EnumNullable       string   `orm:"enum=orm.TestEnum"`
-	EnumNotNull        string   `orm:"enum=orm.TestEnum;required"`
-	Ignored            []string `orm:"ignore"`
-	Blob               []uint8
-	Bool               bool
-	FakeDelete         bool
-	Float64            float64  `orm:"precision=10"`
-	Decimal            float64  `orm:"decimal=5,2"`
-	DecimalNullable    *float64 `orm:"decimal=5,2"`
+	ORM                  `orm:"localCache;redisCache"`
+	ID                   uint
+	City                 string `orm:"unique=city"`
+	Name                 string `orm:"unique=name;required"`
+	NameTranslated       map[string]string
+	Age                  int
+	Uint                 uint
+	UintNullable         *uint
+	IntNullable          *int
+	Year                 uint16  `orm:"year"`
+	YearNullable         *uint16 `orm:"year"`
+	BoolNullable         *bool
+	FloatNullable        *float64 `orm:"precision=10"`
+	ReferenceOne         *flushEntityReference
+	ReferenceTwo         *flushEntityReference
+	StringSlice          []string
+	StringSliceNotNull   []string `orm:"required"`
+	SetNullable          []string `orm:"set=orm.TestEnum"`
+	SetNotNull           []string `orm:"set=orm.TestEnum;required"`
+	EnumNullable         string   `orm:"enum=orm.TestEnum"`
+	EnumNotNull          string   `orm:"enum=orm.TestEnum;required"`
+	Ignored              []string `orm:"ignore"`
+	Blob                 []uint8
+	Bool                 bool
+	FakeDelete           bool
+	Float64              float64  `orm:"precision=10"`
+	Decimal              float64  `orm:"decimal=5,2"`
+	DecimalNullable      *float64 `orm:"decimal=5,2"`
+	CachedQuery          *CachedQuery
+	Time                 time.Time
+	TimeWithTime         time.Time `orm:"time"`
+	TimeNullable         *time.Time
+	TimeWithTimeNullable *time.Time `orm:"time"`
+	Interface            interface{}
 }
 
 type flushEntityReference struct {
@@ -58,7 +65,9 @@ func TestFlush(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
 	engine := PrepareTables(t, registry, entity, reference, referenceCascade)
+	now := time.Now()
 
+	layout := "2006-01-02 15:04:05"
 	entity = &flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982}
 	entity.NameTranslated = map[string]string{"pl": "kot", "en": "cat"}
 	entity.ReferenceOne = &flushEntityReference{Name: "John", Age: 30}
@@ -66,6 +75,8 @@ func TestFlush(t *testing.T) {
 	entity.StringSliceNotNull = []string{"c", "d"}
 	entity.SetNotNull = []string{"a", "b"}
 	entity.EnumNotNull = "a"
+	entity.TimeWithTime = now
+	entity.TimeWithTimeNullable = &now
 	assert.True(t, engine.IsDirty(entity))
 	assert.True(t, engine.IsDirty(entity.ReferenceOne))
 	engine.TrackAndFlush(entity)
@@ -91,6 +102,11 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, []string{"c", "d"}, entity.StringSliceNotNull)
 	assert.Equal(t, "", entity.EnumNullable)
 	assert.Equal(t, "a", entity.EnumNotNull)
+	assert.Equal(t, now.Format(layout), entity.TimeWithTime.Format(layout))
+	assert.Equal(t, now.Unix(), entity.TimeWithTime.Unix())
+	assert.Equal(t, now.Format(layout), entity.TimeWithTimeNullable.Format(layout))
+	assert.Equal(t, now.Unix(), entity.TimeWithTimeNullable.Unix())
+
 	assert.Nil(t, entity.SetNullable)
 	assert.Equal(t, "", entity.City)
 	assert.Nil(t, entity.UintNullable)
