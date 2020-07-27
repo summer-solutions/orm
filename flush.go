@@ -556,7 +556,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		case "[]uint8":
 			value := field.Bytes()
 			valueAsString := string(value)
-			if hasOld && (old == valueAsString || (old == nil && valueAsString == "")) {
+			if hasOld && (old == valueAsString || ((old == "nil" || old == nil) && valueAsString == "")) {
 				continue
 			}
 			if valueAsString == "" {

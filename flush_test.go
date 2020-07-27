@@ -28,6 +28,10 @@ type flushEntity struct {
 	SetNotNull         []string `orm:"set=orm.TestEnum;required"`
 	EnumNullable       string   `orm:"enum=orm.TestEnum"`
 	EnumNotNull        string   `orm:"enum=orm.TestEnum;required"`
+	Ignored            []string `orm:"ignore"`
+	Blob               []uint8
+	Bool               bool
+	FakeDelete         bool
 }
 
 type flushEntityReference struct {
@@ -95,6 +99,7 @@ func TestFlush(t *testing.T) {
 	assert.True(t, engine.Loaded(entity))
 	assert.False(t, engine.Loaded(entity.ReferenceOne))
 	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
+	assert.Nil(t, entity.Blob)
 	entity.ReferenceOne.Name = "John 2"
 	assert.PanicsWithError(t, "entity is not loaded and can't be updated: orm.flushEntityReference [1]", func() {
 		engine.TrackAndFlush(entity.ReferenceOne)
@@ -106,12 +111,16 @@ func TestFlush(t *testing.T) {
 	i3 := uint16(1982)
 	i4 := false
 	i5 := float32(10.12)
+	i6 := true
 	entity.IntNullable = &i
 	entity.UintNullable = &i2
 	entity.YearNullable = &i3
 	entity.BoolNullable = &i4
 	entity.FloatNullable = &i5
 	entity.City = "New York"
+	entity.Blob = []uint8("Tom has a house")
+	entity.Bool = true
+	entity.BoolNullable = &i6
 	engine.TrackAndFlush(entity)
 
 	reference = &flushEntityReference{}
@@ -126,8 +135,10 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint(42), *entity.UintNullable)
 	assert.Equal(t, uint16(1982), *entity.YearNullable)
 	assert.False(t, *entity.BoolNullable)
+	assert.True(t, entity.Bool)
 	assert.Equal(t, float32(10.12), *entity.FloatNullable)
 	assert.Equal(t, "New York", entity.City)
+	assert.Equal(t, []uint8("Tom has a house"), entity.Blob)
 	assert.False(t, engine.IsDirty(entity))
 
 	assert.False(t, engine.IsDirty(reference))
@@ -199,11 +210,12 @@ func TestFlush(t *testing.T) {
 	assert.True(t, engine.IsDirty(entity2))
 	engine.TrackAndFlush(entity2)
 	found = engine.LoadByID(10, entity2)
-	assert.False(t, found)
+	assert.True(t, found)
+	assert.True(t, entity2.FakeDelete)
 
 	referenceCascade = &flushEntityReferenceCascade{ReferenceOne: entity}
 	engine.TrackAndFlush(referenceCascade)
-	engine.MarkToDelete(entity)
+	engine.ForceMarkToDelete(entity)
 	assert.True(t, engine.IsDirty(entity))
 	assert.PanicsWithError(t, "foreign key error in key `test:flushEntityReferenceCascade:ReferenceOne`", func() {
 		engine.TrackAndFlush(entity)
