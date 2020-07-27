@@ -715,10 +715,6 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				continue
 			}
 			if isRequired || valueAsString != "" {
-				_, isSet := attributes["set"]
-				if isSet && valueAsString == "" {
-					panic(errors.Errorf("set `%s` requires value", name))
-				}
 				bind[name] = valueAsString
 			} else if valueAsString == "" {
 				bind[name] = nil

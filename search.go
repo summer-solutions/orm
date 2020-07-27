@@ -273,13 +273,17 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	for _, i := range fields.sliceStrings {
 		field := value.Field(i)
 		if data[index] != "nil" {
-			var values = strings.Split(data[index], ",")
-			var length = len(values)
-			slice := reflect.MakeSlice(field.Type(), length, length)
-			for key, value := range values {
-				slice.Index(key).SetString(value)
+			if data[index] == "" {
+				field.Set(reflect.MakeSlice(field.Type(), 0, 0))
+			} else {
+				var values = strings.Split(data[index], ",")
+				var length = len(values)
+				slice := reflect.MakeSlice(field.Type(), length, length)
+				for key, value := range values {
+					slice.Index(key).SetString(value)
+				}
+				field.Set(slice)
 			}
-			field.Set(slice)
 		} else {
 			field.Set(reflect.Zero(field.Type()))
 		}

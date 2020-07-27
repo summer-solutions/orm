@@ -133,7 +133,7 @@ func TestFlush(t *testing.T) {
 	assert.False(t, engine.IsDirty(reference))
 	assert.True(t, engine.Loaded(reference))
 
-	entity2 := &flushEntity{Name: "Tom", Age: 12, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"}
+	entity2 := &flushEntity{Name: "Tom", Age: 12, EnumNotNull: "a"}
 	assert.PanicsWithError(t, "Duplicate entry 'Tom' for key 'name'", func() {
 		engine.TrackAndFlush(entity2)
 	})
@@ -154,18 +154,18 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, "Tom", entity.Name)
 	assert.Equal(t, 40, entity.Age)
 
-	entity2 = &flushEntity{Name: "Tom", Age: 12, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"}
+	entity2 = &flushEntity{Name: "Tom", Age: 12, EnumNotNull: "a"}
 	engine.SetOnDuplicateKeyUpdate(NewWhere(""), entity2)
 	engine.TrackAndFlush(entity2)
 	assert.Equal(t, uint(1), entity2.ID)
 
-	entity2 = &flushEntity{Name: "Arthur", Age: 18, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"}
+	entity2 = &flushEntity{Name: "Arthur", Age: 18, EnumNotNull: "a"}
 	entity2.ReferenceTwo = reference
 	engine.SetOnDuplicateKeyUpdate(NewWhere(""), entity2)
 	engine.TrackAndFlush(entity2)
 	assert.Equal(t, uint(7), entity2.ID)
 
-	entity2 = &flushEntity{Name: "Adam", Age: 20, ID: 10, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"}
+	entity2 = &flushEntity{Name: "Adam", Age: 20, ID: 10, EnumNotNull: "a"}
 	engine.TrackAndFlush(entity2)
 	found = engine.LoadByID(10, entity2)
 	assert.True(t, found)
@@ -221,23 +221,21 @@ func TestFlush(t *testing.T) {
 	found = engine.LoadByID(1, referenceCascade)
 	assert.False(t, found)
 
-	engine.TrackAndFlush(&flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"})
+	engine.TrackAndFlush(&flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982, EnumNotNull: "a"})
 	entity3 := &flushEntity{}
 	found = engine.LoadByID(11, entity3)
 	assert.True(t, found)
 	assert.Nil(t, entity3.NameTranslated)
 
-	engine.TrackAndFlush(&flushEntity{SetNullable: []string{}, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"})
+	engine.TrackAndFlush(&flushEntity{SetNullable: []string{}, EnumNotNull: "a"})
 	entity4 := &flushEntity{}
 	found = engine.LoadByID(12, entity4)
 	assert.True(t, found)
-	assert.Nil(t, entity3.SetNullable)
+	assert.Nil(t, entity4.SetNullable)
+	assert.Equal(t, []string{}, entity4.SetNotNull)
 	entity4.SetNullable = []string{"a", "c"}
 	engine.TrackAndFlush(entity4)
 	entity4 = &flushEntity{}
 	engine.LoadByID(12, entity4)
 	assert.Equal(t, []string{"a", "c"}, entity4.SetNullable)
-	assert.PanicsWithError(t, "set `SetNotNull` requires value", func() {
-		engine.TrackAndFlush(&flushEntity{})
-	}, "")
 }
