@@ -7,21 +7,27 @@ import (
 )
 
 type flushEntity struct {
-	ORM            `orm:"localCache;redisCache"`
-	ID             uint
-	City           string `orm:"unique=city"`
-	Name           string `orm:"unique=name;required"`
-	NameTranslated map[string]string
-	Age            int
-	Uint           uint
-	UintNullable   *uint
-	IntNullable    *int
-	Year           uint16  `orm:"year"`
-	YearNullable   *uint16 `orm:"year"`
-	BoolNullable   *bool
-	FloatNullable  *float32
-	ReferenceOne   *flushEntityReference
-	ReferenceTwo   *flushEntityReference
+	ORM                `orm:"localCache;redisCache"`
+	ID                 uint
+	City               string `orm:"unique=city"`
+	Name               string `orm:"unique=name;required"`
+	NameTranslated     map[string]string
+	Age                int
+	Uint               uint
+	UintNullable       *uint
+	IntNullable        *int
+	Year               uint16  `orm:"year"`
+	YearNullable       *uint16 `orm:"year"`
+	BoolNullable       *bool
+	FloatNullable      *float32
+	ReferenceOne       *flushEntityReference
+	ReferenceTwo       *flushEntityReference
+	StringSlice        []string
+	StringSliceNotNull []string `orm:"required"`
+	SetNullable        []string `orm:"set=orm.TestEnum"`
+	SetNotNull         []string `orm:"set=orm.TestEnum;required"`
+	EnumNullable       string   `orm:"enum=orm.TestEnum"`
+	EnumNotNull        string   `orm:"enum=orm.TestEnum;required"`
 }
 
 type flushEntityReference struct {
@@ -42,11 +48,17 @@ func TestFlush(t *testing.T) {
 	var entity *flushEntity
 	var reference *flushEntityReference
 	var referenceCascade *flushEntityReferenceCascade
-	engine := PrepareTables(t, &Registry{}, entity, reference, referenceCascade)
+	registry := &Registry{}
+	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
+	engine := PrepareTables(t, registry, entity, reference, referenceCascade)
 
 	entity = &flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982}
 	entity.NameTranslated = map[string]string{"pl": "kot", "en": "cat"}
 	entity.ReferenceOne = &flushEntityReference{Name: "John", Age: 30}
+	entity.StringSlice = []string{"a", "b"}
+	entity.StringSliceNotNull = []string{"c", "d"}
+	entity.SetNotNull = []string{"a", "b"}
+	entity.EnumNotNull = "a"
 	assert.True(t, engine.IsDirty(entity))
 	assert.True(t, engine.IsDirty(entity.ReferenceOne))
 	engine.TrackAndFlush(entity)
@@ -68,6 +80,11 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, uint(7), entity.Uint)
 	assert.Equal(t, uint16(1982), entity.Year)
 	assert.Equal(t, map[string]string{"pl": "kot", "en": "cat"}, entity.NameTranslated)
+	assert.Equal(t, []string{"a", "b"}, entity.StringSlice)
+	assert.Equal(t, []string{"c", "d"}, entity.StringSliceNotNull)
+	assert.Equal(t, "", entity.EnumNullable)
+	assert.Equal(t, "a", entity.EnumNotNull)
+	assert.Nil(t, entity.SetNullable)
 	assert.Equal(t, "", entity.City)
 	assert.Nil(t, entity.UintNullable)
 	assert.Nil(t, entity.IntNullable)
@@ -75,7 +92,6 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, entity.BoolNullable)
 	assert.Nil(t, entity.FloatNullable)
 	assert.False(t, engine.IsDirty(entity))
-
 	assert.True(t, engine.Loaded(entity))
 	assert.False(t, engine.Loaded(entity.ReferenceOne))
 	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
@@ -117,7 +133,7 @@ func TestFlush(t *testing.T) {
 	assert.False(t, engine.IsDirty(reference))
 	assert.True(t, engine.Loaded(reference))
 
-	entity2 := &flushEntity{Name: "Tom", Age: 12}
+	entity2 := &flushEntity{Name: "Tom", Age: 12, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"}
 	assert.PanicsWithError(t, "Duplicate entry 'Tom' for key 'name'", func() {
 		engine.TrackAndFlush(entity2)
 	})
@@ -138,18 +154,18 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, "Tom", entity.Name)
 	assert.Equal(t, 40, entity.Age)
 
-	entity2 = &flushEntity{Name: "Tom", Age: 12}
+	entity2 = &flushEntity{Name: "Tom", Age: 12, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"}
 	engine.SetOnDuplicateKeyUpdate(NewWhere(""), entity2)
 	engine.TrackAndFlush(entity2)
 	assert.Equal(t, uint(1), entity2.ID)
 
-	entity2 = &flushEntity{Name: "Arthur", Age: 18}
+	entity2 = &flushEntity{Name: "Arthur", Age: 18, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"}
 	entity2.ReferenceTwo = reference
 	engine.SetOnDuplicateKeyUpdate(NewWhere(""), entity2)
 	engine.TrackAndFlush(entity2)
 	assert.Equal(t, uint(7), entity2.ID)
 
-	entity2 = &flushEntity{Name: "Adam", Age: 20, ID: 10}
+	entity2 = &flushEntity{Name: "Adam", Age: 20, ID: 10, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"}
 	engine.TrackAndFlush(entity2)
 	found = engine.LoadByID(10, entity2)
 	assert.True(t, found)
@@ -205,9 +221,23 @@ func TestFlush(t *testing.T) {
 	found = engine.LoadByID(1, referenceCascade)
 	assert.False(t, found)
 
-	engine.TrackAndFlush(&flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982})
+	engine.TrackAndFlush(&flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"})
 	entity3 := &flushEntity{}
 	found = engine.LoadByID(11, entity3)
 	assert.True(t, found)
 	assert.Nil(t, entity3.NameTranslated)
+
+	engine.TrackAndFlush(&flushEntity{SetNullable: []string{}, SetNotNull: []string{"a", "b"}, EnumNotNull: "a"})
+	entity4 := &flushEntity{}
+	found = engine.LoadByID(12, entity4)
+	assert.True(t, found)
+	assert.Nil(t, entity3.SetNullable)
+	entity4.SetNullable = []string{"a", "c"}
+	engine.TrackAndFlush(entity4)
+	entity4 = &flushEntity{}
+	engine.LoadByID(12, entity4)
+	assert.Equal(t, []string{"a", "c"}, entity4.SetNullable)
+	assert.PanicsWithError(t, "set `SetNotNull` requires value", func() {
+		engine.TrackAndFlush(&flushEntity{})
+	}, "")
 }

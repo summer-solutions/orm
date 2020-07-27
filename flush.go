@@ -548,14 +548,10 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			if hasOld && (old == value || ((old == "nil" || old == nil) && value == "")) {
 				continue
 			}
-			if value == "" {
-				if isRequired {
-					bind[name] = ""
-				} else {
-					bind[name] = nil
-				}
-			} else {
+			if isRequired || value != "" {
 				bind[name] = value
+			} else if value == "" {
+				bind[name] = nil
 			}
 		case "[]uint8":
 			value := field.Bytes()
@@ -715,10 +711,18 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			if value != nil {
 				valueAsString = strings.Join(value, ",")
 			}
-			if hasOld && old == valueAsString {
+			if hasOld && (old == valueAsString || (valueAsString == "" && (old == nil || old == "nil"))) {
 				continue
 			}
-			bind[name] = valueAsString
+			if isRequired || valueAsString != "" {
+				_, isSet := attributes["set"]
+				if isSet && valueAsString == "" {
+					panic(errors.Errorf("set `%s` requires value", name))
+				}
+				bind[name] = valueAsString
+			} else if valueAsString == "" {
+				bind[name] = nil
+			}
 		case "interface {}":
 			value := field.Interface()
 			var valString string

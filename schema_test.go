@@ -70,7 +70,7 @@ type schemaEntity struct {
 	RefOneCascade   *schemaEntityRef `orm:"cascade"`
 	Decimal         float32          `orm:"decimal=10,2"`
 	Enum            string           `orm:"enum=orm.TestEnum;required"`
-	Set             string           `orm:"set=orm.TestEnum;required"`
+	Set             []string         `orm:"set=orm.TestEnum;required"`
 	FakeDelete      bool
 }
 
