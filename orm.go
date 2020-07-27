@@ -234,12 +234,6 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			return errors.NotValidf("%s value %v", field, value)
 		}
 		f.Set(reflect.ValueOf(value))
-	case "interface {}":
-		if value == nil {
-			f.Set(reflect.Zero(f.Type()))
-		} else {
-			f.Set(reflect.ValueOf(value))
-		}
 	default:
 		k := f.Type().Kind().String()
 		if k == "struct" {

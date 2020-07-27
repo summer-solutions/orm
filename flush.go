@@ -726,20 +726,6 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			} else if valueAsString == "" {
 				bind[name] = nil
 			}
-		case "interface {}":
-			value := field.Interface()
-			var valString string
-			if !field.IsZero() {
-				encoded, _ := jsoniter.ConfigFastest.Marshal(value)
-				asString := string(encoded)
-				if asString != "" {
-					valString = asString
-				}
-			}
-			if hasOld && old == valString {
-				continue
-			}
-			bind[name] = valString
 		default:
 			k := field.Kind().String()
 			if k == "struct" {
@@ -784,14 +770,10 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				if hasOld && old == valString {
 					continue
 				}
-				if valString == "" {
-					if isRequired {
-						bind[name] = ""
-					} else {
-						bind[name] = nil
-					}
-				} else {
+				if isRequired || valString != "" {
 					bind[name] = valString
+				} else if valString == "" {
+					bind[name] = nil
 				}
 			}
 		}

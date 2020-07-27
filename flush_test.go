@@ -7,6 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type flushStruct struct {
+	Name string
+	Age  int
+}
+
 type flushEntity struct {
 	ORM                  `orm:"localCache;redisCache"`
 	ID                   uint
@@ -42,6 +47,7 @@ type flushEntity struct {
 	TimeNullable         *time.Time
 	TimeWithTimeNullable *time.Time `orm:"time"`
 	Interface            interface{}
+	FlushStruct          flushStruct
 }
 
 type flushEntityReference struct {
@@ -143,6 +149,7 @@ func TestFlush(t *testing.T) {
 	entity.Float64 = 134.345
 	entity.Decimal = 134.345
 	entity.DecimalNullable = &entity.Decimal
+	entity.Interface = map[string]int{"test": 12}
 	engine.TrackAndFlush(entity)
 
 	reference = &flushEntityReference{}

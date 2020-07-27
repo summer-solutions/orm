@@ -607,8 +607,6 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 			fields.timesNullable = append(fields.timesNullable, i)
 		case "time.Time":
 			fields.times = append(fields.times, i)
-		case "interface {}":
-			fields.jsons = append(fields.jsons, i)
 		default:
 			k := f.Type.Kind().String()
 			if k == "struct" {

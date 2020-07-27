@@ -40,7 +40,6 @@ type ormEntity struct {
 	FloatNullable  *float64
 	TimeNullable   *time.Time
 	Time           time.Time
-	Interface      interface{}
 	Ref            *ormEntityRef
 	NotSupported   map[string]string `orm:"ignore"`
 	Struct         ormEntityStruct   `orm:"ignore"`
@@ -207,14 +206,6 @@ func TestORM(t *testing.T) {
 	assert.Equal(t, timeNotNull, entity.Time)
 	err = entity.SetField("Time", "hello")
 	assert.EqualError(t, err, "Time value hello not valid")
-
-	val := map[string]string{"a": "b"}
-	err = entity.SetField("Interface", val)
-	assert.NoError(t, err)
-	assert.Equal(t, val, entity.Interface)
-	err = entity.SetField("Interface", nil)
-	assert.NoError(t, err)
-	assert.Nil(t, entity.Interface)
 
 	err = entity.SetField("NotSupported", "hello")
 	assert.EqualError(t, err, "field NotSupported not supported")
