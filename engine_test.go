@@ -1,9 +1,10 @@
 package orm
 
 import (
+	"testing"
+
 	log2 "github.com/apex/log"
 	"github.com/apex/log/handlers/level"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
