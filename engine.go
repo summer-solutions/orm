@@ -297,23 +297,23 @@ func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {
 	return e.rabbitMQQueues[queueName]
 }
 
-func (e *Engine) GetRabbitMQRouter(channelName string) *RabbitMQRouter {
-	queue, has := e.rabbitMQRouters[channelName]
+func (e *Engine) GetRabbitMQRouter(queueName string) *RabbitMQRouter {
+	queue, has := e.rabbitMQRouters[queueName]
 	if has {
 		return queue
 	}
-	channel, has := e.rabbitMQChannels[channelName]
+	channel, has := e.rabbitMQChannels[queueName]
 	if !has {
-		panic(errors.Errorf("unregistered rabbitMQ router '%s'", channelName))
+		panic(errors.Errorf("unregistered rabbitMQ router '%s'. Use queue name, not router name.", queueName))
 	}
 	if channel.config.Router == "" {
-		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as router", channelName))
+		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as router", queueName))
 	}
 	if e.rabbitMQRouters == nil {
 		e.rabbitMQRouters = make(map[string]*RabbitMQRouter)
 	}
-	e.rabbitMQRouters[channelName] = &RabbitMQRouter{channel}
-	return e.rabbitMQRouters[channelName]
+	e.rabbitMQRouters[queueName] = &RabbitMQRouter{channel}
+	return e.rabbitMQRouters[queueName]
 }
 
 func (e *Engine) GetLocker(code ...string) *Locker {
