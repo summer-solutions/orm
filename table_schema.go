@@ -310,7 +310,13 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 				fields = append(fields, "FakeDelete")
 			}
 			if query == "" {
-				query = "1 ORDER BY `ID`"
+				if hasFakeDelete {
+					query = "`FakeDelete` = 0 ORDER BY `ID`"
+				} else {
+					query = "1 ORDER BY `ID`"
+				}
+			} else if hasFakeDelete {
+				query = "`FakeDelete` = 0 AND " + query
 			}
 			queryLower := strings.ToLower(queryOrigin)
 			posOrderBy := strings.Index(queryLower, "order by")
@@ -523,6 +529,9 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 				}
 				valid := 0
 				key := len(columns)
+				if columns[len(columns)] == "FakeDelete" {
+					key--
+				}
 				for i := len(v.OrderFields); i > 0; i-- {
 					if columns[key] == v.OrderFields[i-1] {
 						valid++

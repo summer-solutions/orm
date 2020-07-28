@@ -123,10 +123,7 @@ func (e *Engine) FlushWithFullCheck() error {
 		defer func() {
 			if r := recover(); r != nil {
 				e.ClearTrackedEntities()
-				asErr, is := r.(error)
-				if !is {
-					panic(r)
-				}
+				asErr := r.(error)
 				err = asErr
 			}
 		}()
@@ -412,74 +409,4 @@ func (e *Engine) GetAlters() (alters []Alter) {
 
 func (e *Engine) GetElasticIndexAlters() (alters []ElasticIndexAlter) {
 	return getElasticIndexAlters(e)
-}
-
-func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) {
-	if e.trackedEntitiesCounter == 0 {
-		return
-	}
-	var dbPools map[string]*DB
-	if transaction {
-		dbPools = make(map[string]*DB)
-		for _, entity := range e.trackedEntities {
-			db := entity.getORM().tableSchema.GetMysql(e)
-			dbPools[db.code] = db
-		}
-		for _, db := range dbPools {
-			db.Begin()
-		}
-	}
-	defer func() {
-		for _, db := range dbPools {
-			db.Rollback()
-		}
-	}()
-
-	flush(e, lazy, transaction, e.trackedEntities...)
-	if transaction {
-		for _, db := range dbPools {
-			db.Commit()
-		}
-	}
-	e.trackedEntities = make([]Entity, 0)
-	e.trackedEntitiesCounter = 0
-}
-
-func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
-	locker := e.GetLocker(lockerPool)
-	lock, has := locker.Obtain(lockName, ttl, waitTimeout)
-	if !has {
-		panic(errors.Timeoutf("lock wait timeout"))
-	}
-	defer lock.Release()
-	e.flushTrackedEntities(false, transaction)
-}
-
-func (e *Engine) flushWithCheck(transaction bool) error {
-	var err error
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				e.ClearTrackedEntities()
-				asErr, is := r.(error)
-				if !is {
-					panic(r)
-				}
-				source := errors.Cause(asErr)
-				assErr1, is := source.(*ForeignKeyError)
-				if is {
-					err = assErr1
-					return
-				}
-				assErr2, is := source.(*DuplicatedKeyError)
-				if is {
-					err = assErr2
-					return
-				}
-				panic(r)
-			}
-		}()
-		e.flushTrackedEntities(false, transaction)
-	}()
-	return err
 }

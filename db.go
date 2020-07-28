@@ -188,6 +188,7 @@ type DB struct {
 	code          string
 	databaseName  string
 	autoincrement uint64
+	inTransaction bool
 }
 
 func (db *DB) GetDatabaseName() string {
@@ -207,6 +208,7 @@ func (db *DB) Begin() {
 		db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	}
 	checkError(err)
+	db.inTransaction = true
 }
 
 func (db *DB) Commit() {
@@ -218,6 +220,7 @@ func (db *DB) Commit() {
 	db.engine.dataDog.incrementCounter(counterDBAll, 1)
 	db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	checkError(err)
+	db.inTransaction = false
 	if db.engine.afterCommitLocalCacheSets != nil {
 		for cacheCode, pairs := range db.engine.afterCommitLocalCacheSets {
 			cache := db.engine.GetLocalCache(cacheCode)
@@ -244,9 +247,7 @@ func (db *DB) Rollback() {
 		db.engine.dataDog.incrementCounter(counterDBAll, 1)
 		db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	}
-	if err != nil {
-		panic(errors.Trace(err))
-	}
+	checkError(err)
 	db.engine.afterCommitLocalCacheSets = nil
 	db.engine.afterCommitRedisCacheDeletes = nil
 }

@@ -16,12 +16,13 @@ type cachedSearchEntity struct {
 	Name           string `orm:"length=100;unique=FirstIndex"`
 	Age            uint16 `orm:"index=SecondIndex"`
 	Added          *time.Time
-	ReferenceOne   *cachedSearchRefEntity
-	Ignore         uint16       `orm:"ignore"`
-	IndexAge       *CachedQuery `query:":Age = ? ORDER BY :Age"`
-	IndexAll       *CachedQuery `query:""`
-	IndexName      *CachedQuery `queryOne:":Name = ?"`
-	IndexReference *CachedQuery `query:":ReferenceOne = ?"`
+	ReferenceOne   *cachedSearchRefEntity `orm:"index=IndexReference"`
+	Ignore         uint16                 `orm:"ignore"`
+	IndexAge       *CachedQuery           `query:":Age = ? ORDER BY :Age"`
+	IndexAll       *CachedQuery           `query:""`
+	IndexName      *CachedQuery           `queryOne:":Name = ?"`
+	IndexReference *CachedQuery           `query:":ReferenceOne = ?"`
+	FakeDelete     bool                   `orm:"unique=FirstIndex:2;index=IndexReference:2,SecondIndex:2"`
 }
 
 type cachedSearchRefEntity struct {
@@ -198,6 +199,8 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	pager = NewPager(49, 1000)
 	totalRows = engine.CachedSearch(&rows, "IndexAll", pager)
 	assert.Equal(t, 10, totalRows)
+	totalRows = engine.CachedSearch(&rows, "IndexAge", nil, 10)
+	assert.Equal(t, 3, totalRows)
 }
 
 func TestCachedSearchErrors(t *testing.T) {

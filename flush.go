@@ -48,11 +48,15 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 	dirtyQueues := make(map[string][]*DirtyQueueValue)
 	logQueues := make([]*LogQueueValue, 0)
 	lazyMap := make(map[string]interface{})
+	isInTransaction := transaction
 
 	var referencesToFlash map[Entity]Entity
 
 	for _, entity := range entities {
 		schema := entity.getORM().tableSchema
+		if !isInTransaction && schema.GetMysql(engine).inTransaction {
+			isInTransaction = true
+		}
 		for _, refName := range schema.refOne {
 			refValue := entity.getORM().attributes.elem.FieldByName(refName)
 			if !refValue.IsNil() {
@@ -224,7 +228,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 				rest = append(rest, v)
 			}
 		}
-		flush(engine, transaction, transaction, rest...)
+		flush(engine, false, transaction, rest...)
 	}
 	for typeOf, values := range insertKeys {
 		schema := getTableSchema(engine.registry, typeOf)
@@ -334,7 +338,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 	for _, values := range localCacheSets {
 		for cacheCode, keys := range values {
 			cache := engine.GetLocalCache(cacheCode)
-			if !transaction {
+			if !isInTransaction {
 				cache.MSet(keys...)
 			} else {
 				if engine.afterCommitLocalCacheSets == nil {
@@ -379,7 +383,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 			}
 			deletesRedisCache.(map[string][]string)[cacheCode] = keys
 		} else {
-			if !transaction {
+			if !isInTransaction {
 				cache.Del(keys...)
 			} else {
 				if engine.afterCommitRedisCacheDeletes == nil {
@@ -951,4 +955,70 @@ func getDirtyBind(entity Entity) (is bool, bind map[string]interface{}) {
 	bind = createBind(id, orm.tableSchema, t, orm.attributes.elem, orm.dBData, "")
 	is = id == 0 || len(bind) > 0
 	return is, bind
+}
+
+func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) {
+	if e.trackedEntitiesCounter == 0 {
+		return
+	}
+	var dbPools map[string]*DB
+	if transaction {
+		dbPools = make(map[string]*DB)
+		for _, entity := range e.trackedEntities {
+			db := entity.getORM().tableSchema.GetMysql(e)
+			dbPools[db.code] = db
+		}
+		for _, db := range dbPools {
+			db.Begin()
+		}
+	}
+	defer func() {
+		for _, db := range dbPools {
+			db.Rollback()
+		}
+	}()
+	flush(e, lazy, transaction, e.trackedEntities...)
+	if transaction {
+		for _, db := range dbPools {
+			db.Commit()
+		}
+	}
+	e.trackedEntities = make([]Entity, 0)
+	e.trackedEntitiesCounter = 0
+}
+
+func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
+	locker := e.GetLocker(lockerPool)
+	lock, has := locker.Obtain(lockName, ttl, waitTimeout)
+	if !has {
+		panic(errors.Timeoutf("lock wait"))
+	}
+	defer lock.Release()
+	e.flushTrackedEntities(false, transaction)
+}
+
+func (e *Engine) flushWithCheck(transaction bool) error {
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				e.ClearTrackedEntities()
+				asErr := r.(error)
+				source := errors.Cause(asErr)
+				assErr1, is := source.(*ForeignKeyError)
+				if is {
+					err = assErr1
+					return
+				}
+				assErr2, is := source.(*DuplicatedKeyError)
+				if is {
+					err = assErr2
+					return
+				}
+				panic(asErr)
+			}
+		}()
+		e.flushTrackedEntities(false, transaction)
+	}()
+	return err
 }

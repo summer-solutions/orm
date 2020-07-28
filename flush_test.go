@@ -70,6 +70,7 @@ func TestFlush(t *testing.T) {
 	var referenceCascade *flushEntityReferenceCascade
 	registry := &Registry{}
 	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
+	registry.RegisterLocker("default", "default")
 	engine := PrepareTables(t, registry, entity, reference, referenceCascade)
 	now := time.Now()
 
@@ -282,4 +283,68 @@ func TestFlush(t *testing.T) {
 	entity4 = &flushEntity{}
 	engine.LoadByID(12, entity4)
 	assert.Equal(t, []string{"a", "c"}, entity4.SetNullable)
+
+	engine.GetMysql().Begin()
+	engine.ForceMarkToDelete(entity4)
+	entity5 := &flushEntity{Name: "test_transaction", EnumNotNull: "a"}
+	engine.TrackAndFlush(entity5)
+	entity5.Age = 38
+	engine.TrackAndFlush(entity5)
+	engine.GetMysql().Commit()
+	entity5 = &flushEntity{}
+	found = engine.LoadByID(13, entity5)
+	assert.True(t, found)
+	assert.Equal(t, "test_transaction", entity5.Name)
+	assert.Equal(t, 38, entity5.Age)
+
+	entity6 := &flushEntity{Name: "test_transaction_2", EnumNotNull: "a"}
+	engine.FlushInTransaction()
+	engine.Track(entity6)
+	engine.FlushInTransaction()
+	entity6 = &flushEntity{}
+	found = engine.LoadByID(14, entity6)
+	assert.True(t, found)
+	assert.Equal(t, "test_transaction_2", entity6.Name)
+
+	entity7 := &flushEntity{Name: "test_lock", EnumNotNull: "a"}
+	engine.Track(entity7)
+	engine.FlushWithLock("default", "lock_test", time.Second, time.Second)
+	entity7 = &flushEntity{}
+	found = engine.LoadByID(15, entity7)
+	assert.True(t, found)
+	assert.Equal(t, "test_lock", entity7.Name)
+
+	lock, has := engine.GetLocker().Obtain("lock_test", time.Second, time.Second)
+	assert.True(t, has)
+	assert.PanicsWithError(t, "lock wait timeout", func() {
+		engine.FlushWithLock("default", "lock_test", time.Second, time.Second)
+	})
+	lock.Release()
+
+	entity8 := &flushEntity{Name: "test_check", EnumNotNull: "a"}
+	engine.Track(entity8)
+	err := engine.FlushWithCheck()
+	assert.NoError(t, err)
+	entity8 = &flushEntity{}
+	found = engine.LoadByID(16, entity8)
+	assert.True(t, found)
+	assert.Equal(t, "test_check", entity8.Name)
+
+	entity8 = &flushEntity{Name: "test_check", EnumNotNull: "a"}
+	engine.Track(entity8)
+	err = engine.FlushWithCheck()
+	assert.EqualError(t, err, "Duplicate entry 'test_check' for key 'name'")
+	entity8 = &flushEntity{Name: "test_check_2", EnumNotNull: "a", ReferenceOne: &flushEntityReference{ID: 100}}
+	engine.Track(entity8)
+	err = engine.FlushWithCheck()
+	assert.EqualError(t, err, "foreign key error in key `test:flushEntity:ReferenceOne`")
+
+	entity8 = &flushEntity{Name: "test_check_#", EnumNotNull: "Y"}
+	engine.Track(entity8)
+	err = engine.FlushWithFullCheck()
+	assert.EqualError(t, err, "Error 1265: Data truncated for column 'EnumNotNull' at row 1")
+	engine.Track(entity8)
+	assert.Panics(t, func() {
+		_ = engine.FlushWithCheck()
+	})
 }

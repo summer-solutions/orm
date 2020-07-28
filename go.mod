@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/tinylib/msgp v1.1.2 // indirect
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
-	golang.org/x/tools v0.0.0-20200725200936-102e7d357031 // indirect
+	golang.org/x/tools v0.0.0-20200727233628-55644ead90ce // indirect
 	gopkg.in/DataDog/dd-trace-go.v1 v1.24.1
 	gopkg.in/yaml.v2 v2.3.0
 )
