@@ -25,6 +25,7 @@ type ValidatedRegistry interface {
 	GetDirtyQueues() map[string]int
 	RegisterRabbitMQQueue(config *RabbitMQQueueConfig, serverPool ...string)
 	RegisterRabbitMQRouter(config *RabbitMQRouterConfig, serverPool ...string)
+	GetSourceRegistry() *Registry
 }
 
 type validatedRegistry struct {
@@ -77,6 +78,10 @@ func (r *validatedRegistry) RegisterRabbitMQRouter(config *RabbitMQRouterConfig,
 		panic(errors.Errorf("rabbitMQ router name '%s' already exists", config.Name))
 	}
 	r.rabbitMQRouterConfigs[config.Name] = config
+}
+
+func (r *validatedRegistry) GetSourceRegistry() *Registry {
+	return r.registry
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {

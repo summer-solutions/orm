@@ -11,6 +11,8 @@ import (
 
 func TestEngine(t *testing.T) {
 	engine := PrepareTables(t, &Registry{})
+	source := engine.GetRegistry().GetSourceRegistry()
+	assert.NotNil(t, source)
 	engine.EnableLogger(log2.WarnLevel)
 	assert.Len(t, engine.log.logger.handler.Handlers, 1)
 	handler, is := engine.log.logger.handler.Handlers[0].(*level.Handler)

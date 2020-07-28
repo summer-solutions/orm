@@ -1,15 +1,20 @@
 package orm
 
 import (
+	"strconv"
+	"strings"
+	"time"
+
 	jsoniter "github.com/json-iterator/go"
 )
 
 const lazyQueueName = "lazy_queue"
 
 type LazyReceiver struct {
-	engine      *Engine
-	disableLoop bool
-	heartBeat   func()
+	engine          *Engine
+	disableLoop     bool
+	heartBeat       func()
+	maxLoopDuration time.Duration
 }
 
 func NewLazyReceiver(engine *Engine) *LazyReceiver {
@@ -24,6 +29,17 @@ func (r *LazyReceiver) SetHeartBeat(beat func()) {
 	r.heartBeat = beat
 }
 
+func (r *LazyReceiver) SetMaxLoopDuration(duration time.Duration) {
+	r.maxLoopDuration = duration
+}
+
+func (r *LazyReceiver) Purge() {
+	channel := r.engine.GetRabbitMQQueue(lazyQueueName)
+	consumer := channel.NewConsumer("default consumer")
+	consumer.Purge()
+	consumer.Close()
+}
+
 func (r *LazyReceiver) Digest() {
 	channel := r.engine.GetRabbitMQQueue(lazyQueueName)
 	consumer := channel.NewConsumer("default consumer")
@@ -34,23 +50,26 @@ func (r *LazyReceiver) Digest() {
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeat)
 	}
+	if r.maxLoopDuration > 0 {
+		consumer.SetMaxLoopDuration(r.maxLoopDuration)
+	}
 	consumer.Consume(func(items [][]byte) {
 		for _, item := range items {
-			var data interface{}
+			var data map[string]interface{}
 			_ = jsoniter.ConfigFastest.Unmarshal(item, &data)
-			validMap := data.(map[string]interface{})
-			r.handleQueries(r.engine, validMap)
-			r.handleClearCache(validMap, "cl")
-			r.handleClearCache(validMap, "cr")
+			ids := r.handleQueries(r.engine, data)
+			r.handleClearCache(data, "cl", ids)
+			r.handleClearCache(data, "cr", ids)
 		}
 	})
 }
 
-func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interface{}) {
+func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interface{}) []uint64 {
 	queries, has := validMap["q"]
 	if has {
 		validQueries := queries.([]interface{})
-		for _, query := range validQueries {
+		ids := make([]uint64, len(validQueries))
+		for i, query := range validQueries {
 			validInsert := query.([]interface{})
 			code := validInsert[0].(string)
 			db := engine.GetMysql(code)
@@ -59,26 +78,27 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						err, is := r.(error)
-						if is {
-							_, isDuplicatedError := err.(*DuplicatedKeyError)
-							_, isForeignError := err.(*ForeignKeyError)
-							if isDuplicatedError || isForeignError {
-								engine.Log().Error(err, nil)
-								engine.DataDog().RegisterAPMError(err)
-								return
-							}
+						err := r.(error)
+						_, isDuplicatedError := err.(*DuplicatedKeyError)
+						_, isForeignError := err.(*ForeignKeyError)
+						if isDuplicatedError || isForeignError {
+							engine.Log().Error(err, nil)
+							engine.DataDog().RegisterAPMError(err)
+							return
 						}
-						panic(r)
+						panic(err)
 					}
 				}()
-				_ = db.Exec(sql, attributes...)
+				res := db.Exec(sql, attributes...)
+				ids[i] = res.LastInsertId()
 			}()
 		}
+		return ids
 	}
+	return nil
 }
 
-func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key string) {
+func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key string, ids []uint64) {
 	keys, has := validMap[key]
 	if has {
 		validKeys := keys.(map[string]interface{})
@@ -86,7 +106,12 @@ func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key str
 			validAllKeys := allKeys.([]interface{})
 			stringKeys := make([]string, len(validAllKeys))
 			for i, v := range validAllKeys {
-				stringKeys[i] = v.(string)
+				parts := strings.Split(v.(string), ":")
+				l := len(parts)
+				if parts[l-1] == "0" {
+					parts[l-1] = strconv.FormatUint(ids[i], 10)
+				}
+				stringKeys[i] = strings.Join(parts, ":")
 			}
 			if key == "cl" {
 				cache := r.engine.localCache[cacheCode]
