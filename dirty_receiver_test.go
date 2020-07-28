@@ -140,4 +140,17 @@ func TestDirtyReceiver(t *testing.T) {
 		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
 	})
 	assert.True(t, valid)
+
+	engine.MarkDirty(e, "name_changed", 2)
+	valid = false
+	receiver.Digest("name_changed", func(data []*DirtyData) {
+		valid = true
+		assert.Len(t, data, 1)
+		assert.Equal(t, uint64(2), data[0].ID)
+		assert.False(t, data[0].Added)
+		assert.True(t, data[0].Updated)
+		assert.False(t, data[0].Deleted)
+		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
+	})
+	assert.True(t, valid)
 }

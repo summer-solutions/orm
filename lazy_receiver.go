@@ -65,37 +65,34 @@ func (r *LazyReceiver) Digest() {
 }
 
 func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interface{}) []uint64 {
-	queries, has := validMap["q"]
-	if has {
-		validQueries := queries.([]interface{})
-		ids := make([]uint64, len(validQueries))
-		for i, query := range validQueries {
-			validInsert := query.([]interface{})
-			code := validInsert[0].(string)
-			db := engine.GetMysql(code)
-			sql := validInsert[1].(string)
-			attributes := validInsert[2].([]interface{})
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						err := r.(error)
-						_, isDuplicatedError := err.(*DuplicatedKeyError)
-						_, isForeignError := err.(*ForeignKeyError)
-						if isDuplicatedError || isForeignError {
-							engine.Log().Error(err, nil)
-							engine.DataDog().RegisterAPMError(err)
-							return
-						}
-						panic(err)
+	queries := validMap["q"]
+	validQueries := queries.([]interface{})
+	ids := make([]uint64, len(validQueries))
+	for i, query := range validQueries {
+		validInsert := query.([]interface{})
+		code := validInsert[0].(string)
+		db := engine.GetMysql(code)
+		sql := validInsert[1].(string)
+		attributes := validInsert[2].([]interface{})
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err := r.(error)
+					_, isDuplicatedError := err.(*DuplicatedKeyError)
+					_, isForeignError := err.(*ForeignKeyError)
+					if isDuplicatedError || isForeignError {
+						engine.Log().Error(err, nil)
+						engine.DataDog().RegisterAPMError(err)
+						return
 					}
-				}()
-				res := db.Exec(sql, attributes...)
-				ids[i] = res.LastInsertId()
+					panic(err)
+				}
 			}()
-		}
-		return ids
+			res := db.Exec(sql, attributes...)
+			ids[i] = res.LastInsertId()
+		}()
 	}
-	return nil
+	return ids
 }
 
 func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key string, ids []uint64) {
