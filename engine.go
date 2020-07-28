@@ -47,17 +47,11 @@ func (e *Engine) Log() Log {
 }
 
 func (e *Engine) EnableLogger(level logApex.Level) {
-	if e.log == nil {
-		e.log = newLog(e)
-	}
-	e.log.logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(&jsonHandler{}, level))
+	e.Log().(*log).logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(&jsonHandler{}, level))
 }
 
 func (e *Engine) EnableDebug() {
-	if e.log == nil {
-		e.log = newLog(e)
-	}
-	e.log.logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(text.New(os.Stderr), logApex.DebugLevel))
+	e.Log().(*log).logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(text.New(os.Stderr), logApex.DebugLevel))
 }
 
 func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, source ...QueryLoggerSource) {

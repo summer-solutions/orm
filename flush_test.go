@@ -339,12 +339,31 @@ func TestFlush(t *testing.T) {
 	err = engine.FlushWithCheck()
 	assert.EqualError(t, err, "foreign key error in key `test:flushEntity:ReferenceOne`")
 
-	entity8 = &flushEntity{Name: "test_check_#", EnumNotNull: "Y"}
+	entity8 = &flushEntity{Name: "test_check_3", EnumNotNull: "Y"}
 	engine.Track(entity8)
 	err = engine.FlushWithFullCheck()
 	assert.EqualError(t, err, "Error 1265: Data truncated for column 'EnumNotNull' at row 1")
 	engine.Track(entity8)
 	assert.Panics(t, func() {
 		_ = engine.FlushWithCheck()
+	})
+
+	entity9 := &flushEntity{Name: "test_check", EnumNotNull: "a"}
+	engine.Track(entity9)
+	err = engine.FlushInTransactionWithCheck()
+	assert.EqualError(t, err, "Duplicate entry 'test_check' for key 'name'")
+
+	entity9 = &flushEntity{Name: "test_check_5", EnumNotNull: "a"}
+	engine.Track(entity9)
+	engine.FlushInTransactionWithLock("default", "lock_test", time.Second, time.Second)
+	entity9 = &flushEntity{}
+	found = engine.LoadByID(20, entity9)
+	assert.True(t, found)
+	assert.Equal(t, "test_check_5", entity9.Name)
+
+	assert.PanicsWithError(t, "track limit 10000 exceeded", func() {
+		for i := 1; i <= 10001; i++ {
+			engine.Track(&flushEntity{})
+		}
 	})
 }
