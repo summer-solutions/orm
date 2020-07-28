@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	jsoniter "github.com/json-iterator/go"
 )
@@ -12,9 +13,10 @@ import (
 const flushCacheQueueName = "orm_flush_cache"
 
 type FlushFromCacheReceiver struct {
-	engine      *Engine
-	disableLoop bool
-	heartBeat   func()
+	engine          *Engine
+	disableLoop     bool
+	heartBeat       func()
+	maxLoopDuration time.Duration
 }
 
 func NewFlushFromCacheReceiver(engine *Engine) *FlushFromCacheReceiver {
@@ -29,6 +31,17 @@ func (r *FlushFromCacheReceiver) SetHeartBeat(beat func()) {
 	r.heartBeat = beat
 }
 
+func (r *FlushFromCacheReceiver) SetMaxLoopDuration(duration time.Duration) {
+	r.maxLoopDuration = duration
+}
+
+func (r *FlushFromCacheReceiver) Purge() {
+	channel := r.engine.GetRabbitMQQueue(flushCacheQueueName)
+	consumer := channel.NewConsumer("default consumer")
+	consumer.Purge()
+	consumer.Close()
+}
+
 func (r *FlushFromCacheReceiver) Digest() {
 	channel := r.engine.GetRabbitMQQueue(flushCacheQueueName)
 	consumer := channel.NewConsumer("default consumer")
@@ -38,6 +51,9 @@ func (r *FlushFromCacheReceiver) Digest() {
 	}
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeat)
+	}
+	if r.maxLoopDuration > 0 {
+		consumer.SetMaxLoopDuration(r.maxLoopDuration)
 	}
 	consumer.Consume(func(items [][]byte) {
 		for _, item := range items {

@@ -4,19 +4,21 @@ import (
 	"strconv"
 )
 
-func flushInCache(engine *Engine, entities ...Entity) {
+func flushInCache(engine *Engine) {
 	invalidEntities := make([]Entity, 0)
 	validEntities := make([][]byte, 0)
 	redisValues := make(map[string][]interface{})
+	localValues := make(map[string][]interface{})
 
-	for _, entity := range entities {
+	for _, entity := range engine.trackedEntities {
 		orm := initIfNeeded(engine, entity)
 
 		id := entity.GetID()
 		entityName := orm.tableSchema.t.String()
 		schema := orm.tableSchema
-		cache, hasRedis := schema.GetRedisCache(engine)
-		if !hasRedis || id == 0 {
+		cacheLocal, hasLocal := schema.GetLocalCache(engine)
+		cacheRedis, hasRedis := schema.GetRedisCache(engine)
+		if (!hasLocal && !hasRedis) || id == 0 {
 			invalidEntities = append(invalidEntities, entity)
 		} else {
 			isDirty, bind := getDirtyBind(entity.(Entity))
@@ -29,12 +31,20 @@ func flushInCache(engine *Engine, entities ...Entity) {
 			}
 			injectBind(entity, bind)
 			entityCacheKey := schema.getCacheKey(id)
-			entityCacheValue := buildRedisValue(entity.(Entity))
-			if redisValues[cache.code] == nil {
-				redisValues[cache.code] = make([]interface{}, 0)
+			if hasRedis {
+				entityCacheRedisValue := buildRedisValue(entity)
+				if redisValues[cacheRedis.code] == nil {
+					redisValues[cacheRedis.code] = make([]interface{}, 0)
+				}
+				redisValues[cacheRedis.code] = append(redisValues[cacheRedis.code], entityCacheKey, entityCacheRedisValue)
 			}
-			redisValues[cache.code] = append(redisValues[cache.code], entityCacheKey, entityCacheValue)
-
+			if hasLocal {
+				entityCacheLocalValue := buildLocalCacheValue(entity)
+				if localValues[cacheLocal.code] == nil {
+					localValues[cacheLocal.code] = make([]interface{}, 0)
+				}
+				localValues[cacheLocal.code] = append(localValues[cacheLocal.code], entityCacheKey, entityCacheLocalValue)
+			}
 			validEntities = append(validEntities, createDirtyQueueMember(entityName, id))
 		}
 	}
@@ -49,7 +59,11 @@ func flushInCache(engine *Engine, entities ...Entity) {
 		for cacheCode, keys := range redisValues {
 			engine.GetRedis(cacheCode).MSet(keys...)
 		}
+		for cacheCode, keys := range localValues {
+			engine.GetLocalCache(cacheCode).MSet(keys...)
+		}
 	}
+	engine.trackedEntities = make([]Entity, 0)
 }
 
 func createDirtyQueueMember(entityName string, id uint64) []byte {
