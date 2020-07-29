@@ -69,7 +69,7 @@ func TestFlush(t *testing.T) {
 	var reference *flushEntityReference
 	var referenceCascade *flushEntityReferenceCascade
 	registry := &Registry{}
-	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
+	registry.RegisterEnumSlice("orm.TestEnum", []string{"a", "b", "c"})
 	registry.RegisterLocker("default", "default")
 	engine := PrepareTables(t, registry, entity, reference, referenceCascade)
 	now := time.Now()

@@ -19,7 +19,7 @@ func TestLazyReceiver(t *testing.T) {
 	var entity *lazyReceiverEntity
 
 	registry := &Registry{}
-	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
+	registry.RegisterEnumMap("orm.TestEnum", map[string]string{"a": "a", "b": "b", "c": "c"}, "a")
 	engine := PrepareTables(t, registry, entity)
 
 	receiver := NewLazyReceiver(engine)
