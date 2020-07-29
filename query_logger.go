@@ -80,9 +80,13 @@ func newRabbitMQDataDogHandler(withAnalytics bool, engine *Engine) *rabbitMQData
 }
 
 func (h *rabbitMQDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	l := len(h.engine.dataDog.ctx)
+	if l == 0 {
+		return nil
+	}
 	started := time.Unix(0, e.Fields.Get("started").(int64))
 	operationName := e.Fields.Get("operation").(string)
-	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], operationName, tracer.StartTime(started))
+	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[l-1], operationName, tracer.StartTime(started))
 	span.SetTag(ext.SpanType, ext.AppTypeDB)
 	span.SetTag(ext.ServiceName, "rabbitMQ.default")
 	queue := e.Fields.Get("Queue")

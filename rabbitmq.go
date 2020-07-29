@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -206,7 +205,7 @@ func (r *rabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*am
 	config := r.config
 	var args amqp.Table
 	if config.TTL > 0 {
-		args = amqp.Table{"x-message-ttl": fmt.Sprintf("%d", config.TTL*1000)}
+		args = amqp.Table{"x-message-ttl": int32(config.TTL * 1000)}
 	}
 	q, err := channel.QueueDeclare(name, config.Durable, config.AutoDelete, false, false, args)
 	if err != nil {
@@ -317,9 +316,6 @@ func (r *rabbitMQChannel) initChannel(queueName string, sender bool) *amqp.Chann
 		r.engine.dataDog.incrementCounter(counterRabbitMQAll, 1)
 		r.engine.dataDog.incrementCounter(counterRabbitMQRegister, 1)
 		checkError(err)
-		if sender {
-			return channel
-		}
 	}
 	start = time.Now()
 	q, err := r.registerQueue(channel, queueName)
