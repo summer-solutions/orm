@@ -148,10 +148,7 @@ func (h *jsonHandler) HandleLog(e *apexLog.Entry) error {
 	fields["level"] = e.Level
 	fields["timestamp"] = e.Timestamp
 	fields["message"] = e.Message
-	b, err := jsoniter.ConfigFastest.MarshalToString(fields)
-	if err != nil {
-		return err
-	}
+	b, _ := jsoniter.ConfigFastest.MarshalToString(fields)
 	_, _ = os.Stderr.WriteString(b + "\n")
 	return nil
 }

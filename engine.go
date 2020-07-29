@@ -46,8 +46,13 @@ func (e *Engine) Log() Log {
 	return e.log
 }
 
-func (e *Engine) EnableLogger(level logApex.Level) {
-	e.Log().(*log).logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(&jsonHandler{}, level))
+func (e *Engine) EnableLogger(level logApex.Level, handlers ...logApex.Handler) {
+	if len(handlers) == 0 {
+		handlers = []logApex.Handler{&jsonHandler{}}
+	}
+	for _, handler := range handlers {
+		e.Log().(*log).logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(handler, level))
+	}
 }
 
 func (e *Engine) EnableDebug() {
