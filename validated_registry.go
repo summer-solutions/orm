@@ -23,6 +23,8 @@ type ValidatedRegistry interface {
 	GetDirtyQueues() map[string]int
 	GetSourceRegistry() *Registry
 	GetEnum(code string) Enum
+	GetEnums() map[string]Enum
+	GetEntities() map[string]reflect.Type
 }
 
 type validatedRegistry struct {
@@ -44,6 +46,14 @@ type validatedRegistry struct {
 
 func (r *validatedRegistry) GetSourceRegistry() *Registry {
 	return r.registry
+}
+
+func (r *validatedRegistry) GetEntities() map[string]reflect.Type {
+	return r.entities
+}
+
+func (r *validatedRegistry) GetEnums() map[string]Enum {
+	return r.enums
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {
