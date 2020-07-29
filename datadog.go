@@ -176,6 +176,10 @@ func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environme
 }
 
 func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
+	l := len(dd.ctx)
+	if l == 0 {
+		return nil
+	}
 	span, ctx := tracer.StartSpanFromContext(dd.ctx[len(dd.ctx)-1], name)
 	dd.ctx = append(dd.ctx, ctx)
 	span.SetTag(ext.AnalyticsEvent, false)

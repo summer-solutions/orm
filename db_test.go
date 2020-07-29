@@ -33,12 +33,16 @@ func TestDB(t *testing.T) {
 	engine := PrepareTables(t, &Registry{}, entity)
 	logger := memory.New()
 	engine.AddQueryLogger(logger, log2.DebugLevel, QueryLoggerSourceDB)
+	engine.DataDog().EnableORMAPMLog(log2.DebugLevel, true, QueryLoggerSourceDB)
 
 	db := engine.GetMysql()
 	row := db.Exec("INSERT INTO `dbEntity` VALUES(?, ?)", 1, "Tom")
 	assert.Equal(t, uint64(1), row.LastInsertId())
 	assert.Equal(t, uint64(1), row.RowsAffected())
 
+	engine.DataDog().StartWorkSpan("test")
+	engine.DataDog().StartAPM("test_service", "test")
+	engine.DataDog().StartWorkSpan("test")
 	var id uint64
 	var name string
 	found := db.QueryRow(NewWhere("SELECT * FROM `dbEntity` WHERE `ID` = ?", 1), &id, &name)

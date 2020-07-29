@@ -50,8 +50,12 @@ func newDBDataDogHandler(withAnalytics bool, engine *Engine) *dbDataDogHandler {
 }
 
 func (h *dbDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	l := len(h.engine.dataDog.ctx)
+	if l == 0 {
+		return nil
+	}
 	started := time.Unix(0, e.Fields.Get("started").(int64))
-	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], "mysql.query", tracer.StartTime(started))
+	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[l-1], "mysql.query", tracer.StartTime(started))
 	queryType := e.Fields.Get("type")
 	span.SetTag(ext.SpanType, ext.SpanTypeSQL)
 	span.SetTag(ext.ServiceName, "mysql.db."+e.Fields.Get("pool").(string))
