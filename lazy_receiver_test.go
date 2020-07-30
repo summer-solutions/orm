@@ -12,7 +12,8 @@ type lazyReceiverEntity struct {
 	ID           uint
 	Name         string `orm:"unique=name"`
 	Age          uint64
-	EnumNullable string `orm:"enum=orm.TestEnum"`
+	EnumNullable string       `orm:"enum=orm.TestEnum"`
+	IndexAll     *CachedQuery `query:""`
 }
 
 func TestLazyReceiver(t *testing.T) {

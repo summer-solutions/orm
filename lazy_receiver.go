@@ -89,7 +89,11 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 				}
 			}()
 			res := db.Exec(sql, attributes...)
-			ids[i] = res.LastInsertId()
+			if sql[0:11] == "INSERT INTO" {
+				ids[i] = res.LastInsertId()
+			} else {
+				ids[i] = 0
+			}
 		}()
 	}
 	return ids
@@ -98,6 +102,7 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key string, ids []uint64) {
 	keys, has := validMap[key]
 	if has {
+		idKey := 0
 		validKeys := keys.(map[string]interface{})
 		for cacheCode, allKeys := range validKeys {
 			validAllKeys := allKeys.([]interface{})
@@ -105,8 +110,11 @@ func (r *LazyReceiver) handleClearCache(validMap map[string]interface{}, key str
 			for i, v := range validAllKeys {
 				parts := strings.Split(v.(string), ":")
 				l := len(parts)
-				if parts[l-1] == "0" {
-					parts[l-1] = strconv.FormatUint(ids[i], 10)
+				if l == 3 {
+					if parts[l-1] == "0" {
+						parts[l-1] = strconv.FormatUint(ids[idKey], 10)
+					}
+					idKey++
 				}
 				stringKeys[i] = strings.Join(parts, ":")
 			}
