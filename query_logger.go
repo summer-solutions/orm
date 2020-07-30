@@ -117,9 +117,13 @@ func newRedisDataDogHandler(withAnalytics bool, engine *Engine) *redisDataDogHan
 }
 
 func (h *redisDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	l := len(h.engine.dataDog.ctx)
+	if l == 0 {
+		return nil
+	}
 	started := time.Unix(0, e.Fields.Get("started").(int64))
 	operation := e.Fields.Get("operation").(string)
-	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], operation, tracer.StartTime(started))
+	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[l-1], operation, tracer.StartTime(started))
 	span.SetTag(ext.SpanType, ext.SpanTypeRedis)
 	span.SetTag(ext.ServiceName, "redis."+e.Fields.Get("pool").(string))
 	span.SetTag(ext.ResourceName, operation)
@@ -150,8 +154,12 @@ func newElasticDataDogHandler(withAnalytics bool, engine *Engine) *elasticDataDo
 }
 
 func (h *elasticDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	l := len(h.engine.dataDog.ctx)
+	if l == 0 {
+		return nil
+	}
 	started := time.Unix(0, e.Fields.Get("started").(int64))
-	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[len(h.engine.dataDog.ctx)-1], "elasticsearch.query", tracer.StartTime(started))
+	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[l-1], "elasticsearch.query", tracer.StartTime(started))
 	span.SetTag(ext.SpanType, ext.SpanTypeElasticSearch)
 	span.SetTag(ext.ServiceName, "elasticsearch."+e.Fields.Get("pool").(string))
 	span.SetTag(ext.ResourceName, e.Fields.Get("type").(string)+" "+e.Fields.Get("Index").(string))

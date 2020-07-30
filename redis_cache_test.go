@@ -19,7 +19,9 @@ func TestRedis(t *testing.T) {
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
-	testRedis(t, validatedRegistry.CreateEngine())
+	engine := validatedRegistry.CreateEngine()
+	engine.DataDog().EnableORMAPMLog(apexLog.DebugLevel, true, QueryLoggerSourceRedis)
+	testRedis(t, engine)
 }
 
 func TestRedisRing(t *testing.T) {
@@ -28,7 +30,9 @@ func TestRedisRing(t *testing.T) {
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
-	testRedis(t, validatedRegistry.CreateEngine())
+	engine := validatedRegistry.CreateEngine()
+	engine.DataDog().EnableORMAPMLog(apexLog.DebugLevel, true, QueryLoggerSourceRedis)
+	testRedis(t, engine)
 }
 
 func testRedis(t *testing.T, engine *Engine) {
@@ -58,6 +62,10 @@ func testRedis(t *testing.T, engine *Engine) {
 	})
 	assert.False(t, valid)
 	assert.Equal(t, "ok", val)
+
+	engine.DataDog().StartWorkSpan("test")
+	engine.DataDog().StartAPM("test_service", "test")
+	engine.DataDog().StartWorkSpan("test")
 
 	val, has := r.Get("test_get")
 	assert.False(t, has)
