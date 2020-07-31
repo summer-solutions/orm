@@ -169,9 +169,3 @@ func getElasticIndexAlters(engine *Engine) (alters []ElasticIndexAlter) {
 	}
 	return alters
 }
-
-func checkError(err error) {
-	if err != nil {
-		panic(err)
-	}
-}

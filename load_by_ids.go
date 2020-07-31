@@ -15,9 +15,9 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 		entities.SetLen(0)
 		return make([]uint64, 0)
 	}
-	t, has := getEntityTypeForSlice(engine.registry, entities.Type())
+	t, has, name := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
-		panic(EntityNotRegisteredError{Name: entities.Type().String()})
+		panic(EntityNotRegisteredError{Name: name})
 	}
 
 	schema := getTableSchema(engine.registry, t)
@@ -170,10 +170,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 		if !has {
 			panic(errors.NotValidf("reference tag %s", ref))
 		}
-		parentType, has := engine.registry.entities[parentRef]
-		if !has {
-			panic(EntityNotRegisteredError{Name: tableSchema.tags[parts[0]]["ref"]})
-		}
+		parentType := engine.registry.entities[parentRef]
 		newSub := parts[1:]
 		if len(newSub) > 0 {
 			warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], strings.Join(newSub, "/"))
@@ -191,30 +188,21 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			}
 			refEntity := ref.Interface().(Entity)
 			refID := refEntity.GetID()
-			ids := make([]uint64, 0)
-			if refID != 0 {
-				ids = append(ids, refID)
-				if warmUpRefs[parentType] == nil {
-					warmUpRefs[parentType] = make(map[uint64][]reflect.Value)
-				}
-				if warmUpRefs[parentType][refID] == nil {
-					warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
-				}
-				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
+			if warmUpRefs[parentType] == nil {
+				warmUpRefs[parentType] = make(map[uint64][]reflect.Value)
 			}
-			if len(ids) == 0 {
-				continue
+			if warmUpRefs[parentType][refID] == nil {
+				warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
 			}
+			warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
 			if warmUpRows[parentType] == nil {
 				warmUpRows[parentType] = make(map[uint64]bool)
 				warmUpRowsIDs[parentType] = make([]uint64, 0)
 			}
-			for _, id := range ids {
-				_, has := warmUpRows[parentType][id]
-				if !has {
-					warmUpRows[parentType][id] = true
-					warmUpRowsIDs[parentType] = append(warmUpRowsIDs[parentType], id)
-				}
+			_, has := warmUpRows[parentType][refID]
+			if !has {
+				warmUpRows[parentType][refID] = true
+				warmUpRowsIDs[parentType] = append(warmUpRowsIDs[parentType], refID)
 			}
 		}
 	}

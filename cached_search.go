@@ -17,9 +17,9 @@ const idsOnCachePage = 1000
 func cachedSearch(engine *Engine, entities interface{}, indexName string, pager *Pager,
 	arguments []interface{}, references []string) (totalRows int, ids []uint64) {
 	value := reflect.ValueOf(entities)
-	entityType, has := getEntityTypeForSlice(engine.registry, value.Type())
+	entityType, has, name := getEntityTypeForSlice(engine.registry, value.Type())
 	if !has {
-		panic(EntityNotRegisteredError{Name: strings.Trim(value.Type().String(), "*[]")})
+		panic(EntityNotRegisteredError{Name: name})
 	}
 	schema := getTableSchema(engine.registry, entityType)
 	definition, has := schema.cachedIndexes[indexName]

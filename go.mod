@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
-	golang.org/x/tools v0.0.0-20200729194436-6467de6f59a7 // indirect
+	golang.org/x/tools v0.0.0-20200731060945-b5fad4ed8dd6 // indirect
 	gopkg.in/DataDog/dd-trace-go.v1 v1.25.0
 	gopkg.in/yaml.v2 v2.2.4
 )

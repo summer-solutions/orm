@@ -65,9 +65,9 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		pager = NewPager(1, 50000)
 	}
 	entities.SetLen(0)
-	entityType, has := getEntityTypeForSlice(engine.registry, entities.Type())
+	entityType, has, name := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
-		panic(EntityNotRegisteredError{Name: entities.String()})
+		panic(EntityNotRegisteredError{Name: name})
 	}
 	schema := getTableSchema(engine.registry, entityType)
 	whereQuery := where.String()
@@ -406,8 +406,8 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	return index
 }
 
-func getEntityTypeForSlice(registry *validatedRegistry, sliceType reflect.Type) (reflect.Type, bool) {
+func getEntityTypeForSlice(registry *validatedRegistry, sliceType reflect.Type) (reflect.Type, bool, string) {
 	name := strings.Trim(sliceType.String(), "*[]")
 	e, has := registry.entities[name]
-	return e, has
+	return e, has, name
 }

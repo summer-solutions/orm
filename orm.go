@@ -270,3 +270,9 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 	}
 	return nil
 }
+
+func checkError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
