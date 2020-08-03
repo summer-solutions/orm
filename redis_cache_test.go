@@ -15,8 +15,8 @@ import (
 
 func TestRedis(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterRedis("localhost:6380", 15)
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
+	registry.RegisterRedis("localhost:6381", 15)
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test")
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
@@ -26,8 +26,8 @@ func TestRedis(t *testing.T) {
 
 func TestRedisRing(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterRedisRing([]string{"localhost:6380"}, 15)
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
+	registry.RegisterRedisRing([]string{"localhost:6381"}, 15)
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test")
 	validatedRegistry, err := registry.Validate()
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()

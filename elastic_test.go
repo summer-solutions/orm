@@ -25,7 +25,7 @@ func (i *TestIndex) GetDefinition() map[string]interface{} {
 
 func TestElastic(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterElastic("http://127.0.0.1:9207")
+	registry.RegisterElastic("http://127.0.0.1:9209")
 	index := &TestIndex{}
 	index.Definition = map[string]interface{}{
 		"settings": map[string]interface{}{

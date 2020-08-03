@@ -1,11 +1,11 @@
 default:
   mysql: root:root@tcp(localhost:3308)/test
-  redis: localhost:6379:0
-  elastic: http://localhost:9207
-  elastic_trace: http://localhost:9207
-  clickhouse: http://localhost:9000?debug=false
+  redis: localhost:6381:0
+  elastic: http://localhost:9209
+  elastic_trace: http://localhost:9209
+  clickhouse: http://localhost:9002?debug=false
   rabbitmq:
-    server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test
+    server: amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test
     queues:
       - name: test
         prefetchCount: 1
@@ -28,7 +28,7 @@ default:
   locker: default
 another:
   redis:
-    - localhost:6379:1
-    - localhost:6379:2
+    - localhost:6381:1
+    - localhost:6381:2
 default_queue:
-  redis: localhost:6379:1
+  redis: localhost:6381:1

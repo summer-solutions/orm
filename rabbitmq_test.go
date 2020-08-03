@@ -12,7 +12,7 @@ import (
 
 func TestRabbitMQ(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5677/test")
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test")
 	registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue"})
 	registry.RegisterRabbitMQRouter(&RabbitMQRouterConfig{Name: "test_exchange_fanout", Type: "fanout"})
 	registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_exchange_fanout", PrefetchCount: 2, Router: "test_exchange_fanout", TTL: 60})

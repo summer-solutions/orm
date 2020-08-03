@@ -30,7 +30,7 @@ jobs:
       redis:
         image: redis
         ports:
-          - 6380:6379
+          - 6381:6379
         options: --entrypoint redis-server
 
 
@@ -39,13 +39,13 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: root
         ports:
-          - 3310:3306
+          - 3311:3306
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=5s --health-retries=3
 
       rabbitmq:
         image: rabbitmq:management
         ports:
-          - 5677:5672
+          - 5678:5672
         env:
           RABBITMQ_DEFAULT_USER: rabbitmq_user
           RABBITMQ_DEFAULT_PASS: rabbitmq_password
@@ -63,7 +63,7 @@ jobs:
         uses: elastic/elastic-github-actions/elasticsearch@master
         with:
           stack-version: 7.6.0
-          port: 9207
+          port: 9209
 
       - name: Set up Go
         uses: actions/setup-go@v1
@@ -77,10 +77,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mysql-client
-          mysql -uroot -h127.0.0.1 --port=3310 -proot -e 'CREATE DATABASE IF NOT EXISTS test;'
-          mysql -uroot -h127.0.0.1 --port=3310 -proot -e 'CREATE DATABASE IF NOT EXISTS test_schema;'
-          mysql -uroot -h127.0.0.1 --port=3310 -proot -e 'CREATE DATABASE IF NOT EXISTS test_log;'
-          mysql -uroot -h127.0.0.1 --port=3310 -proot -e 'set global max_connections = 300;'
+          mysql -uroot -h127.0.0.1 --port=3311 -proot -e 'CREATE DATABASE IF NOT EXISTS test;'
+          mysql -uroot -h127.0.0.1 --port=3311 -proot -e 'CREATE DATABASE IF NOT EXISTS test_schema;'
+          mysql -uroot -h127.0.0.1 --port=3311 -proot -e 'CREATE DATABASE IF NOT EXISTS test_log;'
+          mysql -uroot -h127.0.0.1 --port=3311 -proot -e 'set global max_connections = 300;'
 
       - name: Run unit tests with coverage.
         run: |
