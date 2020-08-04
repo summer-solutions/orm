@@ -43,9 +43,7 @@ func (c *ClickHouse) Exec(query string, args ...interface{}) sql.Result {
 	}
 	c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 	c.engine.dataDog.incrementCounter(counterClickHouseExec, 1)
-	if err != nil {
-		panic(convertToError(err))
-	}
+	checkError(err)
 	return rows
 }
 
