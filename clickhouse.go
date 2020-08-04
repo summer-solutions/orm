@@ -124,15 +124,11 @@ func (p *PreparedStatement) Exec(args ...interface{}) sql.Result {
 	return results
 }
 
-func (c *ClickHouse) Prepare(query string) (prpeparedStatement *PreparedStatement, deferF func()) {
+func (c *ClickHouse) Prepare(query string) (preparedStatement *PreparedStatement, deferF func()) {
 	var err error
 	var statement *sql.Stmt
 	start := time.Now()
-	if c.tx != nil {
-		statement, err = c.tx.Prepare(query)
-	} else {
-		statement, err = c.client.Prepare(query)
-	}
+	statement, err = c.tx.Prepare(query)
 	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		c.fillLogFields("[ORM][CLICKHOUSE][PREPARE]", start, "exec", query, nil, err)
 		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
