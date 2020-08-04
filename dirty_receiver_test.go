@@ -153,4 +153,8 @@ func TestDirtyReceiver(t *testing.T) {
 		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
 	})
 	assert.True(t, valid)
+
+	assert.PanicsWithError(t, "dirty queue 'invalid' not found", func() {
+		engine.MarkDirty(e, "invalid", 2)
+	})
 }

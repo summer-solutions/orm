@@ -3,6 +3,8 @@ package orm
 import (
 	"testing"
 
+	"github.com/apex/log/handlers/memory"
+
 	log2 "github.com/apex/log"
 	"github.com/apex/log/handlers/level"
 
@@ -18,6 +20,8 @@ func TestEngine(t *testing.T) {
 	handler, is := engine.log.logger.handler.Handlers[0].(*level.Handler)
 	assert.True(t, is)
 	assert.Equal(t, log2.WarnLevel, handler.Level)
+	engine.AddQueryLogger(memory.New(), log2.InfoLevel)
+	assert.Len(t, engine.queryLoggers, 5)
 
 	assert.PanicsWithError(t, "unregistered mysql pool 'test'", func() {
 		engine.GetMysql("test")
@@ -49,4 +53,8 @@ func TestEngine(t *testing.T) {
 	handler, is = engine.log.logger.handler.Handlers[1].(*level.Handler)
 	assert.True(t, is)
 	assert.Equal(t, log2.DebugLevel, handler.Level)
+
+	engine.EnableQueryDebug()
+	assert.Len(t, engine.queryLoggers, 5)
+	assert.Len(t, engine.queryLoggers[QueryLoggerSourceDB].handler.Handlers, 2)
 }

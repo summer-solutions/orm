@@ -54,6 +54,19 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, "name 1", rows[0].ReferenceOne.Name)
 	assert.True(t, engine.Loaded(rows[0].ReferenceOne))
 
+	total := engine.SearchWithCount(NewWhere("ID > 2"), nil, &rows)
+	assert.Equal(t, 8, total)
+	assert.Len(t, rows, 8)
+
+	ids, total := engine.SearchIDsWithCount(NewWhere("ID > 2"), nil, entity)
+	assert.Equal(t, 8, total)
+	assert.Len(t, ids, 8)
+	assert.Equal(t, uint64(3), ids[0])
+
+	ids = engine.SearchIDs(NewWhere("ID > 2"), nil, entity)
+	assert.Len(t, ids, 8)
+	assert.Equal(t, uint64(3), ids[0])
+
 	engine = PrepareTables(t, &Registry{})
 	assert.PanicsWithValue(t, EntityNotRegisteredError{Name: "orm.searchEntity"}, func() {
 		engine.Search(NewWhere("ID > 0"), nil, &rows)

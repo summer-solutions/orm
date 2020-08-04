@@ -188,7 +188,7 @@ func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) {
 	_, has := e.GetRegistry().GetDirtyQueues()[queueCode]
 	if !has {
-		panic(errors.NotValidf("unknown dirty queue '%s'", queueCode))
+		panic(errors.NotFoundf("dirty queue '%s'", queueCode))
 	}
 	channel := e.GetRabbitMQQueue("dirty_queue_" + queueCode)
 	entityName := initIfNeeded(e, entity).tableSchema.t.String()
@@ -335,8 +335,8 @@ func (e *Engine) Search(where *Where, pager *Pager, entities interface{}, refere
 	search(true, e, where, pager, false, reflect.ValueOf(entities).Elem(), references...)
 }
 
-func (e *Engine) SearchIDsWithCount(where *Where, pager *Pager, entity interface{}) (results []uint64, totalRows int) {
-	return searchIDsWithCount(true, e, where, pager, reflect.TypeOf(entity))
+func (e *Engine) SearchIDsWithCount(where *Where, pager *Pager, entity Entity) (results []uint64, totalRows int) {
+	return searchIDsWithCount(true, e, where, pager, reflect.TypeOf(entity).Elem())
 }
 
 func (e *Engine) SearchIDs(where *Where, pager *Pager, entity Entity) []uint64 {
