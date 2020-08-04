@@ -50,6 +50,13 @@ jobs:
           RABBITMQ_DEFAULT_USER: rabbitmq_user
           RABBITMQ_DEFAULT_PASS: rabbitmq_password
           RABBITMQ_DEFAULT_VHOST: test
+
+      clickhouse:
+        image: yandex/clickhouse-server
+        ports:
+          - 9002:9000
+          - 8125:8123
+
     steps:
 
       - name: Configure sysctl limits
