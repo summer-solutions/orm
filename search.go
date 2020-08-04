@@ -123,9 +123,6 @@ func searchOne(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 
 func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, withCount bool, entityType reflect.Type) (ids []uint64, total int) {
 	schema := getTableSchema(engine.registry, entityType)
-	if schema == nil {
-		panic(EntityNotRegisteredError{Name: entityType.String()})
-	}
 	whereQuery := where.String()
 	if skipFakeDelete && schema.hasFakeDelete {
 		/* #nosec */
