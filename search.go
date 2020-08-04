@@ -179,17 +179,11 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) {
 }
 
 func convertStringToUint(value string) uint64 {
-	if value == "" {
-		return 0
-	}
 	v, _ := strconv.ParseUint(value, 10, 64)
 	return v
 }
 
 func convertStringToInt(value string) int64 {
-	if value == "" {
-		return 0
-	}
 	v, _ := strconv.ParseInt(value, 10, 64)
 	return v
 }

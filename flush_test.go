@@ -26,6 +26,7 @@ type flushEntity struct {
 	YearNullable         *uint16 `orm:"year"`
 	BoolNullable         *bool
 	FloatNullable        *float64 `orm:"precision=10"`
+	Float32Nullable      *float32 `orm:"precision=10"`
 	ReferenceOne         *flushEntityReference
 	ReferenceTwo         *flushEntityReference
 	StringSlice          []string
@@ -48,6 +49,14 @@ type flushEntity struct {
 	TimeWithTimeNullable *time.Time `orm:"time"`
 	Interface            interface{}
 	FlushStruct          flushStruct
+	Int8Nullable         *int8
+	Int16Nullable        *int16
+	Int32Nullable        *int32
+	Int64Nullable        *int64
+	Uint8Nullable        *uint8
+	Uint16Nullable       *uint16
+	Uint32Nullable       *uint32
+	Uint64Nullable       *uint64
 }
 
 type flushEntityReference struct {
@@ -121,11 +130,20 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, entity.YearNullable)
 	assert.Nil(t, entity.BoolNullable)
 	assert.Nil(t, entity.FloatNullable)
+	assert.Nil(t, entity.Float32Nullable)
 	assert.False(t, engine.IsDirty(entity))
 	assert.True(t, engine.Loaded(entity))
 	assert.False(t, engine.Loaded(entity.ReferenceOne))
 	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
 	assert.Nil(t, entity.Blob)
+	assert.Nil(t, entity.Int8Nullable)
+	assert.Nil(t, entity.Int16Nullable)
+	assert.Nil(t, entity.Int32Nullable)
+	assert.Nil(t, entity.Int64Nullable)
+	assert.Nil(t, entity.Uint8Nullable)
+	assert.Nil(t, entity.Uint16Nullable)
+	assert.Nil(t, entity.Uint32Nullable)
+	assert.Nil(t, entity.Uint64Nullable)
 	entity.ReferenceOne.Name = "John 2"
 	assert.PanicsWithError(t, "entity is not loaded and can't be updated: orm.flushEntityReference [1]", func() {
 		engine.TrackAndFlush(entity.ReferenceOne)
@@ -138,11 +156,29 @@ func TestFlush(t *testing.T) {
 	i4 := false
 	i5 := 134.345
 	i6 := true
+	i7 := int8(4)
+	i8 := int16(4)
+	i9 := int32(4)
+	i10 := int64(4)
+	i11 := uint8(4)
+	i12 := uint16(4)
+	i13 := uint32(4)
+	i14 := uint64(4)
+	i15 := float32(134.345)
 	entity.IntNullable = &i
 	entity.UintNullable = &i2
+	entity.Int8Nullable = &i7
+	entity.Int16Nullable = &i8
+	entity.Int32Nullable = &i9
+	entity.Int64Nullable = &i10
+	entity.Uint8Nullable = &i11
+	entity.Uint16Nullable = &i12
+	entity.Uint32Nullable = &i13
+	entity.Uint64Nullable = &i14
 	entity.YearNullable = &i3
 	entity.BoolNullable = &i4
 	entity.FloatNullable = &i5
+	entity.Float32Nullable = &i15
 	entity.City = "New York"
 	entity.Blob = []uint8("Tom has a house")
 	entity.Bool = true
@@ -162,11 +198,20 @@ func TestFlush(t *testing.T) {
 	entity = &flushEntity{}
 	engine.LoadByID(1, entity)
 	assert.Equal(t, 42, *entity.IntNullable)
+	assert.Equal(t, int8(4), *entity.Int8Nullable)
+	assert.Equal(t, int16(4), *entity.Int16Nullable)
+	assert.Equal(t, int32(4), *entity.Int32Nullable)
+	assert.Equal(t, int64(4), *entity.Int64Nullable)
+	assert.Equal(t, uint8(4), *entity.Uint8Nullable)
+	assert.Equal(t, uint16(4), *entity.Uint16Nullable)
+	assert.Equal(t, uint32(4), *entity.Uint32Nullable)
+	assert.Equal(t, uint64(4), *entity.Uint64Nullable)
 	assert.Equal(t, uint(42), *entity.UintNullable)
 	assert.Equal(t, uint16(1982), *entity.YearNullable)
 	assert.True(t, *entity.BoolNullable)
 	assert.True(t, entity.Bool)
 	assert.Equal(t, 134.345, *entity.FloatNullable)
+	assert.Equal(t, float32(134.345), *entity.Float32Nullable)
 	assert.Equal(t, "New York", entity.City)
 	assert.Equal(t, []uint8("Tom has a house"), entity.Blob)
 	assert.Equal(t, 134.345, entity.Float64)
