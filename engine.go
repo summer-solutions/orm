@@ -375,10 +375,6 @@ func (e *Engine) ClearByIDs(entity Entity, ids ...uint64) {
 	clearByIDs(e, entity, ids...)
 }
 
-func (e *Engine) FlushInCache() {
-	flushInCache(e)
-}
-
 func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found bool) {
 	return loadByID(e, id, entity, true, references...)
 }

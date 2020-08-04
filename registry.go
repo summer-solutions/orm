@@ -219,13 +219,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			registry.rabbitMQChannelsToQueue[lazyQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 		}
 	}
-	if registry.rabbitMQChannelsToQueue[flushCacheQueueName] == nil {
-		connection, has := registry.rabbitMQServers["default"]
-		if has {
-			def := &RabbitMQQueueConfig{Name: flushCacheQueueName, Durable: true}
-			registry.rabbitMQChannelsToQueue[flushCacheQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
-		}
-	}
 	queues := registry.GetDirtyQueues()
 	if len(queues) > 0 {
 		connection, has := registry.rabbitMQServers["default"]
