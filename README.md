@@ -33,7 +33,6 @@ Menu:
  * [Lazy flush](https://github.com/summer-solutions/orm#lazy-flush) 
  * [Log entity changes](https://github.com/summer-solutions/orm#log-entity-changes) 
  * [Dirty queues](https://github.com/summer-solutions/orm#dirty-queues) 
- * [Set defaults](https://github.com/summer-solutions/orm#set-defaults) 
  * [Fake delete](https://github.com/summer-solutions/orm#fake-delete) 
  * [Working with Redis](https://github.com/summer-solutions/orm#working-with-redis) 
  * [Working with local cache](https://github.com/summer-solutions/orm#working-with-local-cache) 
@@ -753,27 +752,6 @@ func main() {
     })
 }
 
-
-```
-
-## Set defaults
-
-If you need to define default values for entity simply extend DefaultValuesInterface.
-
-```go
-func main() {
-
-    type UserEntity struct {
-        ORM
-        ID                   uint64
-        Name                 string
-    }
-
-    func (e *UserEntity) SetDefaults() {
-        e.Name = "Tom"
-    }
-    
-}
 
 ```
 
