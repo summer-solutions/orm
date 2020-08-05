@@ -518,16 +518,13 @@ func getDropForeignKeysAlter(engine *Engine, tableName string, poolName string) 
 }
 
 func isTableEmpty(db sqlClient, tableName string) bool {
-	var lastID uint64
 	/* #nosec */
-	err := db.QueryRow(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableName)).Scan(&lastID)
-	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			return true
-		}
-		panic(err)
-	}
-	return false
+	rows, err := db.Query(fmt.Sprintf("SELECT `ID` FROM `%s` LIMIT 1", tableName))
+	defer func() {
+		_ = rows.Close()
+	}()
+	checkError(err)
+	return !rows.Next()
 }
 
 func buildCreateForeignKeySQL(keyName string, definition *foreignIndex) string {
@@ -651,15 +648,10 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 		definition, addNotNullIfNotSet, defaultValue = "tinyint(1)", true, "'0'"
 	case "*bool":
 		definition, addNotNullIfNotSet, defaultValue = "tinyint(1)", false, "nil"
-	case "string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false, !isRequired)
+	case "string", "[]string":
+		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, !isRequired)
 		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	case "[]string":
-		definition, addNotNullIfNotSet, addDefaultNullIfNullable, defaultValue, err = handleString(engine.registry, attributes, false, !isRequired)
-		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 	case "float32":
 		definition, addNotNullIfNotSet, defaultValue = handleFloat("float", attributes, false)
@@ -681,9 +673,7 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 		kind := field.Type.Kind().String()
 		if kind == "struct" {
 			structFields, err := checkStruct(schema, engine, field.Type, indexes, foreignKeys, field.Name)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			checkError(err)
 			return structFields, nil
 		} else if kind == "ptr" {
 			subSchema := getTableSchema(engine.registry, field.Type.Elem())
@@ -750,50 +740,37 @@ func handleBlob(attributes map[string]string) (string, bool) {
 	return definition, false
 }
 
-func handleString(registry *validatedRegistry, attributes map[string]string, forceMax bool, nullable bool) (string, bool, bool, string, error) {
+func handleString(registry *validatedRegistry, attributes map[string]string, nullable bool) (string, bool, bool, string, error) {
 	var definition string
 	enum, hasEnum := attributes["enum"]
 	if hasEnum {
-		return handleSetEnum(registry, "enum", enum, attributes, nullable)
+		return handleSetEnum(registry, "enum", enum, nullable)
 	}
 	set, haSet := attributes["set"]
 	if haSet {
-		return handleSetEnum(registry, "set", set, attributes, nullable)
+		return handleSetEnum(registry, "set", set, nullable)
 	}
-	var addDefaultNullIfNullable = true
 	length, hasLength := attributes["length"]
 	if !hasLength {
 		length = "255"
 	}
-	if forceMax || length == "max" {
-		definition = "mediumtext"
-		addDefaultNullIfNullable = false
-	} else {
-		i, err := strconv.Atoi(length)
-		if err != nil {
-			return "", false, false, "", errors.Trace(err)
-		}
-		if i > 65535 {
-			return "", false, false, "", errors.Errorf("length to height: %s", length)
-		}
-		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
+	i, err := strconv.Atoi(length)
+	if err != nil || i > 65535 {
+		return "", false, false, "", errors.Errorf("invalid max string: %s", length)
 	}
+	definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	defaultValue := "nil"
 	if !nullable {
 		defaultValue = "''"
 	}
-	return definition, !nullable, addDefaultNullIfNullable, defaultValue, nil
+	return definition, !nullable, true, defaultValue, nil
 }
 
-func handleSetEnum(registry *validatedRegistry, fieldType string, attribute string, attributes map[string]string, nullable bool) (string, bool, bool, string, error) {
-	if registry.enums == nil {
+func handleSetEnum(registry *validatedRegistry, fieldType string, attribute string, nullable bool) (string, bool, bool, string, error) {
+	if registry.enums == nil || registry.enums[attribute] == nil {
 		return "", false, false, "", errors.Errorf("unregistered enum %s", attribute)
 	}
-	enum, has := registry.enums[attribute]
-	if !has {
-		return "", false, false, "", errors.Errorf("unregistered enum %s", attribute)
-	}
-
+	enum := registry.enums[attribute]
 	var definition = fieldType + "("
 	for key, value := range enum.GetFields() {
 		if key > 0 {
