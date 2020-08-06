@@ -39,6 +39,7 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...Entity) *Engine
 		pool.CreateIndex(alter.Index)
 	}
 
+	engine.GetMysql().Exec("SET FOREIGN_KEY_CHECKS = 0")
 	for _, entity := range entities {
 		eType := reflect.TypeOf(entity)
 		if eType.Kind() == reflect.Ptr {
@@ -52,6 +53,7 @@ func PrepareTables(t *testing.T, registry *Registry, entities ...Entity) *Engine
 			localCache.Clear()
 		}
 	}
+	engine.GetMysql().Exec("SET FOREIGN_KEY_CHECKS = 1")
 	return engine
 }
 
