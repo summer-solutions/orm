@@ -165,17 +165,22 @@ func TestSchema(t *testing.T) {
 	engine.GetMysql().Exec(alters[0].SQL)
 	engine.GetMysql().Exec(alters[1].SQL)
 
+	schema := engine.GetRegistry().GetTableSchemaForEntity(entity)
+	assert.Equal(t, "orm.schemaEntity", schema.GetType().String())
+
 	engine.GetMysql().Exec("ALTER TABLE `schemaEntity` ADD INDEX `TestIndex2` (`Name`);")
 	alters = engine.GetAlters()
 	assert.Len(t, alters, 1)
 	assert.Equal(t, "ALTER TABLE `test`.`schemaEntity`\n    DROP INDEX `TestIndex2`;", alters[0].SQL)
-	engine.GetMysql().Exec(alters[0].SQL)
+	schema.UpdateSchema(engine)
 
 	engine.GetMysql().Exec("ALTER TABLE `test`.`schemaEntity` ADD CONSTRAINT `test:schemaEntity:RefOne2` FOREIGN KEY (`RefOne`) REFERENCES `test`.`schemaEntityRef` (`ID`) ON DELETE CASCADE;")
 	alters = engine.GetAlters()
 	assert.Len(t, alters, 1)
 	assert.Equal(t, "ALTER TABLE `test`.`schemaEntity`\n    DROP FOREIGN KEY `test:schemaEntity:RefOne2`;", alters[0].SQL)
 	engine.GetMysql().Exec(alters[0].SQL)
+	alters = engine.GetAlters()
+	assert.Len(t, alters, 0)
 
 	engine.TrackAndFlush(&schemaEntityRef{Name: "test"})
 	engine.GetMysql().Exec("ALTER TABLE `schemaEntityRef` ADD COLUMN `Year2` varchar(255) NOT NULL DEFAULT ''")
@@ -183,7 +188,10 @@ func TestSchema(t *testing.T) {
 	assert.Len(t, alters, 1)
 	assert.False(t, alters[0].Safe)
 	assert.Equal(t, "ALTER TABLE `test`.`schemaEntityRef`\n    DROP COLUMN `Year2`;", alters[0].SQL)
-	engine.GetMysql().Exec(alters[0].SQL)
+	engine.GetRegistry().GetTableSchemaForEntity(&schemaEntityRef{}).UpdateSchemaAndTruncateTable(engine)
+	alters = engine.GetAlters()
+	assert.Len(t, alters, 0)
+	//todo has zero
 
 	registry = &Registry{}
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test")

@@ -22,7 +22,7 @@ require (
 	github.com/streadway/amqp v1.0.0
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
-	golang.org/x/tools v0.0.0-20200804234916-fec4f28ebb08 // indirect
+	golang.org/x/tools v0.0.0-20200806022845-90696ccdc692 // indirect
 	gopkg.in/DataDog/dd-trace-go.v1 v1.26.0
 	gopkg.in/yaml.v2 v2.2.4
 )

@@ -148,10 +148,8 @@ func (tableSchema *tableSchema) DropTable(engine *Engine) {
 
 func (tableSchema *tableSchema) TruncateTable(engine *Engine) {
 	pool := tableSchema.GetMysql(engine)
-	_ = pool.Exec("SET FOREIGN_KEY_CHECKS = 0")
-	_ = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;",
-		pool.GetDatabaseName(), tableSchema.tableName))
-	_ = pool.Exec("SET FOREIGN_KEY_CHECKS = 1")
+	_ = pool.Exec(fmt.Sprintf("DELETE FROM `%s`.`%s`", pool.GetDatabaseName(), tableSchema.tableName))
+	_ = pool.Exec(fmt.Sprintf("ALTER TABLE `%s`.`%s` AUTO_INCREMENT = 1", pool.GetDatabaseName(), tableSchema.tableName))
 }
 
 func (tableSchema *tableSchema) UpdateSchema(engine *Engine) {
@@ -167,7 +165,8 @@ func (tableSchema *tableSchema) UpdateSchema(engine *Engine) {
 func (tableSchema *tableSchema) UpdateSchemaAndTruncateTable(engine *Engine) {
 	tableSchema.UpdateSchema(engine)
 	pool := tableSchema.GetMysql(engine)
-	_ = pool.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`;", pool.GetDatabaseName(), tableSchema.tableName))
+	_ = pool.Exec(fmt.Sprintf("DELETE FROM `%s`.`%s`", pool.GetDatabaseName(), tableSchema.tableName))
+	_ = pool.Exec(fmt.Sprintf("ALTER TABLE `%s`.`%s` AUTO_INCREMENT = 1", pool.GetDatabaseName(), tableSchema.tableName))
 }
 
 func (tableSchema *tableSchema) GetMysql(engine *Engine) *DB {
