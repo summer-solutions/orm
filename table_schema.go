@@ -94,6 +94,7 @@ type tableSchema struct {
 	columnNames      []string
 	uniqueIndices    map[string][]string
 	refOne           []string
+	refMany          []string
 	columnsStamp     string
 	localCacheName   string
 	redisCacheName   string
@@ -127,6 +128,8 @@ type tableFields struct {
 	structs           map[int]*tableFields
 	refs              []int
 	refsTypes         []reflect.Type
+	refsMany          []int
+	refsManyTypes     []reflect.Type
 }
 
 func getTableSchema(registry *validatedRegistry, entityType reflect.Type) *tableSchema {
@@ -222,6 +225,7 @@ func (tableSchema *tableSchema) GetSchemaChanges(engine *Engine) (has bool, alte
 func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema, error) {
 	tags := extractTags(registry, entityType, "")
 	oneRefs := make([]string, 0)
+	manyRefs := make([]string, 0)
 	mysql, has := tags["ORM"]["mysql"]
 	if !has {
 		mysql = "default"
@@ -359,6 +363,10 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		if has {
 			oneRefs = append(oneRefs, key)
 		}
+		_, has = values["refs"]
+		if has {
+			manyRefs = append(manyRefs, key)
+		}
 	}
 	logPoolName := tags["ORM"]["log"]
 	if logPoolName == "true" {
@@ -450,6 +458,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		localCacheName:   localCache,
 		redisCacheName:   redisCache,
 		refOne:           oneRefs,
+		refMany:          manyRefs,
 		cachePrefix:      cachePrefix,
 		uniqueIndices:    uniqueIndicesSimple,
 		hasFakeDelete:    hasFakeDelete,
@@ -556,7 +565,7 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 		integers: make([]int, 0), integersNullable: make([]int, 0), strings: make([]int, 0), fields: make(map[int]reflect.StructField),
 		sliceStrings: make([]int, 0), bytes: make([]int, 0), booleans: make([]int, 0), booleansNullable: make([]int, 0), floats: make([]int, 0),
 		timesNullable: make([]int, 0), times: make([]int, 0), jsons: make([]int, 0), structs: make(map[int]*tableFields),
-		floatsNullable: make([]int, 0), refs: make([]int, 0), refsTypes: make([]reflect.Type, 0)}
+		floatsNullable: make([]int, 0), refs: make([]int, 0), refsTypes: make([]reflect.Type, 0), refsMany: make([]int, 0), refsManyTypes: make([]reflect.Type, 0)}
 	for i := start; i < t.NumField(); i++ {
 		f := t.Field(i)
 		fields.fields[i] = f
@@ -626,6 +635,15 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 					fields.refsTypes = append(fields.refsTypes, f.Type)
 				}
 			} else {
+				if typeName[0:3] == "[]*" {
+					modelType := reflect.TypeOf((*Entity)(nil)).Elem()
+					t := f.Type.Elem()
+					if t.Implements(modelType) {
+						fields.refsMany = append(fields.refsMany, i)
+						fields.refsManyTypes = append(fields.refsTypes, t)
+						continue
+					}
+				}
 				fields.jsons = append(fields.jsons, i)
 			}
 		}
@@ -645,12 +663,20 @@ func extractTags(registry *Registry, entityType reflect.Type, prefix string) (fi
 			continue
 		}
 		refOne := ""
+		refMany := ""
 		hasRef := false
+		hasRefMany := false
 		if field.Type.Kind().String() == "ptr" {
 			refName := field.Type.Elem().String()
 			_, hasRef = registry.entities[refName]
 			if hasRef {
 				refOne = refName
+			}
+		} else if field.Type.String()[0:3] == "[]*" {
+			refName := field.Type.String()[3:]
+			_, hasRefMany = registry.entities[refName]
+			if hasRefMany {
+				refMany = refName
 			}
 		}
 
@@ -673,6 +699,12 @@ func extractTags(registry *Registry, entityType reflect.Type, prefix string) (fi
 				fields[field.Name] = make(map[string]string)
 			}
 			fields[field.Name]["ref"] = refOne
+		}
+		if hasRefMany {
+			if fields[field.Name] == nil {
+				fields[field.Name] = make(map[string]string)
+			}
+			fields[field.Name]["refs"] = refMany
 		}
 	}
 	return
@@ -726,6 +758,7 @@ func (fields *tableFields) getColumnNames() []string {
 	ids = append(ids, fields.times...)
 	ids = append(ids, fields.jsons...)
 	ids = append(ids, fields.refs...)
+	ids = append(ids, fields.refsMany...)
 	for _, i := range ids {
 		name := fields.prefix + fields.fields[i].Name
 		columns = append(columns, name)

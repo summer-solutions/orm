@@ -70,6 +70,22 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 				}
 			}
 		}
+		for _, refName := range schema.refMany {
+			refValue := entity.getORM().attributes.elem.FieldByName(refName)
+			if !refValue.IsNil() {
+				length := refValue.Len()
+				for i := 0; i < length; i++ {
+					refEntity := refValue.Index(i).Interface().(Entity)
+					initIfNeeded(engine, refEntity)
+					if refEntity.GetID() == 0 {
+						if referencesToFlash == nil {
+							referencesToFlash = make(map[Entity]Entity)
+						}
+						referencesToFlash[refEntity] = refEntity
+					}
+				}
+			}
+		}
 		if referencesToFlash != nil {
 			continue
 		}
@@ -763,10 +779,31 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 							continue
 						}
 					}
-					encoded, _ := jsoniter.ConfigFastest.Marshal(value)
-					asString := string(encoded)
-					if asString != "" {
-						valString = asString
+					if fieldTypeString[0:3] == "[]*" {
+						length := field.Len()
+						if length > 0 {
+							ids := make([]uint64, length)
+							for i := 0; i < length; i++ {
+								ids[i] = field.Index(i).Interface().(Entity).GetID()
+							}
+							encoded, _ := jsoniter.ConfigFastest.Marshal(ids)
+							valString = string(encoded)
+						}
+						if hasOld && (old == valString || ((old == "nil" || old == nil || old == "0") && valString == "")) {
+							continue
+						}
+						if valString == "" {
+							bind[name] = nil
+						} else {
+							bind[name] = valString
+						}
+						continue
+					} else {
+						encoded, _ := jsoniter.ConfigFastest.Marshal(value)
+						asString := string(encoded)
+						if asString != "" {
+							valString = asString
+						}
 					}
 				} else if hasOld && (old == "nil" || old == nil) {
 					continue

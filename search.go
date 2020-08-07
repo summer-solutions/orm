@@ -389,6 +389,31 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		}
 		index++
 	}
+	for k, i := range fields.refsMany {
+		field := value.Field(i)
+		var f []uint64
+		length := 0
+		if data[index] != "nil" {
+			f = make([]uint64, 0)
+			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index]), &f)
+			length = len(f)
+		}
+		refType := fields.refsManyTypes[k]
+		slice := reflect.MakeSlice(reflect.SliceOf(refType), length, length)
+		if f != nil {
+			for i, id := range f {
+				n := reflect.New(refType.Elem())
+				orm := initIfNeeded(engine, n.Interface().(Entity))
+				orm.dBData["ID"] = id
+				orm.attributes.idElem.SetUint(id)
+				slice.Index(i).Set(n)
+			}
+			field.Set(slice)
+		} else {
+			field.Set(reflect.Zero(slice.Type()))
+		}
+		index++
+	}
 	for i, subFields := range fields.structs {
 		field := value.Field(i)
 		newVal := reflect.New(field.Type())

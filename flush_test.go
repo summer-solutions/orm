@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -29,6 +30,7 @@ type flushEntity struct {
 	Float32Nullable      *float32 `orm:"precision=10"`
 	ReferenceOne         *flushEntityReference
 	ReferenceTwo         *flushEntityReference
+	ReferenceMany        []*flushEntityReference
 	StringSlice          []string
 	StringSliceNotNull   []string `orm:"required"`
 	SetNullable          []string `orm:"set=orm.TestEnum"`
@@ -87,6 +89,7 @@ func TestFlush(t *testing.T) {
 	entity = &flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982}
 	entity.NameTranslated = map[string]string{"pl": "kot", "en": "cat"}
 	entity.ReferenceOne = &flushEntityReference{Name: "John", Age: 30}
+	entity.ReferenceMany = []*flushEntityReference{{Name: "Adam", Age: 18}}
 	entity.StringSlice = []string{"a", "b"}
 	entity.StringSliceNotNull = []string{"c", "d"}
 	entity.SetNotNull = []string{"a", "b"}
@@ -102,9 +105,13 @@ func TestFlush(t *testing.T) {
 	assert.False(t, engine.IsDirty(entity))
 	assert.False(t, engine.IsDirty(entity.ReferenceOne))
 	assert.Equal(t, uint(1), entity.ID)
-	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
+	assert.NotEqual(t, uint(0), entity.ReferenceOne.ID)
 	assert.True(t, engine.Loaded(entity))
 	assert.True(t, engine.Loaded(entity.ReferenceOne))
+	assert.NotEqual(t, uint(0), entity.ReferenceMany[0].ID)
+	assert.True(t, engine.Loaded(entity.ReferenceMany[0]))
+	refOneID := entity.ReferenceOne.ID
+	refManyID := entity.ReferenceMany[0].ID
 
 	entity = &flushEntity{}
 	found := engine.LoadByID(1, entity)
@@ -122,7 +129,6 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, now.Unix(), entity.TimeWithTime.Unix())
 	assert.Equal(t, now.Format(layout), entity.TimeWithTimeNullable.Format(layout))
 	assert.Equal(t, now.Unix(), entity.TimeWithTimeNullable.Unix())
-
 	assert.Nil(t, entity.SetNullable)
 	assert.Equal(t, "", entity.City)
 	assert.Nil(t, entity.UintNullable)
@@ -134,7 +140,7 @@ func TestFlush(t *testing.T) {
 	assert.False(t, engine.IsDirty(entity))
 	assert.True(t, engine.Loaded(entity))
 	assert.False(t, engine.Loaded(entity.ReferenceOne))
-	assert.Equal(t, uint(1), entity.ReferenceOne.ID)
+	assert.Equal(t, refOneID, entity.ReferenceOne.ID)
 	assert.Nil(t, entity.Blob)
 	assert.Nil(t, entity.Int8Nullable)
 	assert.Nil(t, entity.Int16Nullable)
@@ -144,8 +150,13 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, entity.Uint16Nullable)
 	assert.Nil(t, entity.Uint32Nullable)
 	assert.Nil(t, entity.Uint64Nullable)
+
+	assert.NotNil(t, entity.ReferenceMany)
+	assert.Len(t, entity.ReferenceMany, 1)
+	assert.Equal(t, refManyID, entity.ReferenceMany[0].ID)
+
 	entity.ReferenceOne.Name = "John 2"
-	assert.PanicsWithError(t, "entity is not loaded and can't be updated: orm.flushEntityReference [1]", func() {
+	assert.PanicsWithError(t, fmt.Sprintf("entity is not loaded and can't be updated: orm.flushEntityReference [%d]", refOneID), func() {
 		engine.TrackAndFlush(entity.ReferenceOne)
 	})
 	engine.ClearTrackedEntities()
@@ -187,10 +198,11 @@ func TestFlush(t *testing.T) {
 	entity.Decimal = 134.345
 	entity.DecimalNullable = &entity.Decimal
 	entity.Interface = map[string]int{"test": 12}
+	entity.ReferenceMany = nil
 	engine.TrackAndFlush(entity)
 
 	reference = &flushEntityReference{}
-	found = engine.LoadByID(1, reference)
+	found = engine.LoadByID(uint64(refOneID), reference)
 	assert.True(t, found)
 	assert.Equal(t, "John", reference.Name)
 	assert.Equal(t, 30, reference.Age)
@@ -217,10 +229,17 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, 134.345, entity.Float64)
 	assert.Equal(t, 134.35, entity.Decimal)
 	assert.Equal(t, 134.35, *entity.DecimalNullable)
+	assert.Nil(t, entity.ReferenceMany)
 	assert.False(t, engine.IsDirty(entity))
-
 	assert.False(t, engine.IsDirty(reference))
 	assert.True(t, engine.Loaded(reference))
+
+	entity.ReferenceMany = []*flushEntityReference{}
+	assert.False(t, engine.IsDirty(entity))
+	engine.TrackAndFlush(entity)
+	entity = &flushEntity{}
+	engine.LoadByID(1, entity)
+	assert.Nil(t, entity.ReferenceMany)
 
 	entity2 := &flushEntity{Name: "Tom", Age: 12, EnumNotNull: "a"}
 	assert.PanicsWithError(t, "Duplicate entry 'Tom' for key 'name'", func() {
@@ -228,7 +247,7 @@ func TestFlush(t *testing.T) {
 	})
 
 	entity2.Name = "Lucas"
-	entity2.ReferenceOne = &flushEntityReference{ID: 2}
+	entity2.ReferenceOne = &flushEntityReference{ID: 3}
 	assert.PanicsWithError(t, "foreign key error in key `test:flushEntity:ReferenceOne`", func() {
 		engine.TrackAndFlush(entity2)
 	}, "")
