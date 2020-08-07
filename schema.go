@@ -754,16 +754,23 @@ func handleString(registry *validatedRegistry, attributes map[string]string, nul
 	if !hasLength {
 		length = "255"
 	}
-	i, err := strconv.Atoi(length)
-	if err != nil || i > 65535 {
-		return "", false, false, "", errors.Errorf("invalid max string: %s", length)
+	addDefaultNullIfNullable := true
+	if length == "max" {
+		definition = "mediumtext"
+		addDefaultNullIfNullable = false
+	} else {
+		i, err := strconv.Atoi(length)
+		if err != nil || i > 65535 {
+			return "", false, false, "", errors.Errorf("invalid max string: %s", length)
+		}
+		definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
 	}
-	definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
+
 	defaultValue := "nil"
 	if !nullable {
 		defaultValue = "''"
 	}
-	return definition, !nullable, true, defaultValue, nil
+	return definition, !nullable, addDefaultNullIfNullable, defaultValue, nil
 }
 
 func handleSetEnum(registry *validatedRegistry, fieldType string, attribute string, nullable bool) (string, bool, bool, string, error) {
