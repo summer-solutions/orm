@@ -2,6 +2,7 @@ package orm
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -27,19 +28,39 @@ type ElasticIndexAlter struct {
 	Pool  string
 }
 
-type ElasticSort struct {
+type elasticSort struct {
 	fields []string
 	asc    []bool
 }
 
-func (s *ElasticSort) Add(field string, ascending bool) *ElasticSort {
+type SearchOptions struct {
+	sort        *elasticSort
+	aggregation map[string]elastic.Aggregation
+}
+
+func (p *SearchOptions) AddSort(field string, ascending bool) *SearchOptions {
+	if p.sort == nil {
+		p.sort = &elasticSort{}
+	}
+	p.sort.Add(field, ascending)
+	return p
+}
+
+func (p *SearchOptions) AddAggregation(name string, aggregation elastic.Aggregation) *SearchOptions {
+	if p.aggregation == nil {
+		p.aggregation = make(map[string]elastic.Aggregation)
+	}
+	p.aggregation[name] = aggregation
+	return p
+}
+
+func (s *elasticSort) Add(field string, ascending bool) {
 	if s.fields == nil {
 		s.fields = make([]string, 0)
 		s.asc = make([]bool, 0)
 	}
 	s.fields = append(s.fields, field)
 	s.asc = append(s.asc, ascending)
-	return s
 }
 
 type Elastic struct {
@@ -52,14 +73,21 @@ func (e *Elastic) Client() *elastic.Client {
 	return e.client
 }
 
-func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, sort *ElasticSort) *elastic.SearchResult {
+func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, options *SearchOptions) *elastic.SearchResult {
 	start := time.Now()
 	searchService := e.client.Search().Query(query)
 	from := (pager.CurrentPage - 1) * pager.PageSize
 	searchService.Index(index).From(from).Size(pager.PageSize).StoredField("_id")
-	if sort != nil {
-		for i, v := range sort.fields {
-			searchService.Sort(v, sort.asc[i])
+	if options != nil {
+		if options.sort != nil {
+			for i, v := range options.sort.fields {
+				searchService.Sort(v, options.sort.asc[i])
+			}
+		}
+		if options.aggregation != nil {
+			for i, v := range options.aggregation {
+				searchService.Aggregation(i, v)
+			}
 		}
 	}
 	result, err := searchService.Do(context.Background())
@@ -70,17 +98,28 @@ func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, sort *
 		if result != nil {
 			fields["query_time"] = result.TookInMillis * 1000
 		}
-		if sort != nil {
-			sortFields := make([]string, len(sort.fields))
-			for i, v := range sort.fields {
-				asc := "ASC"
-				if !sort.asc[i] {
-					asc = "DESC"
+		if options != nil {
+			if options.sort != nil {
+				sortFields := make([]string, len(options.sort.fields))
+				for i, v := range options.sort.fields {
+					asc := "ASC"
+					if !options.sort.asc[i] {
+						asc = "DESC"
+					}
+					sortFields[i] = v + " " + asc
+					searchService.Sort(v, options.sort.asc[i])
 				}
-				sortFields[i] = v + " " + asc
-				searchService.Sort(v, sort.asc[i])
+				fields["sort"] = sortFields
 			}
-			fields["sort"] = sortFields
+			if options.aggregation != nil {
+				aggregation := make([]string, len(options.aggregation))
+				i := 0
+				for _, v := range options.aggregation {
+					source, _ := v.Source()
+					aggregation[i] = fmt.Sprintf("%v", source)
+				}
+				fields["aggregation"] = aggregation
+			}
 		}
 		e.fillLogFields("[ORM][ELASTIC][QUERY]", start, "query", fields, err)
 	}

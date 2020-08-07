@@ -52,6 +52,9 @@ func TestElastic(t *testing.T) {
 					"type":       "keyword",
 					"normalizer": "case_insensitive",
 				},
+				"TestID": map[string]interface{}{
+					"type": "keyword",
+				},
 			},
 		},
 	}
@@ -67,25 +70,31 @@ func TestElastic(t *testing.T) {
 	assert.NotNil(t, e.Client())
 	query := elastic.NewBoolQuery()
 	query.Must(elastic.NewTermQuery("category", "test"))
-	sort := ElasticSort{}
-	sort.Add("Name", true)
-	res := e.Search("test_index", query, NewPager(1, 10), &sort)
+	options := SearchOptions{}
+	options.AddSort("Name", true)
+	res := e.Search("test_index", query, NewPager(1, 10), &options)
 	assert.NotNil(t, res)
 
 	engine.DataDog().StartWorkSpan("test")
 	engine.DataDog().StartAPM("test_service", "test")
 	engine.DataDog().StartWorkSpan("test")
 
-	sort = ElasticSort{}
-	sort.Add("Name", false)
-	res = e.Search("test_index", query, NewPager(1, 10), &sort)
+	options = SearchOptions{}
+	options.AddSort("Name", false)
+	res = e.Search("test_index", query, NewPager(1, 10), &options)
 	assert.NotNil(t, res)
 
-	sort = ElasticSort{}
-	sort.Add("Invalid", false)
+	options = SearchOptions{}
+	options.AddSort("Invalid", false)
 	assert.Panics(t, func() {
-		e.Search("test_index", query, NewPager(1, 10), &sort)
+		e.Search("test_index", query, NewPager(1, 10), &options)
 	})
+
+	options = SearchOptions{}
+	sumAgg := elastic.NewCardinalityAggregation().Field("TestID")
+	options.AddAggregation("TestID", sumAgg)
+	res = e.Search("test_index", query, NewPager(1, 10), &options)
+	assert.NotNil(t, res)
 
 	alters := engine.GetElasticIndexAlters()
 	assert.Len(t, alters, 0)

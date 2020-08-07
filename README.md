@@ -943,9 +943,9 @@ func main() {
 
     query := elastic.NewBoolQuery()
 	query.Must(elastic.NewTermQuery("user_id", 12))
-    sort := &orm.ElasticSort{}
-    sort.Add("created_at", true).Add("name", false)
-	results := e.Search("users", query, orm.NewPager(1, 10), sort)
+    options := &orm.SearchOptions{}
+    options.AddSort("created_at", true).AddSort("name", false)
+	results := e.Search("users", query, orm.NewPager(1, 10), options)
 }
 
 ```
