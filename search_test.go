@@ -8,11 +8,12 @@ import (
 )
 
 type searchEntity struct {
-	ORM          `orm:"localCache;redisCache"`
-	ID           uint
-	Name         string
-	ReferenceOne *searchEntityReference
-	FakeDelete   bool
+	ORM           `orm:"localCache;redisCache"`
+	ID            uint
+	Name          string
+	ReferenceOne  *searchEntityReference
+	ReferenceMany []*searchEntityReference
+	FakeDelete    bool
 }
 
 type searchEntityReference struct {
@@ -30,6 +31,10 @@ func TestSearch(t *testing.T) {
 		engine.Track(&searchEntity{Name: fmt.Sprintf("name %d", i), ReferenceOne: &searchEntityReference{Name: fmt.Sprintf("name %d", i)}})
 	}
 	engine.Flush()
+	entity = &searchEntity{ID: 1}
+	engine.Load(entity)
+	entity.ReferenceMany = []*searchEntityReference{{ID: 1}, {ID: 2}, {ID: 3}}
+	engine.TrackAndFlush(entity)
 
 	var rows []*searchEntity
 	missing := engine.LoadByIDs([]uint64{1, 2, 20}, &rows)
@@ -66,6 +71,13 @@ func TestSearch(t *testing.T) {
 	ids = engine.SearchIDs(NewWhere("ID > 2"), nil, entity)
 	assert.Len(t, ids, 8)
 	assert.Equal(t, uint64(3), ids[0])
+
+	entity = &searchEntity{ID: 1}
+	engine.Load(entity, "ReferenceMany")
+	assert.Len(t, entity.ReferenceMany, 3)
+	assert.True(t, engine.Loaded(entity.ReferenceMany[0]))
+	assert.True(t, engine.Loaded(entity.ReferenceMany[1]))
+	assert.True(t, engine.Loaded(entity.ReferenceMany[2]))
 
 	engine = PrepareTables(t, &Registry{})
 	assert.PanicsWithValue(t, EntityNotRegisteredError{Name: "orm.searchEntity"}, func() {

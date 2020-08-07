@@ -167,8 +167,13 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			panic(errors.NotValidf("reference %s in %s", ref, tableSchema.tableName))
 		}
 		parentRef, has := tableSchema.tags[parts[0]]["ref"]
+		manyRef := false
 		if !has {
-			panic(errors.NotValidf("reference tag %s", ref))
+			parentRef, has = tableSchema.tags[parts[0]]["refs"]
+			manyRef = true
+			if !has {
+				panic(errors.NotValidf("reference tag %s", ref))
+			}
 		}
 		parentType := engine.registry.entities[parentRef]
 		newSub := parts[1:]
@@ -186,23 +191,40 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			if ref.IsZero() {
 				continue
 			}
-			refEntity := ref.Interface().(Entity)
-			refID := refEntity.GetID()
-			if warmUpRefs[parentType] == nil {
-				warmUpRefs[parentType] = make(map[uint64][]reflect.Value)
+			refIDs := make([]uint64, 0)
+			if manyRef {
+				length := ref.Len()
+				for i := 0; i < length; i++ {
+					refIDs = append(refIDs, ref.Index(i).Interface().(Entity).GetID())
+				}
+			} else {
+				refEntity := ref.Interface().(Entity)
+				refIDs = append(refIDs, refEntity.GetID())
 			}
-			if warmUpRefs[parentType][refID] == nil {
-				warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
-			}
-			warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
-			if warmUpRows[parentType] == nil {
-				warmUpRows[parentType] = make(map[uint64]bool)
-				warmUpRowsIDs[parentType] = make([]uint64, 0)
-			}
-			_, has := warmUpRows[parentType][refID]
-			if !has {
-				warmUpRows[parentType][refID] = true
-				warmUpRowsIDs[parentType] = append(warmUpRowsIDs[parentType], refID)
+			for _, refID := range refIDs {
+				if warmUpRefs[parentType] == nil {
+					warmUpRefs[parentType] = make(map[uint64][]reflect.Value)
+				}
+				if warmUpRefs[parentType][refID] == nil {
+					warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
+				}
+				if manyRef {
+					length := ref.Len()
+					for i := 0; i < length; i++ {
+						warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref.Index(i))
+					}
+				} else {
+					warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
+				}
+
+				if warmUpRows[parentType] == nil {
+					warmUpRows[parentType] = make(map[uint64]bool)
+					warmUpRowsIDs[parentType] = make([]uint64, 0)
+				}
+				_, has := warmUpRows[parentType][refID]
+				if !has {
+					warmUpRowsIDs[parentType] = append(warmUpRowsIDs[parentType], refID)
+				}
 			}
 		}
 	}
