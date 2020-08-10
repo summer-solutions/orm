@@ -189,7 +189,6 @@ func convertStringToInt(value string) int64 {
 }
 
 func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields, value reflect.Value) uint16 {
-	fmt.Printf("%v\n", fields.refsMany)
 	skip := 1
 	if fields.prefix != "" {
 		skip = -1

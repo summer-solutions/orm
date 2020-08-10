@@ -640,7 +640,7 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 					t := f.Type.Elem()
 					if t.Implements(modelType) {
 						fields.refsMany = append(fields.refsMany, i)
-						fields.refsManyTypes = append(fields.refsTypes, t)
+						fields.refsManyTypes = append(fields.refsManyTypes, t)
 						continue
 					}
 				}
