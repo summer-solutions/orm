@@ -430,4 +430,25 @@ func TestFlush(t *testing.T) {
 			engine.Track(&flushEntity{})
 		}
 	})
+
+	engine.ClearTrackedEntities()
+	entity2 = &flushEntity{ID: 100, Age: 1, EnumNotNull: "a"}
+	engine.SetOnDuplicateKeyUpdate(NewWhere("`Age` = `Age` + 1"), entity2)
+	engine.TrackAndFlush(entity2)
+	assert.Equal(t, uint(100), entity2.ID)
+	assert.Equal(t, 1, entity2.Age)
+	entity2 = &flushEntity{}
+	found = engine.LoadByID(100, entity2)
+	assert.True(t, found)
+	assert.Equal(t, 1, entity2.Age)
+
+	entity2 = &flushEntity{ID: 100, Age: 1, EnumNotNull: "a"}
+	engine.SetOnDuplicateKeyUpdate(NewWhere("`Age` = `Age` + 1"), entity2)
+	engine.TrackAndFlush(entity2)
+	assert.Equal(t, uint(100), entity2.ID)
+	assert.Equal(t, 2, entity2.Age)
+	entity2 = &flushEntity{}
+	found = engine.LoadByID(100, entity2)
+	assert.True(t, found)
+	assert.Equal(t, 2, entity2.Age)
 }

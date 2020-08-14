@@ -108,6 +108,10 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 		} else if len(dbData) == 0 {
 			onUpdate := entity.getORM().attributes.onDuplicateKeyUpdate
 			if onUpdate != nil {
+				if currentID > 0 {
+					bind["ID"] = currentID
+					bindLength++
+				}
 				values := make([]string, bindLength)
 				columns := make([]string, bindLength)
 				bindRow := make([]interface{}, bindLength)
@@ -133,7 +137,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 				} else {
 					result := db.Exec(sql, bindRow...)
 					affected := result.RowsAffected()
-					if affected > 0 {
+					if affected > 0 && currentID == 0 {
 						lastID := result.LastInsertId()
 						injectBind(entity, bind)
 						entity.getORM().attributes.idElem.SetUint(lastID)
@@ -145,6 +149,10 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 							logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
 								redisKeysToDelete, dirtyQueues, logQueues)
 						}
+					} else if currentID > 0 {
+						_ = loadByID(engine, currentID, entity, false)
+						logQueues = updateCacheForInserted(entity, lazy, currentID, bind, localCacheSets,
+							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 					} else {
 						for _, index := range schema.uniqueIndices {
 							allNotNil := true
