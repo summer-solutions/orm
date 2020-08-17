@@ -30,6 +30,11 @@ type schemaInvalidMaxStringEntity struct {
 	Name string `orm:"length=invalid"`
 }
 
+type schemaToDropEntity struct {
+	ORM `orm:"log"`
+	ID  uint
+}
+
 type testEnum struct {
 	EnumModel
 	A string
@@ -168,6 +173,10 @@ func TestSchema(t *testing.T) {
 
 	schema := engine.GetRegistry().GetTableSchemaForEntity(entity)
 	assert.Equal(t, "orm.schemaEntity", schema.GetType().String())
+	references := schema.GetReferences()
+	assert.Len(t, references, 2)
+	columns := schema.GetColumns()
+	assert.Len(t, columns, 39)
 
 	engine.GetMysql().Exec("ALTER TABLE `schemaEntity` ADD INDEX `TestIndex2` (`Name`);")
 	alters = engine.GetAlters()
@@ -192,7 +201,6 @@ func TestSchema(t *testing.T) {
 	engine.GetRegistry().GetTableSchemaForEntity(&schemaEntityRef{}).UpdateSchemaAndTruncateTable(engine)
 	alters = engine.GetAlters()
 	assert.Len(t, alters, 0)
-	//todo has zero
 
 	registry = &Registry{}
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test")
@@ -211,4 +219,42 @@ func TestSchema(t *testing.T) {
 	registry.RegisterEntity(&schemaEntity{})
 	_, err = registry.Validate()
 	assert.EqualError(t, err, "invalid entity struct 'orm.schemaEntity': unregistered enum orm.TestEnum")
+
+	engine = PrepareTables(t, &Registry{}, &schemaToDropEntity{})
+	schema = engine.GetRegistry().GetTableSchemaForEntity(&schemaToDropEntity{})
+	schema.DropTable(engine)
+	has, alters := schema.GetSchemaChanges(engine)
+	assert.True(t, has)
+	assert.Len(t, alters, 1)
+	assert.Equal(t, "CREATE TABLE `test`.`schemaToDropEntity` (\n  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;", alters[0].SQL)
+
+	registry = &Registry{}
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test")
+	type invalidSchema struct {
+		ORM `orm:"mysql=invalid"`
+		ID  uint
+	}
+	registry.RegisterEntity(&invalidSchema{})
+	_, err = registry.Validate()
+	assert.EqualError(t, err, "mysql pool 'invalid' not found")
+
+	registry = &Registry{}
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test")
+	type invalidSchema2 struct {
+		ORM `orm:"localCache=invalid"`
+		ID  uint
+	}
+	registry.RegisterEntity(&invalidSchema2{})
+	_, err = registry.Validate()
+	assert.EqualError(t, err, "local cache pool 'invalid' not found")
+
+	registry = &Registry{}
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test")
+	type invalidSchema3 struct {
+		ORM `orm:"redisCache=invalid"`
+		ID  uint
+	}
+	registry.RegisterEntity(&invalidSchema3{})
+	_, err = registry.Validate()
+	assert.EqualError(t, err, "redis pool 'invalid' not found")
 }

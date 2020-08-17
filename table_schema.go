@@ -341,16 +341,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 			}
 
 			if !isOne {
-				max := 50000
-				maxAttribute, has := values["max"]
-				if has {
-					maxFromUser, err := strconv.Atoi(maxAttribute)
-					if err != nil {
-						return nil, errors.Trace(err)
-					}
-					max = maxFromUser
-				}
-				def := &cachedQueryDefinition{max, query, fieldsTracked, fieldsQuery, fieldsOrder}
+				def := &cachedQueryDefinition{50000, query, fieldsTracked, fieldsQuery, fieldsOrder}
 				cachedQueries[key] = def
 				cachedQueriesAll[key] = def
 			} else {

@@ -630,7 +630,7 @@ func main() {
         Age                  uint16
         IndexAge             *CachedQuery `query:":Age = ? ORDER BY :ID"`
         IndexAll             *CachedQuery `query:""` //cache all rows
-        IndexName            *CachedQuery `queryOne:":Name = ?" orm:"max=100"` // be default cached query can cache max 50 000 rows
+        IndexName            *CachedQuery `queryOne:":Name = ?"`
     }
 
     pager := orm.NewPager(1, 1000)
