@@ -13,6 +13,12 @@ type flushStruct struct {
 	Age  int
 }
 
+type Object struct {
+	ID         uint64
+	StorageKey string
+	Data       interface{}
+}
+
 type flushEntity struct {
 	ORM                  `orm:"localCache;redisCache"`
 	ID                   uint
@@ -59,6 +65,7 @@ type flushEntity struct {
 	Uint16Nullable       *uint16
 	Uint32Nullable       *uint32
 	Uint64Nullable       *uint64
+	Images               []Object
 }
 
 type flushEntityReference struct {
@@ -96,6 +103,7 @@ func TestFlush(t *testing.T) {
 	entity.EnumNotNull = "a"
 	entity.TimeWithTime = now
 	entity.TimeWithTimeNullable = &now
+	entity.Images = []Object{{ID: 1, StorageKey: "aaa", Data: map[string]string{"sss": "vv", "bb": "cc"}}}
 	assert.True(t, engine.IsDirty(entity))
 	assert.True(t, engine.IsDirty(entity.ReferenceOne))
 	engine.TrackAndFlush(entity)
@@ -103,6 +111,7 @@ func TestFlush(t *testing.T) {
 	assert.True(t, engine.Loaded(entity))
 	assert.True(t, engine.Loaded(entity.ReferenceOne))
 	assert.False(t, engine.IsDirty(entity))
+
 	assert.False(t, engine.IsDirty(entity.ReferenceOne))
 	assert.Equal(t, uint(1), entity.ID)
 	assert.NotEqual(t, uint(0), entity.ReferenceOne.ID)

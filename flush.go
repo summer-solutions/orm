@@ -780,7 +780,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				value := field.Interface()
 				var valString string
 				if !field.IsZero() {
-					if field.Type().Kind().String() == "map" && hasOld && old != nil && old != "" {
+					if hasOld && old != nil && old != "" {
 						oldMap := reflect.New(field.Type()).Interface()
 						_ = jsoniter.ConfigFastest.Unmarshal([]byte(old.(string)), oldMap)
 						if reflect.DeepEqual(value, reflect.ValueOf(oldMap).Elem().Interface()) {
