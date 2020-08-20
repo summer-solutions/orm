@@ -201,6 +201,17 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	assert.Equal(t, 10, totalRows)
 	totalRows = engine.CachedSearch(&rows, "IndexAge", nil, 10)
 	assert.Equal(t, 3, totalRows)
+
+	totalRows, ids := engine.CachedSearchIDs(entity, "IndexAge", nil, 10)
+	assert.Equal(t, 3, totalRows)
+	assert.Len(t, ids, 3)
+	assert.Equal(t, []uint64{3, 4, 5}, ids)
+
+	totalRows = engine.CachedSearchWithReferences(&rows, "IndexAge", nil, []interface{}{10}, []string{"ReferenceOne"})
+	assert.Equal(t, 3, totalRows)
+	assert.Equal(t, "Name 3", rows[0].ReferenceOne.Name)
+	assert.Equal(t, "Name 4", rows[1].ReferenceOne.Name)
+	assert.Equal(t, "Name 5", rows[2].ReferenceOne.Name)
 }
 
 func TestCachedSearchErrors(t *testing.T) {

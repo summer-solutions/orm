@@ -59,6 +59,14 @@ func TestLoadById(t *testing.T) {
 	assert.Equal(t, "s1", entity.ReferenceOne.ReferenceTwo.Name)
 	assert.True(t, engine.Loaded(entity.ReferenceOne.ReferenceTwo))
 
+	entity = &loadByIDEntity{}
+	engine.LoadByID(1, entity)
+	engine.Load(entity, "ReferenceOne/ReferenceTwo")
+	assert.Equal(t, "r1", entity.ReferenceOne.Name)
+	assert.True(t, engine.Loaded(entity.ReferenceOne))
+	assert.Equal(t, "s1", entity.ReferenceOne.ReferenceTwo.Name)
+	assert.True(t, engine.Loaded(entity.ReferenceOne.ReferenceTwo))
+
 	entityNoCache = &loadByIDNoCacheEntity{}
 	found = engine.LoadByID(1, entityNoCache, "*")
 	assert.True(t, found)

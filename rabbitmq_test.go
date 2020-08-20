@@ -72,6 +72,7 @@ func TestRabbitMQ(t *testing.T) {
 	assert.NoError(t, err)
 	engine = validatedRegistry.CreateEngine()
 
+	engine.GetRabbitMQRouter("test_exchange_dynamic")
 	router = engine.GetRabbitMQRouter("test_exchange_dynamic")
 	consumerRouter = router.NewConsumer("default_consumer")
 	consumerRouter.DisableLoop()
@@ -89,4 +90,11 @@ func TestRabbitMQ(t *testing.T) {
 		assert.Equal(t, []byte("hello"), items[0])
 	})
 	assert.Equal(t, 1, consumed)
+
+	assert.PanicsWithError(t, "rabbitMQ queue 'test_exchange_fanout' is declared as router", func() {
+		engine.GetRabbitMQQueue("test_exchange_fanout")
+	})
+	assert.PanicsWithError(t, "rabbitMQ queue 'test_queue' is not declared as router", func() {
+		engine.GetRabbitMQRouter("test_queue")
+	})
 }
