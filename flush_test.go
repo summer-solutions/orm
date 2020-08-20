@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	apexLog "github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -82,16 +85,24 @@ type flushEntityReferenceCascade struct {
 	ReferenceTwo *flushEntity `orm:"cascade"`
 }
 
+type flushEntitySmart struct {
+	ORM  `orm:"localCache"`
+	ID   uint
+	Name string
+	Age  int
+}
+
 func TestFlush(t *testing.T) {
 	var entity *flushEntity
 	var reference *flushEntityReference
 	var referenceCascade *flushEntityReferenceCascade
+	var entitySmart *flushEntitySmart
 	registry := &Registry{}
 	registry.RegisterEnumSlice("orm.TestEnum", []string{"a", "b", "c"})
 	registry.RegisterLocker("default", "default")
-	engine := PrepareTables(t, registry, entity, reference, referenceCascade)
-	now := time.Now()
+	engine := PrepareTables(t, registry, entity, reference, referenceCascade, entitySmart)
 
+	now := time.Now()
 	layout := "2006-01-02 15:04:05"
 	entity = &flushEntity{Name: "Tom", Age: 12, Uint: 7, Year: 1982}
 	entity.NameTranslated = map[string]string{"pl": "kot", "en": "cat"}
@@ -460,4 +471,34 @@ func TestFlush(t *testing.T) {
 	found = engine.LoadByID(100, entity2)
 	assert.True(t, found)
 	assert.Equal(t, 2, entity2.Age)
+
+	entitySmart = &flushEntitySmart{Name: "Test", Age: 18}
+	engine.TrackAndFlush(entitySmart)
+	assert.Equal(t, uint(1), entitySmart.ID)
+	entitySmart = &flushEntitySmart{}
+	found = engine.LoadByID(1, entitySmart)
+	assert.True(t, found)
+	entitySmart.Age = 20
+
+	receiver := NewLazyReceiver(engine)
+	receiver.DisableLoop()
+	receiver.SetMaxLoopDuration(time.Millisecond)
+	receiver.Purge()
+
+	testLogger := memory.New()
+	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceDB)
+	engine.TrackAndFlush(entitySmart)
+	entitySmart = &flushEntitySmart{}
+	found = engine.LoadByID(1, entitySmart)
+	assert.True(t, found)
+	assert.Equal(t, 20, entitySmart.Age)
+	assert.Len(t, testLogger.Entries, 0)
+	validHeartBeat := false
+	receiver.SetHeartBeat(func() {
+		validHeartBeat = true
+	})
+	receiver.Digest()
+	assert.True(t, validHeartBeat)
+	assert.Len(t, testLogger.Entries, 1)
+	assert.Equal(t, "UPDATE flushEntitySmart SET `Age` = ? WHERE `ID` = ?", testLogger.Entries[0].Fields["Query"])
 }

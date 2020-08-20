@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/juju/errors"
 
 	jsoniter "github.com/json-iterator/go"
@@ -227,7 +229,16 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 			if lazy {
 				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 			} else {
-				_ = db.Exec(sql, values...)
+				smartUpdate := false
+				if schema.localCacheName != "" && schema.redisCacheName == "" {
+					keys := getCacheQueriesKeys(schema, bind, dbData, false)
+					smartUpdate = len(keys) == 0
+				}
+				if smartUpdate {
+					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
+				} else {
+					_ = db.Exec(sql, values...)
+				}
 			}
 			logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, currentID,
 				redisKeysToDelete, dirtyQueues, logQueues)
@@ -780,13 +791,6 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				value := field.Interface()
 				var valString string
 				if !field.IsZero() {
-					if hasOld && old != nil && old != "" {
-						oldMap := reflect.New(field.Type()).Interface()
-						_ = jsoniter.ConfigFastest.Unmarshal([]byte(old.(string)), oldMap)
-						if reflect.DeepEqual(value, reflect.ValueOf(oldMap).Elem().Interface()) {
-							continue
-						}
-					}
 					if fieldTypeString[0:3] == "[]*" {
 						length := field.Len()
 						if length > 0 {
@@ -807,6 +811,13 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 						}
 						continue
 					} else {
+						if hasOld && old != nil && old != "" {
+							oldMap := reflect.New(field.Type()).Interface()
+							_ = jsoniter.ConfigFastest.Unmarshal([]byte(old.(string)), oldMap)
+							if cmp.Equal(value, reflect.ValueOf(oldMap).Elem().Interface()) {
+								continue
+							}
+						}
 						encoded, _ := jsoniter.ConfigFastest.Marshal(value)
 						asString := string(encoded)
 						if asString != "" {
