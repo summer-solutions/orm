@@ -23,6 +23,10 @@ func TestClickhouse(t *testing.T) {
 	server.Exec("CREATE DATABASE IF NOT EXISTS test")
 	assert.NotNil(t, server.client)
 
+	engine.DataDog().StartWorkSpan("test")
+	engine.DataDog().StartAPM("test_service", "test")
+	engine.DataDog().StartWorkSpan("test")
+
 	server.Begin()
 	assert.PanicsWithError(t, "transaction already started", func() {
 		server.Begin()
