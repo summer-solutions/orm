@@ -14,6 +14,12 @@ import (
 	"github.com/apex/log/handlers/text"
 )
 
+type obj struct {
+	ID         uint64
+	StorageKey string
+	Data       interface{}
+}
+
 type Engine struct {
 	registry                     *validatedRegistry
 	dbs                          map[string]*DB

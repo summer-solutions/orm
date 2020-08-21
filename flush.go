@@ -811,14 +811,21 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 						}
 						continue
 					} else {
+						var encoded []byte
 						if hasOld && old != nil && old != "" {
 							oldMap := reflect.New(field.Type()).Interface()
+							newMap := reflect.New(field.Type()).Interface()
 							_ = jsoniter.ConfigFastest.Unmarshal([]byte(old.(string)), oldMap)
-							if cmp.Equal(value, reflect.ValueOf(oldMap).Elem().Interface()) {
+							oldValue := reflect.ValueOf(oldMap).Elem().Interface()
+							encoded, _ = jsoniter.ConfigFastest.Marshal(value)
+							_ = jsoniter.ConfigFastest.Unmarshal(encoded, newMap)
+							newValue := reflect.ValueOf(newMap).Elem().Interface()
+							if cmp.Equal(newValue, oldValue) {
 								continue
 							}
+						} else {
+							encoded, _ = jsoniter.ConfigFastest.Marshal(value)
 						}
-						encoded, _ := jsoniter.ConfigFastest.Marshal(value)
 						asString := string(encoded)
 						if asString != "" {
 							valString = asString
