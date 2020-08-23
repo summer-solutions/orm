@@ -92,9 +92,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err = db.Ping(); err != nil {
-			return nil, errors.Annotate(err, "issue while connecting to clickhouse")
-		}
 		v.db = db
 		registry.clickHouseClients[k] = v
 	}

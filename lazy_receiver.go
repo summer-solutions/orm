@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
+
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -80,7 +82,8 @@ func (r *LazyReceiver) handleQueries(engine *Engine, validMap map[string]interfa
 					err := r.(error)
 					_, isDuplicatedError := err.(*DuplicatedKeyError)
 					_, isForeignError := err.(*ForeignKeyError)
-					if isDuplicatedError || isForeignError {
+					_, isMysqlError := err.(*mysql.MySQLError)
+					if isDuplicatedError || isForeignError || isMysqlError {
 						engine.Log().Error(err, nil)
 						engine.DataDog().RegisterAPMError(err)
 						return
