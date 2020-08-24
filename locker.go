@@ -32,7 +32,7 @@ type Locker struct {
 
 func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool) {
 	if ttl == 0 {
-		panic(errors.NotValidf("ttl must be greater than zero"))
+		panic(errors.NotValidf("ttl"))
 	}
 	if waitTimeout == 0 {
 		waitTimeout = ttl

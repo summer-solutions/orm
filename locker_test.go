@@ -36,4 +36,8 @@ func TestLocker(t *testing.T) {
 	lock.Release()
 	_, has = l.Obtain("test_key", time.Second, time.Millisecond)
 	assert.True(t, has)
+
+	assert.PanicsWithError(t, "ttl not valid", func() {
+		_, _ = l.Obtain("test_key", 0, time.Millisecond)
+	})
 }
