@@ -40,4 +40,17 @@ func TestLocker(t *testing.T) {
 	assert.PanicsWithError(t, "ttl not valid", func() {
 		_, _ = l.Obtain("test_key", 0, time.Millisecond)
 	})
+
+	registry = &Registry{}
+	registry.RegisterRedis("localhost:6389", 15)
+	registry.RegisterLocker("default", "default")
+	validatedRegistry, err = registry.Validate()
+	assert.NoError(t, err)
+	engine = validatedRegistry.CreateEngine()
+	testLogger = memory.New()
+	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceRedis)
+	l = engine.GetLocker()
+	assert.Panics(t, func() {
+		_, _ = l.Obtain("test_key", time.Second, time.Millisecond)
+	})
 }
