@@ -22,6 +22,18 @@ func TestRedis(t *testing.T) {
 	engine := validatedRegistry.CreateEngine()
 	engine.DataDog().EnableORMAPMLog(apexLog.DebugLevel, true, QueryLoggerSourceRedis)
 	testRedis(t, engine)
+
+	registry = &Registry{}
+	registry.RegisterRedis("localhost:6389", 15)
+	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test")
+	validatedRegistry, err = registry.Validate()
+	assert.NoError(t, err)
+	engine = validatedRegistry.CreateEngine()
+	testLogger := memory.New()
+	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceRedis)
+	assert.Panics(t, func() {
+		engine.GetRedis().Get("invalid")
+	})
 }
 
 func TestRedisRing(t *testing.T) {
