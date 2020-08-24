@@ -90,7 +90,7 @@ func TestLazyReceiver(t *testing.T) {
 	engine.Track(e)
 	engine.FlushLazy()
 
-	assert.Panics(t, func() {
+	assert.NotPanics(t, func() {
 		receiver.Digest()
 	})
 }
