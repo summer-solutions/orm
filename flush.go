@@ -36,7 +36,7 @@ func (err *ForeignKeyError) Error() string {
 	return err.Message
 }
 
-func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
+func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...Entity) {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
 	insertArguments := make(map[reflect.Type][]interface{})
@@ -230,7 +230,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 			} else {
 				smartUpdate := false
-				if schema.localCacheName != "" && schema.redisCacheName == "" {
+				if smart && schema.localCacheName != "" && schema.redisCacheName == "" {
 					keys := getCacheQueriesKeys(schema, bind, dbData, false)
 					smartUpdate = len(keys) == 0
 				}
@@ -255,7 +255,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 			toFlush[i] = v
 			i++
 		}
-		flush(engine, false, transaction, toFlush...)
+		flush(engine, false, transaction, false, toFlush...)
 		rest := make([]Entity, 0)
 		for _, v := range entities {
 			_, has := referencesToFlash[v]
@@ -263,7 +263,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 				rest = append(rest, v)
 			}
 		}
-		flush(engine, false, transaction, rest...)
+		flush(engine, false, transaction, false, rest...)
 	}
 	for typeOf, values := range insertKeys {
 		schema := getTableSchema(engine.registry, typeOf)
@@ -340,7 +340,7 @@ func flush(engine *Engine, lazy bool, transaction bool, entities ...Entity) {
 									engine.MarkToDelete(toDeleteValue)
 									toDeleteAll[i] = toDeleteValue
 								}
-								flush(engine, transaction, lazy, toDeleteAll...)
+								flush(engine, transaction, lazy, false, toDeleteAll...)
 							}
 						}
 					}
@@ -1016,7 +1016,7 @@ func getDirtyBind(entity Entity) (is bool, bind map[string]interface{}) {
 	return is, bind
 }
 
-func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) {
+func (e *Engine) flushTrackedEntities(lazy bool, transaction bool, smart bool) {
 	if e.trackedEntitiesCounter == 0 {
 		return
 	}
@@ -1036,7 +1036,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool) {
 			db.Rollback()
 		}
 	}()
-	flush(e, lazy, transaction, e.trackedEntities...)
+	flush(e, lazy, transaction, smart, e.trackedEntities...)
 	if transaction {
 		for _, db := range dbPools {
 			db.Commit()
@@ -1053,7 +1053,7 @@ func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName str
 		panic(errors.Timeoutf("lock wait"))
 	}
 	defer lock.Release()
-	e.flushTrackedEntities(false, transaction)
+	e.flushTrackedEntities(false, transaction, false)
 }
 
 func (e *Engine) flushWithCheck(transaction bool) error {
@@ -1077,7 +1077,7 @@ func (e *Engine) flushWithCheck(transaction bool) error {
 				panic(asErr)
 			}
 		}()
-		e.flushTrackedEntities(false, transaction)
+		e.flushTrackedEntities(false, transaction, false)
 	}()
 	return err
 }

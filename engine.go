@@ -111,7 +111,7 @@ func (e *Engine) TrackAndFlush(entity ...Entity) {
 }
 
 func (e *Engine) Flush() {
-	e.flushTrackedEntities(false, false)
+	e.flushTrackedEntities(false, false, true)
 }
 
 func (e *Engine) FlushWithCheck() error {
@@ -132,17 +132,17 @@ func (e *Engine) FlushWithFullCheck() error {
 				err = asErr
 			}
 		}()
-		e.flushTrackedEntities(false, false)
+		e.flushTrackedEntities(false, false, false)
 	}()
 	return err
 }
 
 func (e *Engine) FlushLazy() {
-	e.flushTrackedEntities(true, false)
+	e.flushTrackedEntities(true, false, false)
 }
 
 func (e *Engine) FlushInTransaction() {
-	e.flushTrackedEntities(false, true)
+	e.flushTrackedEntities(false, true, false)
 }
 
 func (e *Engine) FlushWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
