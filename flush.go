@@ -110,6 +110,9 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		} else if len(dbData) == 0 {
 			onUpdate := entity.getORM().attributes.onDuplicateKeyUpdate
 			if onUpdate != nil {
+				if lazy {
+					panic(errors.NotSupportedf("lazy flush on duplicate key"))
+				}
 				if currentID > 0 {
 					bind["ID"] = currentID
 					bindLength++
@@ -134,45 +137,41 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				sql += subSQL
 				bindRow = append(bindRow, onUpdate.GetParameters()...)
 				db := schema.GetMysql(engine)
-				if lazy {
-					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, bindRow)
-				} else {
-					result := db.Exec(sql, bindRow...)
-					affected := result.RowsAffected()
-					if affected > 0 && currentID == 0 {
-						lastID := result.LastInsertId()
-						injectBind(entity, bind)
-						entity.getORM().attributes.idElem.SetUint(lastID)
-						if affected == 1 {
-							logQueues = updateCacheForInserted(entity, lazy, lastID, bind, localCacheSets,
-								localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
-						} else {
-							_ = loadByID(engine, lastID, entity, false)
-							logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
-								redisKeysToDelete, dirtyQueues, logQueues)
-						}
-					} else if currentID > 0 {
-						_ = loadByID(engine, currentID, entity, false)
-						logQueues = updateCacheForInserted(entity, lazy, currentID, bind, localCacheSets,
+				result := db.Exec(sql, bindRow...)
+				affected := result.RowsAffected()
+				if affected > 0 && currentID == 0 {
+					lastID := result.LastInsertId()
+					injectBind(entity, bind)
+					entity.getORM().attributes.idElem.SetUint(lastID)
+					if affected == 1 {
+						logQueues = updateCacheForInserted(entity, lazy, lastID, bind, localCacheSets,
 							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 					} else {
-						for _, index := range schema.uniqueIndices {
-							allNotNil := true
-							fields := make([]string, 0)
-							binds := make([]interface{}, 0)
-							for _, column := range index {
-								if bind[column] == nil {
-									allNotNil = false
-									break
-								}
-								fields = append(fields, fmt.Sprintf("`%s` = ?", column))
-								binds = append(binds, bind[column])
-							}
-							if allNotNil {
-								findWhere := NewWhere(strings.Join(fields, " AND "), binds)
-								engine.SearchOne(findWhere, entity)
+						_ = loadByID(engine, lastID, entity, false)
+						logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
+							redisKeysToDelete, dirtyQueues, logQueues)
+					}
+				} else if currentID > 0 {
+					_ = loadByID(engine, currentID, entity, false)
+					logQueues = updateCacheForInserted(entity, lazy, currentID, bind, localCacheSets,
+						localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
+				} else {
+					for _, index := range schema.uniqueIndices {
+						allNotNil := true
+						fields := make([]string, 0)
+						binds := make([]interface{}, 0)
+						for _, column := range index {
+							if bind[column] == nil {
+								allNotNil = false
 								break
 							}
+							fields = append(fields, fmt.Sprintf("`%s` = ?", column))
+							binds = append(binds, bind[column])
+						}
+						if allNotNil {
+							findWhere := NewWhere(strings.Join(fields, " AND "), binds)
+							engine.SearchOne(findWhere, entity)
+							break
 						}
 					}
 				}

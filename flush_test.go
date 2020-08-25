@@ -495,4 +495,7 @@ func TestFlush(t *testing.T) {
 	assert.True(t, validHeartBeat)
 	assert.Len(t, testLogger.Entries, 1)
 	assert.Equal(t, "UPDATE flushEntitySmart SET `Age` = ? WHERE `ID` = ?", testLogger.Entries[0].Fields["Query"])
+
+	entity = &flushEntity{Name: "Monica", EnumNotNull: "a", ReferenceMany: []*flushEntityReference{{Name: "Adam Junior"}}}
+	engine.TrackAndFlush(entity)
 }

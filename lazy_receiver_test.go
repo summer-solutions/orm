@@ -12,16 +12,24 @@ type lazyReceiverEntity struct {
 	ID           uint
 	Name         string `orm:"unique=name"`
 	Age          uint64
-	EnumNullable string       `orm:"enum=orm.TestEnum"`
+	EnumNullable string `orm:"enum=orm.TestEnum"`
+	RefOne       *lazyReceiverReference
 	IndexAll     *CachedQuery `query:""`
+}
+
+type lazyReceiverReference struct {
+	ORM
+	ID   uint
+	Name string
 }
 
 func TestLazyReceiver(t *testing.T) {
 	var entity *lazyReceiverEntity
+	var ref *lazyReceiverReference
 
 	registry := &Registry{}
 	registry.RegisterEnumMap("orm.TestEnum", map[string]string{"a": "a", "b": "b", "c": "c"}, "a")
-	engine := PrepareTables(t, registry, entity)
+	engine := PrepareTables(t, registry, entity, ref)
 
 	receiver := NewLazyReceiver(engine)
 	receiver.DisableLoop()
@@ -93,4 +101,26 @@ func TestLazyReceiver(t *testing.T) {
 	assert.NotPanics(t, func() {
 		receiver.Digest()
 	})
+	e = &lazyReceiverEntity{Name: "Tom"}
+	engine.SetOnDuplicateKeyUpdate(NewWhere("Age = ?", 38), e)
+	engine.Track(e)
+	assert.PanicsWithError(t, "lazy flush on duplicate key not supported", func() {
+		engine.FlushLazy()
+	})
+	engine.ClearTrackedEntities()
+
+	e = &lazyReceiverEntity{Name: "Adam", RefOne: &lazyReceiverReference{Name: "Test"}}
+	engine.Track(e)
+	assert.PanicsWithError(t, "lazy flush for unsaved references not supported", func() {
+		engine.FlushLazy()
+	})
+	engine.ClearTrackedEntities()
+
+	e = &lazyReceiverEntity{}
+	engine.LoadByID(1, e)
+	engine.MarkToDelete(e)
+	engine.FlushLazy()
+	receiver.Digest()
+	loaded = engine.LoadByID(1, e)
+	assert.False(t, loaded)
 }
