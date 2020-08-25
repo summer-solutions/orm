@@ -912,10 +912,6 @@ func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interfac
 		}
 		queueNames := strings.Split(queues, ",")
 		for _, queueName := range queueNames {
-			_, has = results[queueName]
-			if has {
-				continue
-			}
 			results[queueName] = key
 		}
 	}
