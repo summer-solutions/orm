@@ -238,8 +238,9 @@ func (dd *dataDog) SetAPMTag(key string, value interface{}) {
 	}
 }
 
-func StartDataDogTracer(rate float64) (def func()) {
-	tracer.Start(tracer.WithAnalyticsRate(rate))
+func StartDataDogTracer(rate float64, opts ...tracer.StartOption) (def func()) {
+	opts = append(opts, tracer.WithAnalyticsRate(rate))
+	tracer.Start(opts...)
 	return func() { tracer.Stop() }
 }
 
