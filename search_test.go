@@ -80,7 +80,7 @@ func TestSearch(t *testing.T) {
 	assert.True(t, engine.Loaded(entity.ReferenceMany[2]))
 
 	engine = PrepareTables(t, &Registry{})
-	assert.PanicsWithValue(t, EntityNotRegisteredError{Name: "orm.searchEntity"}, func() {
+	assert.PanicsWithError(t, "entity 'orm.searchEntity' is not registered", func() {
 		engine.Search(NewWhere("ID > 0"), nil, &rows)
 	})
 }

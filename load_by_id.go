@@ -95,7 +95,7 @@ func initIfNeeded(engine *Engine, entity Entity) *ORM {
 		t := elem.Type()
 		tableSchema := getTableSchema(engine.registry, t)
 		if tableSchema == nil {
-			panic(EntityNotRegisteredError{Name: t.String()})
+			panic(fmt.Errorf("entity '%s' is not registered", t.String()))
 		}
 		orm.engine = engine
 		orm.tableSchema = tableSchema

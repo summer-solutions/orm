@@ -67,7 +67,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	entities.SetLen(0)
 	entityType, has, name := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
-		panic(EntityNotRegisteredError{Name: name})
+		panic(fmt.Errorf("entity '%s' is not registered", name))
 	}
 	schema := getTableSchema(engine.registry, entityType)
 	whereQuery := where.String()

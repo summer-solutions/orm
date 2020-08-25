@@ -3,18 +3,9 @@ package orm
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/bsm/redislock"
 )
-
-type EntityNotRegisteredError struct {
-	Name string
-}
-
-func (e EntityNotRegisteredError) Error() string {
-	return fmt.Sprintf("entity '%s' is not registered", strings.Trim(e.Name, "*[]"))
-}
 
 type ValidatedRegistry interface {
 	CreateEngine() *Engine
@@ -124,7 +115,7 @@ func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) TableSchema {
 	}
 	tableSchema := getTableSchema(r, t)
 	if tableSchema == nil {
-		panic(EntityNotRegisteredError{Name: t.String()})
+		panic(fmt.Errorf("entity '%s' is not registered", t.String()))
 	}
 	return tableSchema
 }

@@ -85,7 +85,7 @@ func TestLoadById(t *testing.T) {
 
 	engine = PrepareTables(t, &Registry{})
 	entity = &loadByIDEntity{}
-	assert.PanicsWithValue(t, EntityNotRegisteredError{Name: "orm.loadByIDEntity"}, func() {
+	assert.PanicsWithError(t, "entity 'orm.loadByIDEntity' is not registered", func() {
 		engine.LoadByID(1, entity)
 	})
 }

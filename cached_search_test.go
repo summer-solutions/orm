@@ -217,11 +217,11 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 func TestCachedSearchErrors(t *testing.T) {
 	engine := PrepareTables(t, &Registry{})
 	var rows []*cachedSearchEntity
-	assert.PanicsWithValue(t, EntityNotRegisteredError{Name: "orm.cachedSearchEntity"}, func() {
+	assert.PanicsWithError(t, "entity 'orm.cachedSearchEntity' is not registered", func() {
 		_ = engine.CachedSearch(&rows, "IndexAge", nil, 10)
 	})
 	var row cachedSearchEntity
-	assert.PanicsWithValue(t, EntityNotRegisteredError{Name: "orm.cachedSearchEntity"}, func() {
+	assert.PanicsWithError(t, "entity 'orm.cachedSearchEntity' is not registered", func() {
 		_ = engine.CachedSearchOne(&row, "IndexName", 10)
 	})
 

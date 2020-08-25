@@ -2,6 +2,7 @@ package orm
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -17,7 +18,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	}
 	t, has, name := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
-		panic(EntityNotRegisteredError{Name: name})
+		panic(fmt.Errorf("entity '%s' is not registered", name))
 	}
 
 	schema := getTableSchema(engine.registry, t)

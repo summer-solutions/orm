@@ -19,7 +19,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	value := reflect.ValueOf(entities)
 	entityType, has, name := getEntityTypeForSlice(engine.registry, value.Type())
 	if !has {
-		panic(EntityNotRegisteredError{Name: name})
+		panic(fmt.Errorf("entity '%s' is not registered", name))
 	}
 	schema := getTableSchema(engine.registry, entityType)
 	definition, has := schema.cachedIndexes[indexName]
@@ -177,7 +177,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	entityType := value.Elem().Type()
 	schema := getTableSchema(engine.registry, entityType)
 	if schema == nil {
-		panic(EntityNotRegisteredError{Name: entityType.String()})
+		panic(fmt.Errorf("entity '%s' is not registered", entityType.String()))
 	}
 	definition, has := schema.cachedIndexesOne[indexName]
 	if !has {

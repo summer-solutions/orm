@@ -51,7 +51,7 @@ func TestValidatedRegistry(t *testing.T) {
 	assert.False(t, enum.Has("c"))
 	assert.Len(t, enum.GetMapping(), 2)
 
-	assert.PanicsWithValue(t, EntityNotRegisteredError{Name: "orm.validatedRegistryNotRegisteredEntity"}, func() {
+	assert.PanicsWithError(t, "entity 'orm.validatedRegistryNotRegisteredEntity' is not registered", func() {
 		validated.GetTableSchemaForEntity(&validatedRegistryNotRegisteredEntity{})
 	})
 }
