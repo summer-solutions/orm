@@ -156,23 +156,20 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 					logQueues = updateCacheForInserted(entity, lazy, currentID, bind, localCacheSets,
 						localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
 				} else {
+				OUTER:
 					for _, index := range schema.uniqueIndices {
-						allNotNil := true
 						fields := make([]string, 0)
 						binds := make([]interface{}, 0)
 						for _, column := range index {
 							if bind[column] == nil {
-								allNotNil = false
-								break
+								continue OUTER
 							}
 							fields = append(fields, fmt.Sprintf("`%s` = ?", column))
 							binds = append(binds, bind[column])
 						}
-						if allNotNil {
-							findWhere := NewWhere(strings.Join(fields, " AND "), binds)
-							engine.SearchOne(findWhere, entity)
-							break
-						}
+						findWhere := NewWhere(strings.Join(fields, " AND "), binds)
+						engine.SearchOne(findWhere, entity)
+						break
 					}
 				}
 				continue

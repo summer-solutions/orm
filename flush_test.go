@@ -29,10 +29,10 @@ type flushEntity struct {
 	Year                 uint16  `orm:"year"`
 	YearNullable         *uint16 `orm:"year"`
 	BoolNullable         *bool
-	FloatNullable        *float64 `orm:"precision=10"`
-	Float32Nullable      *float32 `orm:"precision=10"`
-	ReferenceOne         *flushEntityReference
-	ReferenceTwo         *flushEntityReference
+	FloatNullable        *float64              `orm:"precision=10"`
+	Float32Nullable      *float32              `orm:"precision=10"`
+	ReferenceOne         *flushEntityReference `orm:"unique=ReferenceOne"`
+	ReferenceTwo         *flushEntityReference `orm:"unique=ReferenceTwo"`
 	ReferenceMany        []*flushEntityReference
 	StringSlice          []string
 	StringSliceNotNull   []string `orm:"required"`
