@@ -825,15 +825,9 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 						} else {
 							encoded, _ = jsoniter.ConfigFastest.Marshal(value)
 						}
-						asString := string(encoded)
-						if asString != "" {
-							valString = asString
-						}
+						valString = string(encoded)
 					}
 				} else if hasOld && (old == "nil" || old == nil) {
-					continue
-				}
-				if hasOld && old == valString {
 					continue
 				}
 				if isRequired || valString != "" {

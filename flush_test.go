@@ -498,4 +498,12 @@ func TestFlush(t *testing.T) {
 
 	entity = &flushEntity{Name: "Monica", EnumNotNull: "a", ReferenceMany: []*flushEntityReference{{Name: "Adam Junior"}}}
 	engine.TrackAndFlush(entity)
+	assert.Equal(t, uint(101), entity.ID)
+	assert.Equal(t, uint(3), entity.ReferenceMany[0].ID)
+
+	entity = &flushEntity{Name: "John", EnumNotNull: "a", ReferenceMany: []*flushEntityReference{}}
+	engine.TrackAndFlush(entity)
+	entity = &flushEntity{}
+	engine.LoadByID(102, entity)
+	assert.Nil(t, entity.ReferenceMany)
 }
