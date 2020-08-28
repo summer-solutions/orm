@@ -1212,8 +1212,8 @@ import "github.com/summer-solutions/orm"
 
 func main() {
     
-    apm := engine.DataDog().StartAPM("my-script-name", "production")
-    defer apm.Finish()
+    engine.DataDog().StartAPM("my-script-name", "production")
+    defer engine.DataDog().FinishAPM()
     //optionally enable ORM APM services
     engine.DataDog().EnableORMAPMLog(log.InfoLevel, true)
     //execute your code
@@ -1230,13 +1230,13 @@ import "github.com/summer-solutions/orm"
 func main() {
     
     engine := //
-    apm := engine.DataDog().StartAPM("my-script-name", "production")
-    defer apm.Finish()
+    engine.DataDog().StartAPM("my-script-name", "production")
+    defer engine.DataDog().FinishAPM()
     engine.DataDog().EnableORMAPMLog(log.InfoLevel, true)
 
     heartBeat := func() {
-        span.Finish()
-        apm = engine.DataDog().StartAPM("my-script-name", "production")
+        engine.DataDog().FinishAPM()
+        engine.DataDog().StartAPM("my-script-name", "production")
     }
     receiver := orm.NewLogReceiver(engine)
     receiver.SetHeartBeat(heartBeat) //receiver will execute this method every minute

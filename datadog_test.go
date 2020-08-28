@@ -15,8 +15,7 @@ import (
 func TestDataDog(t *testing.T) {
 	engine := PrepareTables(t, &Registry{})
 
-	apm := engine.DataDog().StartAPM("test_service", "test")
-	assert.NotNil(t, apm)
+	engine.DataDog().StartAPM("test_service", "test")
 	assert.Len(t, engine.dataDog.ctx, 1)
 	engine.DataDog().SetAPMTag("test_tag", "hello")
 
@@ -50,5 +49,5 @@ func TestDataDog(t *testing.T) {
 	f()
 	f2 := StartDataDogProfiler("test", "aa", "test", time.Minute)
 	f2()
-	apm.Finish()
+	engine.DataDog().FinishAPM()
 }

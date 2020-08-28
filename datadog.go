@@ -27,12 +27,14 @@ type dataDog struct {
 	engine   *Engine
 	span     tracer.Span
 	ctx      []context.Context
+	apm      *apm
 	hasError bool
 	counters map[string]uint
 }
 
 type DataDog interface {
-	StartAPM(service string, environment string) APM
+	StartAPM(service string, environment string)
+	FinishAPM()
 	StartHTTPAPM(request *http.Request, service string, environment string) HTTPAPM
 	EnableORMAPMLog(level apexLog.Level, withAnalytics bool, source ...QueryLoggerSource)
 	RegisterAPMError(err interface{})
@@ -64,7 +66,7 @@ func (s *workSpan) SetTag(key string, value interface{}) {
 	}
 }
 
-func (dd *dataDog) StartAPM(service string, environment string) APM {
+func (dd *dataDog) StartAPM(service string, environment string) {
 	opts := []ddtrace.StartSpanOption{
 		tracer.ServiceName(service),
 		tracer.Measured(),
@@ -75,7 +77,13 @@ func (dd *dataDog) StartAPM(service string, environment string) APM {
 	dd.engine.Log().AddFields(apexLog.Fields{"dd.trace_id": span.Context().TraceID(), "dd.span_id": span.Context().SpanID()})
 	dd.span = span
 	dd.ctx = []context.Context{ctx}
-	return &apm{engine: dd.engine}
+	dd.apm = &apm{engine: dd.engine}
+}
+
+func (dd *dataDog) FinishAPM() {
+	if dd.apm != nil {
+		dd.apm.finish()
+	}
 }
 
 type APM interface {
