@@ -260,6 +260,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			}
 		}
 		flush(engine, false, transaction, false, rest...)
+		return
 	}
 	for typeOf, values := range insertKeys {
 		schema := getTableSchema(engine.registry, typeOf)

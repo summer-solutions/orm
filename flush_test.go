@@ -506,4 +506,17 @@ func TestFlush(t *testing.T) {
 	entity = &flushEntity{}
 	engine.LoadByID(102, entity)
 	assert.Nil(t, entity.ReferenceMany)
+
+	entity = &flushEntity{Name: "Irena", EnumNotNull: "a"}
+	engine.Track(entity)
+	ref1 := &flushEntityReferenceCascade{ReferenceOne: entity}
+	ref2 := &flushEntityReferenceCascade{ReferenceOne: entity}
+	engine.Track(ref1, ref2)
+
+	engine.Flush()
+	assert.Equal(t, uint(103), entity.ID)
+	assert.Equal(t, uint(103), ref1.ReferenceOne.ID)
+	assert.Equal(t, uint(103), ref2.ReferenceOne.ID)
+	assert.Equal(t, uint(2), ref1.ID)
+	assert.Equal(t, uint(3), ref2.ID)
 }
