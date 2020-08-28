@@ -115,10 +115,6 @@ func (s *apm) finish() {
 	s.engine.dataDog.span.Finish()
 }
 
-func (s *apm) Finish() {
-	s.finish()
-}
-
 func (s *httpAPM) Finish() {
 	dd := s.engine.dataDog
 	dd.span.SetTag(ext.HTTPCode, strconv.Itoa(s.status))
