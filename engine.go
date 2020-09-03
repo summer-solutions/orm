@@ -215,8 +215,13 @@ func (e *Engine) IsDirty(entity Entity) bool {
 		return true
 	}
 	initIfNeeded(e, entity)
-	is, _ := getDirtyBind(entity)
+	is, _ := e.GetDirtyBind(entity)
 	return is
+}
+
+func (e *Engine) GetDirtyBind(entity Entity) (bool, map[string]interface{}) {
+	initIfNeeded(e, entity)
+	return getDirtyBind(entity)
 }
 
 func (e *Engine) GetRegistry() ValidatedRegistry {
