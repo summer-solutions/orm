@@ -214,7 +214,6 @@ func (e *Engine) IsDirty(entity Entity) bool {
 	if !e.Loaded(entity) {
 		return true
 	}
-	initIfNeeded(e, entity)
 	is, _ := e.GetDirtyBind(entity)
 	return is
 }
