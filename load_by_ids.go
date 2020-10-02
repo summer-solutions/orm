@@ -192,36 +192,33 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			if ref.IsZero() {
 				continue
 			}
-			refIDs := make([]uint64, 0)
+			if warmUpRefs[parentType] == nil {
+				warmUpRefs[parentType] = make(map[uint64][]reflect.Value)
+			}
+			if warmUpRows[parentType] == nil {
+				warmUpRows[parentType] = make(map[uint64]bool)
+				warmUpRowsIDs[parentType] = make([]uint64, 0)
+			}
 			if manyRef {
 				length := ref.Len()
 				for i := 0; i < length; i++ {
-					refIDs = append(refIDs, ref.Index(i).Interface().(Entity).GetID())
+					refID := ref.Index(i).Interface().(Entity).GetID()
+					if warmUpRefs[parentType][refID] == nil {
+						warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
+					}
+					warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref.Index(i))
+					_, has := warmUpRows[parentType][refID]
+					if !has {
+						warmUpRowsIDs[parentType] = append(warmUpRowsIDs[parentType], refID)
+					}
 				}
 			} else {
 				refEntity := ref.Interface().(Entity)
-				refIDs = append(refIDs, refEntity.GetID())
-			}
-			for _, refID := range refIDs {
-				if warmUpRefs[parentType] == nil {
-					warmUpRefs[parentType] = make(map[uint64][]reflect.Value)
-				}
+				refID := refEntity.GetID()
 				if warmUpRefs[parentType][refID] == nil {
 					warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
 				}
-				if manyRef {
-					length := ref.Len()
-					for i := 0; i < length; i++ {
-						warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref.Index(i))
-					}
-				} else {
-					warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
-				}
-
-				if warmUpRows[parentType] == nil {
-					warmUpRows[parentType] = make(map[uint64]bool)
-					warmUpRowsIDs[parentType] = make([]uint64, 0)
-				}
+				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
 				_, has := warmUpRows[parentType][refID]
 				if !has {
 					warmUpRowsIDs[parentType] = append(warmUpRowsIDs[parentType], refID)
