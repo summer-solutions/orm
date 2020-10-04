@@ -42,12 +42,115 @@ type redisClient interface {
 	Set(key string, value interface{}, expiration time.Duration) error
 	MSet(pairs ...interface{}) error
 	Del(keys ...string) error
+	PSubscribe(channels ...string) *redis.PubSub
+	Subscribe(channels ...string) *redis.PubSub
+	Publish(channel string, message interface{}) error
 	FlushDB() error
 }
 
 type standardRedisClient struct {
 	client *redis.Client
 	ring   *redis.Ring
+}
+
+type PubSub struct {
+	pubSub          *redis.PubSub
+	r               *RedisCache
+	disableLoop     bool
+	maxLoopDuration time.Duration
+	heartBeat       func()
+}
+
+func (p *PubSub) DisableLoop() {
+	p.disableLoop = true
+}
+
+func (p *PubSub) SetMaxLoopDuration(duration time.Duration) {
+	p.maxLoopDuration = duration
+}
+
+func (p *PubSub) SetHeartBeat(beat func()) {
+	p.heartBeat = beat
+}
+
+func (p *PubSub) Consume(size int, handler func(items []*redis.Message)) {
+	delivery := p.pubSub.ChannelSize(size)
+
+	counter := 0
+	items := make([]*redis.Message, 0)
+	beatTime := time.Now()
+	loopTime := time.Now().UnixNano()
+	for {
+		now := time.Now()
+		nowNano := now.UnixNano()
+		timeOut := (nowNano - loopTime) >= p.maxLoopDuration.Nanoseconds()
+		if counter > 0 && (timeOut || counter == size) {
+			handler(items)
+			items = nil
+			loopTime = time.Now().UnixNano()
+			p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+			p.r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+			counter = 0
+			if p.disableLoop {
+				if p.heartBeat != nil {
+					p.heartBeat()
+				}
+				return
+			}
+		} else if timeOut && p.disableLoop {
+			return
+		}
+		if p.heartBeat != nil && now.Sub(beatTime).Minutes() >= 1 {
+			p.heartBeat()
+			beatTime = now
+		}
+		select {
+		case item := <-delivery:
+			items = append(items, item)
+			counter++
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+func (p *PubSub) Close() {
+	start := time.Now()
+	err := p.pubSub.Close()
+	if p.r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		p.r.fillLogFields("[ORM][REDIS][CLOSE PUBSUB]", start, "closepubsub", -1, 1,
+			map[string]interface{}{"Channels": p.pubSub.String()}, err)
+	}
+	p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	p.r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	checkError(err)
+}
+
+func (p *PubSub) Unsubscribe(channels ...string) {
+	start := time.Now()
+	err := p.pubSub.Unsubscribe(channels...)
+	if p.r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		p.r.fillLogFields("[ORM][REDIS][UNSUSCRIBE PUBSUB]", start, "unsusgribe", -1, len(channels),
+			map[string]interface{}{"Channels": channels}, err)
+	}
+	p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	p.r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	checkError(err)
+}
+
+func (p *PubSub) PUnsubscribe(channels ...string) {
+	start := time.Now()
+	err := p.pubSub.PUnsubscribe(channels...)
+	if p.r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		p.r.fillLogFields("[ORM][REDIS][PUNSUSCRIBE PUBSUB]", start, "punsusgribe", -1, len(channels),
+			map[string]interface{}{"Channels": channels}, err)
+	}
+	p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	p.r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	checkError(err)
+}
+
+func (p *PubSub) String() string {
+	return p.pubSub.String()
 }
 
 func (c *standardRedisClient) Get(key string) (string, error) {
@@ -244,6 +347,27 @@ func (c *standardRedisClient) Del(keys ...string) error {
 		return c.ring.Del(keys...).Err()
 	}
 	return c.client.Del(keys...).Err()
+}
+
+func (c *standardRedisClient) PSubscribe(channels ...string) *redis.PubSub {
+	if c.ring != nil {
+		return c.ring.PSubscribe(channels...)
+	}
+	return c.client.PSubscribe(channels...)
+}
+
+func (c *standardRedisClient) Subscribe(channels ...string) *redis.PubSub {
+	if c.ring != nil {
+		return c.ring.Subscribe(channels...)
+	}
+	return c.client.Subscribe(channels...)
+}
+
+func (c *standardRedisClient) Publish(channel string, message interface{}) error {
+	if c.ring != nil {
+		return c.ring.Publish(channel, message).Err()
+	}
+	return c.client.Publish(channel, message).Err()
 }
 
 func (c *standardRedisClient) FlushDB() error {
@@ -692,6 +816,42 @@ func (r *RedisCache) Del(keys ...string) {
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(keys)))
+	checkError(err)
+}
+
+func (r *RedisCache) PSubscribe(channels ...string) *PubSub {
+	start := time.Now()
+	pubSub := r.client.PSubscribe(channels...)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][PSUBSCRIBE]", start, "psubscribe", -1, len(channels),
+			map[string]interface{}{"channels": channels}, nil)
+	}
+	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	return &PubSub{pubSub: pubSub, r: r}
+}
+
+func (r *RedisCache) Subscribe(channels ...string) *PubSub {
+	start := time.Now()
+	pubSub := r.client.Subscribe(channels...)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][SUBSCRIBE]", start, "subscribe", -1, len(channels),
+			map[string]interface{}{"channels": channels}, nil)
+	}
+	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	return &PubSub{pubSub: pubSub, r: r}
+}
+
+func (r *RedisCache) Publish(channel string, message interface{}) {
+	start := time.Now()
+	err := r.client.Publish(channel, message)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][PUBLISH]", start, "publish", -1, 1,
+			map[string]interface{}{"channel": channel, "message": message}, err)
+	}
+	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 	checkError(err)
 }
 
