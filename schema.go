@@ -563,9 +563,9 @@ func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *ref
 					onDelete = "CASCADE"
 				}
 				pool := refOneSchema.GetMysql(engine)
-				foreignKey := &foreignIndex{Column: field.Name, Table: refOneSchema.tableName,
+				foreignKey := &foreignIndex{Column: prefix + field.Name, Table: refOneSchema.tableName,
 					ParentDatabase: pool.GetDatabaseName(), OnDelete: onDelete}
-				name := fmt.Sprintf("%s:%s:%s", pool.GetDatabaseName(), schema.tableName, field.Name)
+				name := fmt.Sprintf("%s:%s:%s", pool.GetDatabaseName(), schema.tableName, prefix+field.Name)
 				foreignKeys[name] = foreignKey
 			}
 		}
