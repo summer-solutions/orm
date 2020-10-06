@@ -189,7 +189,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			} else {
 				ref = rows.FieldByName(parts[0])
 			}
-			if ref.IsZero() {
+			if !ref.IsValid() || ref.IsZero() {
 				continue
 			}
 			if warmUpRefs[parentType] == nil {
