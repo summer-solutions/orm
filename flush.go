@@ -429,24 +429,31 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		channel := engine.GetRabbitMQQueue(lazyQueueName)
 		channel.Publish(serializeForLazyQueue(lazyMap))
 	}
-	for k, v := range dirtyQueues {
-		channel := engine.GetRabbitMQQueue("dirty_queue_" + k)
-		for _, k := range v {
-			asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
+	queuesJob := func() {
+		for k, v := range dirtyQueues {
+			channel := engine.GetRabbitMQQueue("dirty_queue_" + k)
+			for _, k := range v {
+				asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
+				channel.Publish(asJSON)
+			}
+		}
+		for _, val := range logQueues {
+			if val.Meta == nil {
+				val.Meta = engine.logMetaData
+			} else {
+				for k, v := range engine.logMetaData {
+					val.Meta[k] = v
+				}
+			}
+			asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
+			channel := engine.GetRabbitMQQueue(logQueueName)
 			channel.Publish(asJSON)
 		}
 	}
-	for _, val := range logQueues {
-		if val.Meta == nil {
-			val.Meta = engine.logMetaData
-		} else {
-			for k, v := range engine.logMetaData {
-				val.Meta[k] = v
-			}
-		}
-		asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
-		channel := engine.GetRabbitMQQueue(logQueueName)
-		channel.Publish(asJSON)
+	if !isInTransaction {
+		queuesJob()
+	} else {
+		engine.afterCommitJob = queuesJob
 	}
 }
 
