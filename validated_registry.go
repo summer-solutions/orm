@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -73,7 +74,15 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 	e.redis = make(map[string]*RedisCache)
 	if e.registry.redisServers != nil {
 		for key, val := range e.registry.redisServers {
-			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{val.client, val.ring}}
+			client := val.client
+			if client != nil {
+				client = client.WithContext(context.Background())
+			}
+			ring := val.ring
+			if ring != nil {
+				ring = ring.WithContext(context.Background())
+			}
+			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
 		}
 	}
 	e.elastic = make(map[string]*Elastic)

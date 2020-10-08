@@ -1,12 +1,13 @@
 package orm
 
 import (
+	"context"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
 
-	"github.com/go-redis/redis/v7"
-	"github.com/go-redis/redis_rate/v8"
+	"github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis_rate/v9"
 )
 
 const counterRedisAll = "redis.all"
@@ -46,6 +47,7 @@ type redisClient interface {
 	Subscribe(channels ...string) *redis.PubSub
 	Publish(channel string, message interface{}) error
 	FlushDB() error
+	Context() context.Context
 }
 
 type standardRedisClient struct {
@@ -127,7 +129,7 @@ func (p *PubSub) Close() {
 
 func (p *PubSub) Unsubscribe(channels ...string) {
 	start := time.Now()
-	err := p.pubSub.Unsubscribe(channels...)
+	err := p.pubSub.Unsubscribe(p.r.client.Context(), channels...)
 	if p.r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		p.r.fillLogFields("[ORM][REDIS][UNSUSCRIBE PUBSUB]", start, "unsusgribe", -1, len(channels),
 			map[string]interface{}{"Channels": channels}, err)
@@ -139,7 +141,7 @@ func (p *PubSub) Unsubscribe(channels ...string) {
 
 func (p *PubSub) PUnsubscribe(channels ...string) {
 	start := time.Now()
-	err := p.pubSub.PUnsubscribe(channels...)
+	err := p.pubSub.PUnsubscribe(p.r.client.Context(), channels...)
 	if p.r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		p.r.fillLogFields("[ORM][REDIS][PUNSUSCRIBE PUBSUB]", start, "punsusgribe", -1, len(channels),
 			map[string]interface{}{"Channels": channels}, err)
@@ -155,226 +157,233 @@ func (p *PubSub) String() string {
 
 func (c *standardRedisClient) Get(key string) (string, error) {
 	if c.ring != nil {
-		return c.ring.Get(key).Result()
+		return c.ring.Get(c.ring.Context(), key).Result()
 	}
-	return c.client.Get(key).Result()
+	return c.client.Get(c.client.Context(), key).Result()
 }
 
 func (c *standardRedisClient) LRange(key string, start, stop int64) ([]string, error) {
 	if c.ring != nil {
-		return c.ring.LRange(key, start, stop).Result()
+		return c.ring.LRange(c.ring.Context(), key, start, stop).Result()
 	}
-	return c.client.LRange(key, start, stop).Result()
+	return c.client.LRange(c.client.Context(), key, start, stop).Result()
 }
 
 func (c *standardRedisClient) HMGet(key string, fields ...string) ([]interface{}, error) {
 	if c.ring != nil {
-		return c.ring.HMGet(key, fields...).Result()
+		return c.ring.HMGet(c.ring.Context(), key, fields...).Result()
 	}
-	return c.client.HMGet(key, fields...).Result()
+	return c.client.HMGet(c.client.Context(), key, fields...).Result()
 }
 
 func (c *standardRedisClient) HGetAll(key string) (map[string]string, error) {
 	if c.ring != nil {
-		return c.ring.HGetAll(key).Result()
+		return c.ring.HGetAll(c.ring.Context(), key).Result()
 	}
-	return c.client.HGetAll(key).Result()
+	return c.client.HGetAll(c.client.Context(), key).Result()
 }
 
 func (c *standardRedisClient) LPush(key string, values ...interface{}) (int64, error) {
 	if c.ring != nil {
-		return c.ring.LPush(key, values...).Result()
+		return c.ring.LPush(c.ring.Context(), key, values...).Result()
 	}
-	return c.client.LPush(key, values...).Result()
+	return c.client.LPush(c.client.Context(), key, values...).Result()
 }
 
 func (c *standardRedisClient) RPush(key string, values ...interface{}) (int64, error) {
 	if c.ring != nil {
-		return c.ring.RPush(key, values...).Result()
+		return c.ring.RPush(c.ring.Context(), key, values...).Result()
 	}
-	return c.client.RPush(key, values...).Result()
+	return c.client.RPush(c.client.Context(), key, values...).Result()
 }
 
 func (c *standardRedisClient) RPop(key string) (string, error) {
 	if c.ring != nil {
-		return c.ring.RPop(key).Result()
+		return c.ring.RPop(c.ring.Context(), key).Result()
 	}
-	return c.client.RPop(key).Result()
+	return c.client.RPop(c.client.Context(), key).Result()
 }
 
 func (c *standardRedisClient) LSet(key string, index int64, value interface{}) (string, error) {
 	if c.ring != nil {
-		return c.ring.LSet(key, index, value).Result()
+		return c.ring.LSet(c.ring.Context(), key, index, value).Result()
 	}
-	return c.client.LSet(key, index, value).Result()
+	return c.client.LSet(c.client.Context(), key, index, value).Result()
 }
 
 func (c *standardRedisClient) LRem(key string, count int64, value interface{}) (int64, error) {
 	if c.ring != nil {
-		return c.ring.LRem(key, count, value).Result()
+		return c.ring.LRem(c.ring.Context(), key, count, value).Result()
 	}
-	return c.client.LRem(key, count, value).Result()
+	return c.client.LRem(c.client.Context(), key, count, value).Result()
 }
 
 func (c *standardRedisClient) LTrim(key string, start, stop int64) (string, error) {
 	if c.ring != nil {
-		return c.ring.LTrim(key, start, stop).Result()
+		return c.ring.LTrim(c.ring.Context(), key, start, stop).Result()
 	}
-	return c.client.LTrim(key, start, stop).Result()
+	return c.client.LTrim(c.client.Context(), key, start, stop).Result()
 }
 
 func (c *standardRedisClient) ZCard(key string) (int64, error) {
 	if c.ring != nil {
-		return c.ring.ZCard(key).Result()
+		return c.ring.ZCard(c.ring.Context(), key).Result()
 	}
-	return c.client.ZCard(key).Result()
+	return c.client.ZCard(c.client.Context(), key).Result()
 }
 
 func (c *standardRedisClient) SCard(key string) (int64, error) {
 	if c.ring != nil {
-		return c.ring.SCard(key).Result()
+		return c.ring.SCard(c.ring.Context(), key).Result()
 	}
-	return c.client.SCard(key).Result()
+	return c.client.SCard(c.client.Context(), key).Result()
 }
 
 func (c *standardRedisClient) ZCount(key string, min, max string) (int64, error) {
 	if c.ring != nil {
-		return c.ring.ZCount(key, min, max).Result()
+		return c.ring.ZCount(c.ring.Context(), key, min, max).Result()
 	}
-	return c.client.ZCount(key, min, max).Result()
+	return c.client.ZCount(c.client.Context(), key, min, max).Result()
 }
 
 func (c *standardRedisClient) ZScore(key, member string) (float64, error) {
 	if c.ring != nil {
-		return c.ring.ZScore(key, member).Result()
+		return c.ring.ZScore(c.ring.Context(), key, member).Result()
 	}
-	return c.client.ZScore(key, member).Result()
+	return c.client.ZScore(c.client.Context(), key, member).Result()
 }
 
 func (c *standardRedisClient) ZRevRange(key string, start, stop int64) ([]string, error) {
 	if c.ring != nil {
-		return c.ring.ZRevRange(key, start, stop).Result()
+		return c.ring.ZRevRange(c.ring.Context(), key, start, stop).Result()
 	}
-	return c.client.ZRevRange(key, start, stop).Result()
+	return c.client.ZRevRange(c.client.Context(), key, start, stop).Result()
 }
 
 func (c *standardRedisClient) ZRangeWithScores(key string, start, stop int64) ([]redis.Z, error) {
 	if c.ring != nil {
-		return c.ring.ZRangeWithScores(key, start, stop).Result()
+		return c.ring.ZRangeWithScores(c.ring.Context(), key, start, stop).Result()
 	}
-	return c.client.ZRangeWithScores(key, start, stop).Result()
+	return c.client.ZRangeWithScores(c.client.Context(), key, start, stop).Result()
 }
 
 func (c *standardRedisClient) ZRevRangeWithScores(key string, start, stop int64) ([]redis.Z, error) {
 	if c.ring != nil {
-		return c.ring.ZRevRangeWithScores(key, start, stop).Result()
+		return c.ring.ZRevRangeWithScores(c.ring.Context(), key, start, stop).Result()
 	}
-	return c.client.ZRevRangeWithScores(key, start, stop).Result()
+	return c.client.ZRevRangeWithScores(c.client.Context(), key, start, stop).Result()
 }
 
 func (c *standardRedisClient) SPop(key string) (string, error) {
 	if c.ring != nil {
-		return c.ring.SPop(key).Result()
+		return c.ring.SPop(c.ring.Context(), key).Result()
 	}
-	return c.client.SPop(key).Result()
+	return c.client.SPop(c.client.Context(), key).Result()
 }
 
 func (c *standardRedisClient) SPopN(key string, max int64) ([]string, error) {
 	if c.ring != nil {
-		return c.ring.SPopN(key, max).Result()
+		return c.ring.SPopN(c.ring.Context(), key, max).Result()
 	}
-	return c.client.SPopN(key, max).Result()
+	return c.client.SPopN(c.client.Context(), key, max).Result()
 }
 
 func (c *standardRedisClient) LLen(key string) (int64, error) {
 	if c.ring != nil {
-		return c.ring.LLen(key).Result()
+		return c.ring.LLen(c.ring.Context(), key).Result()
 	}
-	return c.client.LLen(key).Result()
+	return c.client.LLen(c.client.Context(), key).Result()
 }
 
 func (c *standardRedisClient) ZAdd(key string, members ...*redis.Z) (int64, error) {
 	if c.ring != nil {
-		return c.ring.ZAdd(key, members...).Result()
+		return c.ring.ZAdd(c.ring.Context(), key, members...).Result()
 	}
-	return c.client.ZAdd(key, members...).Result()
+	return c.client.ZAdd(c.client.Context(), key, members...).Result()
 }
 
 func (c *standardRedisClient) SAdd(key string, members ...interface{}) (int64, error) {
 	if c.ring != nil {
-		return c.ring.SAdd(key, members...).Result()
+		return c.ring.SAdd(c.ring.Context(), key, members...).Result()
 	}
-	return c.client.SAdd(key, members...).Result()
+	return c.client.SAdd(c.client.Context(), key, members...).Result()
 }
 
 func (c *standardRedisClient) HMSet(key string, fields map[string]interface{}) (bool, error) {
 	if c.ring != nil {
-		return c.ring.HMSet(key, fields).Result()
+		return c.ring.HMSet(c.ring.Context(), key, fields).Result()
 	}
-	return c.client.HMSet(key, fields).Result()
+	return c.client.HMSet(c.client.Context(), key, fields).Result()
 }
 
 func (c *standardRedisClient) HSet(key string, field string, value interface{}) (int64, error) {
 	if c.ring != nil {
-		return c.ring.HSet(key, field, value).Result()
+		return c.ring.HSet(c.ring.Context(), key, field, value).Result()
 	}
-	return c.client.HSet(key, field, value).Result()
+	return c.client.HSet(c.client.Context(), key, field, value).Result()
 }
 
 func (c *standardRedisClient) MGet(keys ...string) ([]interface{}, error) {
 	if c.ring != nil {
-		return c.ring.MGet(keys...).Result()
+		return c.ring.MGet(c.ring.Context(), keys...).Result()
 	}
-	return c.client.MGet(keys...).Result()
+	return c.client.MGet(c.client.Context(), keys...).Result()
 }
 
 func (c *standardRedisClient) Set(key string, value interface{}, expiration time.Duration) error {
 	if c.ring != nil {
-		return c.ring.Set(key, value, expiration).Err()
+		return c.ring.Set(c.ring.Context(), key, value, expiration).Err()
 	}
-	return c.client.Set(key, value, expiration).Err()
+	return c.client.Set(c.client.Context(), key, value, expiration).Err()
 }
 
 func (c *standardRedisClient) MSet(pairs ...interface{}) error {
 	if c.ring != nil {
-		return c.ring.MSet(pairs...).Err()
+		return c.ring.MSet(c.ring.Context(), pairs...).Err()
 	}
-	return c.client.MSet(pairs...).Err()
+	return c.client.MSet(c.client.Context(), pairs...).Err()
 }
 
 func (c *standardRedisClient) Del(keys ...string) error {
 	if c.ring != nil {
-		return c.ring.Del(keys...).Err()
+		return c.ring.Del(c.ring.Context(), keys...).Err()
 	}
-	return c.client.Del(keys...).Err()
+	return c.client.Del(c.client.Context(), keys...).Err()
 }
 
 func (c *standardRedisClient) PSubscribe(channels ...string) *redis.PubSub {
 	if c.ring != nil {
-		return c.ring.PSubscribe(channels...)
+		return c.ring.PSubscribe(c.ring.Context(), channels...)
 	}
-	return c.client.PSubscribe(channels...)
+	return c.client.PSubscribe(c.client.Context(), channels...)
 }
 
 func (c *standardRedisClient) Subscribe(channels ...string) *redis.PubSub {
 	if c.ring != nil {
-		return c.ring.Subscribe(channels...)
+		return c.ring.Subscribe(c.ring.Context(), channels...)
 	}
-	return c.client.Subscribe(channels...)
+	return c.client.Subscribe(c.client.Context(), channels...)
 }
 
 func (c *standardRedisClient) Publish(channel string, message interface{}) error {
 	if c.ring != nil {
-		return c.ring.Publish(channel, message).Err()
+		return c.ring.Publish(c.ring.Context(), channel, message).Err()
 	}
-	return c.client.Publish(channel, message).Err()
+	return c.client.Publish(c.client.Context(), channel, message).Err()
 }
 
 func (c *standardRedisClient) FlushDB() error {
 	if c.ring != nil {
-		return c.ring.FlushDB().Err()
+		return c.ring.FlushDB(c.ring.Context()).Err()
 	}
-	return c.client.FlushDB().Err()
+	return c.client.FlushDB(c.client.Context()).Err()
+}
+
+func (c *standardRedisClient) Context() context.Context {
+	if c.ring != nil {
+		return c.ring.Context()
+	}
+	return c.client.Context()
 }
 
 type RedisCache struct {
@@ -386,7 +395,7 @@ type RedisCache struct {
 
 type GetSetProvider func() interface{}
 
-func (r *RedisCache) RateLimit(key string, limit *redis_rate.Limit) bool {
+func (r *RedisCache) RateLimit(key string, limit redis_rate.Limit) bool {
 	if r.limiter == nil {
 		c := r.client.(*standardRedisClient)
 		if c.client != nil {
@@ -396,7 +405,7 @@ func (r *RedisCache) RateLimit(key string, limit *redis_rate.Limit) bool {
 		}
 	}
 	start := time.Now()
-	res, err := r.limiter.Allow(key, limit)
+	res, err := r.limiter.Allow(r.client.Context(), key, limit)
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][RATE_LIMIT]", start,
 			"rate_limit", 0, 1, map[string]interface{}{"Key": key}, err)
@@ -404,7 +413,7 @@ func (r *RedisCache) RateLimit(key string, limit *redis_rate.Limit) bool {
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
 	checkError(err)
-	return res.Allowed
+	return res.Allowed > 0
 }
 
 func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider) interface{} {

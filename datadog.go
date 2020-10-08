@@ -250,7 +250,7 @@ func StartDataDogTracer(rate float64, opts ...tracer.StartOption) (def func()) {
 
 func StartDataDogProfiler(service string, apiKey string, environment string, duration time.Duration) (def func()) {
 	_ = profiler.Start(
-		profiler.WithPeriod(duration),
+		//profiler.WithPeriod(duration),
 		profiler.WithEnv(environment),
 		profiler.WithAPIKey(apiKey),
 		profiler.WithURL("https://intake.profile.datadoghq.eu/v1/input"),

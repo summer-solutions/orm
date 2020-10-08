@@ -3,12 +3,12 @@ package orm
 import (
 	"testing"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 
 	apexLog "github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
 
-	"github.com/go-redis/redis_rate/v8"
+	"github.com/go-redis/redis_rate/v9"
 
 	"github.com/stretchr/testify/assert"
 )
