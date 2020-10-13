@@ -61,7 +61,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		}
 		for _, refName := range schema.refOne {
 			refValue := entity.getORM().attributes.elem.FieldByName(refName)
-			if !refValue.IsNil() {
+			if refValue.IsValid() && !refValue.IsNil() {
 				refEntity := refValue.Interface().(Entity)
 				initIfNeeded(engine, refEntity)
 				if refEntity.GetID() == 0 {
@@ -74,7 +74,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		}
 		for _, refName := range schema.refMany {
 			refValue := entity.getORM().attributes.elem.FieldByName(refName)
-			if !refValue.IsNil() {
+			if refValue.IsValid() && !refValue.IsNil() {
 				length := refValue.Len()
 				for i := 0; i < length; i++ {
 					refEntity := refValue.Index(i).Interface().(Entity)
