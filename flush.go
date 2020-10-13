@@ -137,6 +137,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				sql += subSQL
 				bindRow = append(bindRow, onUpdate.GetParameters()...)
 				db := schema.GetMysql(engine)
+				fmt.Printf("FLUSH REF 3 %v\n", db)
 				result := db.Exec(sql, bindRow...)
 				affected := result.RowsAffected()
 				if affected > 0 && currentID == 0 {
@@ -279,6 +280,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		if lazy {
 			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, insertArguments[typeOf])
 		} else {
+			fmt.Printf("FLUSH REF2 %v\n", db)
 			res := db.Exec(sql, insertArguments[typeOf]...)
 			id = res.LastInsertId()
 		}
