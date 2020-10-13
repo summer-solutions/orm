@@ -210,8 +210,8 @@ func TestORM(t *testing.T) {
 	err = entity.SetField("NotSupported", "hello")
 	assert.EqualError(t, err, "field NotSupported not supported")
 
-	err = entity.SetField("Struct", "hello")
-	assert.EqualError(t, err, "field Struct not supported")
+	err = entity.SetField("Struct", ormEntityStruct{})
+	assert.NoError(t, err)
 
 	err = entity.SetField("StructPtr", "hello")
 	assert.EqualError(t, err, "field StructPtr not supported")

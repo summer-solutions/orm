@@ -237,7 +237,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 	default:
 		k := f.Type().Kind().String()
 		if k == "struct" {
-			return errors.NotSupportedf("field %s", field)
+			f.Set(reflect.ValueOf(value))
 		} else if k == "ptr" {
 			modelType := reflect.TypeOf((*Entity)(nil)).Elem()
 			if f.Type().Implements(modelType) {
