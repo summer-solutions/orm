@@ -233,6 +233,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				if smartUpdate {
 					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 				} else {
+					fmt.Printf("FLUSH REF %v\n", db)
 					_ = db.Exec(sql, values...)
 				}
 			}

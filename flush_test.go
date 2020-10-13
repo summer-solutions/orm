@@ -2,6 +2,7 @@ package orm
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -112,6 +113,16 @@ func TestFlush(t *testing.T) {
 	assert.True(t, engine.IsDirty(entity))
 	assert.True(t, engine.IsDirty(entity.ReferenceOne))
 	engine.TrackAndFlush(entity)
+
+	engine.EnableQueryDebug(QueryLoggerSourceDB)
+	schema := engine.GetRegistry().GetTableSchema("orm.flushEntity")
+	schema.GetMysql(engine).Begin()
+	defer schema.GetMysql(engine).Rollback()
+	entity.Name = "Hello"
+	engine.TrackAndFlush(entity)
+	schema.GetMysql(engine).Commit()
+	os.Exit(0)
+
 	engine.TrackAndFlush(entity)
 	assert.True(t, engine.Loaded(entity))
 	assert.True(t, engine.Loaded(entity.ReferenceOne))
