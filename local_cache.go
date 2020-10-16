@@ -41,6 +41,9 @@ func (c *LocalCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 }
 
 func (c *LocalCache) Get(key string) (value interface{}, ok bool) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	start := time.Now()
 	value, ok = c.lru.Get(key)
 	misses := 0
@@ -54,6 +57,9 @@ func (c *LocalCache) Get(key string) (value interface{}, ok bool) {
 }
 
 func (c *LocalCache) MGet(keys ...string) map[string]interface{} {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	start := time.Now()
 	results := make(map[string]interface{}, len(keys))
 	misses := 0
