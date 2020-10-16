@@ -18,6 +18,7 @@ type LocalCache struct {
 	code   string
 	lru    *lru.Cache
 	ttl    int64
+	m      sync.Mutex
 }
 
 type ttlValue struct {
@@ -72,9 +73,8 @@ func (c *LocalCache) MGet(keys ...string) map[string]interface{} {
 
 func (c *LocalCache) Set(key string, value interface{}) {
 	start := time.Now()
-	m := &sync.Mutex{}
-	m.Lock()
-	defer m.Unlock()
+	c.m.Lock()
+	defer c.m.Unlock()
 	c.lru.Add(key, value)
 	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
 		c.fillLogFields("[ORM][LOCAL][MGET]", start, "set", -1, map[string]interface{}{"Key": key, "value": value})
@@ -84,9 +84,8 @@ func (c *LocalCache) Set(key string, value interface{}) {
 func (c *LocalCache) MSet(pairs ...interface{}) {
 	start := time.Now()
 	max := len(pairs)
-	m := &sync.Mutex{}
-	m.Lock()
-	defer m.Unlock()
+	c.m.Lock()
+	defer c.m.Unlock()
 	for i := 0; i < max; i += 2 {
 		c.lru.Add(pairs[i], pairs[i+1])
 	}
@@ -126,9 +125,8 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 	m, has := c.lru.Get(key)
 	if !has {
 		m = make(map[string]interface{})
-		mutex := &sync.Mutex{}
-		mutex.Lock()
-		defer mutex.Unlock()
+		c.m.Lock()
+		defer c.m.Unlock()
 		c.lru.Add(key, m)
 	}
 	for k, v := range fields {
@@ -141,9 +139,8 @@ func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
 
 func (c *LocalCache) Remove(keys ...string) {
 	start := time.Now()
-	m := &sync.Mutex{}
-	m.Lock()
-	defer m.Unlock()
+	c.m.Lock()
+	defer c.m.Unlock()
 	for _, v := range keys {
 		c.lru.Remove(v)
 	}
@@ -154,9 +151,8 @@ func (c *LocalCache) Remove(keys ...string) {
 
 func (c *LocalCache) Clear() {
 	start := time.Now()
-	m := &sync.Mutex{}
-	m.Lock()
-	defer m.Unlock()
+	c.m.Lock()
+	defer c.m.Unlock()
 	c.lru.Clear()
 	if c.engine.queryLoggers[QueryLoggerSourceLocalCache] != nil {
 		c.fillLogFields("[ORM][LOCAL][CLEAR]", start, "clear", -1, nil)
