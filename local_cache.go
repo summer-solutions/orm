@@ -11,6 +11,7 @@ type LocalCacheConfig struct {
 	code string
 	lru  *lru.Cache
 	ttl  int64
+	m    sync.Mutex
 }
 
 type LocalCache struct {
@@ -18,7 +19,7 @@ type LocalCache struct {
 	code   string
 	lru    *lru.Cache
 	ttl    int64
-	m      sync.Mutex
+	m      *sync.Mutex
 }
 
 type ttlValue struct {
