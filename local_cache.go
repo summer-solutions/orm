@@ -101,6 +101,9 @@ func (c *LocalCache) MSet(pairs ...interface{}) {
 }
 
 func (c *LocalCache) HMget(key string, fields ...string) map[string]interface{} {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	start := time.Now()
 	l := len(fields)
 	results := make(map[string]interface{}, l)
@@ -127,12 +130,13 @@ func (c *LocalCache) HMget(key string, fields ...string) map[string]interface{} 
 }
 
 func (c *LocalCache) HMset(key string, fields map[string]interface{}) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	start := time.Now()
 	m, has := c.lru.Get(key)
 	if !has {
 		m = make(map[string]interface{})
-		c.m.Lock()
-		defer c.m.Unlock()
 		c.lru.Add(key, m)
 	}
 	for k, v := range fields {
