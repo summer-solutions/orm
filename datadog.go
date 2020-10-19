@@ -60,6 +60,15 @@ func (s *workSpan) Finish() {
 	}
 }
 
+type workSpanEmpty struct {
+}
+
+func (s *workSpanEmpty) Finish() {
+}
+
+func (s *workSpanEmpty) SetTag(string, interface{}) {
+}
+
 func (s *workSpan) SetTag(key string, value interface{}) {
 	if s.span != nil {
 		s.span.SetTag(key, value)
@@ -182,7 +191,7 @@ func (dd *dataDog) StartHTTPAPM(request *http.Request, service string, environme
 func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
 	l := len(dd.ctx)
 	if l == 0 {
-		return nil
+		return &workSpanEmpty{}
 	}
 	span, ctx := tracer.StartSpanFromContext(dd.ctx[len(dd.ctx)-1], name)
 	dd.ctx = append(dd.ctx, ctx)
