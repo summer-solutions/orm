@@ -160,6 +160,13 @@ func (c *LocalCache) Remove(keys ...string) {
 	}
 }
 
+func (c *LocalCache) GetObjectsCount() int {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	return c.lru.Len()
+}
+
 func (c *LocalCache) Clear() {
 	start := time.Now()
 	c.m.Lock()
