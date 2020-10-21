@@ -429,31 +429,24 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		channel := engine.GetRabbitMQQueue(lazyQueueName)
 		channel.Publish(serializeForLazyQueue(lazyMap))
 	}
-	queuesJob := func() {
-		for k, v := range dirtyQueues {
-			channel := engine.GetRabbitMQQueue("dirty_queue_" + k)
-			for _, k := range v {
-				asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
-				channel.Publish(asJSON)
-			}
-		}
-		for _, val := range logQueues {
-			if val.Meta == nil {
-				val.Meta = engine.logMetaData
-			} else {
-				for k, v := range engine.logMetaData {
-					val.Meta[k] = v
-				}
-			}
-			asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
-			channel := engine.GetRabbitMQQueue(logQueueName)
-			channel.Publish(asJSON)
-		}
-	}
 	if !isInTransaction {
-		queuesJob()
+		addElementsToDirtyQueues(engine, dirtyQueues)
+		addElementsToLogQueues(engine, logQueues)
 	} else {
-		engine.afterCommitJob = queuesJob
+		if engine.afterCommitDirtyQueues == nil {
+			engine.afterCommitDirtyQueues = make(map[string][]*DirtyQueueValue)
+		}
+		for key, values := range dirtyQueues {
+			if engine.afterCommitDirtyQueues[key] == nil {
+				engine.afterCommitDirtyQueues[key] = make([]*DirtyQueueValue, 0)
+			}
+			engine.afterCommitDirtyQueues[key] = append(engine.afterCommitDirtyQueues[key], values...)
+		}
+
+		if engine.afterCommitLogQueues == nil {
+			engine.afterCommitLogQueues = make([]*LogQueueValue, 0)
+		}
+		engine.afterCommitLogQueues = append(engine.afterCommitLogQueues, logQueues...)
 	}
 }
 
@@ -1078,4 +1071,33 @@ func (e *Engine) flushWithCheck(transaction bool) error {
 		e.flushTrackedEntities(false, transaction, false)
 	}()
 	return err
+}
+
+func addElementsToDirtyQueues(engine *Engine, dirtyQueues map[string][]*DirtyQueueValue) {
+	{
+		for k, v := range dirtyQueues {
+			channel := engine.GetRabbitMQQueue("dirty_queue_" + k)
+			for _, k := range v {
+				asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
+				channel.Publish(asJSON)
+			}
+		}
+	}
+}
+
+func addElementsToLogQueues(engine *Engine, logQueues []*LogQueueValue) {
+	{
+		for _, val := range logQueues {
+			if val.Meta == nil {
+				val.Meta = engine.logMetaData
+			} else {
+				for k, v := range engine.logMetaData {
+					val.Meta[k] = v
+				}
+			}
+			asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
+			channel := engine.GetRabbitMQQueue(logQueueName)
+			channel.Publish(asJSON)
+		}
+	}
 }

@@ -38,7 +38,8 @@ type Engine struct {
 	log                          *log
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
-	afterCommitJob               func()
+	afterCommitDirtyQueues       map[string][]*DirtyQueueValue
+	afterCommitLogQueues         []*LogQueueValue
 	dataDog                      *dataDog
 }
 

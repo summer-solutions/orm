@@ -235,9 +235,13 @@ func (db *DB) Commit() {
 		}
 	}
 	db.engine.afterCommitRedisCacheDeletes = nil
-	if db.engine.afterCommitJob != nil {
-		db.engine.afterCommitJob()
-		db.engine.afterCommitJob = nil
+	if db.engine.afterCommitDirtyQueues != nil {
+		addElementsToDirtyQueues(db.engine, db.engine.afterCommitDirtyQueues)
+		db.engine.afterCommitDirtyQueues = nil
+	}
+	if db.engine.afterCommitLogQueues != nil {
+		addElementsToLogQueues(db.engine, db.engine.afterCommitLogQueues)
+		db.engine.afterCommitLogQueues = nil
 	}
 }
 
@@ -254,7 +258,8 @@ func (db *DB) Rollback() {
 	checkError(err)
 	db.engine.afterCommitLocalCacheSets = nil
 	db.engine.afterCommitRedisCacheDeletes = nil
-	db.engine.afterCommitJob = nil
+	db.engine.afterCommitDirtyQueues = nil
+	db.engine.afterCommitLogQueues = nil
 }
 
 func (db *DB) Exec(query string, args ...interface{}) ExecResult {

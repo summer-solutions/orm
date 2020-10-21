@@ -114,6 +114,22 @@ func TestDirtyReceiver(t *testing.T) {
 	})
 	assert.True(t, valid)
 
+	e.Name = "test transaction"
+	engine.Track(e)
+	engine.FlushInTransaction()
+	valid = false
+	receiver.Digest("entity_changed", func(data []*DirtyData) {
+		valid = true
+		assert.Len(t, data, 1)
+		assert.Equal(t, uint64(2), data[0].ID)
+	})
+	assert.True(t, valid)
+	valid = false
+	receiver.Digest("name_changed", func(data []*DirtyData) {
+		valid = true
+	})
+	assert.True(t, valid)
+
 	engine.MarkToDelete(e)
 	engine.Flush()
 
