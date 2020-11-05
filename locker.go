@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,7 +22,7 @@ type standardLockerClient struct {
 }
 
 func (l *standardLockerClient) Obtain(key string, ttl time.Duration, opt *redislock.Options) (*redislock.Lock, error) {
-	return l.client.Obtain(key, ttl, opt)
+	return l.client.Obtain(context.Background(), key, ttl, opt)
 }
 
 type Locker struct {
@@ -70,7 +71,7 @@ func (l *Lock) Release() {
 		return
 	}
 	start := time.Now()
-	err := l.lock.Release()
+	err := l.lock.Release(context.Background())
 	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release lock", err)
 	}
@@ -81,7 +82,7 @@ func (l *Lock) Release() {
 
 func (l *Lock) TTL() time.Duration {
 	start := time.Now()
-	d, err := l.lock.TTL()
+	d, err := l.lock.TTL(context.Background())
 	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][TTL]", start, l.key, "ttl lock", err)
 	}

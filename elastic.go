@@ -23,9 +23,11 @@ type ElasticIndexDefinition interface {
 }
 
 type ElasticIndexAlter struct {
-	Index ElasticIndexDefinition
-	Safe  bool
-	Pool  string
+	Index      ElasticIndexDefinition
+	Safe       bool
+	Pool       string
+	NewMapping map[string]interface{}
+	OldMapping map[string]interface{}
 }
 
 type elasticSort struct {
@@ -201,7 +203,7 @@ func getElasticIndexAlters(engine *Engine) (alters []ElasticIndexAlter) {
 				definition := index.GetDefinition()
 				if !cmp.Equal(definition["mappings"], currentMappingIndex["mappings"]) ||
 					!cmp.Equal(definition["settings"], currentSettings[name].Settings["index"]) {
-					alters = append(alters, ElasticIndexAlter{Index: index, Safe: false, Pool: pool})
+					alters = append(alters, ElasticIndexAlter{Index: index, Safe: false, Pool: pool, OldMapping: currentMappingIndex, NewMapping: definition})
 				}
 			}
 		}
