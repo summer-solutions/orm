@@ -82,28 +82,29 @@ type TableSchema interface {
 }
 
 type tableSchema struct {
-	tableName        string
-	mysqlPoolName    string
-	t                reflect.Type
-	fields           *tableFields
-	fieldsQuery      string
-	tags             map[string]map[string]string
-	cachedIndexes    map[string]*cachedQueryDefinition
-	cachedIndexesOne map[string]*cachedQueryDefinition
-	cachedIndexesAll map[string]*cachedQueryDefinition
-	columnNames      []string
-	uniqueIndices    map[string][]string
-	refOne           []string
-	refMany          []string
-	columnsStamp     string
-	localCacheName   string
-	redisCacheName   string
-	cachePrefix      string
-	hasFakeDelete    bool
-	hasLog           bool
-	logPoolName      string //name of redis or rabbitMQ
-	logTableName     string
-	skipLogs         []string
+	tableName           string
+	mysqlPoolName       string
+	t                   reflect.Type
+	fields              *tableFields
+	fieldsQuery         string
+	tags                map[string]map[string]string
+	cachedIndexes       map[string]*cachedQueryDefinition
+	cachedIndexesOne    map[string]*cachedQueryDefinition
+	cachedIndexesAll    map[string]*cachedQueryDefinition
+	columnNames         []string
+	uniqueIndices       map[string][]string
+	uniqueIndicesGlobal map[string][]string
+	refOne              []string
+	refMany             []string
+	columnsStamp        string
+	localCacheName      string
+	redisCacheName      string
+	cachePrefix         string
+	hasFakeDelete       bool
+	hasLog              bool
+	logPoolName         string //name of redis or rabbitMQ
+	logTableName        string
+	skipLogs            []string
 }
 
 type tableFields struct {
@@ -365,11 +366,27 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	}
 	uniqueIndices := make(map[string]map[int]string)
 	uniqueIndicesSimple := make(map[string][]string)
+	uniqueIndicesSimpleGlobal := make(map[string][]string)
 	indices := make(map[string]map[int]string)
 	skipLogs := make([]string, 0)
+	uniqueGlobal, has := tags["ORM"]["unique"]
+	if has {
+		parts := strings.Split(uniqueGlobal, "|")
+		for _, part := range parts {
+			def := strings.Split(part, ":")
+			uniqueIndices[def[0]] = make(map[int]string)
+			uniqueIndicesSimple[def[0]] = make([]string, 0)
+			uniqueIndicesSimpleGlobal[def[0]] = make([]string, 0)
+			for i, field := range strings.Split(def[1], ",") {
+				uniqueIndices[def[0]][i+1] = field
+				uniqueIndicesSimple[def[0]] = append(uniqueIndicesSimple[def[0]], field)
+				uniqueIndicesSimpleGlobal[def[0]] = append(uniqueIndicesSimpleGlobal[def[0]], field)
+			}
+		}
+	}
 	for k, v := range tags {
 		keys, has := v["unique"]
-		if has {
+		if has && k != "ORM" {
 			values := strings.Split(keys, ",")
 			for _, indexName := range values {
 				parts := strings.Split(indexName, ":")
@@ -436,27 +453,28 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	columnsStamp := fmt.Sprintf("%d", fnv1a.HashString32(fieldsQuery))
 
 	tableSchema := &tableSchema{tableName: table,
-		mysqlPoolName:    mysql,
-		t:                entityType,
-		fields:           fields,
-		fieldsQuery:      fieldsQuery[1:],
-		tags:             tags,
-		columnNames:      columns,
-		columnsStamp:     columnsStamp,
-		cachedIndexes:    cachedQueries,
-		cachedIndexesOne: cachedQueriesOne,
-		cachedIndexesAll: cachedQueriesAll,
-		localCacheName:   localCache,
-		redisCacheName:   redisCache,
-		refOne:           oneRefs,
-		refMany:          manyRefs,
-		cachePrefix:      cachePrefix,
-		uniqueIndices:    uniqueIndicesSimple,
-		hasFakeDelete:    hasFakeDelete,
-		hasLog:           logPoolName != "",
-		logPoolName:      logPoolName,
-		logTableName:     fmt.Sprintf("_log_%s_%s", mysql, table),
-		skipLogs:         skipLogs}
+		mysqlPoolName:       mysql,
+		t:                   entityType,
+		fields:              fields,
+		fieldsQuery:         fieldsQuery[1:],
+		tags:                tags,
+		columnNames:         columns,
+		columnsStamp:        columnsStamp,
+		cachedIndexes:       cachedQueries,
+		cachedIndexesOne:    cachedQueriesOne,
+		cachedIndexesAll:    cachedQueriesAll,
+		localCacheName:      localCache,
+		redisCacheName:      redisCache,
+		refOne:              oneRefs,
+		refMany:             manyRefs,
+		cachePrefix:         cachePrefix,
+		uniqueIndices:       uniqueIndicesSimple,
+		uniqueIndicesGlobal: uniqueIndicesSimpleGlobal,
+		hasFakeDelete:       hasFakeDelete,
+		hasLog:              logPoolName != "",
+		logPoolName:         logPoolName,
+		logTableName:        fmt.Sprintf("_log_%s_%s", mysql, table),
+		skipLogs:            skipLogs}
 
 	all := make(map[string]map[int]string)
 	for k, v := range uniqueIndices {

@@ -533,7 +533,7 @@ func buildCreateForeignKeySQL(keyName string, definition *foreignIndex) string {
 		keyName, definition.Column, definition.ParentDatabase, definition.Table, definition.OnDelete)
 }
 
-func checkColumn(engine *Engine, schema *tableSchema, t reflect.Type, field *reflect.StructField, indexes map[string]*index,
+func checkColumn(engine *Engine, schema *tableSchema, field *reflect.StructField, indexes map[string]*index,
 	foreignKeys map[string]*foreignIndex, prefix string) ([][2]string, error) {
 	var definition string
 	var addNotNullIfNotSet bool
@@ -845,11 +845,19 @@ func checkStruct(tableSchema *tableSchema, engine *Engine, t reflect.Type, index
 	columns := make([][2]string, 0, t.NumField())
 	max := t.NumField() - 1
 	for i := 0; i <= max; i++ {
+		field := t.Field(i)
 		if i == 0 && prefix == "" {
+			//TODO add unique indices
+			for k, v := range tableSchema.uniqueIndicesGlobal {
+				current := &index{Unique: true, Columns: map[int]string{}}
+				for i, l := range v {
+					current.Columns[i+1] = l
+				}
+				indexes[k] = current
+			}
 			continue
 		}
-		field := t.Field(i)
-		fieldColumns, err := checkColumn(engine, tableSchema, t, &field, indexes, foreignKeys, prefix)
+		fieldColumns, err := checkColumn(engine, tableSchema, &field, indexes, foreignKeys, prefix)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
