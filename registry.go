@@ -36,6 +36,9 @@ type Registry struct {
 }
 
 func (r *Registry) Validate() (ValidatedRegistry, error) {
+	if r.defaultEncoding == "" {
+		r.defaultEncoding = "utf8mb4"
+	}
 	registry := &validatedRegistry{}
 	registry.registry = r
 	l := len(r.entities)

@@ -1,5 +1,5 @@
 default:
-  mysqlEncoding: utf8mb4
+  mysqlEncoding: utf8
   mysql: root:root@tcp(localhost:3308)/test
   redis: localhost:6381:0
   elastic: http://localhost:9209

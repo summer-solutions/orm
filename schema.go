@@ -74,7 +74,7 @@ func getAlters(engine *Engine) (alters []Alter) {
 				hasLogTable := logPool.QueryRow(NewWhere(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.logTableName)), &tableDef)
 				logTableSchema := fmt.Sprintf("CREATE TABLE `%s`.`%s` (\n  `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,\n  "+
 					"`entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `before` json DEFAULT NULL,\n  `changes` json DEFAULT NULL,\n  "+
-					"PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;",
+					"PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;",
 					logPool.databaseName, tableSchema.logTableName)
 				if !hasLogTable {
 					alters = append(alters, Alter{SQL: logTableSchema, Safe: true, Pool: tableSchema.logPoolName})
@@ -197,11 +197,7 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 	}
 
 	createTableSQL += "  PRIMARY KEY (`ID`)\n"
-	encoding := "utf8mb4"
-	if engine.registry.registry.defaultEncoding != "" {
-		encoding = engine.registry.registry.defaultEncoding
-	}
-	createTableSQL += fmt.Sprintf(") ENGINE=InnoDB DEFAULT CHARSET=%s;", encoding)
+	createTableSQL += fmt.Sprintf(") ENGINE=InnoDB DEFAULT CHARSET=%s;", engine.registry.registry.defaultEncoding)
 
 	var skip string
 	hasTable := pool.QueryRow(NewWhere(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.tableName)), &skip)
@@ -221,9 +217,21 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 	var tableDBColumns = make([][2]string, 0)
 	var createTableDB string
 	pool.QueryRow(NewWhere(fmt.Sprintf("SHOW CREATE TABLE `%s`", tableSchema.tableName)), &skip, &createTableDB)
+
+	hasAlters := false
+	hasAlterNormal := false
+	hasAlterEngineCharset := false
 	lines := strings.Split(createTableDB, "\n")
 	for x := 1; x < len(lines); x++ {
 		if lines[x][2] != 96 {
+			for _, field := range strings.Split(lines[x], " ") {
+				if strings.HasPrefix(field, "CHARSET=") {
+					if field[8:] != engine.registry.registry.defaultEncoding {
+						hasAlters = true
+						hasAlterEngineCharset = true
+					}
+				}
+			}
 			continue
 		}
 		var line = strings.TrimRight(lines[x], ",")
@@ -258,7 +266,6 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 	var newColumns []string
 	var changedColumns [][2]string
 
-	hasAlters := false
 	for key, value := range columns {
 		var tableColumn string
 		if key < len(tableDBColumns) {
@@ -369,10 +376,10 @@ OUTER:
 	if !hasAlters {
 		return
 	}
+
 	alterSQL := fmt.Sprintf("ALTER TABLE `%s`.`%s`\n", pool.GetDatabaseName(), tableSchema.tableName)
 	newAlters := make([]string, 0)
 	comments := make([]string, 0)
-	hasAlterNormal := false
 	hasAlterAddForeignKey := false
 	hasAlterRemoveForeignKey := false
 
@@ -455,6 +462,9 @@ OUTER:
 			safe = isEmpty
 		}
 		alters = append(alters, Alter{SQL: alterSQL, Safe: safe, Pool: tableSchema.mysqlPoolName})
+	} else if hasAlterEngineCharset {
+		alterSQL += fmt.Sprintf(" ENGINE=InnoDB DEFAULT CHARSET=%s;", engine.registry.registry.defaultEncoding)
+		alters = append(alters, Alter{SQL: alterSQL, Safe: true, Pool: tableSchema.mysqlPoolName})
 	}
 	if hasAlterRemoveForeignKey {
 		alterSQLRemoveForeignKey = strings.TrimRight(alterSQLRemoveForeignKey, ",\n") + ";"
