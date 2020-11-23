@@ -197,7 +197,11 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 	}
 
 	createTableSQL += "  PRIMARY KEY (`ID`)\n"
-	createTableSQL += ") ENGINE=InnoDB DEFAULT CHARSET=utf8;"
+	encoding := "utf8"
+	if engine.registry.registry.defaultEncoding != "" {
+		encoding = engine.registry.registry.defaultEncoding
+	}
+	createTableSQL += fmt.Sprintf(") ENGINE=InnoDB DEFAULT CHARSET=%s;", encoding)
 
 	var skip string
 	hasTable := pool.QueryRow(NewWhere(fmt.Sprintf("SHOW TABLES LIKE '%s'", tableSchema.tableName)), &skip)

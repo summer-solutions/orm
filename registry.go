@@ -32,6 +32,7 @@ type Registry struct {
 	enums                map[string]Enum
 	dirtyQueues          map[string]int
 	locks                map[string]string
+	defaultEncoding      string
 }
 
 func (r *Registry) Validate() (ValidatedRegistry, error) {
@@ -257,6 +258,10 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		}()
 	}
 	return registry, err
+}
+
+func (r *Registry) SetDefaultEncoding(encoding string) {
+	r.defaultEncoding = encoding
 }
 
 func (r *Registry) RegisterEntity(entity ...Entity) {

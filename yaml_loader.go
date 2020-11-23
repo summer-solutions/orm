@@ -42,6 +42,9 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 			case "locker":
 				valAsString := validateOrmString(value, key)
 				registry.RegisterLocker(key, valAsString)
+			case "mysqlEncoding":
+				valAsString := validateOrmString(value, key)
+				registry.SetDefaultEncoding(valAsString)
 			case "dirty_queues":
 				def, ok := value.(map[interface{}]interface{})
 				if !ok {
