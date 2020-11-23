@@ -197,7 +197,7 @@ func getSchemaChanges(engine *Engine, tableSchema *tableSchema) (has bool, alter
 	}
 
 	createTableSQL += "  PRIMARY KEY (`ID`)\n"
-	encoding := "utf8"
+	encoding := "utf8mb4"
 	if engine.registry.registry.defaultEncoding != "" {
 		encoding = engine.registry.registry.defaultEncoding
 	}

@@ -99,6 +99,7 @@ func TestSchema(t *testing.T) {
 	ref := &schemaEntityRef{}
 	registry := &Registry{}
 	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
+	registry.SetDefaultEncoding("utf8")
 	engine := PrepareTables(t, registry, entity, ref)
 
 	engineDrop := PrepareTables(t, &Registry{})
@@ -228,7 +229,7 @@ func TestSchema(t *testing.T) {
 	has, alters := schema.GetSchemaChanges(engine)
 	assert.True(t, has)
 	assert.Len(t, alters, 1)
-	assert.Equal(t, "CREATE TABLE `test`.`schemaToDropEntity` (\n  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;", alters[0].SQL)
+	assert.Equal(t, "CREATE TABLE `test`.`schemaToDropEntity` (\n  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;", alters[0].SQL)
 
 	registry = &Registry{}
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test")
