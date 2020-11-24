@@ -65,6 +65,7 @@ func main() {
     registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
     //optionally you can define pool name as second argument
     registry.RegisterMySQLPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
+    registry.DefaultEncoding("utf8") //optional, default is utf8mb4
 
     /* Redis */
     registry.RegisterRedis("localhost:6379", 0)
@@ -108,6 +109,7 @@ func main() {
 ```.yaml
 default:
     mysql: root:root@tcp(localhost:3310)/db
+    mysqlEncoding: utf8 //optional, default is utf8mb4
     redis: localhost:6379:0
     elastic: http://127.0.0.1:9200
     elastic_trace: http://127.0.0.1:9201 //with trace log
