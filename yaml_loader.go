@@ -11,20 +11,7 @@ import (
 func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 	registry = &Registry{}
 	for key, data := range yaml {
-		dataAsMap, ok := data.(map[string]interface{})
-		if !ok {
-			dataAsMapRaw, ok2 := data.(map[interface{}]interface{})
-			if ok2 {
-				ok = true
-				dataAsMap = make(map[string]interface{})
-				for k, v := range dataAsMapRaw {
-					dataAsMap[k.(string)] = v
-				}
-			}
-		}
-		if !ok {
-			panic(errors.NotValidf("orm section in config"))
-		}
+		dataAsMap := fixYamlMap(data, "orm")
 		for dataKey, value := range dataAsMap {
 			switch dataKey {
 			case "mysql":
@@ -46,16 +33,13 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 				valAsString := validateOrmString(value, key)
 				registry.SetDefaultEncoding(valAsString)
 			case "dirty_queues":
-				def, ok := value.(map[interface{}]interface{})
-				if !ok {
-					panic(errors.NotValidf("dirty_queues definition '%s'", value))
-				}
+				def := fixYamlMap(value, "dirty_queues")
 				for k, v := range def {
 					asInt, ok := v.(int)
 					if !ok {
 						panic(errors.NotValidf("dirty_queues definition '%s'", k))
 					}
-					registry.RegisterDirtyQueue(k.(string), asInt)
+					registry.RegisterDirtyQueue(k, asInt)
 				}
 			case "local_cache":
 				number := validateOrmInt(value, key)
@@ -132,7 +116,7 @@ func validateRedisURI(registry *Registry, value interface{}, key string) {
 	registry.RegisterRedis(uri, int(db), key)
 }
 
-func getBoolOptional(data map[interface{}]interface{}, key string, defaultValue bool) bool {
+func getBoolOptional(data map[string]interface{}, key string, defaultValue bool) bool {
 	val, has := data[key]
 	if !has {
 		return defaultValue
@@ -140,7 +124,7 @@ func getBoolOptional(data map[interface{}]interface{}, key string, defaultValue 
 	return val == true || val == "true"
 }
 
-func getIntOptional(data map[interface{}]interface{}, key string, defaultValue int) int {
+func getIntOptional(data map[string]interface{}, key string, defaultValue int) int {
 	val, has := data[key]
 	if !has {
 		return defaultValue
@@ -149,11 +133,23 @@ func getIntOptional(data map[interface{}]interface{}, key string, defaultValue i
 	return valInt
 }
 
-func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
-	def, ok := value.(map[interface{}]interface{})
+func fixYamlMap(value interface{}, key string) map[string]interface{} {
+	def, ok := value.(map[string]interface{})
 	if !ok {
-		panic(errors.NotValidf("rabbitMQ definition `%s`", key))
+		def2, ok := value.(map[interface{}]interface{})
+		if !ok {
+			panic(errors.NotValidf("orm yaml key %s", key))
+		}
+		def = make(map[string]interface{})
+		for k, v := range def2 {
+			def[fmt.Sprintf("%v", k)] = v
+		}
 	}
+	return def
+}
+
+func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
+	def := fixYamlMap(value, key)
 	value, has := def["server"]
 	if !has {
 		panic(errors.NotFoundf("rabbitMQ server definition '%s'", key))
@@ -170,10 +166,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			panic(errors.NotValidf("rabbitMQ queues definition '%s'", key))
 		}
 		for _, channel := range asSlice {
-			asMap, ok := channel.(map[interface{}]interface{})
-			if !ok {
-				panic(errors.NotValidf("rabbitMQ queues definition '%s'", key))
-			}
+			asMap := fixYamlMap(channel, key)
 			name, has := asMap["name"]
 			if !has {
 				panic(errors.NotFoundf("rabbitMQ channel name '%s'", key))
@@ -222,10 +215,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			panic(errors.NotValidf("rabbitMQ routers definition `%s`", key))
 		}
 		for _, router := range asSlice {
-			asMap, ok := router.(map[interface{}]interface{})
-			if !ok {
-				panic(errors.NotValidf("rabbitMQ router definition '%s'", key))
-			}
+			asMap := fixYamlMap(router, key)
 			value, has := asMap["name"]
 			if !has {
 				panic(errors.NotFoundf("rabbitMQ router name '%s'", key))

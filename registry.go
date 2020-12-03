@@ -263,7 +263,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	return registry, err
 }
 
-func (r *Registry) SetDefaultEDefaultEncodingncoding(encoding string) {
+func (r *Registry) SetDefaultEncoding(encoding string) {
 	r.defaultEncoding = encoding
 }
 

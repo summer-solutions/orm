@@ -20,13 +20,13 @@ func TestYamlLoader(t *testing.T) {
 
 	invalidYaml := make(map[string]interface{})
 	invalidYaml["test"] = "invalid"
-	assert.PanicsWithError(t, "orm section in config not valid", func() {
+	assert.PanicsWithError(t, "orm yaml key orm not valid", func() {
 		registry = InitByYaml(invalidYaml)
 	})
 
 	invalidYaml = make(map[string]interface{})
 	invalidYaml["default"] = map[string]interface{}{"dirty_queues": "invalid"}
-	assert.PanicsWithError(t, "dirty_queues definition 'invalid' not valid", func() {
+	assert.PanicsWithError(t, "orm yaml key dirty_queues not valid", func() {
 		registry = InitByYaml(invalidYaml)
 	})
 	invalidYaml["default"] = map[string]interface{}{"dirty_queues": map[interface{}]interface{}{"test": "invalid"}}
@@ -84,7 +84,7 @@ func TestYamlLoader(t *testing.T) {
 
 	invalidYaml = make(map[string]interface{})
 	invalidYaml["default"] = map[string]interface{}{"rabbitmq": []int{1}}
-	assert.PanicsWithError(t, "rabbitMQ definition `default` not valid", func() {
+	assert.PanicsWithError(t, "orm yaml key default not valid", func() {
 		registry = InitByYaml(invalidYaml)
 	})
 
@@ -108,7 +108,7 @@ func TestYamlLoader(t *testing.T) {
 
 	invalidYaml = make(map[string]interface{})
 	invalidYaml["default"] = map[string]interface{}{"rabbitmq": map[interface{}]interface{}{"server": "amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test", "queues": []interface{}{1}}}
-	assert.PanicsWithError(t, "rabbitMQ queues definition 'default' not valid", func() {
+	assert.PanicsWithError(t, "orm yaml key default not valid", func() {
 		registry = InitByYaml(invalidYaml)
 	})
 
@@ -150,7 +150,7 @@ func TestYamlLoader(t *testing.T) {
 
 	invalidYaml = make(map[string]interface{})
 	invalidYaml["default"] = map[string]interface{}{"rabbitmq": map[interface{}]interface{}{"server": "amqp://rabbitmq_user:rabbitmq_password@localhost:5672/test", "routers": []interface{}{1}}}
-	assert.PanicsWithError(t, "rabbitMQ router definition 'default' not valid", func() {
+	assert.PanicsWithError(t, "orm yaml key default not valid", func() {
 		registry = InitByYaml(invalidYaml)
 	})
 
