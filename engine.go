@@ -32,6 +32,7 @@ type Engine struct {
 	rabbitMQQueues               map[string]*RabbitMQQueue
 	rabbitMQRouters              map[string]*RabbitMQRouter
 	logMetaData                  map[string]interface{}
+	dataLoader                   *dataLoader
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
 	queryLoggers                 map[QueryLoggerSource]*logger
@@ -52,6 +53,10 @@ func (e *Engine) Log() Log {
 		e.log = newLog(e)
 	}
 	return e.log
+}
+
+func (e *Engine) EnableDataLoader(maxBatch int, wait time.Duration) {
+	e.dataLoader = newDataLoader(dataLoaderConfig{MaxBatch: maxBatch, Wait: wait})
 }
 
 func (e *Engine) EnableLogger(level logApex.Level, handlers ...logApex.Handler) {

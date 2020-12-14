@@ -6,7 +6,7 @@ import (
 )
 
 type dataLoaderConfig struct {
-	Fetch    func(keys []uint64) ([]*Entity, error)
+	Fetch    func(keys []string) ([]*Entity, error)
 	Wait     time.Duration
 	MaxBatch int
 }
@@ -20,27 +20,27 @@ func newDataLoader(config dataLoaderConfig) *dataLoader {
 }
 
 type dataLoader struct {
-	fetch    func(keys []uint64) ([]*Entity, error)
+	fetch    func(keys []string) ([]*Entity, error)
 	wait     time.Duration
 	maxBatch int
-	cache    map[uint64]*Entity
+	cache    map[string]*Entity
 	batch    *dataLoaderBatch
 	mu       sync.Mutex
 }
 
 type dataLoaderBatch struct {
-	keys    []uint64
+	keys    []string
 	data    []*Entity
 	error   error
 	closing bool
 	done    chan struct{}
 }
 
-func (l *dataLoader) Load(key uint64) (*Entity, error) {
+func (l *dataLoader) Load(key string) (*Entity, error) {
 	return l.LoadThunk(key)()
 }
 
-func (l *dataLoader) LoadThunk(key uint64) func() (*Entity, error) {
+func (l *dataLoader) LoadThunk(key string) func() (*Entity, error) {
 	l.mu.Lock()
 	if it, ok := l.cache[key]; ok {
 		l.mu.Unlock()
@@ -75,7 +75,7 @@ func (l *dataLoader) LoadThunk(key uint64) func() (*Entity, error) {
 	}
 }
 
-func (l *dataLoader) LoadAll(keys []uint64) ([]*Entity, []error) {
+func (l *dataLoader) LoadAll(keys []string) ([]*Entity, []error) {
 	results := make([]func() (*Entity, error), len(keys))
 
 	for i, key := range keys {
@@ -90,7 +90,7 @@ func (l *dataLoader) LoadAll(keys []uint64) ([]*Entity, []error) {
 	return carBrands, errors
 }
 
-func (l *dataLoader) LoadAllThunk(keys []uint64) func() ([]*Entity, []error) {
+func (l *dataLoader) LoadAllThunk(keys []string) func() ([]*Entity, []error) {
 	results := make([]func() (*Entity, error), len(keys))
 	for i, key := range keys {
 		results[i] = l.LoadThunk(key)
@@ -105,7 +105,7 @@ func (l *dataLoader) LoadAllThunk(keys []uint64) func() ([]*Entity, []error) {
 	}
 }
 
-func (l *dataLoader) Prime(key uint64, value *Entity) bool {
+func (l *dataLoader) Prime(key string, value *Entity) bool {
 	l.mu.Lock()
 	var found bool
 	if _, found = l.cache[key]; !found {
@@ -116,20 +116,20 @@ func (l *dataLoader) Prime(key uint64, value *Entity) bool {
 	return !found
 }
 
-func (l *dataLoader) Clear(key uint64) {
+func (l *dataLoader) Clear(key string) {
 	l.mu.Lock()
 	delete(l.cache, key)
 	l.mu.Unlock()
 }
 
-func (l *dataLoader) unsafeSet(key uint64, value *Entity) {
+func (l *dataLoader) unsafeSet(key string, value *Entity) {
 	if l.cache == nil {
-		l.cache = map[uint64]*Entity{}
+		l.cache = map[string]*Entity{}
 	}
 	l.cache[key] = value
 }
 
-func (b *dataLoaderBatch) keyIndex(l *dataLoader, key uint64) int {
+func (b *dataLoaderBatch) keyIndex(l *dataLoader, key string) int {
 	for i, existingKey := range b.keys {
 		if key == existingKey {
 			return i
