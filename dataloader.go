@@ -157,7 +157,7 @@ func (b *dataLoaderBatch) startTimer(l *dataLoader) {
 }
 
 func (b *dataLoaderBatch) end(l *dataLoader) {
-	// TODO
+	// TODO group by redis servers
 	m := make(map[string][]uint64)
 	for _, key := range b.keys {
 		parts := strings.Split(key, ":")
@@ -167,11 +167,12 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 		id, _ := strconv.ParseUint(parts[1], 10, 64)
 		m[parts[0]] = append(m[parts[0]], id)
 	}
+	results := make(map[string][]string)
 	for entityName, ids := range m {
 		lenIDs := len(ids)
 		schema := l.engine.registry.GetTableSchema(entityName).(*tableSchema)
 		var redisCacheKeys []string
-		results := make(map[string][]string, lenIDs)
+		resultsKeys := make(map[string][]string, lenIDs)
 		keysMapping := make(map[string]uint64, lenIDs)
 		redisCache, hasRedis := schema.GetRedisCache(l.engine)
 		cacheKeys := make([]string, lenIDs)
@@ -181,7 +182,7 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 			cacheKeys[index] = cacheKey
 		}
 		if hasRedis {
-			cacheKeys = b.getKeysForNils(redisCache.MGet(cacheKeys...), results)
+			cacheKeys = b.getKeysForNils(l, schema, redisCache.MGet(cacheKeys...), keysMapping, resultsKeys, results)
 			redisCacheKeys = cacheKeys
 		}
 		ids = make([]uint64, len(cacheKeys))
@@ -191,7 +192,8 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 		lIds := len(ids)
 		if lIds > 0 {
 			for id, v := range b.search(schema, l.engine, ids) {
-				results[schema.getCacheKey(id)] = v
+				resultsKeys[schema.getCacheKey(id)] = v
+				results[l.key(schema, id)] = v
 			}
 		}
 		if hasRedis {
@@ -201,7 +203,7 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 				i := 0
 				for _, key := range redisCacheKeys {
 					pairs[i] = key
-					val := results[key]
+					val := resultsKeys[key]
 					var toSet interface{}
 					if val == nil {
 						toSet = "nil"
@@ -216,12 +218,16 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 			}
 		}
 	}
-	// TODO
-	//b.data = l.fetch(b.keys)
+	i := 0
+	b.data = make([][]string, len(b.keys))
+	for _, key := range b.keys {
+		b.data[i] = results[key]
+	}
 	close(b.done)
 }
 
-func (b *dataLoaderBatch) getKeysForNils(rows map[string]interface{}, results map[string][]string) []string {
+func (b *dataLoaderBatch) getKeysForNils(l *dataLoader, schema *tableSchema, rows map[string]interface{}, keyMapping map[string]uint64,
+	resultsKeys map[string][]string, results map[string][]string) []string {
 	keys := make([]string, 0)
 	for k, v := range rows {
 		if v == nil {
@@ -233,6 +239,7 @@ func (b *dataLoaderBatch) getKeysForNils(rows map[string]interface{}, results ma
 				var decoded []string
 				_ = json.Unmarshal([]byte(v.(string)), &decoded)
 				results[k] = decoded
+				resultsKeys[l.key(schema, keyMapping[k])] = decoded
 			}
 		}
 	}
