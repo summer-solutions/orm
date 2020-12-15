@@ -1,116 +1,65 @@
 package orm
 
 import (
+	"strconv"
 	"sync"
 	"time"
 )
 
-type dataLoaderConfig struct {
-	Fetch    func(keys []string) ([]*Entity, error)
-	Wait     time.Duration
-	MaxBatch int
-}
-
-func newDataLoader(config dataLoaderConfig) *dataLoader {
-	return &dataLoader{
-		fetch:    config.Fetch,
-		wait:     config.Wait,
-		maxBatch: config.MaxBatch,
-	}
-}
-
 type dataLoader struct {
-	fetch    func(keys []string) ([]*Entity, error)
+	engine   *Engine
 	wait     time.Duration
 	maxBatch int
-	cache    map[string]*Entity
+	cache    map[string][]string
 	batch    *dataLoaderBatch
 	mu       sync.Mutex
 }
 
 type dataLoaderBatch struct {
 	keys    []string
-	data    []*Entity
-	error   error
+	data    [][]string
 	closing bool
 	done    chan struct{}
 }
 
-func (l *dataLoader) Load(key string) (*Entity, error) {
-	return l.LoadThunk(key)()
+func (l *dataLoader) Load(schema TableSchema, id uint64) []string {
+	return l.loadThunk(l.key(schema, id))()
 }
 
-func (l *dataLoader) LoadThunk(key string) func() (*Entity, error) {
-	l.mu.Lock()
-	if it, ok := l.cache[key]; ok {
-		l.mu.Unlock()
-		return func() (*Entity, error) {
-			return it, nil
-		}
-	}
-	if l.batch == nil {
-		l.batch = &dataLoaderBatch{done: make(chan struct{})}
-	}
-	batch := l.batch
-	pos := batch.keyIndex(l, key)
-	l.mu.Unlock()
-
-	return func() (*Entity, error) {
-		<-batch.done
-
-		var data *Entity
-		if pos < len(batch.data) {
-			data = batch.data[pos]
-		}
-
-		err := batch.error
-
-		if err == nil {
-			l.mu.Lock()
-			l.unsafeSet(key, data)
-			l.mu.Unlock()
-		}
-
-		return data, err
-	}
-}
-
-func (l *dataLoader) LoadAll(keys []string) ([]*Entity, []error) {
-	results := make([]func() (*Entity, error), len(keys))
+func (l *dataLoader) LoadAll(keys []string) [][]string {
+	results := make([]func() []string, len(keys))
 
 	for i, key := range keys {
-		results[i] = l.LoadThunk(key)
+		results[i] = l.loadThunk(key)
 	}
 
-	carBrands := make([]*Entity, len(keys))
-	errors := make([]error, len(keys))
+	data := make([][]string, len(keys))
 	for i, thunk := range results {
-		carBrands[i], errors[i] = thunk()
+		data[i] = thunk()
 	}
-	return carBrands, errors
+	return data
 }
 
-func (l *dataLoader) LoadAllThunk(keys []string) func() ([]*Entity, []error) {
-	results := make([]func() (*Entity, error), len(keys))
+func (l *dataLoader) LoadAllThunk(keys []string) func() [][]string {
+	results := make([]func() []string, len(keys))
 	for i, key := range keys {
-		results[i] = l.LoadThunk(key)
+		results[i] = l.loadThunk(key)
 	}
-	return func() ([]*Entity, []error) {
-		carBrands := make([]*Entity, len(keys))
-		errors := make([]error, len(keys))
+	return func() [][]string {
+		data := make([][]string, len(keys))
 		for i, thunk := range results {
-			carBrands[i], errors[i] = thunk()
+			data[i] = thunk()
 		}
-		return carBrands, errors
+		return data
 	}
 }
 
-func (l *dataLoader) Prime(key string, value *Entity) bool {
+func (l *dataLoader) Prime(schema TableSchema, id uint64, value []string) bool {
+	key := l.key(schema, id)
 	l.mu.Lock()
 	var found bool
 	if _, found = l.cache[key]; !found {
-		cpy := *value
-		l.unsafeSet(key, &cpy)
+		l.unsafeSet(key, value)
 	}
 	l.mu.Unlock()
 	return !found
@@ -122,9 +71,44 @@ func (l *dataLoader) Clear(key string) {
 	l.mu.Unlock()
 }
 
-func (l *dataLoader) unsafeSet(key string, value *Entity) {
+func (l *dataLoader) key(schema TableSchema, id uint64) string {
+	return schema.GetType().String() + ":" + strconv.FormatUint(id, 10)
+}
+
+func (l *dataLoader) loadThunk(key string) func() []string {
+	l.mu.Lock()
+	if it, ok := l.cache[key]; ok {
+		l.mu.Unlock()
+		return func() []string {
+			return it
+		}
+	}
+	if l.batch == nil {
+		l.batch = &dataLoaderBatch{done: make(chan struct{})}
+	}
+	batch := l.batch
+	pos := batch.keyIndex(l, key)
+	l.mu.Unlock()
+
+	return func() []string {
+		<-batch.done
+
+		var data []string
+		if pos < len(batch.data) {
+			data = batch.data[pos]
+		}
+
+		l.mu.Lock()
+		l.unsafeSet(key, data)
+		l.mu.Unlock()
+
+		return data
+	}
+}
+
+func (l *dataLoader) unsafeSet(key string, value []string) {
 	if l.cache == nil {
-		l.cache = map[string]*Entity{}
+		l.cache = map[string][]string{}
 	}
 	l.cache[key] = value
 }
@@ -169,6 +153,7 @@ func (b *dataLoaderBatch) startTimer(l *dataLoader) {
 }
 
 func (b *dataLoaderBatch) end(l *dataLoader) {
-	b.data, b.error = l.fetch(b.keys)
+	// TODO
+	//b.data = l.fetch(b.keys)
 	close(b.done)
 }

@@ -56,7 +56,11 @@ func (e *Engine) Log() Log {
 }
 
 func (e *Engine) EnableDataLoader(maxBatch int, wait time.Duration) {
-	e.dataLoader = newDataLoader(dataLoaderConfig{MaxBatch: maxBatch, Wait: wait})
+	e.dataLoader = &dataLoader{
+		engine:   e,
+		wait:     wait,
+		maxBatch: maxBatch,
+	}
 }
 
 func (e *Engine) EnableLogger(level logApex.Level, handlers ...logApex.Handler) {
