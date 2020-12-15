@@ -1,7 +1,11 @@
 package orm
 
 import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -154,6 +158,119 @@ func (b *dataLoaderBatch) startTimer(l *dataLoader) {
 
 func (b *dataLoaderBatch) end(l *dataLoader) {
 	// TODO
+	m := make(map[string][]uint64)
+	for _, key := range b.keys {
+		parts := strings.Split(key, ":")
+		if m[parts[0]] == nil {
+			m[parts[0]] = make([]uint64, 0)
+		}
+		id, _ := strconv.ParseUint(parts[1], 10, 64)
+		m[parts[0]] = append(m[parts[0]], id)
+	}
+	for entityName, ids := range m {
+		lenIDs := len(ids)
+		schema := l.engine.registry.GetTableSchema(entityName).(*tableSchema)
+		var redisCacheKeys []string
+		results := make(map[string][]string, lenIDs)
+		keysMapping := make(map[string]uint64, lenIDs)
+		redisCache, hasRedis := schema.GetRedisCache(l.engine)
+		cacheKeys := make([]string, lenIDs)
+		for index, id := range ids {
+			cacheKey := schema.getCacheKey(id)
+			keysMapping[cacheKey] = id
+			cacheKeys[index] = cacheKey
+		}
+		if hasRedis {
+			cacheKeys = b.getKeysForNils(redisCache.MGet(cacheKeys...), results)
+			redisCacheKeys = cacheKeys
+		}
+		ids = make([]uint64, len(cacheKeys))
+		for k, v := range cacheKeys {
+			ids[k] = keysMapping[v]
+		}
+		lIds := len(ids)
+		if lIds > 0 {
+			for id, v := range b.search(schema, l.engine, ids) {
+				results[schema.getCacheKey(id)] = v
+			}
+		}
+		if hasRedis {
+			lIds = len(redisCacheKeys)
+			if lIds > 0 {
+				pairs := make([]interface{}, lIds*2)
+				i := 0
+				for _, key := range redisCacheKeys {
+					pairs[i] = key
+					val := results[key]
+					var toSet interface{}
+					if val == nil {
+						toSet = "nil"
+					} else {
+						encoded, _ := json.Marshal(val)
+						toSet = string(encoded)
+					}
+					pairs[i+1] = toSet
+					i += 2
+				}
+				redisCache.MSet(pairs...)
+			}
+		}
+	}
+	// TODO
 	//b.data = l.fetch(b.keys)
 	close(b.done)
+}
+
+func (b *dataLoaderBatch) getKeysForNils(rows map[string]interface{}, results map[string][]string) []string {
+	keys := make([]string, 0)
+	for k, v := range rows {
+		if v == nil {
+			keys = append(keys, k)
+		} else {
+			if v == "nil" {
+				results[k] = nil
+			} else {
+				var decoded []string
+				_ = json.Unmarshal([]byte(v.(string)), &decoded)
+				results[k] = decoded
+			}
+		}
+	}
+	return keys
+}
+
+func (b *dataLoaderBatch) search(schema *tableSchema, engine *Engine, ids []uint64) map[uint64][]string {
+	where := NewWhere("`ID` IN ?", ids)
+	result := make(map[uint64][]string)
+	/* #nosec */
+	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s", schema.fieldsQuery, schema.tableName, where)
+	pool := schema.GetMysql(engine)
+	results, def := pool.Query(query, where.GetParameters()...)
+	defer def()
+
+	count := len(schema.columnNames)
+
+	values := make([]sql.NullString, count)
+	valuePointers := make([]interface{}, count)
+	for i := 0; i < count; i++ {
+		valuePointers[i] = &values[i]
+	}
+
+	i := 0
+	for results.Next() {
+		results.Scan(valuePointers...)
+		finalValues := make([]string, count)
+		for i, v := range values {
+			if v.Valid {
+				finalValues[i] = v.String
+			} else {
+				finalValues[i] = "nil"
+			}
+		}
+		id, _ := strconv.ParseUint(finalValues[0], 10, 64)
+		result[id] = finalValues[1:]
+		i++
+	}
+	def()
+	return result
 }
