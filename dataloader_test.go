@@ -4,6 +4,9 @@ import (
 	"testing"
 	"time"
 
+	apexLog "github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,9 +23,25 @@ func TestDataLoader(t *testing.T) {
 
 	engine.TrackAndFlush(&dataLoaderEntity{Name: "a"})
 
+	engine.EnableQueryDebug()
+
+	DBLogger := memory.New()
+	engine.AddQueryLogger(DBLogger, apexLog.InfoLevel, QueryLoggerSourceDB)
+	redisLogger := memory.New()
+	engine.AddQueryLogger(redisLogger, apexLog.InfoLevel, QueryLoggerSourceRedis)
+
 	entity = &dataLoaderEntity{}
 	found := engine.LoadByID(1, entity)
 	assert.True(t, found)
 	assert.Equal(t, uint(1), entity.ID)
 	assert.Equal(t, "a", entity.Name)
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, redisLogger.Entries, 2)
+
+	found = engine.LoadByID(1, entity)
+	assert.True(t, found)
+	assert.Equal(t, uint(1), entity.ID)
+	assert.Equal(t, "a", entity.Name)
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, redisLogger.Entries, 2)
 }
