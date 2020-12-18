@@ -10,11 +10,14 @@ import (
 )
 
 func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64) {
+	missing = make([]uint64, 0)
+	valOrigin := entities
+	valOrigin.SetLen(0)
+	valOrigin.SetCap(0)
 	originalIDs := ids
 	lenIDs := len(ids)
 	if lenIDs == 0 {
-		entities.SetLen(0)
-		return make([]uint64, 0)
+		return
 	}
 	t, has, name := getEntityTypeForSlice(engine.registry, entities.Type())
 	if !has {
@@ -24,6 +27,27 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	schema := getTableSchema(engine.registry, t)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
+
+	if !hasLocalCache && engine.dataLoader != nil {
+		data := engine.dataLoader.LoadAll(schema, ids)
+		v := valOrigin
+		for i, row := range data {
+			if row == nil {
+				missing = append(missing, ids[i])
+			} else {
+				val := reflect.New(schema.t)
+				entity := val.Interface().(Entity)
+				fillFromDBRow(ids[i], engine, row, entity)
+				v = reflect.Append(v, val)
+			}
+		}
+		valOrigin.Set(v)
+		if len(references) > 0 && v.Len() > 0 {
+			warmUpReferences(engine, schema, entities, references, true)
+		}
+		return
+	}
+
 	var localCacheKeys []string
 	var redisCacheKeys []string
 	results := make(map[string]Entity, lenIDs)
@@ -104,10 +128,6 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 		}
 	}
 
-	missing = make([]uint64, 0)
-	valOrigin := entities
-	valOrigin.SetLen(0)
-	valOrigin.SetCap(0)
 	v := valOrigin
 	for _, id := range originalIDs {
 		val := results[keysReversed[id]]

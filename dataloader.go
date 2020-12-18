@@ -30,32 +30,18 @@ func (l *dataLoader) Load(schema TableSchema, id uint64) []string {
 	return l.loadThunk(l.key(schema, id))()
 }
 
-func (l *dataLoader) LoadAll(keys []string) [][]string {
-	results := make([]func() []string, len(keys))
+func (l *dataLoader) LoadAll(schema TableSchema, ids []uint64) [][]string {
+	results := make([]func() []string, len(ids))
 
-	for i, key := range keys {
-		results[i] = l.loadThunk(key)
+	for i, id := range ids {
+		results[i] = l.loadThunk(l.key(schema, id))
 	}
 
-	data := make([][]string, len(keys))
+	data := make([][]string, len(ids))
 	for i, thunk := range results {
 		data[i] = thunk()
 	}
 	return data
-}
-
-func (l *dataLoader) LoadAllThunk(keys []string) func() [][]string {
-	results := make([]func() []string, len(keys))
-	for i, key := range keys {
-		results[i] = l.loadThunk(key)
-	}
-	return func() [][]string {
-		data := make([][]string, len(keys))
-		for i, thunk := range results {
-			data[i] = thunk()
-		}
-		return data
-	}
 }
 
 func (l *dataLoader) Prime(schema TableSchema, id uint64, value []string) bool {

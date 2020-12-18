@@ -73,4 +73,10 @@ func TestDataLoader(t *testing.T) {
 	time.Sleep(time.Millisecond * 3)
 	assert.Len(t, DBLogger.Entries, 2)
 	assert.Len(t, redisLogger.Entries, 5)
+
+	entities := make([]*dataLoaderEntity, 0)
+	missing := engine.LoadByIDs([]uint64{1, 2}, &entities)
+	assert.Len(t, missing, 0)
+	assert.Len(t, DBLogger.Entries, 2)
+	assert.Len(t, redisLogger.Entries, 5)
 }
