@@ -69,9 +69,10 @@ func (l *dataLoader) Prime(schema TableSchema, id uint64, value []string) bool {
 	return !found
 }
 
-func (l *dataLoader) Clear(key string) {
+func (l *dataLoader) Clear() {
 	l.mu.Lock()
-	delete(l.cache, key)
+	l.cache = nil
+	l.batch = nil
 	l.mu.Unlock()
 }
 
@@ -142,7 +143,9 @@ func (b *dataLoaderBatch) keyIndex(l *dataLoader, key string) int {
 }
 
 func (b *dataLoaderBatch) startTimer(l *dataLoader) {
-	time.Sleep(l.wait)
+	if l.wait > 0 {
+		time.Sleep(l.wait)
+	}
 	l.mu.Lock()
 
 	if b.closing {
@@ -222,6 +225,7 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 	b.data = make([][]string, len(b.keys))
 	for _, key := range b.keys {
 		b.data[i] = results[key]
+		i++
 	}
 	close(b.done)
 }
@@ -234,12 +238,12 @@ func (b *dataLoaderBatch) getKeysForNils(l *dataLoader, schema *tableSchema, row
 			keys = append(keys, k)
 		} else {
 			if v == "nil" {
-				results[k] = nil
+				resultsKeys[k] = nil
 			} else {
 				var decoded []string
 				_ = json.Unmarshal([]byte(v.(string)), &decoded)
-				results[k] = decoded
-				resultsKeys[l.key(schema, keyMapping[k])] = decoded
+				resultsKeys[k] = decoded
+				results[l.key(schema, keyMapping[k])] = decoded
 			}
 		}
 	}
