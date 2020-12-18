@@ -128,6 +128,9 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 		}
 	}
 
+	valOrigin = entities
+	valOrigin.SetLen(0)
+	valOrigin.SetCap(0)
 	v := valOrigin
 	for _, id := range originalIDs {
 		val := results[keysReversed[id]]
