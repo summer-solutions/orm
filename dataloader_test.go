@@ -11,9 +11,10 @@ import (
 )
 
 type dataLoaderEntity struct {
-	ORM  `orm:"redisCache"`
-	ID   uint
-	Name string `orm:"max=100"`
+	ORM         `orm:"redisCache"`
+	ID          uint
+	Name        string `orm:"max=100"`
+	Description string
 }
 
 func TestDataLoader(t *testing.T) {
@@ -25,8 +26,6 @@ func TestDataLoader(t *testing.T) {
 	engine.Track(&dataLoaderEntity{Name: "b"})
 	engine.Track(&dataLoaderEntity{Name: "c"})
 	engine.Flush()
-
-	engine.EnableQueryDebug()
 
 	DBLogger := memory.New()
 	engine.AddQueryLogger(DBLogger, apexLog.InfoLevel, QueryLoggerSourceDB)
@@ -70,7 +69,7 @@ func TestDataLoader(t *testing.T) {
 		assert.Equal(t, uint(2), entity3.ID)
 		assert.Equal(t, "b", entity3.Name)
 	}()
-	time.Sleep(time.Millisecond * 3)
+	time.Sleep(time.Millisecond * 10)
 	assert.Len(t, DBLogger.Entries, 2)
 	assert.Len(t, redisLogger.Entries, 5)
 
@@ -79,4 +78,36 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, missing, 0)
 	assert.Len(t, DBLogger.Entries, 2)
 	assert.Len(t, redisLogger.Entries, 5)
+
+	missing = engine.LoadByIDs([]uint64{3, 4}, &entities)
+	assert.Len(t, missing, 1)
+	assert.Equal(t, uint64(4), missing[0])
+	assert.Len(t, entities, 1)
+	assert.Equal(t, uint(3), entities[0].ID)
+	assert.Equal(t, "c", entities[0].Name)
+	assert.Len(t, DBLogger.Entries, 3)
+	assert.Len(t, redisLogger.Entries, 7)
+	missing = engine.LoadByIDs([]uint64{4}, &entities)
+	assert.Len(t, missing, 1)
+	assert.Equal(t, uint64(4), missing[0])
+	assert.Len(t, entities, 0)
+	assert.Len(t, DBLogger.Entries, 3)
+	assert.Len(t, redisLogger.Entries, 7)
+
+	engine.ClearDataLoader()
+	missing = engine.LoadByIDs([]uint64{4, 4}, &entities)
+	assert.Len(t, missing, 2)
+	assert.Equal(t, uint64(4), missing[0])
+	assert.Len(t, DBLogger.Entries, 3)
+	assert.Len(t, redisLogger.Entries, 8)
+
+	engine.EnableDataLoader(2, time.Millisecond)
+	missing = engine.LoadByIDs([]uint64{3, 1, 2}, &entities)
+	assert.Len(t, missing, 0)
+	assert.Len(t, entities, 3)
+	assert.Equal(t, "c", entities[0].Name)
+	assert.Equal(t, "a", entities[1].Name)
+	assert.Equal(t, "b", entities[2].Name)
+	assert.Len(t, DBLogger.Entries, 3)
+	assert.Len(t, redisLogger.Entries, 10)
 }
