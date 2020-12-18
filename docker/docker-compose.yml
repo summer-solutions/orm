@@ -9,6 +9,14 @@ services:
       - ${LOCAL_IP}:${MYSQL_PORT}:3306
     environment:
       MYSQL_ROOT_PASSWORD: root
+  mysql8_orm:
+    image: mysql:8
+    volumes:
+      - orm_data_mysql8:/var/lib/mysql
+    ports:
+      - ${LOCAL_IP}:${MYSQL8_PORT}:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: root
   redis_orm:
     image: redis
     volumes:
@@ -68,6 +76,7 @@ services:
 volumes:
   orm_data_mysql: {}
   orm_logs_mysql: {}
+  orm_data_mysql8: {}
   orm_data_redis: {}
   orm_data_rabbitmq: {}
   orm_elasticsearch: {}
