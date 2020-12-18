@@ -45,17 +45,11 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 		row, has := redisCache.Get(cacheKey)
 		if has {
 			if row == "nil" {
-				if engine.dataLoader != nil {
-					engine.dataLoader.Prime(schema, id, nil)
-				}
 				return false
 			}
 			var decoded []string
 			_ = json.Unmarshal([]byte(row), &decoded)
 			fillFromDBRow(id, engine, decoded, entity)
-			if engine.dataLoader != nil {
-				engine.dataLoader.Prime(schema, id, decoded)
-			}
 			if len(references) > 0 {
 				warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 			}
@@ -66,8 +60,6 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 	if !found {
 		if localCache != nil {
 			localCache.Set(cacheKey, "nil")
-		} else if engine.dataLoader != nil {
-			engine.dataLoader.Prime(schema, id, nil)
 		}
 		if redisCache != nil {
 			redisCache.Set(cacheKey, "nil", 60)
@@ -78,8 +70,6 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 		if useCache {
 			localCache.Set(cacheKey, buildLocalCacheValue(entity))
 		}
-	} else if engine.dataLoader != nil {
-		engine.dataLoader.Prime(schema, id, buildLocalCacheValue(entity))
 	}
 	if redisCache != nil && useCache {
 		redisCache.Set(cacheKey, buildRedisValue(entity), 0)
