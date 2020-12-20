@@ -48,7 +48,7 @@ type ormEntity struct {
 
 func TestORM(t *testing.T) {
 	var entity *ormEntity
-	engine := PrepareTables(t, &Registry{}, entity, &ormEntityRef{})
+	engine := PrepareTables(t, &Registry{}, 5, entity, &ormEntityRef{})
 
 	entity = &ormEntity{nameUnset: ""}
 	id := entity.GetID()

@@ -29,7 +29,7 @@ func TestLazyReceiver(t *testing.T) {
 
 	registry := &Registry{}
 	registry.RegisterEnumMap("orm.TestEnum", map[string]string{"a": "a", "b": "b", "c": "c"}, "a")
-	engine := PrepareTables(t, registry, entity, ref)
+	engine := PrepareTables(t, registry, 5, entity, ref)
 
 	receiver := NewLazyReceiver(engine)
 	receiver.DisableLoop()

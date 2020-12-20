@@ -44,7 +44,7 @@ func TestLoadById(t *testing.T) {
 	var entityNoCache *loadByIDNoCacheEntity
 	var reference *loadByIDReference
 	var subReference *loadByIDSubReference
-	engine := PrepareTables(t, &Registry{}, entity, entityRedis, entityNoCache, reference, subReference)
+	engine := PrepareTables(t, &Registry{}, 5, entity, entityRedis, entityNoCache, reference, subReference)
 
 	engine.TrackAndFlush(&loadByIDEntity{Name: "a", ReferenceOne: &loadByIDReference{Name: "r1", ReferenceTwo: &loadByIDSubReference{Name: "s1"}}},
 		&loadByIDEntity{Name: "b", ReferenceOne: &loadByIDReference{Name: "r2", ReferenceTwo: &loadByIDSubReference{Name: "s2"}}},
@@ -101,7 +101,7 @@ func TestLoadById(t *testing.T) {
 	assert.True(t, engine.Loaded(entity.ReferenceMany[1]))
 	assert.True(t, engine.Loaded(entity.ReferenceMany[2]))
 
-	engine = PrepareTables(t, &Registry{})
+	engine = PrepareTables(t, &Registry{}, 5)
 	entity = &loadByIDEntity{}
 	assert.PanicsWithError(t, "entity 'orm.loadByIDEntity' is not registered", func() {
 		engine.LoadByID(1, entity)

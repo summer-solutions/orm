@@ -30,7 +30,7 @@ func TestLoadByIds(t *testing.T) {
 	var entity *loadByIdsEntity
 	var reference *loadByIdsReference
 	var subReference *loadByIdsSubReference
-	engine := PrepareTables(t, &Registry{}, entity, reference, subReference)
+	engine := PrepareTables(t, &Registry{}, 5, entity, reference, subReference)
 
 	engine.TrackAndFlush(&loadByIdsEntity{Name: "a", ReferenceOne: &loadByIdsReference{Name: "r1", ReferenceTwo: &loadByIdsSubReference{Name: "s1"}}},
 		&loadByIdsEntity{Name: "b", ReferenceOne: &loadByIdsReference{Name: "r2", ReferenceTwo: &loadByIdsSubReference{Name: "s2"}}},
@@ -69,7 +69,7 @@ func TestLoadByIds(t *testing.T) {
 		engine.LoadByIDs([]uint64{1}, &rows, "Name")
 	})
 
-	engine = PrepareTables(t, &Registry{})
+	engine = PrepareTables(t, &Registry{}, 5)
 	assert.PanicsWithError(t, "entity 'orm.loadByIdsEntity' is not registered", func() {
 		engine.LoadByIDs([]uint64{1}, &rows)
 	})

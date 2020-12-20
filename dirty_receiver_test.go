@@ -19,7 +19,7 @@ func TestDirtyReceiver(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterDirtyQueue("entity_changed", 2)
 	registry.RegisterDirtyQueue("name_changed", 1)
-	engine := PrepareTables(t, registry, entity)
+	engine := PrepareTables(t, registry, 5, entity)
 
 	receiver := NewDirtyReceiver(engine)
 	receiver.DisableLoop()

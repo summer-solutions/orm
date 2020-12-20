@@ -8,9 +8,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func PrepareTables(t *testing.T, registry *Registry, entities ...Entity) *Engine {
-	registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test")
-	registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test_log", "log")
+func PrepareTables(t *testing.T, registry *Registry, version int, entities ...Entity) *Engine {
+	if version == 5 {
+		registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test")
+		registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test_log", "log")
+	} else {
+		registry.RegisterMySQLPool("root:root@tcp(localhost:3312)/test")
+		registry.RegisterMySQLPool("root:root@tcp(localhost:3312)/test_log", "log")
+	}
 	registry.RegisterRedis("localhost:6381", 15)
 	registry.RegisterRedis("localhost:6381", 14, "default_queue")
 	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test")

@@ -13,7 +13,7 @@ import (
 )
 
 func TestDataDog(t *testing.T) {
-	engine := PrepareTables(t, &Registry{})
+	engine := PrepareTables(t, &Registry{}, 5)
 
 	engine.DataDog().StartAPM("test_service", "test")
 	assert.Len(t, engine.dataDog.ctx, 1)

@@ -18,6 +18,7 @@ type DBConfig struct {
 	databaseName   string
 	db             *sql.DB
 	autoincrement  uint64
+	version        int
 }
 
 type ExecResult interface {
@@ -188,6 +189,7 @@ type DB struct {
 	code          string
 	databaseName  string
 	autoincrement uint64
+	version       int
 	inTransaction bool
 }
 

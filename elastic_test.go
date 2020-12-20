@@ -60,7 +60,7 @@ func TestElastic(t *testing.T) {
 	}
 
 	registry.RegisterElasticIndex(index)
-	engine := PrepareTables(t, registry)
+	engine := PrepareTables(t, registry, 5)
 
 	testLogger := memory.New()
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceElastic)

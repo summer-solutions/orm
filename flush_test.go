@@ -94,7 +94,7 @@ func TestFlush(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterEnumSlice("orm.TestEnum", []string{"a", "b", "c"})
 	registry.RegisterLocker("default", "default")
-	engine := PrepareTables(t, registry, entity, reference, referenceCascade, entitySmart)
+	engine := PrepareTables(t, registry, 5, entity, reference, referenceCascade, entitySmart)
 
 	now := time.Now()
 	layout := "2006-01-02 15:04:05"

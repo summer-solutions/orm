@@ -12,7 +12,7 @@ import (
 )
 
 func TestEngine(t *testing.T) {
-	engine := PrepareTables(t, &Registry{})
+	engine := PrepareTables(t, &Registry{}, 5)
 	source := engine.GetRegistry().GetSourceRegistry()
 	assert.NotNil(t, source)
 	engine.EnableLogger(log2.WarnLevel)

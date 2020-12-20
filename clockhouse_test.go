@@ -13,7 +13,7 @@ import (
 func TestClickhouse(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterClickHouse("http://localhost:9002?debug=false")
-	engine := PrepareTables(t, registry)
+	engine := PrepareTables(t, registry, 5)
 
 	testLogger := memory.New()
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceClickHouse)

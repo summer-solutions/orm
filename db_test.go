@@ -30,7 +30,7 @@ func (r *resultMock) RowsAffected() (int64, error) {
 
 func TestDB(t *testing.T) {
 	var entity *dbEntity
-	engine := PrepareTables(t, &Registry{}, entity)
+	engine := PrepareTables(t, &Registry{}, 5, entity)
 	logger := memory.New()
 	engine.AddQueryLogger(logger, log2.DebugLevel, QueryLoggerSourceDB)
 	engine.DataDog().EnableORMAPMLog(log2.DebugLevel, true, QueryLoggerSourceDB)
@@ -88,7 +88,7 @@ func TestDB(t *testing.T) {
 
 func TestDBErrors(t *testing.T) {
 	var entity *dbEntity
-	engine := PrepareTables(t, &Registry{}, entity)
+	engine := PrepareTables(t, &Registry{}, 5, entity)
 	db := engine.GetMysql()
 	logger := memory.New()
 	engine.AddQueryLogger(logger, log2.DebugLevel, QueryLoggerSourceDB)

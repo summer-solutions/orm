@@ -48,7 +48,7 @@ func TestCachedSearchLocalRedis(t *testing.T) {
 func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	var entity *cachedSearchEntity
 	var entityRef *cachedSearchRefEntity
-	engine := PrepareTables(t, &Registry{}, entityRef, entity)
+	engine := PrepareTables(t, &Registry{}, 5, entityRef, entity)
 	if localCache {
 		engine.GetRegistry().GetTableSchemaForEntity(entity).(*tableSchema).localCacheName = "default"
 	} else {
@@ -215,7 +215,7 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 }
 
 func TestCachedSearchErrors(t *testing.T) {
-	engine := PrepareTables(t, &Registry{})
+	engine := PrepareTables(t, &Registry{}, 5)
 	var rows []*cachedSearchEntity
 	assert.PanicsWithError(t, "entity 'orm.cachedSearchEntity' is not registered", func() {
 		_ = engine.CachedSearch(&rows, "IndexAge", nil, 10)
@@ -227,7 +227,7 @@ func TestCachedSearchErrors(t *testing.T) {
 
 	var entity *cachedSearchEntity
 	var entityRef *cachedSearchRefEntity
-	engine = PrepareTables(t, &Registry{}, entity, entityRef)
+	engine = PrepareTables(t, &Registry{}, 5, entity, entityRef)
 	assert.PanicsWithError(t, "index InvalidIndex not found", func() {
 		_ = engine.CachedSearch(&rows, "InvalidIndex", nil, 10)
 	})

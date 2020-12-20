@@ -19,7 +19,7 @@ type dataLoaderEntity struct {
 
 func TestDataLoader(t *testing.T) {
 	var entity *dataLoaderEntity
-	engine := PrepareTables(t, &Registry{}, entity)
+	engine := PrepareTables(t, &Registry{}, 5, entity)
 	engine.EnableDataLoader(100, time.Millisecond)
 
 	engine.Track(&dataLoaderEntity{Name: "a"})

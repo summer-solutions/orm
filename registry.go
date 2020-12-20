@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,6 +53,14 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
+		var version string
+		err = db.QueryRow("SELECT VERSION()").Scan(&version)
+		if err != nil {
+			return nil, errors.Annotatef(err, "can't connect to mysql '%s'", v.code)
+		}
+		v.version, _ = strconv.Atoi(strings.Split(version, ".")[0])
+
 		var autoincrement uint64
 		var maxConnections int
 		var skip string

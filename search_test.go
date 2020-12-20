@@ -25,7 +25,7 @@ type searchEntityReference struct {
 func TestSearch(t *testing.T) {
 	var entity *searchEntity
 	var reference *searchEntityReference
-	engine := PrepareTables(t, &Registry{}, entity, reference)
+	engine := PrepareTables(t, &Registry{}, 5, entity, reference)
 
 	for i := 1; i <= 10; i++ {
 		engine.Track(&searchEntity{Name: fmt.Sprintf("name %d", i), ReferenceOne: &searchEntityReference{Name: fmt.Sprintf("name %d", i)}})
@@ -79,7 +79,7 @@ func TestSearch(t *testing.T) {
 	assert.True(t, engine.Loaded(entity.ReferenceMany[1]))
 	assert.True(t, engine.Loaded(entity.ReferenceMany[2]))
 
-	engine = PrepareTables(t, &Registry{})
+	engine = PrepareTables(t, &Registry{}, 5)
 	assert.PanicsWithError(t, "entity 'orm.searchEntity' is not registered", func() {
 		engine.Search(NewWhere("ID > 0"), nil, &rows)
 	})
