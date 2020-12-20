@@ -151,7 +151,7 @@ func testSchema(t *testing.T, version int) {
 		assert.Equal(t, "ALTER TABLE `test`.`schemaEntity`\n ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;", alters[0].SQL)
 		engine.GetMysql().Exec(alters[0].SQL)
 	} else {
-		assert.Len(t, alters, 0) //todo we should change collate in columns
+		assert.Len(t, alters, 0)
 	}
 
 	engine.GetMysql().Exec("ALTER TABLE `schemaEntity` DROP COLUMN `Name`")
