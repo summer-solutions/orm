@@ -170,14 +170,22 @@ func testSchema(t *testing.T, version int) {
 	assert.Len(t, alters, 2)
 	assert.True(t, alters[0].Safe)
 	assert.Equal(t, "DROP TABLE `test`.`_log_default_schemaEntity`;", alters[0].SQL)
-	assert.Equal(t, "CREATE TABLE `test`.`_log_default_schemaEntity` (\n  `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,\n  `entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `before` json DEFAULT NULL,\n  `changes` json DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;", alters[1].SQL)
+	if version == 5 {
+		assert.Equal(t, "CREATE TABLE `test`.`_log_default_schemaEntity` (\n  `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,\n  `entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `before` json DEFAULT NULL,\n  `changes` json DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;", alters[1].SQL)
+	} else {
+		assert.Equal(t, "CREATE TABLE `test`.`_log_default_schemaEntity` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `entity_id` int unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `before` json DEFAULT NULL,\n  `changes` json DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;", alters[1].SQL)
+	}
 	engine.GetMysql().Exec(alters[0].SQL)
 	engine.GetMysql().Exec(alters[1].SQL)
 
 	engine.GetMysql().Exec("ALTER TABLE `schemaEntity` CHANGE COLUMN `Year` `Year` varchar(255) NOT NULL DEFAULT ''")
 	alters = engine.GetAlters()
 	assert.Len(t, alters, 1)
-	assert.Equal(t, "ALTER TABLE `test`.`schemaEntity`\n    CHANGE COLUMN `Year` `Year` year(4) DEFAULT NULL AFTER `NameMax`;/*CHANGED FROM `Year` varchar(255) NOT NULL DEFAULT ''*/", alters[0].SQL)
+	if version == 5 {
+		assert.Equal(t, "ALTER TABLE `test`.`schemaEntity`\n    CHANGE COLUMN `Year` `Year` year(4) DEFAULT NULL AFTER `NameMax`;/*CHANGED FROM `Year` varchar(255) NOT NULL DEFAULT ''*/", alters[0].SQL)
+	} else {
+		assert.Equal(t, "ALTER TABLE `test`.`schemaEntity`\n    CHANGE COLUMN `Year` `Year` year DEFAULT NULL AFTER `NameMax`;/*CHANGED FROM `Year` varchar(255) NOT NULL DEFAULT ''*/", alters[0].SQL)
+	}
 	engine.GetMysql().Exec(alters[0].SQL)
 
 	engine.GetMysql().Exec("ALTER TABLE `schemaEntity` ADD COLUMN `Year2` varchar(255) NOT NULL DEFAULT ''")
