@@ -354,6 +354,10 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
 				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 			}
+		} else if engine.dataLoader != nil {
+			for id := range deleteBinds {
+				engine.dataLoader.Prime(schema, id, nil)
+			}
 		}
 		if hasRedis {
 			for id, bind := range deleteBinds {

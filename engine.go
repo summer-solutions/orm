@@ -55,12 +55,8 @@ func (e *Engine) Log() Log {
 	return e.log
 }
 
-func (e *Engine) EnableDataLoader(maxBatch int, wait time.Duration) {
-	e.dataLoader = &dataLoader{
-		engine:   e,
-		wait:     wait,
-		maxBatch: maxBatch,
-	}
+func (e *Engine) EnableDataLoader() {
+	e.dataLoader = &dataLoader{engine: e, maxBatchSize: dataLoaderMaxPatch}
 }
 
 func (e *Engine) ClearDataLoader() {

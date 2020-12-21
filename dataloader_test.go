@@ -15,18 +15,26 @@ type dataLoaderEntity struct {
 	ID          uint
 	Name        string `orm:"max=100"`
 	Description string
+	Ref         *dataLoaderEntityRef
+}
+
+type dataLoaderEntityRef struct {
+	ORM
+	ID   uint
+	Name string
 }
 
 func TestDataLoader(t *testing.T) {
 	var entity *dataLoaderEntity
-	engine := PrepareTables(t, &Registry{}, 5, entity)
+	var ref *dataLoaderEntityRef
+	engine := PrepareTables(t, &Registry{}, 5, entity, ref)
 
-	engine.Track(&dataLoaderEntity{Name: "a"})
-	engine.Track(&dataLoaderEntity{Name: "b"})
-	engine.Track(&dataLoaderEntity{Name: "c"})
+	engine.Track(&dataLoaderEntity{Name: "a", Ref: &dataLoaderEntityRef{Name: "r1"}})
+	engine.Track(&dataLoaderEntity{Name: "b", Ref: &dataLoaderEntityRef{Name: "r2"}})
+	engine.Track(&dataLoaderEntity{Name: "c", Ref: &dataLoaderEntityRef{Name: "r3"}})
 	engine.Flush()
 
-	engine.EnableDataLoader(100, time.Millisecond)
+	engine.EnableDataLoader()
 
 	DBLogger := memory.New()
 	engine.AddQueryLogger(DBLogger, apexLog.InfoLevel, QueryLoggerSourceDB)
@@ -102,7 +110,8 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 3)
 	assert.Len(t, redisLogger.Entries, 8)
 
-	engine.EnableDataLoader(2, time.Millisecond)
+	engine.EnableDataLoader()
+	engine.dataLoader.maxBatchSize = 2
 	missing = engine.LoadByIDs([]uint64{3, 1, 2}, &entities)
 	assert.Len(t, missing, 0)
 	assert.Len(t, entities, 3)
@@ -111,6 +120,23 @@ func TestDataLoader(t *testing.T) {
 	assert.Equal(t, "b", entities[2].Name)
 	assert.Len(t, DBLogger.Entries, 3)
 	assert.Len(t, redisLogger.Entries, 10)
+
+	engine.ClearDataLoader()
+	DBLogger.Entries = make([]*apexLog.Entry, 0)
+	redisLogger.Entries = make([]*apexLog.Entry, 0)
+	entity = &dataLoaderEntity{}
+	found = engine.LoadByID(1, entity, "Ref")
+	assert.True(t, found)
+	assert.True(t, engine.Loaded(entity.Ref))
+	assert.Equal(t, "r1", entity.Ref.Name)
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, redisLogger.Entries, 1)
+	found = engine.LoadByID(1, entity, "Ref")
+	assert.True(t, found)
+	assert.True(t, engine.Loaded(entity.Ref))
+	assert.Equal(t, "r1", entity.Ref.Name)
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, redisLogger.Entries, 1)
 
 	entities[0].Name = "c2"
 	engine.TrackAndFlush(entities[0])
@@ -129,4 +155,12 @@ func TestDataLoader(t *testing.T) {
 	assert.Equal(t, "d", entity.Name)
 	assert.Len(t, DBLogger.Entries, 0)
 	assert.Len(t, redisLogger.Entries, 0)
+
+	engine.MarkToDelete(entity)
+	engine.Flush()
+	found = engine.LoadByID(4, entity)
+	assert.False(t, found)
+
+	found = engine.LoadByID(20, entity)
+	assert.False(t, found)
 }

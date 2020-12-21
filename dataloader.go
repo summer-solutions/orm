@@ -10,13 +10,15 @@ import (
 	"time"
 )
 
+const dataLoaderMaxPatch = 200
+const dataLoaderWait = time.Millisecond
+
 type dataLoader struct {
-	engine   *Engine
-	wait     time.Duration
-	maxBatch int
-	cache    map[string][]string
-	batch    *dataLoaderBatch
-	mu       sync.Mutex
+	engine       *Engine
+	cache        map[string][]string
+	batch        *dataLoaderBatch
+	maxBatchSize int
+	mu           sync.Mutex
 }
 
 type dataLoaderBatch struct {
@@ -113,7 +115,7 @@ func (b *dataLoaderBatch) keyIndex(l *dataLoader, key string) int {
 		go b.startTimer(l)
 	}
 
-	if l.maxBatch != 0 && pos >= l.maxBatch-1 {
+	if pos >= l.maxBatchSize-1 {
 		if !b.closing {
 			b.closing = true
 			l.batch = nil
@@ -125,9 +127,7 @@ func (b *dataLoaderBatch) keyIndex(l *dataLoader, key string) int {
 }
 
 func (b *dataLoaderBatch) startTimer(l *dataLoader) {
-	if l.wait > 0 {
-		time.Sleep(l.wait)
-	}
+	time.Sleep(dataLoaderWait)
 	l.mu.Lock()
 
 	if b.closing {
@@ -142,7 +142,6 @@ func (b *dataLoaderBatch) startTimer(l *dataLoader) {
 }
 
 func (b *dataLoaderBatch) end(l *dataLoader) {
-	// TODO group by redis servers
 	m := make(map[string][]uint64)
 	for _, key := range b.keys {
 		parts := strings.Split(key, ":")
