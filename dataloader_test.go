@@ -20,12 +20,13 @@ type dataLoaderEntity struct {
 func TestDataLoader(t *testing.T) {
 	var entity *dataLoaderEntity
 	engine := PrepareTables(t, &Registry{}, 5, entity)
-	engine.EnableDataLoader(100, time.Millisecond)
 
 	engine.Track(&dataLoaderEntity{Name: "a"})
 	engine.Track(&dataLoaderEntity{Name: "b"})
 	engine.Track(&dataLoaderEntity{Name: "c"})
 	engine.Flush()
+
+	engine.EnableDataLoader(100, time.Millisecond)
 
 	DBLogger := memory.New()
 	engine.AddQueryLogger(DBLogger, apexLog.InfoLevel, QueryLoggerSourceDB)
@@ -110,4 +111,22 @@ func TestDataLoader(t *testing.T) {
 	assert.Equal(t, "b", entities[2].Name)
 	assert.Len(t, DBLogger.Entries, 3)
 	assert.Len(t, redisLogger.Entries, 10)
+
+	entities[0].Name = "c2"
+	engine.TrackAndFlush(entities[0])
+	entity = &dataLoaderEntity{}
+	found = engine.LoadByID(3, entity)
+	assert.True(t, found)
+	assert.Equal(t, "c2", entity.Name)
+
+	engine.ClearDataLoader()
+	entity = &dataLoaderEntity{Name: "d"}
+	engine.TrackAndFlush(entity)
+	DBLogger.Entries = make([]*apexLog.Entry, 0)
+	redisLogger.Entries = make([]*apexLog.Entry, 0)
+	found = engine.LoadByID(4, entity)
+	assert.True(t, found)
+	assert.Equal(t, "d", entity.Name)
+	assert.Len(t, DBLogger.Entries, 0)
+	assert.Len(t, redisLogger.Entries, 0)
 }

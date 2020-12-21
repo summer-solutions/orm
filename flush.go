@@ -467,6 +467,8 @@ func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entit
 		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 		keys = getCacheQueriesKeys(schema, bind, old, false)
 		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
+	} else if engine.dataLoader != nil {
+		engine.dataLoader.Prime(schema, currentID, buildLocalCacheValue(entity))
 	}
 	if hasRedis {
 		addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(currentID))
@@ -984,6 +986,8 @@ func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 		}
 		keys := getCacheQueriesKeys(schema, bind, bind, true)
 		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
+	} else if !lazy && engine.dataLoader != nil {
+		engine.dataLoader.Prime(schema, id, buildLocalCacheValue(entity))
 	}
 	if hasRedis {
 		addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(id))

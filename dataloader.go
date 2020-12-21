@@ -44,15 +44,11 @@ func (l *dataLoader) LoadAll(schema TableSchema, ids []uint64) [][]string {
 	return data
 }
 
-func (l *dataLoader) Prime(schema TableSchema, id uint64, value []string) bool {
+func (l *dataLoader) Prime(schema TableSchema, id uint64, value []string) {
 	key := l.key(schema, id)
 	l.mu.Lock()
-	var found bool
-	if _, found = l.cache[key]; !found {
-		l.unsafeSet(key, value)
-	}
+	l.unsafeSet(key, value)
 	l.mu.Unlock()
-	return !found
 }
 
 func (l *dataLoader) Clear() {
