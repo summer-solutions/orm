@@ -36,6 +36,8 @@ func (err *ForeignKeyError) Error() string {
 	return err.Message
 }
 
+type dataLoaderSets map[*tableSchema]map[uint64][]string
+
 func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...Entity) {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
@@ -45,6 +47,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	deleteBinds := make(map[reflect.Type]map[uint64]map[string]interface{})
 	totalInsert := make(map[reflect.Type]int)
 	localCacheSets := make(map[string]map[string][]interface{})
+	dataLoaderSets := make(map[*tableSchema]map[uint64][]string)
 	localCacheDeletes := make(map[string]map[string]bool)
 	redisKeysToDelete := make(map[string]map[string]bool)
 	dirtyQueues := make(map[string][]*DirtyQueueValue)
@@ -145,16 +148,16 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 					entity.getORM().attributes.idElem.SetUint(lastID)
 					if affected == 1 {
 						logQueues = updateCacheForInserted(entity, lazy, lastID, bind, localCacheSets,
-							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
+							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
 					} else {
 						_ = loadByID(engine, lastID, entity, false)
 						logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
-							redisKeysToDelete, dirtyQueues, logQueues)
+							redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
 					}
 				} else if currentID > 0 {
 					_ = loadByID(engine, currentID, entity, false)
 					logQueues = updateCacheForInserted(entity, lazy, currentID, bind, localCacheSets,
-						localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues)
+						localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
 				} else {
 				OUTER:
 					for _, index := range schema.uniqueIndices {
@@ -237,7 +240,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				}
 			}
 			logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, currentID,
-				redisKeysToDelete, dirtyQueues, logQueues)
+				redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
 		}
 	}
 
@@ -290,13 +293,8 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				insertedID = id
 				id = id + db.autoincrement
 			}
-
 			logQueues = updateCacheForInserted(entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,
-				redisKeysToDelete, dirtyQueues, logQueues)
-			localCache, hasLocalCache := schema.GetLocalCache(engine)
-			if hasLocalCache {
-				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(insertedID), buildLocalCacheValue(entity))
-			}
+				redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
 		}
 	}
 	for typeOf, deleteBinds := range deleteBinds {
@@ -356,7 +354,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			}
 		} else if engine.dataLoader != nil {
 			for id := range deleteBinds {
-				engine.dataLoader.Prime(schema, id, nil)
+				addToDataLoader(dataLoaderSets, schema, id, nil)
 			}
 		}
 		if hasRedis {
@@ -429,6 +427,13 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			}
 		}
 	}
+	for schema, rows := range dataLoaderSets {
+		if !isInTransaction {
+			for id, value := range rows {
+				engine.dataLoader.Prime(schema, id, value)
+			}
+		}
+	}
 	if len(lazyMap) > 0 {
 		channel := engine.GetRabbitMQQueue(lazyQueueName)
 		channel.Publish(serializeForLazyQueue(lazyMap))
@@ -457,7 +462,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entity Entity, bind map[string]interface{},
 	schema *tableSchema, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	db *DB, currentID uint64, redisKeysToDelete map[string]map[string]bool,
-	dirtyQueues map[string][]*DirtyQueueValue, logQueues []*LogQueueValue) []*LogQueueValue {
+	dirtyQueues map[string][]*DirtyQueueValue, logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
 	old := make(map[string]interface{}, len(dbData))
 	for k, v := range dbData {
 		old[k] = v
@@ -472,7 +477,7 @@ func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entit
 		keys = getCacheQueriesKeys(schema, bind, old, false)
 		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 	} else if engine.dataLoader != nil {
-		engine.dataLoader.Prime(schema, currentID, buildLocalCacheValue(entity))
+		addToDataLoader(dataLoaderSets, schema, currentID, buildLocalCacheValue(entity))
 	}
 	if hasRedis {
 		addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(currentID))
@@ -880,6 +885,13 @@ func addLocalCacheSet(localCacheSets map[string]map[string][]interface{}, dbCode
 	localCacheSets[dbCode][cacheCode] = append(localCacheSets[dbCode][cacheCode], keys...)
 }
 
+func addToDataLoader(values map[*tableSchema]map[uint64][]string, schema *tableSchema, id uint64, value []string) {
+	if values[schema] == nil {
+		values[schema] = make(map[uint64][]string)
+	}
+	values[schema][id] = value
+}
+
 func addCacheDeletes(cacheDeletes map[string]map[string]bool, cacheCode string, keys ...string) {
 	if len(keys) == 0 {
 		return
@@ -977,7 +989,7 @@ func convertToError(err error) error {
 func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 	bind map[string]interface{}, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	redisKeysToDelete map[string]map[string]bool, dirtyQueues map[string][]*DirtyQueueValue,
-	logQueues []*LogQueueValue) []*LogQueueValue {
+	logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
 	schema := entity.getORM().tableSchema
 	engine := entity.getORM().engine
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
@@ -991,7 +1003,7 @@ func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 		keys := getCacheQueriesKeys(schema, bind, bind, true)
 		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 	} else if !lazy && engine.dataLoader != nil {
-		engine.dataLoader.Prime(schema, id, buildLocalCacheValue(entity))
+		addToDataLoader(dataLoaderSets, schema, id, buildLocalCacheValue(entity))
 	}
 	if hasRedis {
 		addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(id))
