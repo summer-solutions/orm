@@ -34,7 +34,7 @@ func TestDataLoader(t *testing.T) {
 	engine.Track(&dataLoaderEntity{Name: "c", Ref: &dataLoaderEntityRef{Name: "r3"}})
 	engine.Flush()
 
-	engine.EnableDataLoader()
+	engine.EnableRequestCache(true)
 
 	DBLogger := memory.New()
 	engine.AddQueryLogger(DBLogger, apexLog.InfoLevel, QueryLoggerSourceDB)
@@ -110,7 +110,7 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 3)
 	assert.Len(t, redisLogger.Entries, 8)
 
-	engine.EnableDataLoader()
+	engine.EnableRequestCache(true)
 	engine.dataLoader.maxBatchSize = 2
 	missing = engine.LoadByIDs([]uint64{3, 1, 2}, &entities)
 	assert.Len(t, missing, 0)

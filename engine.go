@@ -56,8 +56,10 @@ func (e *Engine) Log() Log {
 	return e.log
 }
 
-func (e *Engine) EnableDataLoader() {
-	e.dataLoader = &dataLoader{engine: e, maxBatchSize: dataLoaderMaxPatch}
+func (e *Engine) EnableRequestCache(goroutines bool) {
+	if goroutines {
+		e.dataLoader = &dataLoader{engine: e, maxBatchSize: dataLoaderMaxPatch}
+	}
 }
 
 func (e *Engine) EnableLogger(level logApex.Level, handlers ...logApex.Handler) {

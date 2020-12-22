@@ -675,10 +675,11 @@ func main() {
 
 ```
 
-## Data loader
+## Request cache
 
-If you are running requests to data layer in one request but using more than one goroutine (for example
-in GraphQL backend implementation) you can enable Data loader in engine to group many queries into one and reduce
+It's a good practice to cache entities in one short request (e.g. http request) to reduce number of requests to databases.
+
+If you are using more than one goroutine (for example in GraphQL backend implementation) you can enable Data loader in engine to group many queries into one and reduce
 number of queries. You can read more about idea behind it [here](https://gqlgen.com/reference/dataloaders/).
 
 ```go
@@ -687,9 +688,20 @@ package main
 import "github.com/summer-solutions/orm"
 
 func main() {
- 
- // create engine and then:	
- engine.EnableDataLoader()
+    engine.EnableDataLoader(true)
+}
+```
+
+Otherwise set false and all entities will be cached in a simple temporary cache:
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+    engine.EnableDataLoader(false) 
+}
 
 ```
 
