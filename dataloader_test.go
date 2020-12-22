@@ -194,6 +194,7 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 1)
 	assert.Len(t, redisLogger.Entries, 0)
 
+	engine.LoadByID(4, entity)
 	engine.MarkToDelete(entity)
 	engine.Flush()
 	found = engine.LoadByID(4, entity)
