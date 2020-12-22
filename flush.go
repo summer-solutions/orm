@@ -432,6 +432,16 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			for id, value := range rows {
 				engine.dataLoader.Prime(schema, id, value)
 			}
+		} else {
+			if engine.afterCommitDataLoaderSets == nil {
+				engine.afterCommitDataLoaderSets = make(map[*tableSchema]map[uint64][]string)
+			}
+			if engine.afterCommitDataLoaderSets[schema] == nil {
+				engine.afterCommitDataLoaderSets[schema] = make(map[uint64][]string)
+			}
+			for id, value := range rows {
+				engine.afterCommitDataLoaderSets[schema][id] = value
+			}
 		}
 	}
 	if len(lazyMap) > 0 {

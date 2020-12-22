@@ -230,6 +230,7 @@ func (db *DB) Commit() {
 		}
 	}
 	db.engine.afterCommitLocalCacheSets = nil
+
 	if db.engine.afterCommitRedisCacheDeletes != nil {
 		for cacheCode, keys := range db.engine.afterCommitRedisCacheDeletes {
 			cache := db.engine.GetRedis(cacheCode)
@@ -237,6 +238,16 @@ func (db *DB) Commit() {
 		}
 	}
 	db.engine.afterCommitRedisCacheDeletes = nil
+
+	if db.engine.afterCommitDataLoaderSets != nil {
+		for schema, rows := range db.engine.afterCommitDataLoaderSets {
+			for id, value := range rows {
+				db.engine.dataLoader.Prime(schema, id, value)
+			}
+		}
+	}
+	db.engine.afterCommitDataLoaderSets = nil
+
 	if db.engine.afterCommitDirtyQueues != nil {
 		addElementsToDirtyQueues(db.engine, db.engine.afterCommitDirtyQueues)
 		db.engine.afterCommitDirtyQueues = nil

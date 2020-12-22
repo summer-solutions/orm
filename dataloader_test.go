@@ -145,6 +145,14 @@ func TestDataLoader(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, "c2", entity.Name)
 
+	engine.GetMysql().Begin()
+	entities[0].Name = "c3"
+	engine.TrackAndFlush(entities[0])
+	engine.GetMysql().Commit()
+	entity = &dataLoaderEntity{}
+	engine.LoadByID(3, entity)
+	assert.Equal(t, "c3", entity.Name)
+
 	engine.ClearDataLoader()
 	entity = &dataLoaderEntity{Name: "d"}
 	engine.TrackAndFlush(entity)
