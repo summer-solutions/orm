@@ -49,13 +49,17 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	var entity *cachedSearchEntity
 	var entityRef *cachedSearchRefEntity
 	engine := PrepareTables(t, &Registry{}, 5, entityRef, entity)
+	schema := engine.GetRegistry().GetTableSchemaForEntity(entity).(*tableSchema)
 	if localCache {
-		engine.GetRegistry().GetTableSchemaForEntity(entity).(*tableSchema).localCacheName = "default"
+		schema.localCacheName = "default"
+		schema.hasLocalCache = true
 	} else {
-		engine.GetRegistry().GetTableSchemaForEntity(entity).(*tableSchema).localCacheName = ""
+		schema.localCacheName = ""
+		schema.hasLocalCache = false
 	}
 	if redisCache {
-		engine.GetRegistry().GetTableSchemaForEntity(entity).(*tableSchema).redisCacheName = "default"
+		schema.redisCacheName = "default"
+		schema.hasRedisCache = true
 	}
 
 	for i := 1; i <= 5; i++ {

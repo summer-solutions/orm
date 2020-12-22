@@ -164,6 +164,36 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 0)
 	assert.Len(t, redisLogger.Entries, 0)
 
+	engine.ClearDataLoader()
+	DBLogger.Entries = make([]*apexLog.Entry, 0)
+	redisLogger.Entries = make([]*apexLog.Entry, 0)
+	entity = &dataLoaderEntity{}
+	found = engine.SearchOne(NewWhere("ID = 1"), entity)
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, redisLogger.Entries, 0)
+	assert.True(t, found)
+	entity = &dataLoaderEntity{}
+	found = engine.LoadByID(1, entity)
+	assert.True(t, found)
+	assert.Equal(t, "a", entity.Name)
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, redisLogger.Entries, 0)
+
+	engine.ClearDataLoader()
+	DBLogger.Entries = make([]*apexLog.Entry, 0)
+	redisLogger.Entries = make([]*apexLog.Entry, 0)
+	entities = make([]*dataLoaderEntity, 0)
+	engine.Search(NewWhere("ID = 1"), nil, &entities)
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, redisLogger.Entries, 0)
+	assert.True(t, found)
+	entity = &dataLoaderEntity{}
+	found = engine.LoadByID(1, entity)
+	assert.True(t, found)
+	assert.Equal(t, "a", entity.Name)
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, redisLogger.Entries, 0)
+
 	engine.MarkToDelete(entity)
 	engine.Flush()
 	found = engine.LoadByID(4, entity)

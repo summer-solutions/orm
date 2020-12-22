@@ -229,7 +229,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 			} else {
 				smartUpdate := false
-				if smart && !db.inTransaction && schema.localCacheName != "" && schema.redisCacheName == "" {
+				if smart && !db.inTransaction && schema.hasLocalCache && !schema.hasRedisCache {
 					keys := getCacheQueriesKeys(schema, bind, dbData, false)
 					smartUpdate = len(keys) == 0
 				}

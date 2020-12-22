@@ -37,7 +37,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 			} else {
 				val := reflect.New(schema.t)
 				entity := val.Interface().(Entity)
-				fillFromDBRow(ids[i], engine, row, entity)
+				fillFromDBRow(ids[i], engine, row, entity, false)
 				v = reflect.Append(v, val)
 			}
 		}
@@ -160,11 +160,11 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 				entity := reflect.New(entityType).Interface().(Entity)
 				var decoded []string
 				_ = json.Unmarshal([]byte(v.(string)), &decoded)
-				fillFromDBRow(keysMapping[k], engine, decoded, entity)
+				fillFromDBRow(keysMapping[k], engine, decoded, entity, false)
 				results[k] = entity
 			} else {
 				entity := reflect.New(entityType).Interface().(Entity)
-				fillFromDBRow(keysMapping[k], engine, v.([]string), entity)
+				fillFromDBRow(keysMapping[k], engine, v.([]string), entity, false)
 				results[k] = entity
 			}
 		}

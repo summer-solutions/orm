@@ -16,7 +16,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 		if e == nil {
 			return false
 		}
-		fillFromDBRow(id, engine, e, entity)
+		fillFromDBRow(id, engine, e, entity, false)
 		if len(references) > 0 {
 			warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 		}
@@ -32,7 +32,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			if e == "nil" {
 				return false
 			}
-			fillFromDBRow(id, engine, e.([]string), entity)
+			fillFromDBRow(id, engine, e.([]string), entity, false)
 			if len(references) > 0 {
 				warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 			}
@@ -49,7 +49,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			}
 			var decoded []string
 			_ = json.Unmarshal([]byte(row), &decoded)
-			fillFromDBRow(id, engine, decoded, entity)
+			fillFromDBRow(id, engine, decoded, entity, false)
 			if len(references) > 0 {
 				warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 			}

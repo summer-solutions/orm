@@ -98,7 +98,9 @@ type tableSchema struct {
 	refMany             []string
 	columnsStamp        string
 	localCacheName      string
+	hasLocalCache       bool
 	redisCacheName      string
+	hasRedisCache       bool
 	cachePrefix         string
 	hasFakeDelete       bool
 	hasLog              bool
@@ -178,14 +180,14 @@ func (tableSchema *tableSchema) GetMysql(engine *Engine) *DB {
 }
 
 func (tableSchema *tableSchema) GetLocalCache(engine *Engine) (cache *LocalCache, has bool) {
-	if tableSchema.localCacheName == "" {
+	if !tableSchema.hasLocalCache {
 		return nil, false
 	}
 	return engine.GetLocalCache(tableSchema.localCacheName), true
 }
 
 func (tableSchema *tableSchema) GetRedisCache(engine *Engine) (cache *RedisCache, has bool) {
-	if tableSchema.redisCacheName == "" {
+	if !tableSchema.hasRedisCache {
 		return nil, false
 	}
 	return engine.GetRedis(tableSchema.redisCacheName), true
@@ -464,7 +466,9 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		cachedIndexesOne:    cachedQueriesOne,
 		cachedIndexesAll:    cachedQueriesAll,
 		localCacheName:      localCache,
+		hasLocalCache:       localCache != "",
 		redisCacheName:      redisCache,
+		hasRedisCache:       redisCache != "",
 		refOne:              oneRefs,
 		refMany:             manyRefs,
 		cachePrefix:         cachePrefix,

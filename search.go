@@ -53,7 +53,7 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 			finalValues[i] = "nil"
 		}
 	}
-	fillFromDBRow(id, engine, finalValues[1:], entity)
+	fillFromDBRow(id, engine, finalValues[1:], entity, true)
 	if len(references) > 0 {
 		warmUpReferences(engine, schema, entity.getORM().attributes.elem, references, false)
 	}
@@ -104,7 +104,7 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 		}
 		value := reflect.New(entityType)
 		id, _ := strconv.ParseUint(finalValues[0], 10, 64)
-		fillFromDBRow(id, engine, finalValues[1:], value.Interface().(Entity))
+		fillFromDBRow(id, engine, finalValues[1:], value.Interface().(Entity), true)
 		val = reflect.Append(val, value)
 		i++
 	}
@@ -166,7 +166,7 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 	return totalRows
 }
 
-func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) {
+func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity, fillDataLoader bool) {
 	orm := initIfNeeded(engine, entity)
 	elem := orm.attributes.elem
 	orm.attributes.idElem.SetUint(id)
@@ -175,6 +175,13 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity) {
 	orm.attributes.loaded = true
 	for key, column := range orm.tableSchema.columnNames[1:] {
 		orm.dBData[column] = data[key]
+	}
+	if !fillDataLoader {
+		return
+	}
+	schema := entity.getORM().tableSchema
+	if !schema.hasLocalCache && engine.dataLoader != nil {
+		engine.dataLoader.Prime(schema, id, data)
 	}
 }
 
