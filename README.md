@@ -31,7 +31,7 @@ Menu:
  * [Reference one to one](https://github.com/summer-solutions/orm#reference-one-to-one) 
  * [Cached queries](https://github.com/summer-solutions/orm#cached-queries) 
  * [Lazy flush](https://github.com/summer-solutions/orm#lazy-flush)
- * [Data loader](https://github.com/summer-solutions/orm#data-loaderh) 
+ * [Data loader](https://github.com/summer-solutions/orm#data-loader) 
  * [Log entity changes](https://github.com/summer-solutions/orm#log-entity-changes) 
  * [Dirty queues](https://github.com/summer-solutions/orm#dirty-queues) 
  * [Fake delete](https://github.com/summer-solutions/orm#fake-delete) 
