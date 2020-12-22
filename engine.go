@@ -60,12 +60,6 @@ func (e *Engine) EnableDataLoader() {
 	e.dataLoader = &dataLoader{engine: e, maxBatchSize: dataLoaderMaxPatch}
 }
 
-func (e *Engine) ClearDataLoader() {
-	if e.dataLoader != nil {
-		e.dataLoader.Clear()
-	}
-}
-
 func (e *Engine) EnableLogger(level logApex.Level, handlers ...logApex.Handler) {
 	if len(handlers) == 0 {
 		handlers = []logApex.Handler{&jsonHandler{}}

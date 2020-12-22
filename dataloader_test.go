@@ -62,7 +62,7 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 2)
 	assert.Len(t, redisLogger.Entries, 4)
 
-	engine.ClearDataLoader()
+	engine.dataLoader.Clear()
 
 	go func() {
 		entity2 := &dataLoaderEntity{}
@@ -103,7 +103,7 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 3)
 	assert.Len(t, redisLogger.Entries, 7)
 
-	engine.ClearDataLoader()
+	engine.dataLoader.Clear()
 	missing = engine.LoadByIDs([]uint64{4, 4}, &entities)
 	assert.Len(t, missing, 2)
 	assert.Equal(t, uint64(4), missing[0])
@@ -121,7 +121,7 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 3)
 	assert.Len(t, redisLogger.Entries, 10)
 
-	engine.ClearDataLoader()
+	engine.dataLoader.Clear()
 	DBLogger.Entries = make([]*apexLog.Entry, 0)
 	redisLogger.Entries = make([]*apexLog.Entry, 0)
 	entity = &dataLoaderEntity{}
@@ -153,7 +153,7 @@ func TestDataLoader(t *testing.T) {
 	engine.LoadByID(3, entity)
 	assert.Equal(t, "c3", entity.Name)
 
-	engine.ClearDataLoader()
+	engine.dataLoader.Clear()
 	entity = &dataLoaderEntity{Name: "d"}
 	engine.TrackAndFlush(entity)
 	DBLogger.Entries = make([]*apexLog.Entry, 0)
@@ -164,7 +164,7 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 0)
 	assert.Len(t, redisLogger.Entries, 0)
 
-	engine.ClearDataLoader()
+	engine.dataLoader.Clear()
 	DBLogger.Entries = make([]*apexLog.Entry, 0)
 	redisLogger.Entries = make([]*apexLog.Entry, 0)
 	entity = &dataLoaderEntity{}
@@ -179,7 +179,7 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, DBLogger.Entries, 1)
 	assert.Len(t, redisLogger.Entries, 0)
 
-	engine.ClearDataLoader()
+	engine.dataLoader.Clear()
 	DBLogger.Entries = make([]*apexLog.Entry, 0)
 	redisLogger.Entries = make([]*apexLog.Entry, 0)
 	entities = make([]*dataLoaderEntity, 0)

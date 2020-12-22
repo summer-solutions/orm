@@ -30,7 +30,8 @@ Menu:
  * [Loading entities using search](https://github.com/summer-solutions/orm#loading-entities-using-search) 
  * [Reference one to one](https://github.com/summer-solutions/orm#reference-one-to-one) 
  * [Cached queries](https://github.com/summer-solutions/orm#cached-queries) 
- * [Lazy flush](https://github.com/summer-solutions/orm#lazy-flush) 
+ * [Lazy flush](https://github.com/summer-solutions/orm#lazy-flush)
+ * [Data loader](https://github.com/summer-solutions/orm#data-loaderh) 
  * [Log entity changes](https://github.com/summer-solutions/orm#log-entity-changes) 
  * [Dirty queues](https://github.com/summer-solutions/orm#dirty-queues) 
  * [Fake delete](https://github.com/summer-solutions/orm#fake-delete) 
@@ -671,6 +672,24 @@ func main() {
     //optionally 
     receiver.Digest() //It will wait for new messages in queue, run receiver.DisableLoop() to run loop once
 }
+
+```
+
+## Data loader
+
+If you are running requests to data layer in one request but using more than one goroutine (for example
+in GraphQL backend implementation) you can enable Data loader in engine to group many queries into one and reduce
+number of queries. You can read more about idea behind it [here](https://gqlgen.com/reference/dataloaders/).
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+ 
+ // create engine and then:	
+ engine.EnableDataLoader()
 
 ```
 
