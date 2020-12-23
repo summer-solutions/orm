@@ -346,6 +346,10 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 
 		localCache, hasLocalCache := schema.GetLocalCache(engine)
 		redisCache, hasRedis := schema.GetRedisCache(engine)
+		if !hasLocalCache && engine.hasRequestCache {
+			hasLocalCache = true
+			localCache = engine.GetLocalCache(requestCacheKey)
+		}
 		if hasLocalCache {
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
@@ -480,6 +484,10 @@ func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entit
 	injectBind(entity, bind)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
+	if !hasLocalCache && engine.hasRequestCache {
+		hasLocalCache = true
+		localCache = engine.GetLocalCache(requestCacheKey)
+	}
 	if hasLocalCache {
 		addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(entity))
 		keys := getCacheQueriesKeys(schema, bind, dbData, false)
@@ -1003,6 +1011,10 @@ func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 	schema := entity.getORM().tableSchema
 	engine := entity.getORM().engine
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
+	if !hasLocalCache && engine.hasRequestCache {
+		hasLocalCache = true
+		localCache = engine.GetLocalCache(requestCacheKey)
+	}
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if hasLocalCache {
 		if !lazy {

@@ -53,6 +53,10 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	}
 	var fromCache map[string]interface{}
 	var nilsKeys []string
+	if !hasLocalCache && engine.hasRequestCache {
+		hasLocalCache = true
+		localCache = engine.GetLocalCache(requestCacheKey)
+	}
 	if hasLocalCache {
 		nils := make(map[int]int)
 		nilsKeys = make([]string, 0)
