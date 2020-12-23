@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"sync"
 	"time"
+
+	"github.com/golang/groupcache/lru"
 
 	logApex "github.com/apex/log"
 
@@ -33,6 +36,7 @@ type Engine struct {
 	rabbitMQRouters              map[string]*RabbitMQRouter
 	logMetaData                  map[string]interface{}
 	dataLoader                   *dataLoader
+	hasRequestCache              bool
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
 	queryLoggers                 map[QueryLoggerSource]*logger
@@ -59,6 +63,8 @@ func (e *Engine) Log() Log {
 func (e *Engine) EnableRequestCache(goroutines bool) {
 	if goroutines {
 		e.dataLoader = &dataLoader{engine: e, maxBatchSize: dataLoaderMaxPatch}
+	} else {
+		e.hasRequestCache = true
 	}
 }
 
@@ -256,6 +262,11 @@ func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 	}
 	cache, has := e.localCache[dbCode]
 	if !has {
+		if dbCode == requestCacheKey {
+			cache = &LocalCache{code: dbCode, engine: e, m: &sync.Mutex{}, lru: lru.New(5000)}
+			e.localCache[dbCode] = cache
+			return cache
+		}
 		panic(errors.Errorf("unregistered local cache pool '%s'", dbCode))
 	}
 	return cache

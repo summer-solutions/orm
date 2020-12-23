@@ -7,10 +7,11 @@ import (
 	"github.com/golang/groupcache/lru"
 )
 
+const requestCacheKey = "_request"
+
 type LocalCacheConfig struct {
 	code string
 	lru  *lru.Cache
-	ttl  int64
 	m    sync.Mutex
 }
 
@@ -18,7 +19,6 @@ type LocalCache struct {
 	engine *Engine
 	code   string
 	lru    *lru.Cache
-	ttl    int64
 	m      *sync.Mutex
 }
 

@@ -23,12 +23,6 @@ services:
       - orm_data_redis:/data
     ports:
       - ${LOCAL_IP}:${REDIS_PORT}:6379
-  redis62_orm:
-    image: redis:6.2-rc
-    volumes:
-      - orm_data_redis62:/data
-    ports:
-      - ${LOCAL_IP}:${REDIS62_PORT}:6379
   redis_search_orm:
     image: redislabs/redisearch
     ports:

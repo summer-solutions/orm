@@ -62,6 +62,11 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 		results[cacheKey] = nil
 	}
 
+	if !hasLocalCache && engine.hasRequestCache {
+		hasLocalCache = true
+		localCache = engine.GetLocalCache(requestCacheKey)
+	}
+
 	if hasLocalCache || hasRedis {
 		if hasLocalCache {
 			resultsLocalCache := localCache.MGet(cacheKeys...)

@@ -68,7 +68,7 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 	e.localCache = make(map[string]*LocalCache)
 	if e.registry.localCacheContainers != nil {
 		for key, val := range e.registry.localCacheContainers {
-			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, ttl: val.ttl, m: &val.m}
+			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, m: &val.m}
 		}
 	}
 	e.redis = make(map[string]*RedisCache)

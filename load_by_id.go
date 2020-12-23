@@ -10,6 +10,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 	orm := initIfNeeded(engine, entity)
 	schema := orm.tableSchema
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
+	redisCache, hasRedis := schema.GetRedisCache(engine)
 
 	if !hasLocalCache && engine.dataLoader != nil {
 		e := engine.dataLoader.Load(schema, id)
@@ -25,37 +26,44 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 
 	var cacheKey string
 
-	if hasLocalCache && useCache {
-		cacheKey = schema.getCacheKey(id)
-		e, has := localCache.Get(cacheKey)
-		if has {
-			if e == "nil" {
-				return false
+	if useCache {
+		if !hasLocalCache && engine.hasRequestCache {
+			hasLocalCache = true
+			localCache = engine.GetLocalCache(requestCacheKey)
+		}
+
+		if hasLocalCache {
+			cacheKey = schema.getCacheKey(id)
+			e, has := localCache.Get(cacheKey)
+			if has {
+				if e == "nil" {
+					return false
+				}
+				fillFromDBRow(id, engine, e.([]string), entity, false)
+				if len(references) > 0 {
+					warmUpReferences(engine, schema, orm.attributes.elem, references, false)
+				}
+				return true
 			}
-			fillFromDBRow(id, engine, e.([]string), entity, false)
-			if len(references) > 0 {
-				warmUpReferences(engine, schema, orm.attributes.elem, references, false)
+		}
+		if hasRedis {
+			cacheKey = schema.getCacheKey(id)
+			row, has := redisCache.Get(cacheKey)
+			if has {
+				if row == "nil" {
+					return false
+				}
+				var decoded []string
+				_ = json.Unmarshal([]byte(row), &decoded)
+				fillFromDBRow(id, engine, decoded, entity, false)
+				if len(references) > 0 {
+					warmUpReferences(engine, schema, orm.attributes.elem, references, false)
+				}
+				return true
 			}
-			return true
 		}
 	}
-	redisCache, hasRedis := schema.GetRedisCache(engine)
-	if hasRedis && useCache {
-		cacheKey = schema.getCacheKey(id)
-		row, has := redisCache.Get(cacheKey)
-		if has {
-			if row == "nil" {
-				return false
-			}
-			var decoded []string
-			_ = json.Unmarshal([]byte(row), &decoded)
-			fillFromDBRow(id, engine, decoded, entity, false)
-			if len(references) > 0 {
-				warmUpReferences(engine, schema, orm.attributes.elem, references, false)
-			}
-			return true
-		}
-	}
+
 	found = searchRow(false, engine, NewWhere("`ID` = ?", id), entity, nil)
 	if !found {
 		if localCache != nil {
@@ -66,14 +74,15 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 		}
 		return false
 	}
-	if localCache != nil {
-		if useCache {
+	if useCache {
+		if localCache != nil {
 			localCache.Set(cacheKey, buildLocalCacheValue(entity))
 		}
+		if redisCache != nil {
+			redisCache.Set(cacheKey, buildRedisValue(entity), 0)
+		}
 	}
-	if redisCache != nil && useCache {
-		redisCache.Set(cacheKey, buildRedisValue(entity), 0)
-	}
+
 	if len(references) > 0 {
 		warmUpReferences(engine, schema, orm.attributes.elem, references, false)
 	}
