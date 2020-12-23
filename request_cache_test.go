@@ -124,4 +124,13 @@ func TestRequestCache(t *testing.T) {
 	engine.TrackAndFlush(entity)
 	found = engine.CachedSearchOne(entity, "IndexCode", "a2")
 	assert.False(t, found)
+
+	found = engine.LoadByID(1, entity)
+	assert.True(t, found)
+	engine.ClearByIDs(entity, 1)
+	DBLogger.Entries = make([]*apexLog.Entry, 0)
+	redisLogger.Entries = make([]*apexLog.Entry, 0)
+	engine.LoadByID(1, entity)
+	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, redisLogger.Entries, 2)
 }
