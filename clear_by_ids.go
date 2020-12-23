@@ -7,6 +7,10 @@ func clearByIDs(engine *Engine, entity Entity, ids ...uint64) {
 		cacheKeys[i] = schema.getCacheKey(id)
 	}
 	localCache, has := schema.GetLocalCache(engine)
+	if !has && engine.hasRequestCache {
+		has = true
+		localCache = engine.GetLocalCache(requestCacheKey)
+	}
 	if has {
 		localCache.Remove(cacheKeys...)
 	}

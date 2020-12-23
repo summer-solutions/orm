@@ -483,11 +483,11 @@ func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entit
 	}
 	injectBind(entity, bind)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
-	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && engine.hasRequestCache {
 		hasLocalCache = true
 		localCache = engine.GetLocalCache(requestCacheKey)
 	}
+	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if hasLocalCache {
 		addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(entity))
 		keys := getCacheQueriesKeys(schema, bind, dbData, false)
