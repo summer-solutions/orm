@@ -214,13 +214,13 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			hasLog = true
 		}
 	}
-	if hasLog && registry.rabbitMQChannelsToQueue[logQueueName] == nil {
+	if hasLog && registry.rabbitMQChannelsToQueue[logChannelName] == nil {
 		connection, has := registry.rabbitMQServers["default"]
 		if !has {
 			return nil, errors.Errorf("missing default rabbitMQ connection to handle entity change log")
 		}
-		def := &RabbitMQQueueConfig{Name: logQueueName, Durable: true}
-		registry.rabbitMQChannelsToQueue[logQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
+		def := &RabbitMQQueueConfig{Name: logChannelName, Durable: true}
+		registry.rabbitMQChannelsToQueue[logChannelName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 	}
 	if registry.rabbitMQChannelsToQueue[lazyQueueName] == nil {
 		connection, has := registry.rabbitMQServers["default"]

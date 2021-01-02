@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-redis/redis/v8"
+
 	jsoniter "github.com/json-iterator/go"
 )
 
-const logQueueName = "orm_log"
+const logChannelName = "orm_log"
 
 type LogQueueValue struct {
 	PoolName  string
@@ -20,43 +22,40 @@ type LogQueueValue struct {
 	Updated   time.Time
 }
 
-type LogReceiver struct {
-	engine      *Engine
-	disableLoop bool
-	Logger      func(log *LogQueueValue)
-	heartBeat   func()
+type LogConsumer struct {
+	engine           *Engine
+	disableLoop      bool
+	Logger           func(log *LogQueueValue)
+	heartBeat        func()
+	hearBeatDuration time.Duration
 }
 
-func NewLogReceiver(engine *Engine) *LogReceiver {
-	return &LogReceiver{engine: engine}
+func NewLogConsumer(engine *Engine) *LogConsumer {
+	return &LogConsumer{engine: engine}
 }
 
-func (r *LogReceiver) SetHeartBeat(beat func()) {
+func (r *LogConsumer) SetHeartBeat(duration time.Duration, beat func()) {
+	r.hearBeatDuration = duration
 	r.heartBeat = beat
 }
 
-func (r *LogReceiver) DisableLoop() {
+func (r *LogConsumer) DisableLoop() {
 	r.disableLoop = true
 }
 
-func (r *LogReceiver) Purge() {
-	r.engine.GetRedis().XTrim(logQueueName, 0, false)
-}
-
-func (r *LogReceiver) Digest() {
-	channel := r.engine.GetRabbitMQQueue(logQueueName)
-	consumer := channel.NewConsumer("default consumer")
-	defer consumer.Close()
+func (r *LogConsumer) Digest(block time.Duration) {
+	consumer := r.engine.GetRedis().NewStreamGroupConsumer("default-consumer", "orm-log-group",
+		true, 100, block, logChannelName)
 	if r.disableLoop {
 		consumer.DisableLoop()
 	}
 	if r.heartBeat != nil {
-		consumer.SetHeartBeat(r.heartBeat)
+		consumer.SetHeartBeat(r.hearBeatDuration, r.heartBeat)
 	}
-	consumer.Consume(func(items [][]byte) {
-		for _, item := range items {
+	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+		for _, item := range streams[0].Messages {
 			var value LogQueueValue
-			_ = jsoniter.ConfigFastest.Unmarshal(item, &value)
+			_ = jsoniter.ConfigFastest.Unmarshal([]byte(item.Values["v"].(string)), &value)
 			poolDB := r.engine.GetMysql(value.PoolName)
 			/* #nosec */
 			query := fmt.Sprintf("INSERT INTO `%s`(`entity_id`, `added_at`, `meta`, `before`, `changes`) VALUES(?, ?, ?, ?, ?)", value.TableName)
@@ -79,8 +78,9 @@ func (r *LogReceiver) Digest() {
 				if r.Logger != nil {
 					value.LogID = res.LastInsertId()
 					r.Logger(&value)
-					poolDB.Commit()
 				}
+				poolDB.Commit()
+				ack.Ack(logChannelName, item)
 			}()
 		}
 	})

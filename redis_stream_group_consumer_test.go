@@ -2,10 +2,11 @@ package orm
 
 import (
 	"fmt"
-	"github.com/go-redis/redis/v8"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRedisStreamGroupConsumerAck(t *testing.T) {

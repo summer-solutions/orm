@@ -108,14 +108,12 @@ func (r *redisStreamGroupConsumer) Consume(handler RedisStreamGroupHandler) {
 				a := &redis.XReadGroupArgs{Consumer: r.name, Group: r.group, Streams: streams, Count: int64(r.count), Block: r.block}
 				results := r.redis.XReadGroup(a)
 				totalMessages := 0
-				if results != nil {
-					for _, row := range results {
-						l := len(row.Messages)
-						if l > 0 {
-							totalMessages += l
-							if invalidCheck {
-								lastIDs[row.Stream] = row.Messages[l-1].ID
-							}
+				for _, row := range results {
+					l := len(row.Messages)
+					if l > 0 {
+						totalMessages += l
+						if invalidCheck {
+							lastIDs[row.Stream] = row.Messages[l-1].ID
 						}
 					}
 				}
