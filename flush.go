@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis/v8"
+
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/juju/errors"
@@ -1138,8 +1140,8 @@ func addElementsToLogQueues(engine *Engine, logQueues []*LogQueueValue) {
 				}
 			}
 			asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
-			channel := engine.GetRabbitMQQueue(logQueueName)
-			channel.Publish(asJSON)
+			val := &redis.XAddArgs{Stream: logChannelName, ID: "*", Values: []string{"v", string(asJSON)}}
+			engine.GetRedis().XAdd(val)
 		}
 	}
 }
