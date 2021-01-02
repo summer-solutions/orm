@@ -204,23 +204,11 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.entities[name] = entityType
 	}
 	engine := registry.CreateEngine()
-	hasLog := false
 	for _, schema := range registry.tableSchemas {
 		_, err := checkStruct(schema, engine, schema.t, make(map[string]*index), make(map[string]*foreignIndex), "")
 		if err != nil {
 			return nil, errors.Annotatef(err, "invalid entity struct '%s'", schema.t.String())
 		}
-		if schema.hasLog {
-			hasLog = true
-		}
-	}
-	if hasLog && registry.rabbitMQChannelsToQueue[logChannelName] == nil {
-		connection, has := registry.rabbitMQServers["default"]
-		if !has {
-			return nil, errors.Errorf("missing default rabbitMQ connection to handle entity change log")
-		}
-		def := &RabbitMQQueueConfig{Name: logChannelName, Durable: true}
-		registry.rabbitMQChannelsToQueue[logChannelName] = &rabbitMQChannelToQueue{connection: connection, config: def}
 	}
 	if registry.rabbitMQChannelsToQueue[lazyQueueName] == nil {
 		connection, has := registry.rabbitMQServers["default"]
