@@ -5,16 +5,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis/v8"
+
 	jsoniter "github.com/json-iterator/go"
 )
 
-const lazyQueueName = "lazy_queue"
+const lazyChannelName = "orm-lazy-channel"
 
 type LazyReceiver struct {
-	engine          *Engine
-	disableLoop     bool
-	heartBeat       func()
-	maxLoopDuration time.Duration
+	engine            *Engine
+	disableLoop       bool
+	heartBeat         func()
+	heartBeatDuration time.Duration
 }
 
 func NewLazyReceiver(engine *Engine) *LazyReceiver {
@@ -25,38 +27,24 @@ func (r *LazyReceiver) DisableLoop() {
 	r.disableLoop = true
 }
 
-func (r *LazyReceiver) SetHeartBeat(beat func()) {
+func (r *LazyReceiver) SetHeartBeat(duration time.Duration, beat func()) {
+	r.heartBeatDuration = duration
 	r.heartBeat = beat
 }
 
-func (r *LazyReceiver) SetMaxLoopDuration(duration time.Duration) {
-	r.maxLoopDuration = duration
-}
-
-func (r *LazyReceiver) Purge() {
-	channel := r.engine.GetRabbitMQQueue(lazyQueueName)
-	consumer := channel.NewConsumer("default consumer")
-	consumer.Purge()
-	consumer.Close()
-}
-
-func (r *LazyReceiver) Digest() {
-	channel := r.engine.GetRabbitMQQueue(lazyQueueName)
-	consumer := channel.NewConsumer("default consumer")
-	defer consumer.Close()
+func (r *LazyReceiver) Digest(block time.Duration) {
+	consumer := r.engine.GetRedis().NewStreamGroupConsumer("default-consumer", "orm-log-group",
+		true, 100, block, lazyChannelName)
 	if r.disableLoop {
 		consumer.DisableLoop()
 	}
 	if r.heartBeat != nil {
-		consumer.SetHeartBeat(r.heartBeat)
+		consumer.SetHeartBeat(r.heartBeatDuration, r.heartBeat)
 	}
-	if r.maxLoopDuration > 0 {
-		consumer.SetMaxLoopDuration(r.maxLoopDuration)
-	}
-	consumer.Consume(func(items [][]byte) {
-		for _, item := range items {
+	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+		for _, item := range streams[0].Messages {
 			var data map[string]interface{}
-			_ = jsoniter.ConfigFastest.Unmarshal(item, &data)
+			_ = jsoniter.ConfigFastest.Unmarshal([]byte(item.Values["v"].(string)), &data)
 			ids := r.handleQueries(r.engine, data)
 			r.handleClearCache(data, "cl", ids)
 			r.handleClearCache(data, "cr", ids)

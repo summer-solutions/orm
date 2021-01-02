@@ -210,13 +210,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			return nil, errors.Annotatef(err, "invalid entity struct '%s'", schema.t.String())
 		}
 	}
-	if registry.rabbitMQChannelsToQueue[lazyQueueName] == nil {
-		connection, has := registry.rabbitMQServers["default"]
-		if has {
-			def := &RabbitMQQueueConfig{Name: lazyQueueName, Durable: true}
-			registry.rabbitMQChannelsToQueue[lazyQueueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
-		}
-	}
 	queues := registry.GetDirtyQueues()
 	if len(queues) > 0 {
 		connection, has := registry.rabbitMQServers["default"]

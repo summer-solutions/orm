@@ -451,8 +451,8 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		}
 	}
 	if len(lazyMap) > 0 {
-		channel := engine.GetRabbitMQQueue(lazyQueueName)
-		channel.Publish(serializeForLazyQueue(lazyMap))
+		val := &redis.XAddArgs{Stream: lazyChannelName, ID: "*", Values: []string{"v", string(serializeForLazyQueue(lazyMap))}}
+		engine.GetRedis().XAdd(val)
 	}
 	if !isInTransaction {
 		addElementsToDirtyQueues(engine, dirtyQueues)

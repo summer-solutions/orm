@@ -9,7 +9,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-const logChannelName = "orm_log"
+const logChannelName = "orm-log-chanel"
 
 type LogQueueValue struct {
 	PoolName  string
@@ -23,11 +23,11 @@ type LogQueueValue struct {
 }
 
 type LogConsumer struct {
-	engine           *Engine
-	disableLoop      bool
-	Logger           func(log *LogQueueValue)
-	heartBeat        func()
-	hearBeatDuration time.Duration
+	engine            *Engine
+	disableLoop       bool
+	Logger            func(log *LogQueueValue)
+	heartBeat         func()
+	heartBeatDuration time.Duration
 }
 
 func NewLogConsumer(engine *Engine) *LogConsumer {
@@ -35,7 +35,7 @@ func NewLogConsumer(engine *Engine) *LogConsumer {
 }
 
 func (r *LogConsumer) SetHeartBeat(duration time.Duration, beat func()) {
-	r.hearBeatDuration = duration
+	r.heartBeatDuration = duration
 	r.heartBeat = beat
 }
 
@@ -50,7 +50,7 @@ func (r *LogConsumer) Digest(block time.Duration) {
 		consumer.DisableLoop()
 	}
 	if r.heartBeat != nil {
-		consumer.SetHeartBeat(r.hearBeatDuration, r.heartBeat)
+		consumer.SetHeartBeat(r.heartBeatDuration, r.heartBeat)
 	}
 	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		for _, item := range streams[0].Messages {

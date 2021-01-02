@@ -30,11 +30,10 @@ func TestLazyReceiver(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterEnumMap("orm.TestEnum", map[string]string{"a": "a", "b": "b", "c": "c"}, "a")
 	engine := PrepareTables(t, registry, 5, entity, ref)
+	engine.GetRedis().FlushDB()
 
 	receiver := NewLazyReceiver(engine)
 	receiver.DisableLoop()
-	receiver.SetMaxLoopDuration(time.Millisecond)
-	receiver.Purge()
 
 	e := &lazyReceiverEntity{Name: "John", Age: 18}
 	engine.Track(e)
@@ -45,10 +44,10 @@ func TestLazyReceiver(t *testing.T) {
 	assert.False(t, loaded)
 
 	validHeartBeat := false
-	receiver.SetHeartBeat(func() {
+	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest()
+	receiver.Digest(time.Millisecond)
 	assert.True(t, validHeartBeat)
 
 	loaded = engine.LoadByID(1, e)
@@ -72,10 +71,10 @@ func TestLazyReceiver(t *testing.T) {
 	assert.Equal(t, "John", e.Name)
 
 	validHeartBeat = false
-	receiver.SetHeartBeat(func() {
+	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest()
+	receiver.Digest(time.Millisecond)
 	assert.True(t, validHeartBeat)
 
 	e = &lazyReceiverEntity{}
@@ -88,10 +87,10 @@ func TestLazyReceiver(t *testing.T) {
 	engine.FlushLazy()
 
 	validHeartBeat = false
-	receiver.SetHeartBeat(func() {
+	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest()
+	receiver.Digest(time.Millisecond)
 	assert.True(t, validHeartBeat)
 
 	e = &lazyReceiverEntity{Name: "Adam", EnumNullable: "wrong"}
@@ -99,7 +98,7 @@ func TestLazyReceiver(t *testing.T) {
 	engine.FlushLazy()
 
 	assert.NotPanics(t, func() {
-		receiver.Digest()
+		receiver.Digest(time.Millisecond)
 	})
 	e = &lazyReceiverEntity{Name: "Tom"}
 	engine.SetOnDuplicateKeyUpdate(NewWhere("Age = ?", 38), e)
@@ -120,7 +119,7 @@ func TestLazyReceiver(t *testing.T) {
 	engine.LoadByID(1, e)
 	engine.MarkToDelete(e)
 	engine.FlushLazy()
-	receiver.Digest()
+	receiver.Digest(time.Millisecond)
 	loaded = engine.LoadByID(1, e)
 	assert.False(t, loaded)
 }
