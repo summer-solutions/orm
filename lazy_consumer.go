@@ -14,17 +14,22 @@ const lazyChannelName = "orm-lazy-channel"
 
 type LazyReceiver struct {
 	engine            *Engine
+	block             time.Duration
 	disableLoop       bool
 	heartBeat         func()
 	heartBeatDuration time.Duration
 }
 
 func NewLazyReceiver(engine *Engine) *LazyReceiver {
-	return &LazyReceiver{engine: engine}
+	return &LazyReceiver{engine: engine, block: time.Minute}
 }
 
 func (r *LazyReceiver) DisableLoop() {
 	r.disableLoop = true
+}
+
+func (r *LazyReceiver) SetBlock(duration time.Duration) {
+	r.block = duration
 }
 
 func (r *LazyReceiver) SetHeartBeat(duration time.Duration, beat func()) {
@@ -32,9 +37,9 @@ func (r *LazyReceiver) SetHeartBeat(duration time.Duration, beat func()) {
 	r.heartBeat = beat
 }
 
-func (r *LazyReceiver) Digest(block time.Duration) {
+func (r *LazyReceiver) Digest() {
 	consumer := r.engine.GetRedis().NewStreamGroupConsumer("default-consumer", "orm-log-group",
-		true, 100, block, lazyChannelName)
+		true, 100, r.block, lazyChannelName)
 	if r.disableLoop {
 		consumer.DisableLoop()
 	}

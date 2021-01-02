@@ -24,6 +24,7 @@ type LogQueueValue struct {
 
 type LogConsumer struct {
 	engine            *Engine
+	block             time.Duration
 	disableLoop       bool
 	Logger            func(log *LogQueueValue)
 	heartBeat         func()
@@ -31,7 +32,11 @@ type LogConsumer struct {
 }
 
 func NewLogConsumer(engine *Engine) *LogConsumer {
-	return &LogConsumer{engine: engine}
+	return &LogConsumer{engine: engine, block: time.Minute}
+}
+
+func (r *LogConsumer) SetBlock(duration time.Duration) {
+	r.block = duration
 }
 
 func (r *LogConsumer) SetHeartBeat(duration time.Duration, beat func()) {
@@ -43,9 +48,9 @@ func (r *LogConsumer) DisableLoop() {
 	r.disableLoop = true
 }
 
-func (r *LogConsumer) Digest(block time.Duration) {
+func (r *LogConsumer) Digest() {
 	consumer := r.engine.GetRedis().NewStreamGroupConsumer("default-consumer", "orm-log-group",
-		true, 100, block, logChannelName)
+		true, 100, r.block, logChannelName)
 	if r.disableLoop {
 		consumer.DisableLoop()
 	}

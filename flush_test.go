@@ -476,6 +476,7 @@ func TestFlush(t *testing.T) {
 
 	receiver := NewLazyReceiver(engine)
 	receiver.DisableLoop()
+	receiver.SetBlock(time.Millisecond)
 
 	testLogger := memory.New()
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceDB)
@@ -489,7 +490,7 @@ func TestFlush(t *testing.T) {
 	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest(time.Millisecond)
+	receiver.Digest()
 	assert.True(t, validHeartBeat)
 	assert.Len(t, testLogger.Entries, 1)
 	assert.Equal(t, "UPDATE flushEntitySmart SET `Age` = ? WHERE `ID` = ?", testLogger.Entries[0].Fields["Query"])

@@ -34,6 +34,7 @@ func TestLogReceiver(t *testing.T) {
 
 	consumer := NewLogConsumer(engine)
 	consumer.DisableLoop()
+	consumer.SetBlock(time.Millisecond)
 
 	e1 := &logReceiverEntity1{Name: "John", LastName: "Smith", Country: "Poland"}
 	engine.Track(e1)
@@ -49,7 +50,7 @@ func TestLogReceiver(t *testing.T) {
 	consumer.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	consumer.Digest(time.Millisecond)
+	consumer.Digest()
 	assert.True(t, valid)
 	assert.True(t, validHeartBeat)
 
@@ -79,7 +80,7 @@ func TestLogReceiver(t *testing.T) {
 	engine.Track(e2)
 	engine.Flush()
 
-	consumer.Digest(time.Millisecond)
+	consumer.Digest()
 
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 2")
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
@@ -97,14 +98,14 @@ func TestLogReceiver(t *testing.T) {
 
 	e1.Country = "Germany"
 	engine.TrackAndFlush(e1)
-	consumer.Digest(time.Millisecond)
+	consumer.Digest()
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 3")
 	found := engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
 	assert.False(t, found)
 
 	e1.LastName = "Summer"
 	engine.TrackAndFlush(e1)
-	consumer.Digest(time.Millisecond)
+	consumer.Digest()
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 3")
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
 	assert.Equal(t, 2, entityID)
@@ -114,7 +115,7 @@ func TestLogReceiver(t *testing.T) {
 
 	engine.MarkToDelete(e1)
 	engine.TrackAndFlush(e1)
-	consumer.Digest(time.Millisecond)
+	consumer.Digest()
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 4")
 	var changesNullable sql.NullString
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changesNullable)
