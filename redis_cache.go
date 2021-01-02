@@ -56,6 +56,7 @@ type redisClient interface {
 	XClaimJustID(a *redis.XClaimArgs) ([]string, error)
 	XAck(stream, group string, ids ...string) (int64, error)
 	XDel(stream string, ids ...string) (int64, error)
+	XGroupDelConsumer(stream, group, consumer string) (int64, error)
 	XRange(stream, start, stop string, count int64) ([]redis.XMessage, error)
 	XRevRange(stream, start, stop string, count int64) ([]redis.XMessage, error)
 	XInfoStream(stream string) (*redis.XInfoStream, error)
@@ -516,6 +517,13 @@ func (c *standardRedisClient) XDel(stream string, ids ...string) (int64, error) 
 		return c.ring.XDel(c.ring.Context(), stream, ids...).Result()
 	}
 	return c.client.XDel(c.client.Context(), stream, ids...).Result()
+}
+
+func (c *standardRedisClient) XGroupDelConsumer(stream, group, consumer string) (int64, error) {
+	if c.ring != nil {
+		return c.ring.XGroupDelConsumer(c.ring.Context(), stream, group, consumer).Result()
+	}
+	return c.client.XGroupDelConsumer(c.client.Context(), stream, group, consumer).Result()
 }
 
 func (c *standardRedisClient) XReadGroup(a *redis.XReadGroupArgs) ([]redis.XStream, error) {
@@ -1195,6 +1203,19 @@ func (r *RedisCache) XDel(stream string, ids ...string) int64 {
 	return deleted
 }
 
+func (r *RedisCache) XGroupDelConsumer(stream, group, consumer string) int64 {
+	start := time.Now()
+	deleted, err := r.client.XGroupDelConsumer(stream, group, consumer)
+	checkError(err)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][XDEL]", start, "XGROUP", 0, 1,
+			map[string]interface{}{"stream": stream, "group": group, "consumer": "consumer", "action": "delete consumer"}, nil)
+	}
+	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	return deleted
+}
+
 func (r *RedisCache) XReadGroup(a *redis.XReadGroupArgs) (streams []redis.XStream) {
 	start := time.Now()
 	streams, err := r.client.XReadGroup(a)
@@ -1203,7 +1224,8 @@ func (r *RedisCache) XReadGroup(a *redis.XReadGroupArgs) (streams []redis.XStrea
 	}
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][XREADGROUP]", start, "xreadgroup", 0, 1,
-			map[string]interface{}{"arg": a}, nil)
+			map[string]interface{}{"consumer": a.Consumer, "group": a.Group, "count": a.Count, "block": a.Block,
+				"noack": a.NoAck, "streams": a.Streams}, nil)
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)

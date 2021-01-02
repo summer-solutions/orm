@@ -285,6 +285,8 @@ func testRedis(t *testing.T, engine *Engine) {
 		MinIdle: time.Millisecond, Messages: []string{testID, "2-2"}})
 	assert.Len(t, ids, 1)
 	assert.Equal(t, testID, ids[0])
-	// TODO delete consumer
-	// TODO delete group
+	confirmed = r.XGroupDelConsumer("test-stream", "test-group", "test-consumer-2")
+	assert.Equal(t, int64(1), confirmed)
+	infoGroups = r.XInfoGroups("test-stream")
+	assert.Equal(t, int64(1), infoGroups[0].Consumers)
 }

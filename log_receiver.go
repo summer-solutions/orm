@@ -40,10 +40,7 @@ func (r *LogReceiver) DisableLoop() {
 }
 
 func (r *LogReceiver) Purge() {
-	channel := r.engine.GetRabbitMQQueue(logQueueName)
-	consumer := channel.NewConsumer("default consumer")
-	consumer.Purge()
-	consumer.Close()
+	r.engine.GetRedis().XTrim(logQueueName, 0, false)
 }
 
 func (r *LogReceiver) Digest() {
