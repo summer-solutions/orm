@@ -48,6 +48,7 @@ func (r *LazyReceiver) Digest(block time.Duration) {
 			ids := r.handleQueries(r.engine, data)
 			r.handleClearCache(data, "cl", ids)
 			r.handleClearCache(data, "cr", ids)
+			ack.Ack(lazyChannelName, item)
 		}
 	})
 }

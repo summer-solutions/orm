@@ -9,17 +9,26 @@ import (
 type RedisStreamGroupHandler func(streams []redis.XStream, ack *RedisStreamGroupAck)
 
 type RedisStreamGroupAck struct {
-	ids map[string][]string
-	max map[string]int
+	consumer *redisStreamGroupConsumer
+	ids      map[string][]string
+	max      map[string]int
 }
 
 func (s *RedisStreamGroupAck) Ack(stream string, message ...redis.XMessage) {
-	i := s.max[stream]
+	start := s.max[stream]
+	i := start
 	for _, m := range message {
 		s.ids[stream][i] = m.ID
 		i++
 	}
 	s.max[stream] = i
+	if s.consumer.autoDelete {
+		// todo in pipeline and transaction
+		s.consumer.redis.XAck(stream, s.consumer.group, s.ids[stream][start:i]...)
+		s.consumer.redis.XDel(stream, s.ids[stream][start:i]...)
+	} else {
+		s.consumer.redis.XAck(stream, s.consumer.group, s.ids[stream][start:i]...)
+	}
 }
 
 type RedisStreamGroupConsumer interface {
@@ -65,7 +74,7 @@ func (r *redisStreamGroupConsumer) HeartBeat(force bool) {
 }
 
 func (r *redisStreamGroupConsumer) Consume(handler RedisStreamGroupHandler) {
-	ack := &RedisStreamGroupAck{max: make(map[string]int), ids: make(map[string][]string)}
+	ack := &RedisStreamGroupAck{max: make(map[string]int), ids: make(map[string][]string), consumer: r}
 	lastIDs := make(map[string]string)
 	for _, stream := range r.streams {
 		r.redis.XGroupCreateMkStream(stream, r.group, "0")
@@ -131,17 +140,7 @@ func (r *redisStreamGroupConsumer) Consume(handler RedisStreamGroupHandler) {
 				totalACK := 0
 				handler(results, ack)
 				for _, stream := range r.streams {
-					max := ack.max[stream]
-					if max > 0 {
-						if r.autoDelete {
-							// todo in pipeline and transaction
-							r.redis.XAck(stream, r.group, ack.ids[stream][0:max]...)
-							r.redis.XDel(stream, ack.ids[stream][0:max]...)
-						} else {
-							r.redis.XAck(stream, r.group, ack.ids[stream][0:max]...)
-						}
-					}
-					totalACK += max
+					totalACK += ack.max[stream]
 					ack.max[stream] = 0
 				}
 				if totalACK < totalMessages {

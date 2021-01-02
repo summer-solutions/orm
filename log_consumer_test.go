@@ -2,7 +2,6 @@ package orm
 
 import (
 	"database/sql"
-	"os"
 	"testing"
 	"time"
 
@@ -81,7 +80,6 @@ func TestLogReceiver(t *testing.T) {
 	engine.Flush()
 
 	consumer.Digest(time.Millisecond)
-	os.Exit(0)
 
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 2")
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
@@ -124,4 +122,6 @@ func TestLogReceiver(t *testing.T) {
 	assert.False(t, changesNullable.Valid)
 	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": \"Germany\", \"LastName\": \"Summer\"}", before.String)
 	assert.Equal(t, "{\"user_id\": 12}", meta.String)
+
+	assert.Equal(t, int64(0), engine.GetRedis().XLen(logChannelName))
 }
