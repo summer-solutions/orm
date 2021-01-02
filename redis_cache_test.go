@@ -289,4 +289,14 @@ func testRedis(t *testing.T, engine *Engine) {
 	assert.Equal(t, int64(1), confirmed)
 	infoGroups = r.XInfoGroups("test-stream")
 	assert.Equal(t, int64(1), infoGroups[0].Consumers)
+
+	r.XAdd(&redis.XAddArgs{ID: "*", Stream: "test-stream-a", Values: []string{"name", "a1"}})
+	r.XAdd(&redis.XAddArgs{ID: "*", Stream: "test-stream-b", Values: []string{"name", "b1"}})
+	r.XGroupCreate("test-stream-a", "test-group-ab", "0")
+	r.XGroupCreate("test-stream-b", "test-group-ab", "0")
+	streams = r.XReadGroup(&redis.XReadGroupArgs{Group: "test-group-ab", Streams: []string{"test-stream-a", "test-stream-b", ">", ">"},
+		Consumer: "test-consumer-ab", Block: -1})
+	assert.Len(t, streams, 2)
+	assert.Len(t, streams[0].Messages, 1)
+	assert.Len(t, streams[1].Messages, 1)
 }

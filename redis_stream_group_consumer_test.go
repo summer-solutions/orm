@@ -155,4 +155,25 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 		}
 	})
 	assert.Equal(t, 6, iterations)
+	r.FlushDB()
+	iterations = 0
+	consumer = r.NewStreamGroupConsumer("test-consumer-multi", "test-group-multi", autoDelete, 8,
+		time.Millisecond, "test-stream-a", "test-stream-b")
+	consumer.DisableLoop()
+	for i := 1; i <= 10; i++ {
+		r.XAdd(&redis.XAddArgs{ID: "*", Stream: "test-stream-a", Values: []string{"name", fmt.Sprintf("a%d", i)}})
+		r.XAdd(&redis.XAddArgs{ID: "*", Stream: "test-stream-b", Values: []string{"name", fmt.Sprintf("b%d", i)}})
+	}
+	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+		iterations++
+		assert.Len(t, streams, 2)
+		if iterations == 1 {
+			assert.Len(t, streams[0].Messages, 8)
+			assert.Len(t, streams[1].Messages, 8)
+		} else {
+			assert.Len(t, streams[0].Messages, 2)
+			assert.Len(t, streams[1].Messages, 2)
+		}
+	})
+	assert.Equal(t, 2, iterations)
 }
