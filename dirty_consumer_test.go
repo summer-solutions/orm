@@ -14,18 +14,14 @@ type dirtyReceiverEntity struct {
 	Age  uint64
 }
 
-func TestDirtyReceiver(t *testing.T) {
+func TestDirtyConsumer(t *testing.T) {
 	var entity *dirtyReceiverEntity
 	registry := &Registry{}
-	registry.RegisterDirtyQueue("entity_changed", 2)
-	registry.RegisterDirtyQueue("name_changed", 1)
 	engine := PrepareTables(t, registry, 5, entity)
 
-	receiver := NewDirtyReceiver(engine)
-	receiver.DisableLoop()
-	receiver.SetMaxLoopDuration(time.Millisecond)
-	receiver.Purge("entity_changed")
-	receiver.Purge("name_changed")
+	consumer := NewDirtyConsumer(engine)
+	consumer.DisableLoop()
+	consumer.SetBlock(time.Millisecond)
 
 	e := &dirtyReceiverEntity{Name: "John", Age: 18}
 	engine.Track(e)
@@ -35,10 +31,10 @@ func TestDirtyReceiver(t *testing.T) {
 
 	valid := false
 	validHeartBeat := false
-	receiver.SetHeartBeat(func() {
+	consumer.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest("entity_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 2)
 		assert.Equal(t, uint64(1), data[0].ID)
@@ -55,29 +51,22 @@ func TestDirtyReceiver(t *testing.T) {
 	assert.True(t, valid)
 	assert.True(t, validHeartBeat)
 
-	valid = false
-	receiver.Digest("name_changed", func(data []*DirtyData) {
-		valid = true
+	iterations := 0
+	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
+		iterations++
 		assert.Len(t, data, 1)
-		assert.Equal(t, uint64(1), data[0].ID)
+		assert.Equal(t, uint64(iterations), data[0].ID)
 		assert.True(t, data[0].Added)
 		assert.False(t, data[0].Updated)
 		assert.False(t, data[0].Deleted)
 		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
 	})
-	assert.True(t, valid)
-	valid = false
-	receiver.Digest("name_changed", func(data []*DirtyData) {
-		valid = true
-		assert.Len(t, data, 1)
-		assert.Equal(t, uint64(2), data[0].ID)
-	})
-	assert.True(t, valid)
+	assert.Equal(t, 2, iterations)
 
 	e.Name = "Bob"
 	engine.TrackAndFlush(e)
 	valid = false
-	receiver.Digest("entity_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -87,8 +76,9 @@ func TestDirtyReceiver(t *testing.T) {
 		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
 	})
 	assert.True(t, valid)
+
 	valid = false
-	receiver.Digest("name_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -102,14 +92,14 @@ func TestDirtyReceiver(t *testing.T) {
 	e.Age = 30
 	engine.TrackAndFlush(e)
 	valid = false
-	receiver.Digest("entity_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
 	})
 	assert.True(t, valid)
 	valid = true
-	receiver.Digest("name_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = false
 	})
 	assert.True(t, valid)
@@ -118,14 +108,15 @@ func TestDirtyReceiver(t *testing.T) {
 	engine.Track(e)
 	engine.FlushInTransaction()
 	valid = false
-	receiver.Digest("entity_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
 	})
 	assert.True(t, valid)
+
 	valid = false
-	receiver.Digest("name_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = true
 	})
 	assert.True(t, valid)
@@ -134,7 +125,7 @@ func TestDirtyReceiver(t *testing.T) {
 	engine.Flush()
 
 	valid = false
-	receiver.Digest("entity_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -146,7 +137,7 @@ func TestDirtyReceiver(t *testing.T) {
 	assert.True(t, valid)
 
 	valid = false
-	receiver.Digest("name_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -159,7 +150,7 @@ func TestDirtyReceiver(t *testing.T) {
 
 	engine.MarkDirty(e, "name_changed", 2)
 	valid = false
-	receiver.Digest("name_changed", func(data []*DirtyData) {
+	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -169,8 +160,4 @@ func TestDirtyReceiver(t *testing.T) {
 		assert.Equal(t, "dirtyReceiverEntity", data[0].TableSchema.GetTableName())
 	})
 	assert.True(t, valid)
-
-	assert.PanicsWithError(t, "dirty queue 'invalid' not found", func() {
-		engine.MarkDirty(e, "invalid", 2)
-	})
 }

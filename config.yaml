@@ -24,8 +24,6 @@ default:
         type: fanout
         durable: false
   local_cache: 1000
-  dirty_queues:
-    default_queue: 10
   locker: default
 another:
   redis:

@@ -31,7 +31,6 @@ type Registry struct {
 	entities             map[string]reflect.Type
 	elasticIndices       map[string]map[string]ElasticIndexDefinition
 	enums                map[string]Enum
-	dirtyQueues          map[string]int
 	locks                map[string]string
 	defaultEncoding      string
 }
@@ -109,12 +108,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.clickHouseClients[k] = v
 	}
 
-	if registry.dirtyQueues == nil {
-		registry.dirtyQueues = make(map[string]int)
-	}
-	for k, v := range r.dirtyQueues {
-		registry.dirtyQueues[k] = v
-	}
 	if registry.lockServers == nil {
 		registry.lockServers = make(map[string]string)
 	}
@@ -208,17 +201,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		_, err := checkStruct(schema, engine, schema.t, make(map[string]*index), make(map[string]*foreignIndex), "")
 		if err != nil {
 			return nil, errors.Annotatef(err, "invalid entity struct '%s'", schema.t.String())
-		}
-	}
-	queues := registry.GetDirtyQueues()
-	if len(queues) > 0 {
-		connection, has := registry.rabbitMQServers["default"]
-		if has {
-			for name, max := range registry.GetDirtyQueues() {
-				queueName := "dirty_queue_" + name
-				def := &RabbitMQQueueConfig{Name: queueName, Durable: true, PrefetchCount: max}
-				registry.rabbitMQChannelsToQueue[queueName] = &rabbitMQChannelToQueue{connection: connection, config: def}
-			}
 		}
 	}
 	var err error
@@ -419,13 +401,6 @@ func (r *Registry) RegisterRabbitMQRouter(config *RabbitMQRouterConfig, serverPo
 		r.rabbitMQRouters[dbCode] = make([]*RabbitMQRouterConfig, 0)
 	}
 	r.rabbitMQRouters[dbCode] = append(r.rabbitMQRouters[dbCode], config)
-}
-
-func (r *Registry) RegisterDirtyQueue(code string, batchSize int) {
-	if r.dirtyQueues == nil {
-		r.dirtyQueues = make(map[string]int)
-	}
-	r.dirtyQueues[code] = batchSize
 }
 
 func (r *Registry) RegisterLocker(code string, redisCode string) {

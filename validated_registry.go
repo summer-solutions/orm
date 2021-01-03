@@ -12,7 +12,6 @@ type ValidatedRegistry interface {
 	CreateEngine() *Engine
 	GetTableSchema(entityName string) TableSchema
 	GetTableSchemaForEntity(entity Entity) TableSchema
-	GetDirtyQueues() map[string]int
 	GetSourceRegistry() *Registry
 	GetEnum(code string) Enum
 	GetEnums() map[string]Enum
@@ -25,7 +24,6 @@ type validatedRegistry struct {
 	entities                map[string]reflect.Type
 	sqlClients              map[string]*DBConfig
 	clickHouseClients       map[string]*ClickHouseConfig
-	dirtyQueues             map[string]int
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
 	elasticServers          map[string]*ElasticConfig
@@ -131,8 +129,4 @@ func (r *validatedRegistry) GetTableSchemaForEntity(entity Entity) TableSchema {
 
 func (r *validatedRegistry) GetEnum(code string) Enum {
 	return r.enums[code]
-}
-
-func (r *validatedRegistry) GetDirtyQueues() map[string]int {
-	return r.dirtyQueues
 }

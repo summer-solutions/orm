@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v8"
+
 	"github.com/golang/groupcache/lru"
 
 	logApex "github.com/apex/log"
@@ -208,16 +210,12 @@ func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 }
 
 func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) {
-	_, has := e.GetRegistry().GetDirtyQueues()[queueCode]
-	if !has {
-		panic(errors.NotFoundf("dirty queue '%s'", queueCode))
-	}
-	channel := e.GetRabbitMQQueue("dirty_queue_" + queueCode)
 	entityName := initIfNeeded(e, entity).tableSchema.t.String()
 	for _, id := range ids {
 		val := &DirtyQueueValue{Updated: true, ID: id, EntityName: entityName}
 		asJSON, _ := json.Marshal(val)
-		channel.Publish(asJSON)
+		valChannel := &redis.XAddArgs{Stream: dirtyChannelPrefix + queueCode, ID: "*", Values: []string{"v", string(asJSON)}}
+		e.GetRedis().XAdd(valChannel)
 	}
 }
 

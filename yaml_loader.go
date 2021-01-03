@@ -32,15 +32,6 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 			case "mysqlEncoding":
 				valAsString := validateOrmString(value, key)
 				registry.SetDefaultEncoding(valAsString)
-			case "dirty_queues":
-				def := fixYamlMap(value, "dirty_queues")
-				for k, v := range def {
-					asInt, ok := v.(int)
-					if !ok {
-						panic(errors.NotValidf("dirty_queues definition '%s'", k))
-					}
-					registry.RegisterDirtyQueue(k, asInt)
-				}
 			case "local_cache":
 				number := validateOrmInt(value, key)
 				registry.RegisterLocalCache(number, key)

@@ -52,7 +52,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	dataLoaderSets := make(map[*tableSchema]map[uint64][]string)
 	localCacheDeletes := make(map[string]map[string]bool)
 	redisKeysToDelete := make(map[string]map[string]bool)
-	dirtyQueues := make(map[string][]*DirtyQueueValue)
+	dirtyChannels := make(map[string][]*DirtyQueueValue)
 	logQueues := make([]*LogQueueValue, 0)
 	lazyMap := make(map[string]interface{})
 	isInTransaction := transaction
@@ -150,16 +150,16 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 					entity.getORM().attributes.idElem.SetUint(lastID)
 					if affected == 1 {
 						logQueues = updateCacheForInserted(entity, lazy, lastID, bind, localCacheSets,
-							localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
+							localCacheDeletes, redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 					} else {
 						_ = loadByID(engine, lastID, entity, false)
 						logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
-							redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
+							redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 					}
 				} else if currentID > 0 {
 					_ = loadByID(engine, currentID, entity, false)
 					logQueues = updateCacheForInserted(entity, lazy, currentID, bind, localCacheSets,
-						localCacheDeletes, redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
+						localCacheDeletes, redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 				} else {
 				OUTER:
 					for _, index := range schema.uniqueIndices {
@@ -242,7 +242,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				}
 			}
 			logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, currentID,
-				redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
+				redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 		}
 	}
 
@@ -296,7 +296,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				id = id + db.autoincrement
 			}
 			logQueues = updateCacheForInserted(entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,
-				redisKeysToDelete, dirtyQueues, logQueues, dataLoaderSets)
+				redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 		}
 	}
 	for typeOf, deleteBinds := range deleteBinds {
@@ -371,7 +371,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			}
 		}
 		for id, bind := range deleteBinds {
-			addDirtyQueues(dirtyQueues, bind, schema, id, "d")
+			addDirtyQueues(dirtyChannels, bind, schema, id, "d")
 			logQueues = addToLogQueue(logQueues, schema, id, bind, nil, nil)
 		}
 	}
@@ -455,13 +455,13 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		engine.GetRedis().XAdd(val)
 	}
 	if !isInTransaction {
-		addElementsToDirtyQueues(engine, dirtyQueues)
+		addElementsToDirtyQueues(engine, dirtyChannels)
 		addElementsToLogQueues(engine, logQueues)
 	} else {
 		if engine.afterCommitDirtyQueues == nil {
 			engine.afterCommitDirtyQueues = make(map[string][]*DirtyQueueValue)
 		}
-		for key, values := range dirtyQueues {
+		for key, values := range dirtyChannels {
 			if engine.afterCommitDirtyQueues[key] == nil {
 				engine.afterCommitDirtyQueues[key] = make([]*DirtyQueueValue, 0)
 			}
@@ -478,7 +478,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entity Entity, bind map[string]interface{},
 	schema *tableSchema, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	db *DB, currentID uint64, redisKeysToDelete map[string]map[string]bool,
-	dirtyQueues map[string][]*DirtyQueueValue, logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
+	dirtyChannels map[string][]*DirtyQueueValue, logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
 	old := make(map[string]interface{}, len(dbData))
 	for k, v := range dbData {
 		old[k] = v
@@ -506,7 +506,7 @@ func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entit
 		keys = getCacheQueriesKeys(schema, bind, old, false)
 		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 	}
-	addDirtyQueues(dirtyQueues, bind, schema, currentID, "u")
+	addDirtyQueues(dirtyChannels, bind, schema, currentID, "u")
 	return addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().attributes.logMeta)
 }
 
@@ -1008,7 +1008,7 @@ func convertToError(err error) error {
 
 func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 	bind map[string]interface{}, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
-	redisKeysToDelete map[string]map[string]bool, dirtyQueues map[string][]*DirtyQueueValue,
+	redisKeysToDelete map[string]map[string]bool, dirtyChannels map[string][]*DirtyQueueValue,
 	logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
 	schema := entity.getORM().tableSchema
 	engine := entity.getORM().engine
@@ -1034,7 +1034,7 @@ func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 		keys := getCacheQueriesKeys(schema, bind, bind, true)
 		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 	}
-	addDirtyQueues(dirtyQueues, bind, schema, id, "i")
+	addDirtyQueues(dirtyChannels, bind, schema, id, "i")
 	logQueues = addToLogQueue(logQueues, schema, id, nil, bind, entity.getORM().attributes.logMeta)
 	return logQueues
 }
@@ -1117,13 +1117,13 @@ func (e *Engine) flushWithCheck(transaction bool) error {
 	return err
 }
 
-func addElementsToDirtyQueues(engine *Engine, dirtyQueues map[string][]*DirtyQueueValue) {
+func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]*DirtyQueueValue) {
 	{
-		for k, v := range dirtyQueues {
-			channel := engine.GetRabbitMQQueue("dirty_queue_" + k)
+		for code, v := range dirtyChannels {
 			for _, k := range v {
 				asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
-				channel.Publish(asJSON)
+				valChannel := &redis.XAddArgs{Stream: dirtyChannelPrefix + code, ID: "*", Values: []string{"v", string(asJSON)}}
+				engine.GetRedis().XAdd(valChannel)
 			}
 		}
 	}

@@ -25,16 +25,6 @@ func TestYamlLoader(t *testing.T) {
 	})
 
 	invalidYaml = make(map[string]interface{})
-	invalidYaml["default"] = map[string]interface{}{"dirty_queues": "invalid"}
-	assert.PanicsWithError(t, "orm yaml key dirty_queues not valid", func() {
-		registry = InitByYaml(invalidYaml)
-	})
-	invalidYaml["default"] = map[string]interface{}{"dirty_queues": map[interface{}]interface{}{"test": "invalid"}}
-	assert.PanicsWithError(t, "dirty_queues definition 'test' not valid", func() {
-		registry = InitByYaml(invalidYaml)
-	})
-
-	invalidYaml = make(map[string]interface{})
 	invalidYaml["default"] = map[string]interface{}{"mysql": []string{}}
 	assert.PanicsWithError(t, "mysql uri '[]' not valid", func() {
 		registry = InitByYaml(invalidYaml)

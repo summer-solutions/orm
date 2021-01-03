@@ -33,7 +33,7 @@ Menu:
  * [Lazy flush](https://github.com/summer-solutions/orm#lazy-flush)
  * [Data loader](https://github.com/summer-solutions/orm#data-loader) 
  * [Log entity changes](https://github.com/summer-solutions/orm#log-entity-changes) 
- * [Dirty queues](https://github.com/summer-solutions/orm#dirty-queues) 
+ * [Dirty channels](https://github.com/summer-solutions/orm#dirty-queues) 
  * [Fake delete](https://github.com/summer-solutions/orm#fake-delete) 
  * [Working with Redis](https://github.com/summer-solutions/orm#working-with-redis) 
  * [Working with local cache](https://github.com/summer-solutions/orm#working-with-local-cache) 
@@ -116,9 +116,6 @@ default:
     elastic_trace: http://127.0.0.1:9201 //with trace log
     clickhouse: http://127.0.0.1:9000
     locker: default
-    dirty_queues:
-        test: 10
-        test2: 1    
     local_cache: 1000
     rabbitmq:
         server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
@@ -756,10 +753,6 @@ import "github.com/summer-solutions/orm"
 func main() {
     
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    // register dirty queue
-    registry.RegisterDirtyQueue("user_changed", 100)
-    registry.RegisterDirtyQueue("age_name_changed", 100)
-    registry.RegisterDirtyQueue("age_changed", 100)
 
     // next you need to define in Entity that you want to log changes. Just add "log" tag
     type User struct {
@@ -772,10 +765,10 @@ func main() {
     // now just use Flush and events will be send to queue
 
     // receiving events
-    receiver := NewDirtyReceiver(engine)
+    receiver := NewDirtyConsumer(engine)
     
     // in this case data length is max 100
-    receiver.Digest("user_changed", func(data []*DirtyData) {
+    receiver.Digest("user_changed", 100, func(data []*DirtyData) {
         for _, item := range data {
             // data.TableSchema is TableSchema of entity
             // data.ID has entity ID
