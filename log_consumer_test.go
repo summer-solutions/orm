@@ -32,7 +32,7 @@ func TestLogReceiver(t *testing.T) {
 	engine.GetMysql().Exec("TRUNCATE TABLE `_log_default_logReceiverEntity2`")
 	engine.GetRedis().FlushDB()
 
-	consumer := NewLogConsumer(engine)
+	consumer := NewAsyncConsumer(engine)
 	consumer.DisableLoop()
 	consumer.SetBlock(time.Millisecond)
 
@@ -44,9 +44,9 @@ func TestLogReceiver(t *testing.T) {
 
 	valid := false
 	validHeartBeat := false
-	consumer.Logger = func(log *LogQueueValue) {
+	consumer.SetLogLogger(func(log *LogQueueValue) {
 		valid = true
-	}
+	})
 	consumer.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})

@@ -32,7 +32,7 @@ func TestLazyReceiver(t *testing.T) {
 	engine := PrepareTables(t, registry, 5, entity, ref)
 	engine.GetRedis().FlushDB()
 
-	receiver := NewLazyReceiver(engine)
+	receiver := NewAsyncConsumer(engine)
 	receiver.DisableLoop()
 	receiver.SetBlock(time.Millisecond)
 

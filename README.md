@@ -663,11 +663,10 @@ func main() {
     // it will send changes to queue (database and cached is not updated yet)
     user.FlushLazy()
     
-    //You need to run code that will read data from queue and execute changes
-    
-    receiver := NewLazyReceiver(engine)
-    //optionally 
-    receiver.Digest() //It will wait for new messages in queue, run receiver.DisableLoop() to run loop once
+    // you need to run code that will read data from queue and execute changes
+    // run in in a separate goroutine (cron script)
+    consumer := NewAsyncConsumer(engine)
+    consumer.Digest() //It will wait for new messages in a loop, run receiver.DisableLoop() to run loop once
 }
 
 ```
@@ -735,8 +734,8 @@ func main() {
     // you can set meta only in specific entity
     engine.SetEntityLogMeta("user_name", "john", entity)
     
-    receiver := NewLogReceiver(engine)
-    receiver.Digets() //it will wait for new messages in queue
+    consumer := NewAsyncConsumer(engine)
+    consumer.Digets() //it will wait for new messages in queue
 }
 
 ```
@@ -765,10 +764,10 @@ func main() {
     // now just use Flush and events will be send to queue
 
     // receiving events
-    receiver := NewDirtyConsumer(engine)
+    consumer := NewDirtyConsumer(engine)
     
     // in this case data length is max 100
-    receiver.Digest("user_changed", 100, func(data []*DirtyData) {
+    consumer.Digest("user_changed", 100, func(data []*orm.DirtyData) {
         for _, item := range data {
             // data.TableSchema is TableSchema of entity
             // data.ID has entity ID
@@ -1264,9 +1263,9 @@ func main() {
         engine.DataDog().FinishAPM()
         engine.DataDog().StartAPM("my-script-name", "production")
     }
-    receiver := orm.NewLogReceiver(engine)
-    receiver.SetHeartBeat(heartBeat) //receiver will execute this method every minute
-    receiver.Digest()
+    consumer := orm.NewAsyncConsumer(engine)
+    consumer.SetHeartBeat(heartBeat) //consumer will execute this method every minute
+    consumer.Digest()
 
 }    
 ```
