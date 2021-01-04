@@ -84,6 +84,8 @@ type TableSchema interface {
 type tableSchema struct {
 	tableName           string
 	mysqlPoolName       string
+	asyncRedisLazyFlush string
+	asyncRedisLogs      string
 	t                   reflect.Type
 	fields              *tableFields
 	fieldsQuery         string
@@ -269,7 +271,14 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 			return nil, errors.NotFoundf("redis pool '%s'", redisCache)
 		}
 	}
-
+	asyncRedisLazyFlush, has := tags["ORM"]["asyncRedisLazyFlush"]
+	if !has {
+		asyncRedisLazyFlush = "default"
+	}
+	asyncRedisLogs, has := tags["ORM"]["asyncRedisLogs"]
+	if !has {
+		asyncRedisLogs = "default"
+	}
 	cachePrefix := ""
 	if mysql != "default" {
 		cachePrefix = mysql
@@ -456,6 +465,8 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 
 	tableSchema := &tableSchema{tableName: table,
 		mysqlPoolName:       mysql,
+		asyncRedisLazyFlush: asyncRedisLazyFlush,
+		asyncRedisLogs:      asyncRedisLogs,
 		t:                   entityType,
 		fields:              fields,
 		fieldsQuery:         fieldsQuery[1:],

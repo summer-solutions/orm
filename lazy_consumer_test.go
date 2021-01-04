@@ -8,7 +8,7 @@ import (
 )
 
 type lazyReceiverEntity struct {
-	ORM          `orm:"localCache;redisCache"`
+	ORM          `orm:"localCache;redisCache;asyncRedisLazyFlush=default"`
 	ID           uint
 	Name         string `orm:"unique=name"`
 	Age          uint64
@@ -32,7 +32,7 @@ func TestLazyReceiver(t *testing.T) {
 	engine := PrepareTables(t, registry, 5, entity, ref)
 	engine.GetRedis().FlushDB()
 
-	receiver := NewAsyncConsumer(engine)
+	receiver := NewAsyncConsumer(engine, "default")
 	receiver.DisableLoop()
 	receiver.SetBlock(time.Millisecond)
 

@@ -656,17 +656,35 @@ import "github.com/summer-solutions/orm"
 
 func main() {
     
-    // you need to register default rabbitMQ server    
-    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    
+    // you need to register redis  
+    registry.RegisterRedis("localhost:6379", 0)
+    registry.RegisterRedis("localhost:6380", 0, "another_redis")
+
+    type User struct {
+       ORM  `orm:"log"`
+       ID   uint
+       Name string
+       Age  int `orm:"skip-log"` //Don't track this field
+    }
+   
+    // optionally you can set optional redis pool used to queue all events
+    type Dog struct {
+       ORM  `orm:"asyncRedisLazyFlush=another_redis"`
+       ID   uint
+       Name string
+    }
+       
     // now in code you can use FlushLazy() methods instead of Flush().
     // it will send changes to queue (database and cached is not updated yet)
     user.FlushLazy()
     
     // you need to run code that will read data from queue and execute changes
     // run in in a separate goroutine (cron script)
-    consumer := NewAsyncConsumer(engine)
+    consumer := NewAsyncConsumer(engine, "default")
     consumer.Digest() //It will wait for new messages in a loop, run receiver.DisableLoop() to run loop once
+
+    consumerAnotherPool := NewAsyncConsumer(engine, "another_redis")
+    consumerAnotherPool.Digets()
 }
 
 ```
@@ -714,19 +732,26 @@ func main() {
 
     //it's recommended to keep logs in separated DB
     registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/log_database", "log_db_pool")
-    // you need to register default rabbitMQ server    
-    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
+    // you need to register default Redis   
+    registry.RegisterRedis("localhost:6379", 0)
+    registry.RegisterRedis("localhost:6380", 0, "another_redis")
 
-    //next you need to define in Entity that you want to log changes. Just add "log" tag
+    //next you need to define in Entity that you want to log changes. Just add "log" tag or define mysql pool name
     type User struct {
-        ORM  `orm:"log=log_db_pool"`
+        ORM  `orm:"log"`
         ID   uint
         Name string
         Age  int `orm:"skip-log"` //Don't track this field
     }
+    
+    // optionally you can set optional redis pool used to queue all events
+     type Dog struct {
+        ORM  `orm:"log=log_db_pool;asyncRedisLogs=another_redis"`
+        ID   uint
+        Name string
+     }
 
     // Now every change of User will be saved in log table
-   
     
     // You can add extra data to log, simply use this methods before Flush():
     engine.SetLogMetaData("logged_user_id", 12) 
@@ -734,8 +759,11 @@ func main() {
     // you can set meta only in specific entity
     engine.SetEntityLogMeta("user_name", "john", entity)
     
-    consumer := NewAsyncConsumer(engine)
+    consumer := NewAsyncConsumer(engine, "default")
     consumer.Digets() //it will wait for new messages in queue
+
+    consumerAnotherPool := NewAsyncConsumer(engine, "another_redis")
+    consumerAnotherPool.Digets()
 }
 
 ```

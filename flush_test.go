@@ -474,7 +474,7 @@ func TestFlush(t *testing.T) {
 	assert.True(t, found)
 	entitySmart.Age = 20
 
-	receiver := NewAsyncConsumer(engine)
+	receiver := NewAsyncConsumer(engine, "default")
 	receiver.DisableLoop()
 	receiver.SetBlock(time.Millisecond)
 

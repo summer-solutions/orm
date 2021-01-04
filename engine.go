@@ -47,7 +47,7 @@ type Engine struct {
 	afterCommitRedisCacheDeletes map[string][]string
 	afterCommitDataLoaderSets    dataLoaderSets
 	afterCommitDirtyQueues       map[string][]*DirtyQueueValue
-	afterCommitLogQueues         []*LogQueueValue
+	afterCommitLogQueues         map[string][]*LogQueueValue
 	dataDog                      *dataDog
 }
 

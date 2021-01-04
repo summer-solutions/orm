@@ -9,7 +9,7 @@ import (
 )
 
 type logReceiverEntity1 struct {
-	ORM      `orm:"log"`
+	ORM      `orm:"log;asyncRedisLogs=default"`
 	ID       uint
 	Name     string
 	LastName string
@@ -32,7 +32,7 @@ func TestLogReceiver(t *testing.T) {
 	engine.GetMysql().Exec("TRUNCATE TABLE `_log_default_logReceiverEntity2`")
 	engine.GetRedis().FlushDB()
 
-	consumer := NewAsyncConsumer(engine)
+	consumer := NewAsyncConsumer(engine, "default")
 	consumer.DisableLoop()
 	consumer.SetBlock(time.Millisecond)
 
