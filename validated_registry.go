@@ -15,6 +15,7 @@ type ValidatedRegistry interface {
 	GetSourceRegistry() *Registry
 	GetEnum(code string) Enum
 	GetEnums() map[string]Enum
+	GetRedisChannels() map[string]map[string]uint64
 	GetEntities() map[string]reflect.Type
 }
 
@@ -45,6 +46,10 @@ func (r *validatedRegistry) GetEntities() map[string]reflect.Type {
 
 func (r *validatedRegistry) GetEnums() map[string]Enum {
 	return r.enums
+}
+
+func (r *validatedRegistry) GetRedisChannels() map[string]map[string]uint64 {
+	return r.redisChannels
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {

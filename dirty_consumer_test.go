@@ -19,6 +19,12 @@ func TestDirtyConsumer(t *testing.T) {
 	registry := &Registry{}
 	engine := PrepareTables(t, registry, 5, entity)
 
+	channels := engine.GetRegistry().GetRedisChannels()
+	assert.Len(t, channels, 1)
+	assert.Len(t, channels["default"], 4)
+	assert.Equal(t, uint64(0), channels["default"]["dirty-channel-entity_changed"])
+	assert.Equal(t, uint64(0), channels["default"]["dirty-channel-name_changed"])
+
 	consumer := NewDirtyConsumer(engine)
 	consumer.DisableLoop()
 	consumer.SetBlock(time.Millisecond)
