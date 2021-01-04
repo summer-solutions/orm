@@ -2,6 +2,9 @@ default:
   mysqlEncoding: utf8
   mysql: root:root@tcp(localhost:3308)/test
   redis: localhost:6381:0
+  redisChannels:
+    channel-1: 0
+    channel-2: 100
   elastic: http://localhost:9209
   elastic_trace: http://localhost:9209
   clickhouse: http://localhost:9002?debug=false
@@ -29,5 +32,7 @@ another:
   redis:
     - localhost:6381:1
     - localhost:6381:2
+  redisChannels:
+      channel-3: 7
 default_queue:
   redis: localhost:6381:1

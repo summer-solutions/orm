@@ -33,6 +33,7 @@ type Registry struct {
 	enums                map[string]Enum
 	locks                map[string]string
 	defaultEncoding      string
+	redisChannels        map[string]map[string]uint64
 }
 
 func (r *Registry) Validate() (ValidatedRegistry, error) {
@@ -127,7 +128,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.redisServers {
 		registry.redisServers[k] = v
 	}
-
 	if registry.elasticServers == nil {
 		registry.elasticServers = make(map[string]*ElasticConfig)
 	}
@@ -195,7 +195,10 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		}
 		registry.tableSchemas[entityType] = tableSchema
 		registry.entities[name] = entityType
+		r.RegisterRedisChannel(lazyChannelName, tableSchema.asyncRedisLazyFlush, 0)
+		r.RegisterRedisChannel(logChannelName, tableSchema.asyncRedisLogs, 0)
 	}
+	registry.redisChannels = r.redisChannels
 	engine := registry.CreateEngine()
 	for _, schema := range registry.tableSchemas {
 		_, err := checkStruct(schema, engine, schema.t, make(map[string]*index), make(map[string]*foreignIndex), "")
@@ -361,6 +364,16 @@ func (r *Registry) RegisterRedisRing(addresses []string, db int, code ...string)
 		r.redisServers = make(map[string]*RedisCacheConfig)
 	}
 	r.redisServers[dbCode] = redisCache
+}
+
+func (r *Registry) RegisterRedisChannel(name string, redisPool string, maxSize uint64) {
+	if r.redisChannels == nil {
+		r.redisChannels = make(map[string]map[string]uint64)
+	}
+	if r.redisChannels[redisPool] == nil {
+		r.redisChannels[redisPool] = make(map[string]uint64)
+	}
+	r.redisChannels[redisPool][name] = maxSize
 }
 
 func (r *Registry) RegisterRabbitMQServer(address string, code ...string) {

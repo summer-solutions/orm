@@ -26,6 +26,7 @@ type validatedRegistry struct {
 	clickHouseClients       map[string]*ClickHouseConfig
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
+	redisChannels           map[string]map[string]uint64
 	elasticServers          map[string]*ElasticConfig
 	rabbitMQServers         map[string]*rabbitMQConnection
 	rabbitMQChannelsToQueue map[string]*rabbitMQChannelToQueue

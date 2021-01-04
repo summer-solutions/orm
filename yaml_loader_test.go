@@ -17,6 +17,12 @@ func TestYamlLoader(t *testing.T) {
 
 	registry := InitByYaml(parsedYaml)
 	assert.NotNil(t, registry)
+	assert.Len(t, registry.redisChannels, 2)
+	assert.Len(t, registry.redisChannels["default"], 2)
+	assert.Len(t, registry.redisChannels["another"], 1)
+	assert.Equal(t, uint64(0), registry.redisChannels["default"]["channel-1"])
+	assert.Equal(t, uint64(100), registry.redisChannels["default"]["channel-2"])
+	assert.Equal(t, uint64(7), registry.redisChannels["another"]["channel-3"])
 
 	invalidYaml := make(map[string]interface{})
 	invalidYaml["test"] = "invalid"

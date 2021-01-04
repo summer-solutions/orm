@@ -24,6 +24,8 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 				validateClickHouseURI(registry, value, key)
 			case "redis":
 				validateRedisURI(registry, value, key)
+			case "redisChannels":
+				validateRedisChannels(registry, value, key)
 			case "rabbitmq":
 				validateOrmRabbitMQ(registry, value, key)
 			case "locker":
@@ -67,6 +69,18 @@ func validateClickHouseURI(registry *Registry, value interface{}, key string) {
 		panic(errors.NotValidf("click house uri '%v'", value))
 	}
 	registry.RegisterClickHouse(asString, key)
+}
+
+func validateRedisChannels(registry *Registry, value interface{}, key string) {
+	def := fixYamlMap(value, key)
+	for name, max := range def {
+		asString := fmt.Sprintf("%v", max)
+		parsedUint, err := strconv.ParseUint(asString, 10, 64)
+		if err != nil {
+			panic(errors.NotValidf("redis channel %s max size '%v'", name, max))
+		}
+		registry.RegisterRedisChannel(name, key, parsedUint)
+	}
 }
 
 func validateRedisURI(registry *Registry, value interface{}, key string) {
