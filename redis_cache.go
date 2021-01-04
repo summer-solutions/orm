@@ -2,6 +2,7 @@ package orm
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -1259,12 +1260,19 @@ func (r *RedisCache) XPendingExt(a *redis.XPendingExtArgs) []redis.XPendingExt {
 }
 
 func (r *RedisCache) XAdd(a *redis.XAddArgs) (id string) {
+	max, has := r.engine.registry.redisChannels[r.code][a.Stream]
+	if !has {
+		panic(fmt.Errorf("unregistered channel %s in redis pool %s", a.Stream, r.code))
+	}
+	if max > 0 {
+		a.MaxLenApprox = int64(max)
+	}
 	start := time.Now()
 	id, err := r.client.XAdd(a)
 	checkError(err)
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][XADD]", start, "xtrim", 0, 1,
-			map[string]interface{}{"arg": a}, nil)
+			map[string]interface{}{"stream": a.Stream, "id": a.ID, "values": a.Values, "max_len_app": a.MaxLenApprox, "max_len": a.MaxLen}, nil)
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)

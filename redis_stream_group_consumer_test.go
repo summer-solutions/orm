@@ -20,6 +20,9 @@ func TestRedisStreamGroupConsumerDelete(t *testing.T) {
 func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	registry := &Registry{}
 	registry.RegisterRedis("localhost:6381", 15)
+	registry.RegisterRedisChannel("test-stream", "default", 0)
+	registry.RegisterRedisChannel("test-stream-a", "default", 0)
+	registry.RegisterRedisChannel("test-stream-b", "default", 0)
 	validatedRegistry, err := registry.Validate()
 	assert.NoError(t, err)
 	engine := validatedRegistry.CreateEngine()

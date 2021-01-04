@@ -197,6 +197,14 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.entities[name] = entityType
 		r.RegisterRedisChannel(lazyChannelName, tableSchema.asyncRedisLazyFlush, 0)
 		r.RegisterRedisChannel(logChannelName, tableSchema.asyncRedisLogs, 0)
+		for _, tags := range tableSchema.tags {
+			channels, has := tags["dirty"]
+			if has {
+				for _, code := range strings.Split(channels, ",") {
+					r.RegisterRedisChannel(dirtyChannelPrefix+code, tableSchema.asyncRedisLogs, 0)
+				}
+			}
+		}
 	}
 	registry.redisChannels = r.redisChannels
 	engine := registry.CreateEngine()
