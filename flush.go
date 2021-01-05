@@ -356,7 +356,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
-				code := redisCache.code
+				code := localCache.code
 				if lazy {
 					code = schema.asyncRedisLazyFlush + " " + code
 				}
