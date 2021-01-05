@@ -1,4 +1,4 @@
-module github.com/summer-solutions/orm/v2
+module github.com/summer-solutions/orm
 
 go 1.15
 
