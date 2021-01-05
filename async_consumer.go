@@ -102,8 +102,8 @@ func (r *AsyncConsumer) handleLog(messages []redis.XMessage, ack *RedisStreamGro
 			if r.logLogger != nil {
 				value.LogID = res.LastInsertId()
 				r.logLogger(&value)
+				poolDB.Commit()
 			}
-			poolDB.Commit()
 			ack.Ack(logChannelName, item)
 		}()
 	}
