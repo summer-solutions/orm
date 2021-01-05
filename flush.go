@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis/v8"
-
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/juju/errors"
@@ -471,8 +469,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	}
 	if len(lazyMap) > 0 {
 		for k, v := range lazyMap {
-			val := &redis.XAddArgs{Stream: lazyChannelName, ID: "*", Values: []string{"v", string(serializeForLazyQueue(v))}}
-			engine.GetRedis(k).XAdd(val)
+			engine.GetRedis(k).XAdd(lazyChannelName, []string{"v", string(serializeForLazyQueue(v))})
 		}
 	}
 	if !isInTransaction {
@@ -1167,8 +1164,7 @@ func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]*DirtyQ
 		for code, v := range dirtyChannels {
 			for _, k := range v {
 				asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
-				valChannel := &redis.XAddArgs{Stream: dirtyChannelPrefix + code, ID: "*", Values: []string{"v", string(asJSON)}}
-				engine.GetRedis().XAdd(valChannel)
+				engine.GetRedis().XAdd(dirtyChannelPrefix+code, []string{"v", string(asJSON)})
 			}
 		}
 	}
@@ -1186,8 +1182,7 @@ func addElementsToLogQueues(engine *Engine, logQueues map[string][]*LogQueueValu
 					}
 				}
 				asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
-				val := &redis.XAddArgs{Stream: logChannelName, ID: "*", Values: []string{"v", string(asJSON)}}
-				engine.GetRedis(redisPool).XAdd(val)
+				engine.GetRedis(redisPool).XAdd(logChannelName, []string{"v", string(asJSON)})
 			}
 		}
 	}

@@ -1259,20 +1259,26 @@ func (r *RedisCache) XPendingExt(a *redis.XPendingExtArgs) []redis.XPendingExt {
 	return res
 }
 
-func (r *RedisCache) XAdd(a *redis.XAddArgs) (id string) {
-	max, has := r.engine.registry.redisChannels[r.code][a.Stream]
+// values in the following formats:XAdd
+//   - []interface{}{"key1", "value1", "key2", "value2"}
+//   - []string("key1", "value1", "key2", "value2")
+//   - map[string]interface{}{"key1": "value1", "key2": "value2"}
+//
+func (r *RedisCache) XAdd(stream string, values interface{}) (id string) {
+	max, has := r.engine.registry.redisChannels[r.code][stream]
 	if !has {
-		panic(fmt.Errorf("unregistered channel %s in redis pool %s", a.Stream, r.code))
+		panic(fmt.Errorf("unregistered channel %s in redis pool %s", stream, r.code))
 	}
+	a := &redis.XAddArgs{Stream: stream, ID: "*", Values: values}
 	if max > 0 {
-		a.MaxLenApprox = int64(max)
+		a.MaxLen = int64(max)
 	}
 	start := time.Now()
 	id, err := r.client.XAdd(a)
 	checkError(err)
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][XADD]", start, "xtrim", 0, 1,
-			map[string]interface{}{"stream": a.Stream, "id": a.ID, "values": a.Values, "max_len_app": a.MaxLenApprox, "max_len": a.MaxLen}, nil)
+			map[string]interface{}{"stream": stream, "id": a.ID, "values": a.Values, "max_len_app": a.MaxLenApprox}, nil)
 	}
 	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)

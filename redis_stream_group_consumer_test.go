@@ -39,7 +39,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	assert.Equal(t, 1, heartBeats)
 
 	for i := 1; i <= 10; i++ {
-		r.XAdd(&redis.XAddArgs{ID: "*", Stream: "test-stream", Values: []string{"name", fmt.Sprintf("a%d", i)}})
+		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	iterations := 0
 	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
@@ -77,7 +77,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 
 	r.XTrim("test-stream", 0, false)
 	for i := 11; i <= 20; i++ {
-		r.XAdd(&redis.XAddArgs{ID: "*", Stream: "test-stream", Values: []string{"name", fmt.Sprintf("a%d", i)}})
+		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	iterations = 0
 	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
@@ -115,7 +115,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 
 	r.FlushDB()
 	for i := 1; i <= 10; i++ {
-		r.XAdd(&redis.XAddArgs{ID: "*", Stream: "test-stream", Values: []string{"name", fmt.Sprintf("a%d", i)}})
+		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	consumer = r.NewStreamGroupConsumer("test-consumer", "test-group", autoDelete, 5, time.Millisecond, "test-stream")
 	iterations = 0
@@ -164,8 +164,8 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 		time.Millisecond, "test-stream-a", "test-stream-b")
 	consumer.DisableLoop()
 	for i := 1; i <= 10; i++ {
-		r.XAdd(&redis.XAddArgs{ID: "*", Stream: "test-stream-a", Values: []string{"name", fmt.Sprintf("a%d", i)}})
-		r.XAdd(&redis.XAddArgs{ID: "*", Stream: "test-stream-b", Values: []string{"name", fmt.Sprintf("b%d", i)}})
+		r.XAdd("test-stream-a", []string{"name", fmt.Sprintf("a%d", i)})
+		r.XAdd("test-stream-b", []string{"name", fmt.Sprintf("b%d", i)})
 	}
 	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
