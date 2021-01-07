@@ -34,7 +34,7 @@ func TestLogReceiver(t *testing.T) {
 
 	consumer := NewAsyncConsumer(engine, "default")
 	consumer.DisableLoop()
-	consumer.SetBlock(time.Millisecond)
+	consumer.block = time.Millisecond
 
 	e1 := &logReceiverEntity1{Name: "John", LastName: "Smith", Country: "Poland"}
 	engine.Track(e1)

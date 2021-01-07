@@ -43,10 +43,6 @@ func (r *AsyncConsumer) DisableLoop() {
 	r.disableLoop = true
 }
 
-func (r *AsyncConsumer) SetBlock(duration time.Duration) {
-	r.block = duration
-}
-
 func (r *AsyncConsumer) SetHeartBeat(duration time.Duration, beat func()) {
 	r.heartBeatDuration = duration
 	r.heartBeat = beat
@@ -58,7 +54,8 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 
 func (r *AsyncConsumer) Digest() {
 	consumer := r.engine.GetRedis(r.redisPool).NewStreamGroupConsumer("default-consumer", "orm-async-group",
-		true, 100, r.block, lazyChannelName, logChannelName)
+		true, 100, lazyChannelName, logChannelName)
+	consumer.(*redisStreamGroupConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()
 	}

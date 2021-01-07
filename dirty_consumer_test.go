@@ -27,7 +27,7 @@ func TestDirtyConsumer(t *testing.T) {
 
 	consumer := NewDirtyConsumer(engine)
 	consumer.DisableLoop()
-	consumer.SetBlock(time.Millisecond)
+	consumer.block = time.Millisecond
 
 	e := &dirtyReceiverEntity{Name: "John", Age: 18}
 	engine.Track(e)

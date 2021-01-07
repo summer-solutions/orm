@@ -53,7 +53,7 @@ func (r *validatedRegistry) GetRedisChannels() map[string]map[string]uint64 {
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {
-	e := &Engine{registry: r}
+	e := &Engine{registry: r, context: context.Background()}
 	e.dataDog = &dataDog{engine: e}
 	e.dbs = make(map[string]*DB)
 	e.trackedEntities = make([]Entity, 0)
@@ -80,11 +80,11 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 		for key, val := range e.registry.redisServers {
 			client := val.client
 			if client != nil {
-				client = client.WithContext(context.Background())
+				client = client.WithContext(e.context)
 			}
 			ring := val.ring
 			if ring != nil {
-				ring = ring.WithContext(context.Background())
+				ring = ring.WithContext(e.context)
 			}
 			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
 		}

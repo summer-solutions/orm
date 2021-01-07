@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"reflect"
@@ -25,6 +26,7 @@ type obj struct {
 
 type Engine struct {
 	registry                     *validatedRegistry
+	context                      context.Context
 	dbs                          map[string]*DB
 	clickHouseDbs                map[string]*ClickHouse
 	localCache                   map[string]*LocalCache

@@ -34,7 +34,7 @@ func TestLazyReceiver(t *testing.T) {
 
 	receiver := NewAsyncConsumer(engine, "default")
 	receiver.DisableLoop()
-	receiver.SetBlock(time.Millisecond)
+	receiver.block = time.Millisecond
 
 	e := &lazyReceiverEntity{Name: "John", Age: 18}
 	engine.Track(e)

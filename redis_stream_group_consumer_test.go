@@ -20,6 +20,7 @@ func TestRedisStreamGroupConsumerDelete(t *testing.T) {
 func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	registry := &Registry{}
 	registry.RegisterRedis("localhost:6381", 15)
+	registry.RegisterLocker("default", "default")
 	registry.RegisterRedisChannel("test-stream", "default", 0)
 	registry.RegisterRedisChannel("test-stream-a", "default", 0)
 	registry.RegisterRedisChannel("test-stream-b", "default", 0)
@@ -29,7 +30,8 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	r := engine.GetRedis()
 	r.FlushDB()
 
-	consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", autoDelete, 5, time.Millisecond, "test-stream")
+	consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", autoDelete, 5, "test-stream")
+	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer.DisableLoop()
 	heartBeats := 0
 	consumer.SetHeartBeat(time.Second, func() {
@@ -117,7 +119,8 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	for i := 1; i <= 10; i++ {
 		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
-	consumer = r.NewStreamGroupConsumer("test-consumer", "test-group", autoDelete, 5, time.Millisecond, "test-stream")
+	consumer = r.NewStreamGroupConsumer("test-consumer", "test-group", autoDelete, 5, "test-stream")
+	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	iterations = 0
 	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
@@ -161,7 +164,8 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	r.FlushDB()
 	iterations = 0
 	consumer = r.NewStreamGroupConsumer("test-consumer-multi", "test-group-multi", autoDelete, 8,
-		time.Millisecond, "test-stream-a", "test-stream-b")
+		"test-stream-a", "test-stream-b")
+	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer.DisableLoop()
 	for i := 1; i <= 10; i++ {
 		r.XAdd("test-stream-a", []string{"name", fmt.Sprintf("a%d", i)})
@@ -179,4 +183,58 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 		}
 	})
 	assert.Equal(t, 2, iterations)
+
+	// TODO TEST we are running unique
+	r.FlushDB()
+	iterations = 0
+	messages := 0
+	valid := false
+	consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", autoDelete, 8,
+		"test-stream")
+	for i := 1; i <= 10; i++ {
+		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
+	}
+	go func() {
+		consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", autoDelete, 8,
+			"test-stream")
+		consumer.DisableLoop()
+		consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 10
+		consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+			iterations++
+			messages += len(streams[0].Messages)
+		})
+	}()
+	time.Sleep(time.Millisecond)
+	go func() {
+		consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", autoDelete, 8,
+			"test-stream")
+		consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 10
+		assert.PanicsWithError(t, "consumer test-consumer-unique for group test-group is running already", func() {
+			valid = true
+			consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+			})
+		})
+	}()
+	time.Sleep(time.Millisecond * 100)
+	assert.Equal(t, 2, iterations)
+	assert.Equal(t, 10, messages)
+	assert.True(t, valid)
+
+	for i := 1; i <= 10; i++ {
+		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
+	}
+	valid = false
+	consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", autoDelete, 1,
+		"test-stream")
+	consumer.(*redisStreamGroupConsumer).lockTTL = time.Millisecond * 100
+	consumer.(*redisStreamGroupConsumer).lockTick = time.Millisecond * 100
+	consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 100
+	consumer.DisableLoop()
+	assert.PanicsWithError(t, "consumer test-consumer-unique for group test-group lost lock", func() { // TODO
+		consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+			valid = true
+			time.Sleep(time.Millisecond * 300)
+		})
+	})
+	assert.True(t, valid)
 }

@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -37,10 +38,9 @@ type RedisStreamGroupConsumer interface {
 	SetHeartBeat(duration time.Duration, beat func())
 }
 
-func (r *RedisCache) NewStreamGroupConsumer(name, group string, autoDelete bool, count int,
-	block time.Duration, streams ...string) RedisStreamGroupConsumer {
+func (r *RedisCache) NewStreamGroupConsumer(name, group string, autoDelete bool, count int, streams ...string) RedisStreamGroupConsumer {
 	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, autoDelete: autoDelete,
-		loop: true, count: count, block: block}
+		loop: true, count: count, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute}
 }
 
 type redisStreamGroupConsumer struct {
@@ -55,6 +55,8 @@ type redisStreamGroupConsumer struct {
 	heartBeatTime     time.Time
 	heartBeat         func()
 	heartBeatDuration time.Duration
+	lockTTL           time.Duration
+	lockTick          time.Duration
 }
 
 func (r *redisStreamGroupConsumer) DisableLoop() {
@@ -74,6 +76,35 @@ func (r *redisStreamGroupConsumer) HeartBeat(force bool) {
 }
 
 func (r *redisStreamGroupConsumer) Consume(handler RedisStreamGroupHandler) {
+	uniqueLockKey := r.group + "_" + r.name
+	locker := r.redis.engine.GetLocker()
+	lock, has := locker.Obtain(uniqueLockKey, r.lockTTL, time.Millisecond)
+	if !has {
+		panic(fmt.Errorf("consumer %s for group %s is running already", r.name, r.group))
+	}
+	defer lock.Release()
+	ticker := time.NewTicker(r.lockTick)
+	done := make(chan bool, 2)
+	hasLock := true
+	lockAcquired := time.Now()
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if !lock.Refresh(r.lockTTL) {
+					hasLock = false
+					return
+				}
+				lockAcquired = time.Now()
+			}
+		}
+	}()
+	defer func() {
+		ticker.Stop()
+		done <- true
+	}()
 	ack := &RedisStreamGroupAck{max: make(map[string]int), ids: make(map[string][]string), consumer: r}
 	lastIDs := make(map[string]string)
 	for _, stream := range r.streams {
@@ -100,6 +131,9 @@ func (r *redisStreamGroupConsumer) Consume(handler RedisStreamGroupHandler) {
 				}
 			}
 			for {
+				if !hasLock || time.Since(lockAcquired) > r.lockTTL {
+					panic(fmt.Errorf("consumer %s for group %s lost lock", r.name, r.group))
+				}
 				i := 0
 				zeroCount := 0
 				for _, stream := range r.streams {

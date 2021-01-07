@@ -34,11 +34,7 @@ type DirtyData struct {
 }
 
 func NewDirtyConsumer(engine *Engine) *DirtyConsumer {
-	return &DirtyConsumer{engine: engine}
-}
-
-func (r *DirtyConsumer) SetBlock(duration time.Duration) {
-	r.block = duration
+	return &DirtyConsumer{engine: engine, block: time.Minute}
 }
 
 func (r *DirtyConsumer) DisableLoop() {
@@ -58,7 +54,8 @@ func (r *DirtyConsumer) Digest(codes []string, count int, handler DirtyHandler) 
 		streams[i] = dirtyChannelPrefix + code
 	}
 	consumer := r.engine.GetRedis().NewStreamGroupConsumer("default-consumer", "orm-group-"+counterRedisKeysGet,
-		true, count, r.block, streams...)
+		true, count, streams...)
+	consumer.(*redisStreamGroupConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()
 	}

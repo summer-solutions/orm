@@ -93,7 +93,6 @@ func TestFlush(t *testing.T) {
 	var entitySmart *flushEntitySmart
 	registry := &Registry{}
 	registry.RegisterEnumSlice("orm.TestEnum", []string{"a", "b", "c"})
-	registry.RegisterLocker("default", "default")
 	engine := PrepareTables(t, registry, 5, entity, reference, referenceCascade, entitySmart)
 
 	now := time.Now()
@@ -476,7 +475,7 @@ func TestFlush(t *testing.T) {
 
 	receiver := NewAsyncConsumer(engine, "default")
 	receiver.DisableLoop()
-	receiver.SetBlock(time.Millisecond)
+	receiver.block = time.Millisecond
 
 	testLogger := memory.New()
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceDB)
