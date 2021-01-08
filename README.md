@@ -46,6 +46,7 @@ Menu:
  * [Logger](https://github.com/summer-solutions/orm#logger) 
  * [DataDog Profiler](https://github.com/summer-solutions/orm#datadog-profiler) 
  * [DataDog APM](https://github.com/summer-solutions/orm#datadog-apm) 
+ * [Tools](https://github.com/summer-solutions/orm#tools)
 
 ## Configuration
 
@@ -1334,5 +1335,19 @@ func main() {
         //some work
     }()
 
+}    
+```
+
+## Tools
+
+Redis channels statistics
+
+```go
+package main
+
+import "github.com/summer-solutions/orm/tools"
+
+func main() {
+   stats := tools.GetRedisChannelsStatistics(engine) 
 }    
 ```

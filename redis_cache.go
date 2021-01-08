@@ -1121,6 +1121,9 @@ func (r *RedisCache) XInfoStream(stream string) *redis.XInfoStream {
 func (r *RedisCache) XInfoGroups(stream string) []redis.XInfoGroup {
 	start := time.Now()
 	info, err := r.client.XInfoGroups(stream)
+	if err != nil && err.Error() == "ERR no such key" {
+		return make([]redis.XInfoGroup, 0)
+	}
 	checkError(err)
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][XINFO]", start, "xinfo", 0, 1,
