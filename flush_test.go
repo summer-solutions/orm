@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -391,7 +392,7 @@ func TestFlush(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, "test_lock", entity7.Name)
 
-	lock, has := engine.GetLocker().Obtain("lock_test", time.Second, time.Second)
+	lock, has := engine.GetLocker().Obtain(engine.context, "lock_test", time.Second, time.Second)
 	assert.True(t, has)
 	assert.PanicsWithError(t, "lock wait timeout", func() {
 		engine.FlushWithLock("default", "lock_test", time.Second, time.Second)
@@ -489,7 +490,7 @@ func TestFlush(t *testing.T) {
 	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest()
+	receiver.Digest(context.Background())
 	assert.True(t, validHeartBeat)
 	assert.Len(t, testLogger.Entries, 1)
 	assert.Equal(t, "UPDATE flushEntitySmart SET `Age` = ? WHERE `ID` = ?", testLogger.Entries[0].Fields["Query"])

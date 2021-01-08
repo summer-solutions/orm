@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -48,7 +49,7 @@ func (r *DirtyConsumer) SetHeartBeat(duration time.Duration, beat func()) {
 
 type DirtyHandler func(data []*DirtyData)
 
-func (r *DirtyConsumer) Digest(codes []string, count int, handler DirtyHandler) {
+func (r *DirtyConsumer) Digest(ctx context.Context, codes []string, count int, handler DirtyHandler) {
 	streams := make([]string, len(codes))
 	for i, code := range codes {
 		streams[i] = dirtyChannelPrefix + code
@@ -62,7 +63,7 @@ func (r *DirtyConsumer) Digest(codes []string, count int, handler DirtyHandler) 
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeatDuration, r.heartBeat)
 	}
-	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		for _, stream := range streams {
 			data := make([]*DirtyData, len(stream.Messages))
 			for i, item := range stream.Messages {

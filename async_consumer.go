@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -52,7 +53,7 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 	r.logLogger = logger
 }
 
-func (r *AsyncConsumer) Digest() {
+func (r *AsyncConsumer) Digest(ctx context.Context) {
 	consumer := r.engine.GetRedis(r.redisPool).NewStreamGroupConsumer("default-consumer", "orm-async-group",
 		true, 100, lazyChannelName, logChannelName)
 	consumer.(*redisStreamGroupConsumer).block = r.block
@@ -62,7 +63,7 @@ func (r *AsyncConsumer) Digest() {
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeatDuration, r.heartBeat)
 	}
-	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		for _, stream := range streams {
 			if stream.Stream == lazyChannelName {
 				r.handleLazy(stream.Messages, ack)

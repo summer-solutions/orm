@@ -34,7 +34,7 @@ type Locker struct {
 	engine *Engine
 }
 
-func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool) {
+func (l *Locker) Obtain(ctx context.Context, key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool) {
 	if ttl == 0 {
 		panic(errors.NotValidf("ttl"))
 	}
@@ -46,7 +46,7 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 	max := int(waitTimeout / maxInterval)
 	options := &redislock.Options{RetryStrategy: redislock.LimitRetry(redislock.ExponentialBackoff(minInterval, maxInterval), max)}
 	start := time.Now()
-	redisLock, err := l.locker.Obtain(l.engine.context, key, ttl, options)
+	redisLock, err := l.locker.Obtain(ctx, key, ttl, options)
 	if err != nil {
 		if err == redislock.ErrNotObtained {
 			return nil, false
@@ -57,9 +57,25 @@ func (l *Locker) Obtain(key string, ttl time.Duration, waitTimeout time.Duration
 			log2.Fields{"ttl": ttl.String(), "waitTimeout": waitTimeout.String()})
 	}
 	checkError(err)
+	lock = &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}
+	lock.timer = time.NewTimer(ttl)
+	lock.done = make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				lock.Release()
+				return
+			case <-lock.timer.C:
+				return
+			case <-lock.done:
+				return
+			}
+		}
+	}()
 	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
-	return &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}, true
+	return lock, true
 }
 
 type Lock struct {
@@ -68,6 +84,8 @@ type Lock struct {
 	locker *Locker
 	has    bool
 	engine *Engine
+	timer  *time.Timer
+	done   chan bool
 }
 
 func (l *Lock) Release() {
@@ -82,9 +100,10 @@ func (l *Lock) Release() {
 	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release lock", err, nil)
 	}
+	l.has = false
+	l.done <- true
 	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
 	l.engine.dataDog.incrementCounter(counterRedisLockRelease, 1)
-	l.has = false
 }
 
 func (l *Lock) TTL() time.Duration {
@@ -99,15 +118,16 @@ func (l *Lock) TTL() time.Duration {
 	return d
 }
 
-func (l *Lock) Refresh(ttl time.Duration) bool {
+func (l *Lock) Refresh(ctx context.Context, ttl time.Duration) bool {
 	start := time.Now()
-	err := l.lock.Refresh(l.engine.context, ttl, nil)
+	err := l.lock.Refresh(ctx, ttl, nil)
 	has := true
 	if err == redislock.ErrNotObtained {
 		has = false
 		err = nil
 		l.has = false
 	}
+	l.timer.Reset(ttl)
 	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][REFRESH]", start,
 			l.key, "refresh lock", err, log2.Fields{"ttl": ttl.String()})

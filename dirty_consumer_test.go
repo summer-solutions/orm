@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ func TestDirtyConsumer(t *testing.T) {
 	var entity *dirtyReceiverEntity
 	registry := &Registry{}
 	engine := PrepareTables(t, registry, 5, entity)
+	ctx := context.Background()
 
 	channels := engine.GetRegistry().GetRedisChannels()
 	assert.Len(t, channels, 1)
@@ -40,7 +42,7 @@ func TestDirtyConsumer(t *testing.T) {
 	consumer.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 2)
 		assert.Equal(t, uint64(1), data[0].ID)
@@ -58,7 +60,7 @@ func TestDirtyConsumer(t *testing.T) {
 	assert.True(t, validHeartBeat)
 
 	iterations := 0
-	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"name_changed"}, 1, func(data []*DirtyData) {
 		iterations++
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(iterations), data[0].ID)
@@ -72,7 +74,7 @@ func TestDirtyConsumer(t *testing.T) {
 	e.Name = "Bob"
 	engine.TrackAndFlush(e)
 	valid = false
-	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -84,7 +86,7 @@ func TestDirtyConsumer(t *testing.T) {
 	assert.True(t, valid)
 
 	valid = false
-	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -98,14 +100,14 @@ func TestDirtyConsumer(t *testing.T) {
 	e.Age = 30
 	engine.TrackAndFlush(e)
 	valid = false
-	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
 	})
 	assert.True(t, valid)
 	valid = true
-	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = false
 	})
 	assert.True(t, valid)
@@ -114,7 +116,7 @@ func TestDirtyConsumer(t *testing.T) {
 	engine.Track(e)
 	engine.FlushInTransaction()
 	valid = false
-	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -122,7 +124,7 @@ func TestDirtyConsumer(t *testing.T) {
 	assert.True(t, valid)
 
 	valid = false
-	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = true
 	})
 	assert.True(t, valid)
@@ -131,7 +133,7 @@ func TestDirtyConsumer(t *testing.T) {
 	engine.Flush()
 
 	valid = false
-	consumer.Digest([]string{"entity_changed"}, 2, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"entity_changed"}, 2, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -143,7 +145,7 @@ func TestDirtyConsumer(t *testing.T) {
 	assert.True(t, valid)
 
 	valid = false
-	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)
@@ -156,7 +158,7 @@ func TestDirtyConsumer(t *testing.T) {
 
 	engine.MarkDirty(e, "name_changed", 2)
 	valid = false
-	consumer.Digest([]string{"name_changed"}, 1, func(data []*DirtyData) {
+	consumer.Digest(ctx, []string{"name_changed"}, 1, func(data []*DirtyData) {
 		valid = true
 		assert.Len(t, data, 1)
 		assert.Equal(t, uint64(2), data[0].ID)

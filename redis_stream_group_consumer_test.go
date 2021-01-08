@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -31,20 +32,22 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	r.FlushDB()
 
 	consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", autoDelete, 5, "test-stream")
+
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer.DisableLoop()
 	heartBeats := 0
 	consumer.SetHeartBeat(time.Second, func() {
 		heartBeats++
 	})
-	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
+	ctx, cancel := context.WithCancel(context.Background())
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
 	assert.Equal(t, 1, heartBeats)
 
 	for i := 1; i <= 10; i++ {
 		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	iterations := 0
-	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		assert.Len(t, streams, 1)
 		assert.Len(t, streams[0].Messages, 5)
@@ -74,7 +77,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 		assert.Equal(t, int64(10), r.XLen("test-stream"))
 	}
 	assert.Equal(t, int64(0), r.XInfoGroups("test-stream")[0].Pending)
-	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
 	assert.Equal(t, 2, iterations)
 
 	r.XTrim("test-stream", 0, false)
@@ -82,7 +85,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	iterations = 0
-	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		assert.Len(t, streams[0].Messages, 5)
 		if iterations == 1 {
@@ -96,7 +99,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	assert.Equal(t, int64(10), r.XInfoGroups("test-stream")[0].Pending)
 	iterations = 0
 	heartBeats = 0
-	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		assert.Len(t, streams[0].Messages, 5)
 		if iterations == 1 {
@@ -122,7 +125,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	consumer = r.NewStreamGroupConsumer("test-consumer", "test-group", autoDelete, 5, "test-stream")
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	iterations = 0
-	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		if iterations == 1 {
 			assert.Len(t, streams[0].Messages, 5)
@@ -171,7 +174,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 		r.XAdd("test-stream-a", []string{"name", fmt.Sprintf("a%d", i)})
 		r.XAdd("test-stream-b", []string{"name", fmt.Sprintf("b%d", i)})
 	}
-	consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		assert.Len(t, streams, 2)
 		if iterations == 1 {
@@ -184,7 +187,6 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	})
 	assert.Equal(t, 2, iterations)
 
-	// TODO TEST we are running unique
 	r.FlushDB()
 	iterations = 0
 	messages := 0
@@ -199,7 +201,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 			"test-stream")
 		consumer.DisableLoop()
 		consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 10
-		consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+		consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			iterations++
 			messages += len(streams[0].Messages)
 		})
@@ -211,7 +213,7 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 		consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 10
 		assert.PanicsWithError(t, "consumer test-consumer-unique for group test-group is running already", func() {
 			valid = true
-			consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+			consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			})
 		})
 	}()
@@ -231,10 +233,24 @@ func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 100
 	consumer.DisableLoop()
 	assert.PanicsWithError(t, "consumer test-consumer-unique for group test-group lost lock", func() { // TODO
-		consumer.Consume(func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+		consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			valid = true
-			time.Sleep(time.Millisecond * 300)
+			time.Sleep(time.Millisecond * 500)
 		})
+	})
+	assert.True(t, valid)
+
+	r.FlushDB()
+	consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", autoDelete, 1,
+		"test-stream")
+	consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 400
+	valid = true
+	go func() {
+		time.Sleep(time.Millisecond * 200)
+		cancel()
+	}()
+	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+		valid = false
 	})
 	assert.True(t, valid)
 }

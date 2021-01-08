@@ -1125,7 +1125,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool, smart bool) {
 
 func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
 	locker := e.GetLocker(lockerPool)
-	lock, has := locker.Obtain(lockName, ttl, waitTimeout)
+	lock, has := locker.Obtain(e.context, lockName, ttl, waitTimeout)
 	if !has {
 		panic(errors.Timeoutf("lock wait"))
 	}

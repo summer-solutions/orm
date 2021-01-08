@@ -22,11 +22,11 @@ func TestLocker(t *testing.T) {
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceRedis)
 
 	l := engine.GetLocker()
-	lock, has := l.Obtain("test_key", time.Second, 0)
+	lock, has := l.Obtain(engine.context, "test_key", time.Second, 0)
 	assert.True(t, has)
 	assert.NotNil(t, lock)
 
-	_, has = l.Obtain("test_key", time.Second, time.Millisecond)
+	_, has = l.Obtain(engine.context, "test_key", time.Second, time.Millisecond)
 	assert.False(t, has)
 
 	left := lock.TTL()
@@ -34,11 +34,11 @@ func TestLocker(t *testing.T) {
 
 	lock.Release()
 	lock.Release()
-	_, has = l.Obtain("test_key", time.Second, time.Millisecond)
+	_, has = l.Obtain(engine.context, "test_key", time.Second, time.Millisecond)
 	assert.True(t, has)
 
 	assert.PanicsWithError(t, "ttl not valid", func() {
-		_, _ = l.Obtain("test_key", 0, time.Millisecond)
+		_, _ = l.Obtain(engine.context, "test_key", 0, time.Millisecond)
 	})
 
 	registry = &Registry{}
@@ -51,6 +51,6 @@ func TestLocker(t *testing.T) {
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceRedis)
 	l = engine.GetLocker()
 	assert.Panics(t, func() {
-		_, _ = l.Obtain("test_key", time.Second, time.Millisecond)
+		_, _ = l.Obtain(engine.context, "test_key", time.Second, time.Millisecond)
 	})
 }

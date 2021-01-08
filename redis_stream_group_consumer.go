@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -33,7 +34,7 @@ func (s *RedisStreamGroupAck) Ack(stream string, message ...redis.XMessage) {
 }
 
 type RedisStreamGroupConsumer interface {
-	Consume(handler RedisStreamGroupHandler)
+	Consume(ctx context.Context, handler RedisStreamGroupHandler)
 	DisableLoop()
 	SetHeartBeat(duration time.Duration, beat func())
 }
@@ -75,10 +76,10 @@ func (r *redisStreamGroupConsumer) HeartBeat(force bool) {
 	}
 }
 
-func (r *redisStreamGroupConsumer) Consume(handler RedisStreamGroupHandler) {
+func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStreamGroupHandler) {
 	uniqueLockKey := r.group + "_" + r.name
 	locker := r.redis.engine.GetLocker()
-	lock, has := locker.Obtain(uniqueLockKey, r.lockTTL, time.Millisecond)
+	lock, has := locker.Obtain(ctx, uniqueLockKey, r.lockTTL, time.Millisecond)
 	if !has {
 		panic(fmt.Errorf("consumer %s for group %s is running already", r.name, r.group))
 	}
@@ -86,14 +87,18 @@ func (r *redisStreamGroupConsumer) Consume(handler RedisStreamGroupHandler) {
 	ticker := time.NewTicker(r.lockTick)
 	done := make(chan bool, 2)
 	hasLock := true
+	canceled := false
 	lockAcquired := time.Now()
 	go func() {
 		for {
 			select {
+			case <-ctx.Done():
+				canceled = true
+				return
 			case <-done:
 				return
 			case <-ticker.C:
-				if !lock.Refresh(r.lockTTL) {
+				if !lock.Refresh(ctx, r.lockTTL) {
 					hasLock = false
 					return
 				}
@@ -131,6 +136,9 @@ func (r *redisStreamGroupConsumer) Consume(handler RedisStreamGroupHandler) {
 				}
 			}
 			for {
+				if canceled {
+					return
+				}
 				if !hasLock || time.Since(lockAcquired) > r.lockTTL {
 					panic(fmt.Errorf("consumer %s for group %s lost lock", r.name, r.group))
 				}
@@ -153,6 +161,9 @@ func (r *redisStreamGroupConsumer) Consume(handler RedisStreamGroupHandler) {
 				}
 				a := &redis.XReadGroupArgs{Consumer: r.name, Group: r.group, Streams: streams, Count: int64(r.count), Block: r.block}
 				results := r.redis.XReadGroup(a)
+				if canceled {
+					return
+				}
 				totalMessages := 0
 				for _, row := range results {
 					l := len(row.Messages)
