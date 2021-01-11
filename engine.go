@@ -317,7 +317,16 @@ func (e *Engine) GetClickHouse(code ...string) *ClickHouse {
 	}
 	ch, has := e.clickHouseDbs[dbCode]
 	if !has {
-		panic(errors.Errorf("unregistered clickhouse pool '%s'", dbCode))
+		val, has := e.registry.clickHouseClients[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered clickhouse pool '%s'", dbCode))
+		}
+		ch = &ClickHouse{engine: e, code: val.code, client: val.db}
+		if e.clickHouseDbs == nil {
+			e.clickHouseDbs = map[string]*ClickHouse{dbCode: ch}
+		} else {
+			e.clickHouseDbs[dbCode] = ch
+		}
 	}
 	return ch
 }

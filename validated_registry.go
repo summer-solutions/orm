@@ -54,12 +54,6 @@ func (r *validatedRegistry) GetRedisChannels() map[string]map[string]uint64 {
 
 func (r *validatedRegistry) CreateEngine() *Engine {
 	e := &Engine{registry: r, context: context.Background()}
-	if e.registry.clickHouseClients != nil {
-		e.clickHouseDbs = make(map[string]*ClickHouse)
-		for key, val := range e.registry.clickHouseClients {
-			e.clickHouseDbs[key] = &ClickHouse{engine: e, code: val.code, client: val.db}
-		}
-	}
 	e.localCache = make(map[string]*LocalCache)
 	if e.registry.localCacheContainers != nil {
 		for key, val := range e.registry.localCacheContainers {
