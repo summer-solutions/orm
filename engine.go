@@ -118,7 +118,11 @@ func (e *Engine) SetLogMetaData(key string, value interface{}) {
 func (e *Engine) Track(entity ...Entity) {
 	for _, entity := range entity {
 		initIfNeeded(e, entity)
-		e.trackedEntities = append(e.trackedEntities, entity)
+		if e.trackedEntities == nil {
+			e.trackedEntities = []Entity{entity}
+		} else {
+			e.trackedEntities = append(e.trackedEntities, entity)
+		}
 		e.trackedEntitiesCounter++
 		if e.trackedEntitiesCounter == 10000 {
 			panic(errors.Errorf("track limit 10000 exceeded"))
@@ -175,7 +179,7 @@ func (e *Engine) FlushInTransactionWithLock(lockerPool string, lockName string, 
 }
 
 func (e *Engine) ClearTrackedEntities() {
-	e.trackedEntities = make([]Entity, 0)
+	e.trackedEntities = nil
 }
 
 func (e *Engine) SetOnDuplicateKeyUpdate(update *Where, entity Entity) {

@@ -1119,7 +1119,7 @@ func (e *Engine) flushTrackedEntities(lazy bool, transaction bool, smart bool) {
 			db.Commit()
 		}
 	}
-	e.trackedEntities = make([]Entity, 0)
+	e.trackedEntities = nil
 	e.trackedEntitiesCounter = 0
 }
 

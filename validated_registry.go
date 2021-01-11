@@ -55,7 +55,6 @@ func (r *validatedRegistry) GetRedisChannels() map[string]map[string]uint64 {
 func (r *validatedRegistry) CreateEngine() *Engine {
 	e := &Engine{registry: r, context: context.Background()}
 	e.dbs = make(map[string]*DB)
-	e.trackedEntities = make([]Entity, 0)
 	if e.registry.sqlClients != nil {
 		for key, val := range e.registry.sqlClients {
 			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName,
