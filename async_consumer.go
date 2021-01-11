@@ -172,7 +172,7 @@ func (r *AsyncConsumer) handleClearCache(validMap map[string]interface{}, key st
 				cache := r.engine.GetLocalCache(cacheCode)
 				cache.Remove(stringKeys...)
 			} else {
-				cache := r.engine.redis[cacheCode]
+				cache := r.engine.GetRedis(cacheCode)
 				cache.Del(stringKeys...)
 			}
 		}

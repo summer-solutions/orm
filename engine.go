@@ -308,7 +308,24 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	}
 	cache, has := e.redis[dbCode]
 	if !has {
-		panic(errors.Errorf("unregistered redis cache pool '%s'", dbCode))
+		val, has := e.registry.redisServers[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered redis cache pool '%s'", dbCode))
+		}
+		client := val.client
+		if client != nil {
+			client = client.WithContext(e.context)
+		}
+		ring := val.ring
+		if ring != nil {
+			ring = ring.WithContext(e.context)
+		}
+		cache = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
+		if e.redis == nil {
+			e.redis = map[string]*RedisCache{dbCode: cache}
+		} else {
+			e.redis[dbCode] = cache
+		}
 	}
 	return cache
 }

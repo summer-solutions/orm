@@ -51,22 +51,7 @@ func (r *validatedRegistry) GetRedisChannels() map[string]map[string]uint64 {
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {
-	e := &Engine{registry: r, context: context.Background()}
-	e.redis = make(map[string]*RedisCache)
-	if e.registry.redisServers != nil {
-		for key, val := range e.registry.redisServers {
-			client := val.client
-			if client != nil {
-				client = client.WithContext(e.context)
-			}
-			ring := val.ring
-			if ring != nil {
-				ring = ring.WithContext(e.context)
-			}
-			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
-		}
-	}
-	return e
+	return &Engine{registry: r, context: context.Background()}
 }
 
 func (r *validatedRegistry) GetTableSchema(entityName string) TableSchema {
