@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-
-	"github.com/bsm/redislock"
 )
 
 type ValidatedRegistry interface {
@@ -66,13 +64,6 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 				ring = ring.WithContext(e.context)
 			}
 			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
-		}
-	}
-	e.locks = make(map[string]*Locker)
-	if e.registry.lockServers != nil {
-		for key, val := range e.registry.lockServers {
-			locker := &standardLockerClient{client: redislock.New(e.registry.redisServers[val].client)}
-			e.locks[key] = &Locker{locker: locker, code: val, engine: e}
 		}
 	}
 	return e

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bsm/redislock"
+
 	"github.com/golang/groupcache/lru"
 
 	logApex "github.com/apex/log"
@@ -416,7 +418,17 @@ func (e *Engine) GetLocker(code ...string) *Locker {
 	}
 	locker, has := e.locks[dbCode]
 	if !has {
-		panic(errors.Errorf("unregistered locker pool '%s'", dbCode))
+		val, has := e.registry.lockServers[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered locker pool '%s'", dbCode))
+		}
+		lockerClient := &standardLockerClient{client: redislock.New(e.registry.redisServers[val].client)}
+		locker = &Locker{locker: lockerClient, code: val, engine: e}
+		if e.locks == nil {
+			e.locks = map[string]*Locker{dbCode: locker}
+		} else {
+			e.locks[dbCode] = locker
+		}
 	}
 	return locker
 }
