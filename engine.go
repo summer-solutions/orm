@@ -254,7 +254,17 @@ func (e *Engine) GetMysql(code ...string) *DB {
 	}
 	db, has := e.dbs[dbCode]
 	if !has {
-		panic(errors.Errorf("unregistered mysql pool '%s'", dbCode))
+		val, has := e.registry.sqlClients[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered mysql pool '%s'", dbCode))
+		}
+		db = &DB{engine: e, code: val.code, databaseName: val.databaseName,
+			client: &standardSQLClient{db: val.db}, autoincrement: val.autoincrement, version: val.version}
+		if e.dbs == nil {
+			e.dbs = map[string]*DB{dbCode: db}
+		} else {
+			e.dbs[dbCode] = db
+		}
 	}
 	return db
 }

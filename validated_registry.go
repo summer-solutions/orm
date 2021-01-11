@@ -54,13 +54,6 @@ func (r *validatedRegistry) GetRedisChannels() map[string]map[string]uint64 {
 
 func (r *validatedRegistry) CreateEngine() *Engine {
 	e := &Engine{registry: r, context: context.Background()}
-	e.dbs = make(map[string]*DB)
-	if e.registry.sqlClients != nil {
-		for key, val := range e.registry.sqlClients {
-			e.dbs[key] = &DB{engine: e, code: val.code, databaseName: val.databaseName,
-				client: &standardSQLClient{db: val.db}, autoincrement: val.autoincrement, version: val.version}
-		}
-	}
 	if e.registry.clickHouseClients != nil {
 		e.clickHouseDbs = make(map[string]*ClickHouse)
 		for key, val := range e.registry.clickHouseClients {
