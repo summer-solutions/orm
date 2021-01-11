@@ -318,7 +318,16 @@ func (e *Engine) GetElastic(code ...string) *Elastic {
 	}
 	elastic, has := e.elastic[dbCode]
 	if !has {
-		panic(errors.Errorf("unregistered elastic pool '%s'", dbCode))
+		val, has := e.registry.elasticServers[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered elastic pool '%s'", dbCode))
+		}
+		elastic = &Elastic{engine: e, code: val.code, client: val.client}
+		if e.elastic == nil {
+			e.elastic = map[string]*Elastic{dbCode: elastic}
+		} else {
+			e.elastic[dbCode] = elastic
+		}
 	}
 	return elastic
 }

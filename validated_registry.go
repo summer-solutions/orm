@@ -68,13 +68,6 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
 		}
 	}
-	e.elastic = make(map[string]*Elastic)
-	if e.registry.elasticServers != nil {
-		for key, val := range e.registry.elasticServers {
-			e.elastic[key] = &Elastic{engine: e, code: val.code, client: val.client}
-		}
-	}
-
 	e.rabbitMQChannels = make(map[string]*rabbitMQChannel)
 	if e.registry.rabbitMQChannelsToQueue != nil {
 		for key, val := range e.registry.rabbitMQChannelsToQueue {
