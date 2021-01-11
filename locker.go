@@ -73,8 +73,10 @@ func (l *Locker) Obtain(ctx context.Context, key string, ttl time.Duration, wait
 			}
 		}
 	}()
-	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
+	if l.engine.dataDog != nil {
+		l.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		l.engine.dataDog.incrementCounter(counterRedisLockObtain, 1)
+	}
 	return lock, true
 }
 
@@ -102,8 +104,10 @@ func (l *Lock) Release() {
 	}
 	l.has = false
 	l.done <- true
-	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	l.engine.dataDog.incrementCounter(counterRedisLockRelease, 1)
+	if l.engine.dataDog != nil {
+		l.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		l.engine.dataDog.incrementCounter(counterRedisLockRelease, 1)
+	}
 }
 
 func (l *Lock) TTL() time.Duration {
@@ -112,8 +116,10 @@ func (l *Lock) TTL() time.Duration {
 	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][TTL]", start, l.key, "ttl lock", err, nil)
 	}
-	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	l.engine.dataDog.incrementCounter(counterRedisLockTTL, 1)
+	if l.engine.dataDog != nil {
+		l.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		l.engine.dataDog.incrementCounter(counterRedisLockTTL, 1)
+	}
 	checkError(err)
 	return d
 }
@@ -132,8 +138,10 @@ func (l *Lock) Refresh(ctx context.Context, ttl time.Duration) bool {
 		l.locker.fillLogFields("[ORM][LOCKER][REFRESH]", start,
 			l.key, "refresh lock", err, log2.Fields{"ttl": ttl.String()})
 	}
-	l.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	l.engine.dataDog.incrementCounter(counterRedisLockRefresh, 1)
+	if l.engine.dataDog != nil {
+		l.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		l.engine.dataDog.incrementCounter(counterRedisLockRefresh, 1)
+	}
 	checkError(err)
 	return has
 }

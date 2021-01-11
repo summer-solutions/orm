@@ -58,3 +58,13 @@ func TestEngine(t *testing.T) {
 	assert.Len(t, engine.queryLoggers, 5)
 	assert.Len(t, engine.queryLoggers[QueryLoggerSourceDB].handler.Handlers, 2)
 }
+
+func BenchmarkEngine(b *testing.B) {
+	registry := &Registry{}
+	validatedRegistry, _ := registry.Validate()
+	b.ResetTimer()
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		validatedRegistry.CreateEngine()
+	}
+}

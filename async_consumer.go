@@ -133,7 +133,9 @@ func (r *AsyncConsumer) handleQueries(engine *Engine, validMap map[string]interf
 				if r := recover(); r != nil {
 					err := r.(error)
 					engine.Log().Error(err, nil)
-					engine.DataDog().RegisterAPMError(err)
+					if engine.dataDog != nil {
+						engine.dataDog.RegisterAPMError(err)
+					}
 				}
 			}()
 			res := db.Exec(sql, attributes...)

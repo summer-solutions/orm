@@ -100,7 +100,6 @@ func (p *PubSub) SetHeartBeat(beat func()) {
 
 func (p *PubSub) Consume(size int, handler func(items []*redis.Message)) {
 	delivery := p.pubSub.ChannelSize(size)
-
 	counter := 0
 	items := make([]*redis.Message, 0)
 	beatTime := time.Now()
@@ -113,8 +112,6 @@ func (p *PubSub) Consume(size int, handler func(items []*redis.Message)) {
 			handler(items)
 			items = nil
 			loopTime = time.Now().UnixNano()
-			p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-			p.r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
 			counter = 0
 			if p.disableLoop {
 				if p.heartBeat != nil {
@@ -133,6 +130,10 @@ func (p *PubSub) Consume(size int, handler func(items []*redis.Message)) {
 		case item := <-delivery:
 			items = append(items, item)
 			counter++
+			if p.r.engine.dataDog != nil {
+				p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+				p.r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+			}
 		case <-time.After(time.Second):
 		}
 	}
@@ -145,8 +146,10 @@ func (p *PubSub) Close() {
 		p.r.fillLogFields("[ORM][REDIS][CLOSE PUBSUB]", start, "closepubsub", -1, 1,
 			map[string]interface{}{"Channels": p.pubSub.String()}, err)
 	}
-	p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	p.r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if p.r.engine.dataDog != nil {
+		p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		p.r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	checkError(err)
 }
 
@@ -157,8 +160,10 @@ func (p *PubSub) Unsubscribe(channels ...string) {
 		p.r.fillLogFields("[ORM][REDIS][UNSUSCRIBE PUBSUB]", start, "unsusgribe", -1, len(channels),
 			map[string]interface{}{"Channels": channels}, err)
 	}
-	p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	p.r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if p.r.engine.dataDog != nil {
+		p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		p.r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	checkError(err)
 }
 
@@ -169,8 +174,10 @@ func (p *PubSub) PUnsubscribe(channels ...string) {
 		p.r.fillLogFields("[ORM][REDIS][PUNSUSCRIBE PUBSUB]", start, "punsusgribe", -1, len(channels),
 			map[string]interface{}{"Channels": channels}, err)
 	}
-	p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	p.r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if p.r.engine.dataDog != nil {
+		p.r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		p.r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	checkError(err)
 }
 
@@ -586,8 +593,10 @@ func (r *RedisCache) RateLimit(key string, limit redis_rate.Limit) bool {
 		r.fillLogFields("[ORM][REDIS][RATE_LIMIT]", start,
 			"rate_limit", 0, 1, map[string]interface{}{"Key": key}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	checkError(err)
 	return res.Allowed > 0
 }
@@ -615,16 +624,20 @@ func (r *RedisCache) Get(key string) (value string, has bool) {
 		if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 			r.fillLogFields("[ORM][REDIS][GET]", start, "get", 1, 1, map[string]interface{}{"Key": key}, err)
 		}
-		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+		if r.engine.dataDog != nil {
+			r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+			r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+		}
 		checkError(err)
 		return "", false
 	}
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][GET]", start, "get", 0, 1, map[string]interface{}{"Key": key}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return val, true
 }
 
@@ -635,8 +648,10 @@ func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) {
 		r.fillLogFields("[ORM][REDIS][SET]", start, "set", -1, 1,
 			map[string]interface{}{"Key": key, "value": value, "ttl": ttlSeconds}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	checkError(err)
 }
 
@@ -647,8 +662,10 @@ func (r *RedisCache) LPush(key string, values ...interface{}) int64 {
 		r.fillLogFields("[ORM][REDIS][LPUSH]", start, "lpush", -1, len(values),
 			map[string]interface{}{"Key": key, "values": values}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(values)))
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(values)))
+	}
 	checkError(err)
 	return val
 }
@@ -660,8 +677,10 @@ func (r *RedisCache) RPush(key string, values ...interface{}) int64 {
 		r.fillLogFields("[ORM][REDIS][RPUSH]", start, "rpush", -1, len(values),
 			map[string]interface{}{"Key": key, "values": values}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(values)))
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(values)))
+	}
 	checkError(err)
 	return val
 }
@@ -673,8 +692,10 @@ func (r *RedisCache) LLen(key string) int64 {
 		r.fillLogFields("[ORM][REDIS][LLEN]", start, "llen", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -686,8 +707,10 @@ func (r *RedisCache) Exists(keys ...string) int64 {
 		r.fillLogFields("[ORM][REDIS][EXISTS]", start, "exists", -1, 1,
 			map[string]interface{}{"Keys": keys}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -699,8 +722,10 @@ func (r *RedisCache) Type(key string) string {
 		r.fillLogFields("[ORM][REDIS][TYPE]", start, "type", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -712,8 +737,10 @@ func (r *RedisCache) LRange(key string, start, stop int64) []string {
 		r.fillLogFields("[ORM][REDIS][LRANGE]", s, "lrange", -1, len(val),
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -725,8 +752,10 @@ func (r *RedisCache) LSet(key string, index int64, value interface{}) {
 		r.fillLogFields("[ORM][REDIS][LSET]", start, "lset", -1, 1,
 			map[string]interface{}{"Key": key, "index": index, "value": value}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	checkError(err)
 }
 
@@ -741,8 +770,10 @@ func (r *RedisCache) RPop(key string) (value string, found bool) {
 			r.fillLogFields("[ORM][REDIS][RPOP]", start, "rpop", 1, 1,
 				map[string]interface{}{"Key": key}, err)
 		}
-		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+		if r.engine.dataDog != nil {
+			r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+			r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+		}
 		checkError(err)
 		return "", false
 	}
@@ -750,8 +781,10 @@ func (r *RedisCache) RPop(key string) (value string, found bool) {
 		r.fillLogFields("[ORM][REDIS][RPOP]", start, "rpop", 0, 1,
 			map[string]interface{}{"Key": key}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return val, true
 }
 
@@ -762,8 +795,10 @@ func (r *RedisCache) LRem(key string, count int64, value interface{}) {
 		r.fillLogFields("[ORM][REDIS][LREM]", start, "lrem", -1, 1,
 			map[string]interface{}{"Key": key, "count": count, "value": value}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 }
 
@@ -774,8 +809,10 @@ func (r *RedisCache) Ltrim(key string, start, stop int64) {
 		r.fillLogFields("[ORM][REDIS][LTRIM]", s, "ltrim", -1, 1,
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 }
 
@@ -786,8 +823,10 @@ func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 		r.fillLogFields("[ORM][REDIS][HMSET]", start, "hmset", -1, len(fields),
 			map[string]interface{}{"Key": key, "fields": fields}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(fields)))
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(fields)))
+	}
 	checkError(err)
 }
 
@@ -798,16 +837,16 @@ func (r *RedisCache) HSet(key string, field string, value interface{}) {
 		r.fillLogFields("[ORM][REDIS][HSET]", start, "hset", -1, 1,
 			map[string]interface{}{"Key": key, "field": field, "value": value}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	checkError(err)
 }
 
 func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} {
 	start := time.Now()
 	val, err := r.client.HMGet(key, fields...)
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(fields)))
 	results := make(map[string]interface{}, len(fields))
 	misses := 0
 	for index, v := range val {
@@ -820,8 +859,10 @@ func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} 
 		r.fillLogFields("[ORM][REDIS][HMGET]", start, "hmget", misses, len(fields),
 			map[string]interface{}{"Key": key, "fields": fields}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(fields)))
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(fields)))
+	}
 	return results
 }
 
@@ -832,8 +873,10 @@ func (r *RedisCache) HGetAll(key string) map[string]string {
 		r.fillLogFields("[ORM][REDIS][HGETALL]", start, "hgetall", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -845,8 +888,10 @@ func (r *RedisCache) ZAdd(key string, members ...*redis.Z) int64 {
 		r.fillLogFields("[ORM][REDIS][ZADD]", start, "zadd", -1, len(members),
 			map[string]interface{}{"Key": key, "members": len(members)}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(members)))
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(members)))
+	}
 	checkError(err)
 	return val
 }
@@ -858,8 +903,10 @@ func (r *RedisCache) ZRevRange(key string, start, stop int64) []string {
 		r.fillLogFields("[ORM][REDIS][ZREVRANGE]", startTime, "zrevrange", -1, 1,
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -871,8 +918,10 @@ func (r *RedisCache) ZRevRangeWithScores(key string, start, stop int64) []redis.
 		r.fillLogFields("[ORM][REDIS][ZREVRANGEWITHSCORES]", startTime, "zrevrangewithscores", -1, 1,
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -884,8 +933,10 @@ func (r *RedisCache) ZRangeWithScores(key string, start, stop int64) []redis.Z {
 		r.fillLogFields("[ORM][REDIS][ZRANGEWITHSCORES]", startTime, "zrangewithscores", -1, 1,
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -897,8 +948,10 @@ func (r *RedisCache) ZCard(key string) int64 {
 		r.fillLogFields("[ORM][REDIS][ZCARD]", start, "zcard", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -910,8 +963,10 @@ func (r *RedisCache) ZCount(key string, min, max string) int64 {
 		r.fillLogFields("[ORM][REDIS][ZCOUNT]", start, "zcount", -1, 1,
 			map[string]interface{}{"Key": key, "min": min, "max": max}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -923,8 +978,10 @@ func (r *RedisCache) ZScore(key, member string) float64 {
 		r.fillLogFields("[ORM][REDIS][ZSCORE]", start, "zscore", -1, 1,
 			map[string]interface{}{"Key": key, "member": member}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -936,8 +993,10 @@ func (r *RedisCache) MSet(pairs ...interface{}) {
 		r.fillLogFields("[ORM][REDIS][MSET]", start, "mset", -1, len(pairs),
 			map[string]interface{}{"Pairs": pairs}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(pairs)))
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(pairs)))
+	}
 	checkError(err)
 }
 
@@ -956,8 +1015,10 @@ func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
 		r.fillLogFields("[ORM][REDIS][MGET]", start, "mget", misses, len(keys),
 			map[string]interface{}{"Keys": keys}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(keys)))
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(keys)))
+	}
 	return results
 }
 
@@ -968,8 +1029,10 @@ func (r *RedisCache) SAdd(key string, members ...interface{}) int64 {
 		r.fillLogFields("[ORM][REDIS][SADD]", start, "sadd", -1, len(members),
 			map[string]interface{}{"Key": key, "members": len(members)}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(members)))
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, uint(len(members)))
+	}
 	checkError(err)
 	return val
 }
@@ -981,8 +1044,10 @@ func (r *RedisCache) SCard(key string) int64 {
 		r.fillLogFields("[ORM][REDIS][SCARD]", start, "scard", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -999,8 +1064,10 @@ func (r *RedisCache) SPop(key string) (string, bool) {
 		r.fillLogFields("[ORM][REDIS][SPOP]", start, "spop", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val, found
 }
@@ -1012,8 +1079,10 @@ func (r *RedisCache) SPopN(key string, max int64) []string {
 		r.fillLogFields("[ORM][REDIS][SPOPN]", start, "spopn", -1, 1,
 			map[string]interface{}{"Key": key, "max": max}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 	return val
 }
@@ -1025,8 +1094,10 @@ func (r *RedisCache) Del(keys ...string) {
 		r.fillLogFields("[ORM][REDIS][DEL]", start, "del", -1, len(keys),
 			map[string]interface{}{"Keys": keys}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(keys)))
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, uint(len(keys)))
+	}
 	checkError(err)
 }
 
@@ -1037,8 +1108,10 @@ func (r *RedisCache) PSubscribe(channels ...string) *PubSub {
 		r.fillLogFields("[ORM][REDIS][PSUBSCRIBE]", start, "psubscribe", -1, len(channels),
 			map[string]interface{}{"channels": channels}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return &PubSub{pubSub: pubSub, r: r}
 }
 
@@ -1049,8 +1122,10 @@ func (r *RedisCache) Subscribe(channels ...string) *PubSub {
 		r.fillLogFields("[ORM][REDIS][SUBSCRIBE]", start, "subscribe", -1, len(channels),
 			map[string]interface{}{"channels": channels}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return &PubSub{pubSub: pubSub, r: r}
 }
 
@@ -1061,8 +1136,10 @@ func (r *RedisCache) Publish(channel string, message interface{}) {
 		r.fillLogFields("[ORM][REDIS][PUBLISH]", start, "publish", -1, 1,
 			map[string]interface{}{"channel": channel, "message": message}, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	checkError(err)
 }
 
@@ -1074,8 +1151,10 @@ func (r *RedisCache) XTrim(key string, maxLen int64, approx bool) (deleted int64
 		r.fillLogFields("[ORM][REDIS][XTRIM]", start, "xtrim", 0, 1,
 			map[string]interface{}{"key": key, "max_len": maxLen, "approx": approx}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return deleted
 }
 
@@ -1087,8 +1166,10 @@ func (r *RedisCache) XRange(stream, start, stop string, count int64) []redis.XMe
 		r.fillLogFields("[ORM][REDIS][XRANGE]", s, "xrange", 0, 1,
 			map[string]interface{}{"stream": stream, "start": start, "stop": stop, "count": count}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return deleted
 }
 
@@ -1100,8 +1181,10 @@ func (r *RedisCache) XRevRange(stream, start, stop string, count int64) []redis.
 		r.fillLogFields("[ORM][REDIS][XREVRANGE]", s, "xrevrange", 0, 1,
 			map[string]interface{}{"stream": stream, "start": start, "stop": stop, "count": count}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return deleted
 }
 
@@ -1113,8 +1196,10 @@ func (r *RedisCache) XInfoStream(stream string) *redis.XInfoStream {
 		r.fillLogFields("[ORM][REDIS][XINFO]", start, "xinfo", 0, 1,
 			map[string]interface{}{"stream": stream}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return info
 }
 
@@ -1129,8 +1214,10 @@ func (r *RedisCache) XInfoGroups(stream string) []redis.XInfoGroup {
 		r.fillLogFields("[ORM][REDIS][XINFO]", start, "xinfo", 0, 1,
 			map[string]interface{}{"group": stream}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return info
 }
 
@@ -1145,8 +1232,10 @@ func (r *RedisCache) XGroupCreate(stream, group, start string) (key string, exis
 		r.fillLogFields("[ORM][REDIS][XGROUP]", s, "xgroup", 0, 1,
 			map[string]interface{}{"arg": "create", "stream": stream, "group": group, "start": start}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	return res, false
 }
 
@@ -1161,8 +1250,10 @@ func (r *RedisCache) XGroupCreateMkStream(stream, group, start string) (key stri
 		r.fillLogFields("[ORM][REDIS][XGROUP]", s, "xgroup", 0, 1,
 			map[string]interface{}{"arg": "create mkstream", "stream": stream, "group": group, "start": start}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	return res, false
 }
 
@@ -1174,8 +1265,10 @@ func (r *RedisCache) XGroupDestroy(stream, group string) int64 {
 		r.fillLogFields("[ORM][REDIS][XGROUP]", start, "xgroup", 0, 1,
 			map[string]interface{}{"arg": "destroy", "stream": stream, "group": group}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	return res
 }
 
@@ -1189,8 +1282,10 @@ func (r *RedisCache) XRead(a *redis.XReadArgs) []redis.XStream {
 		r.fillLogFields("[ORM][REDIS][XREAD]", start, "xread", 0, 1,
 			map[string]interface{}{"arg": a}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return info
 }
 
@@ -1202,8 +1297,10 @@ func (r *RedisCache) XDel(stream string, ids ...string) int64 {
 		r.fillLogFields("[ORM][REDIS][XDEL]", s, "xdel", 0, len(ids),
 			map[string]interface{}{"stream": stream, "ids": ids}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	return deleted
 }
 
@@ -1215,8 +1312,10 @@ func (r *RedisCache) XGroupDelConsumer(stream, group, consumer string) int64 {
 		r.fillLogFields("[ORM][REDIS][XDEL]", start, "XGROUP", 0, 1,
 			map[string]interface{}{"stream": stream, "group": group, "consumer": "consumer", "action": "delete consumer"}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	return deleted
 }
 
@@ -1231,8 +1330,10 @@ func (r *RedisCache) XReadGroup(a *redis.XReadGroupArgs) (streams []redis.XStrea
 			map[string]interface{}{"consumer": a.Consumer, "group": a.Group, "count": a.Count, "block": a.Block,
 				"noack": a.NoAck, "streams": a.Streams}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return streams
 }
 
@@ -1244,8 +1345,10 @@ func (r *RedisCache) XPending(stream, group string) *redis.XPending {
 		r.fillLogFields("[ORM][REDIS][XPENDING]", start, "xpending", 0, 1,
 			map[string]interface{}{"stream": stream, "group": group}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return res
 }
 
@@ -1257,8 +1360,10 @@ func (r *RedisCache) XPendingExt(a *redis.XPendingExtArgs) []redis.XPendingExt {
 		r.fillLogFields("[ORM][REDIS][XPENDING]", start, "xpending", 0, 1,
 			map[string]interface{}{"arg": a}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return res
 }
 
@@ -1283,8 +1388,10 @@ func (r *RedisCache) XAdd(stream string, values interface{}) (id string) {
 		r.fillLogFields("[ORM][REDIS][XADD]", start, "xtrim", 0, 1,
 			map[string]interface{}{"stream": stream, "id": a.ID, "values": a.Values, "max_len_app": a.MaxLenApprox}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	return id
 }
 
@@ -1296,8 +1403,10 @@ func (r *RedisCache) XLen(stream string) int64 {
 		r.fillLogFields("[ORM][REDIS][XLEN]", start, "xlen", 0, 1,
 			map[string]interface{}{"stream": stream}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	}
 	return l
 }
 
@@ -1309,8 +1418,10 @@ func (r *RedisCache) XClaim(a *redis.XClaimArgs) []redis.XMessage {
 		r.fillLogFields("[ORM][REDIS][XCLAIM]", start, "xclaim", 0, len(a.Messages),
 			map[string]interface{}{"arg": a}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	return res
 }
 
@@ -1322,8 +1433,10 @@ func (r *RedisCache) XClaimJustID(a *redis.XClaimArgs) []string {
 		r.fillLogFields("[ORM][REDIS][XCLAIM]", start, "xclaim", 0, len(a.Messages),
 			map[string]interface{}{"arg": a, "justid": true}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	return res
 }
 
@@ -1335,8 +1448,10 @@ func (r *RedisCache) XAck(stream, group string, ids ...string) int64 {
 		r.fillLogFields("[ORM][REDIS][XACK]", start, "xack", 0, len(ids),
 			map[string]interface{}{"stream": stream, group: group, "ids": ids}, nil)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	return res
 }
 
@@ -1346,8 +1461,10 @@ func (r *RedisCache) FlushDB() {
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][FLUSHDB]", start, "flushdb", -1, 1, nil, err)
 	}
-	r.engine.dataDog.incrementCounter(counterRedisAll, 1)
-	r.engine.dataDog.incrementCounter(counterRedisKeysGet, 1)
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
 	checkError(err)
 }
 

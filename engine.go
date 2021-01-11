@@ -52,6 +52,9 @@ type Engine struct {
 }
 
 func (e *Engine) DataDog() DataDog {
+	if e.dataDog == nil {
+		e.dataDog = &dataDog{engine: e}
+	}
 	return e.dataDog
 }
 

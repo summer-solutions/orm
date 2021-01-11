@@ -41,8 +41,10 @@ func (c *ClickHouse) Exec(query string, args ...interface{}) sql.Result {
 	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		c.fillLogFields("[ORM][CLICKHOUSE][EXEC]", start, "exec", query, args, err)
 	}
-	c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
-	c.engine.dataDog.incrementCounter(counterClickHouseExec, 1)
+	if c.engine.dataDog != nil {
+		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
+		c.engine.dataDog.incrementCounter(counterClickHouseExec, 1)
+	}
 	checkError(err)
 	return rows
 }
@@ -53,8 +55,10 @@ func (c *ClickHouse) Queryx(query string, args ...interface{}) (rows *sqlx.Rows,
 	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		c.fillLogFields("[ORM][CLICKHOUSE][SELECT]", start, "select", query, args, err)
 	}
-	c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
-	c.engine.dataDog.incrementCounter(counterClickHouseQuery, 1)
+	if c.engine.dataDog != nil {
+		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
+		c.engine.dataDog.incrementCounter(counterClickHouseQuery, 1)
+	}
 	checkError(err)
 	return rows, func() {
 		if rows != nil {
@@ -71,6 +75,8 @@ func (c *ClickHouse) Begin() {
 	tx, err := c.client.Begin()
 	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		c.fillLogFields("[ORM][CLICKHOUSE][BEGIN]", start, "transaction", "START TRANSACTION", nil, err)
+	}
+	if c.engine.dataDog != nil {
 		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 		c.engine.dataDog.incrementCounter(counterClickHouseTransaction, 1)
 	}
@@ -86,6 +92,8 @@ func (c *ClickHouse) Commit() {
 	err := c.tx.Commit()
 	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		c.fillLogFields("[ORM][CLICKHOUSE][COMMIT]", start, "transaction", "COMMIT TRANSACTION", nil, err)
+	}
+	if c.engine.dataDog != nil {
 		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 	}
 	checkError(err)
@@ -100,6 +108,8 @@ func (c *ClickHouse) Rollback() {
 	err := c.tx.Rollback()
 	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		c.fillLogFields("[ORM][CLICKHOUSE][ROLLBACK]", start, "transaction", "ROLLBACK TRANSACTION", nil, err)
+	}
+	if c.engine.dataDog != nil {
 		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 	}
 	checkError(err)
@@ -117,6 +127,8 @@ func (p *PreparedStatement) Exec(args ...interface{}) sql.Result {
 	results, err := p.statement.Exec(args...)
 	if p.c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		p.c.fillLogFields("[ORM][CLICKHOUSE][EXEC]", start, "exec", p.query, args, err)
+	}
+	if p.c.engine.dataDog != nil {
 		p.c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 		p.c.engine.dataDog.incrementCounter(counterClickHouseExec, 1)
 	}
@@ -131,6 +143,8 @@ func (c *ClickHouse) Prepare(query string) (preparedStatement *PreparedStatement
 	statement, err = c.tx.Prepare(query)
 	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
 		c.fillLogFields("[ORM][CLICKHOUSE][PREPARE]", start, "exec", query, nil, err)
+	}
+	if c.engine.dataDog != nil {
 		c.engine.dataDog.incrementCounter(counterClickHouseAll, 1)
 		c.engine.dataDog.incrementCounter(counterClickHouseExec, 1)
 	}

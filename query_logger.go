@@ -50,6 +50,9 @@ func newDBDataDogHandler(withAnalytics bool, engine *Engine) *dbDataDogHandler {
 }
 
 func (h *dbDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	if h.engine.dataDog == nil {
+		return nil
+	}
 	l := len(h.engine.dataDog.ctx)
 	if l == 0 {
 		return nil
@@ -80,6 +83,9 @@ func newRabbitMQDataDogHandler(withAnalytics bool, engine *Engine) *rabbitMQData
 }
 
 func (h *rabbitMQDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	if h.engine.dataDog == nil {
+		return nil
+	}
 	l := len(h.engine.dataDog.ctx)
 	if l == 0 {
 		return nil
@@ -117,6 +123,9 @@ func newRedisDataDogHandler(withAnalytics bool, engine *Engine) *redisDataDogHan
 }
 
 func (h *redisDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	if h.engine.dataDog == nil {
+		return nil
+	}
 	l := len(h.engine.dataDog.ctx)
 	if l == 0 {
 		return nil
@@ -154,6 +163,9 @@ func newElasticDataDogHandler(withAnalytics bool, engine *Engine) *elasticDataDo
 }
 
 func (h *elasticDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	if h.engine.dataDog == nil {
+		return nil
+	}
 	l := len(h.engine.dataDog.ctx)
 	if l == 0 {
 		return nil
@@ -188,6 +200,9 @@ func newClickHouseDataDogHandler(withAnalytics bool, engine *Engine) *clickHouse
 }
 
 func (h *clickHouseDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	if h.engine.dataDog == nil {
+		return nil
+	}
 	l := len(h.engine.dataDog.ctx)
 	if l == 0 {
 		return nil

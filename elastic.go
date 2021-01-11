@@ -125,8 +125,10 @@ func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, option
 		}
 		e.fillLogFields("[ORM][ELASTIC][QUERY]", start, "query", fields, err)
 	}
-	e.engine.dataDog.incrementCounter(counterElasticAll, 1)
-	e.engine.dataDog.incrementCounter(counterElasticSearch, 1)
+	if e.engine.dataDog != nil {
+		e.engine.dataDog.incrementCounter(counterElasticAll, 1)
+		e.engine.dataDog.incrementCounter(counterElasticSearch, 1)
+	}
 	checkError(err)
 	return result
 }
