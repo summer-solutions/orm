@@ -1264,10 +1264,12 @@ func (r *RedisCache) XGroupCreate(stream, group, start string) (key string, exis
 func (r *RedisCache) XGroupCreateMkStream(stream, group, start string) (key string, exists bool) {
 	s := time.Now()
 	res, err := r.client.XGroupCreateMkStream(stream, group, start)
+	created := false
 	if err != nil && strings.HasPrefix(err.Error(), "BUSYGROUP") {
-		return "OK", true
+		created = true
+		err = nil
+		res = "OK"
 	}
-	checkError(err)
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][XGROUP]", s, "xgroup", 0, 1,
 			map[string]interface{}{"arg": "create mkstream", "stream": stream, "group": group, "start": start}, nil)
@@ -1276,7 +1278,7 @@ func (r *RedisCache) XGroupCreateMkStream(stream, group, start string) (key stri
 		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
 		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
 	}
-	return res, false
+	return res, created
 }
 
 func (r *RedisCache) XGroupDestroy(stream, group string) int64 {

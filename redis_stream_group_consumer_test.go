@@ -3,6 +3,7 @@ package orm
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,7 +44,10 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 	}
 	iterations1 := false
 	iterations2 := false
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
 		consumer := r.NewStreamGroupAutoScaledConsumer("test-consumer", "test-group", true, 1, "test-stream")
 		consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 		consumer.DisableLoop()
@@ -55,6 +59,7 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 	}()
 	time.Sleep(time.Millisecond)
 	go func() {
+		defer wg.Done()
 		consumer := r.NewStreamGroupAutoScaledConsumer("test-consumer", "test-group", true, 1, "test-stream")
 		consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 		consumer.DisableLoop()
@@ -64,7 +69,7 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 			time.Sleep(time.Millisecond * 20)
 		})
 	}()
-	time.Sleep(time.Millisecond * 30)
+	wg.Wait()
 	assert.True(t, iterations1)
 	assert.True(t, iterations2)
 }
