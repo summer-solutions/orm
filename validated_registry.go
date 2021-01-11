@@ -68,13 +68,6 @@ func (r *validatedRegistry) CreateEngine() *Engine {
 			e.redis[key] = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
 		}
 	}
-	e.rabbitMQChannels = make(map[string]*rabbitMQChannel)
-	if e.registry.rabbitMQChannelsToQueue != nil {
-		for key, val := range e.registry.rabbitMQChannelsToQueue {
-			e.rabbitMQChannels[key] = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
-		}
-	}
-
 	e.locks = make(map[string]*Locker)
 	if e.registry.lockServers != nil {
 		for key, val := range e.registry.lockServers {

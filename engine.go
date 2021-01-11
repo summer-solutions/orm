@@ -360,7 +360,16 @@ func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {
 	}
 	channel, has := e.rabbitMQChannels[queueName]
 	if !has {
-		panic(errors.Errorf("unregistered rabbitMQ queue '%s'", queueName))
+		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
+		if !has {
+			panic(errors.Errorf("unregistered rabbitMQ queue '%s'", queueName))
+		}
+		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
+		if e.rabbitMQChannels == nil {
+			e.rabbitMQChannels = map[string]*rabbitMQChannel{queueName: channel}
+		} else {
+			e.rabbitMQChannels[queueName] = channel
+		}
 	}
 	if channel.config.Router != "" {
 		panic(errors.Errorf("rabbitMQ queue '%s' is declared as router", queueName))
@@ -379,7 +388,16 @@ func (e *Engine) GetRabbitMQRouter(queueName string) *RabbitMQRouter {
 	}
 	channel, has := e.rabbitMQChannels[queueName]
 	if !has {
-		panic(errors.Errorf("unregistered rabbitMQ router '%s'. Use queue name, not router name.", queueName))
+		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
+		if !has {
+			panic(errors.Errorf("unregistered rabbitMQ router '%s'. Use queue name, not router name.", queueName))
+		}
+		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
+		if e.rabbitMQChannels == nil {
+			e.rabbitMQChannels = map[string]*rabbitMQChannel{queueName: channel}
+		} else {
+			e.rabbitMQChannels[queueName] = channel
+		}
 	}
 	if channel.config.Router == "" {
 		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as router", queueName))
