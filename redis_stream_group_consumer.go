@@ -3,11 +3,12 @@ package orm
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 )
+
+const maxConsumers = 200
 
 type RedisStreamGroupHandler func(streams []redis.XStream, ack *RedisStreamGroupAck)
 
@@ -56,7 +57,7 @@ func (r *RedisCache) newStreamGroupConsumer(name, group string, autoScale, autoD
 type redisStreamGroupConsumer struct {
 	redis             *RedisCache
 	name              string
-	nr                string
+	nr                int
 	streams           []string
 	group             string
 	autoDelete        bool
@@ -90,42 +91,26 @@ func (r *redisStreamGroupConsumer) HeartBeat(force bool) {
 func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStreamGroupHandler) {
 	uniqueLockKey := r.group + "_" + r.name
 	locker := r.redis.engine.GetLocker()
-	if r.autoScale {
-		freeNumber := 0
-		func() {
-			lockScripts, has := locker.Obtain(ctx, uniqueLockKey+"_lock", time.Second*2, time.Second)
-			if !has {
-				panic(fmt.Errorf("unable to aquire lock"))
+	nr := 0
+	lockName := uniqueLockKey
+	var lock *Lock
+	for {
+		nr++
+		if r.autoScale {
+			lockName = fmt.Sprintf("%s-%d", uniqueLockKey, nr)
+		}
+		locked, has := locker.Obtain(ctx, lockName, r.lockTTL, time.Millisecond*10)
+		if !has {
+			if r.autoScale && nr < maxConsumers {
+				continue
 			}
-			defer lockScripts.Release()
-			runningScripts := r.redis.HGetAll(uniqueLockKey + "_running")
-			max := 1
-			for k := range runningScripts {
-				nr, _ := strconv.Atoi(k)
-				if max == 0 || nr > max {
-					max = nr
-				}
-			}
-			for freeNumber = 1; freeNumber <= max+1; freeNumber++ {
-				timestampString, has := runningScripts[strconv.Itoa(freeNumber)]
-				if !has {
-					break
-				}
-				timestamp, _ := strconv.ParseInt(timestampString, 10, 64)
-				if time.Since(time.Unix(0, timestamp)) > r.lockTTL {
-					break
-				}
-			}
-			r.nr = strconv.Itoa(freeNumber)
-			r.redis.HSet(uniqueLockKey+"_running", r.nr, time.Now().UnixNano())
-		}()
-		defer func() {
-			r.redis.HDel(uniqueLockKey+"_running", r.nr)
-		}()
-	}
-	lock, has := locker.Obtain(ctx, uniqueLockKey, r.lockTTL, time.Millisecond)
-	if !has {
-		panic(fmt.Errorf("consumer %s for group %s is running already", r.name, r.group))
+			panic(fmt.Errorf("consumer %s for group %s is running already", r.getName(), r.group))
+		}
+		lock = locked
+		if r.autoScale {
+			r.nr = nr
+		}
+		break
 	}
 	defer lock.Release()
 	ticker := time.NewTicker(r.lockTick)
@@ -184,7 +169,7 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 					return
 				}
 				if !hasLock || time.Since(lockAcquired) > r.lockTTL {
-					panic(fmt.Errorf("consumer %s for group %s lost lock", r.name, r.group))
+					panic(fmt.Errorf("consumer %s for group %s lost lock", r.getName(), r.group))
 				}
 				i := 0
 				zeroCount := 0
@@ -203,7 +188,7 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 					}
 					i++
 				}
-				a := &redis.XReadGroupArgs{Consumer: r.name, Group: r.group, Streams: streams, Count: int64(r.count), Block: r.block}
+				a := &redis.XReadGroupArgs{Consumer: r.getName(), Group: r.group, Streams: streams, Count: int64(r.count), Block: r.block}
 				results := r.redis.XReadGroup(a)
 				if canceled {
 					return
@@ -242,4 +227,11 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 			break
 		}
 	}
+}
+
+func (r *redisStreamGroupConsumer) getName() string {
+	if r.autoScale {
+		return fmt.Sprintf("%s-%d", r.name, r.nr)
+	}
+	return r.name
 }

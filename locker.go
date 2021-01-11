@@ -49,6 +49,10 @@ func (l *Locker) Obtain(ctx context.Context, key string, ttl time.Duration, wait
 	redisLock, err := l.locker.Obtain(ctx, key, ttl, options)
 	if err != nil {
 		if err == redislock.ErrNotObtained {
+			if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+				l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", nil,
+					log2.Fields{"ttl": ttl.String(), "waitTimeout": waitTimeout.String()})
+			}
 			return nil, false
 		}
 	}

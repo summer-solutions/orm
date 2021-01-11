@@ -29,18 +29,44 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 	r := engine.GetRedis()
 	r.FlushDB()
 
-	consumer := r.NewStreamGroupAutoScaledConsumer("test-consumer", "test-group", true, 5, "test-stream")
+	consumer := r.NewStreamGroupAutoScaledConsumer("test-consumer", "test-group", true, 1, "test-stream")
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer.DisableLoop()
-	heartBeats := 0
-	consumer.SetHeartBeat(time.Second, func() {
-		heartBeats++
-	})
-	//engine.EnableQueryDebug()
+
 	consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
-	assert.Equal(t, "1", consumer.(*redisStreamGroupConsumer).nr)
+	assert.Equal(t, 1, consumer.(*redisStreamGroupConsumer).nr)
 	consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
-	assert.Equal(t, "1", consumer.(*redisStreamGroupConsumer).nr)
+	assert.Equal(t, 1, consumer.(*redisStreamGroupConsumer).nr)
+
+	for i := 1; i <= 10; i++ {
+		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
+	}
+	iterations1 := false
+	iterations2 := false
+	go func() {
+		consumer := r.NewStreamGroupAutoScaledConsumer("test-consumer", "test-group", true, 1, "test-stream")
+		consumer.(*redisStreamGroupConsumer).block = time.Millisecond
+		consumer.DisableLoop()
+		consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+			assert.Equal(t, 1, consumer.(*redisStreamGroupConsumer).nr)
+			iterations1 = true
+			time.Sleep(time.Millisecond * 20)
+		})
+	}()
+	time.Sleep(time.Millisecond)
+	go func() {
+		consumer := r.NewStreamGroupAutoScaledConsumer("test-consumer", "test-group", true, 1, "test-stream")
+		consumer.(*redisStreamGroupConsumer).block = time.Millisecond
+		consumer.DisableLoop()
+		consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+			assert.Equal(t, 2, consumer.(*redisStreamGroupConsumer).nr)
+			iterations2 = true
+			time.Sleep(time.Millisecond * 20)
+		})
+	}()
+	time.Sleep(time.Millisecond * 30)
+	assert.True(t, iterations1)
+	assert.True(t, iterations2)
 }
 
 func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
