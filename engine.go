@@ -276,12 +276,25 @@ func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 	}
 	cache, has := e.localCache[dbCode]
 	if !has {
-		if dbCode == requestCacheKey {
-			cache = &LocalCache{code: dbCode, engine: e, m: &sync.Mutex{}, lru: lru.New(5000)}
-			e.localCache[dbCode] = cache
-			return cache
+		val, has := e.registry.localCacheContainers[dbCode]
+		if !has {
+			if dbCode == requestCacheKey {
+				cache = &LocalCache{code: dbCode, engine: e, m: &sync.Mutex{}, lru: lru.New(5000)}
+				if e.localCache == nil {
+					e.localCache = map[string]*LocalCache{dbCode: cache}
+				} else {
+					e.localCache[dbCode] = cache
+				}
+				return cache
+			}
+			panic(errors.Errorf("unregistered local cache pool '%s'", dbCode))
 		}
-		panic(errors.Errorf("unregistered local cache pool '%s'", dbCode))
+		cache = &LocalCache{engine: e, code: val.code, lru: val.lru, m: &val.m}
+		if e.localCache == nil {
+			e.localCache = map[string]*LocalCache{dbCode: cache}
+		} else {
+			e.localCache[dbCode] = cache
+		}
 	}
 	return cache
 }

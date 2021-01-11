@@ -54,12 +54,6 @@ func (r *validatedRegistry) GetRedisChannels() map[string]map[string]uint64 {
 
 func (r *validatedRegistry) CreateEngine() *Engine {
 	e := &Engine{registry: r, context: context.Background()}
-	e.localCache = make(map[string]*LocalCache)
-	if e.registry.localCacheContainers != nil {
-		for key, val := range e.registry.localCacheContainers {
-			e.localCache[key] = &LocalCache{engine: e, code: val.code, lru: val.lru, m: &val.m}
-		}
-	}
 	e.redis = make(map[string]*RedisCache)
 	if e.registry.redisServers != nil {
 		for key, val := range e.registry.redisServers {

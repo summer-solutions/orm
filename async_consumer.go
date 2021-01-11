@@ -169,7 +169,7 @@ func (r *AsyncConsumer) handleClearCache(validMap map[string]interface{}, key st
 				stringKeys[i] = strings.Join(parts, ":")
 			}
 			if key == "cl" {
-				cache := r.engine.localCache[cacheCode]
+				cache := r.engine.GetLocalCache(cacheCode)
 				cache.Remove(stringKeys...)
 			} else {
 				cache := r.engine.redis[cacheCode]
