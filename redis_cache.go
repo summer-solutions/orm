@@ -43,6 +43,7 @@ type redisClient interface {
 	SAdd(key string, members ...interface{}) (int64, error)
 	HMSet(key string, fields map[string]interface{}) (bool, error)
 	HSet(key string, field string, value interface{}) (int64, error)
+	HDel(key string, fields ...string) (int64, error)
 	MGet(keys ...string) ([]interface{}, error)
 	Set(key string, value interface{}, expiration time.Duration) error
 	MSet(pairs ...interface{}) error
@@ -351,6 +352,13 @@ func (c *standardRedisClient) HSet(key string, field string, value interface{}) 
 		return c.ring.HSet(c.ring.Context(), key, field, value).Result()
 	}
 	return c.client.HSet(c.client.Context(), key, field, value).Result()
+}
+
+func (c *standardRedisClient) HDel(key string, fields ...string) (int64, error) {
+	if c.ring != nil {
+		return c.ring.HDel(c.ring.Context(), key, fields...).Result()
+	}
+	return c.client.HDel(c.client.Context(), key, fields...).Result()
 }
 
 func (c *standardRedisClient) MGet(keys ...string) ([]interface{}, error) {
@@ -836,6 +844,20 @@ func (r *RedisCache) HSet(key string, field string, value interface{}) {
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][HSET]", start, "hset", -1, 1,
 			map[string]interface{}{"Key": key, "field": field, "value": value}, err)
+	}
+	if r.engine.dataDog != nil {
+		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
+		r.engine.dataDog.incrementCounter(counterRedisKeysSet, 1)
+	}
+	checkError(err)
+}
+
+func (r *RedisCache) HDel(key string, fields ...string) {
+	start := time.Now()
+	_, err := r.client.HDel(key, fields...)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][HDEL]", start, "hdel", -1, len(fields),
+			map[string]interface{}{"Key": key, "fields": fields}, err)
 	}
 	if r.engine.dataDog != nil {
 		r.engine.dataDog.incrementCounter(counterRedisAll, 1)

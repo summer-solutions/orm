@@ -18,6 +18,31 @@ func TestRedisStreamGroupConsumerDelete(t *testing.T) {
 	testRedisStreamGroupConsumer(t, true)
 }
 
+func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
+	registry := &Registry{}
+	registry.RegisterRedis("localhost:6381", 15)
+	registry.RegisterLocker("default", "default")
+	registry.RegisterRedisChannel("test-stream", "default", 0)
+	validatedRegistry, err := registry.Validate()
+	assert.NoError(t, err)
+	engine := validatedRegistry.CreateEngine()
+	r := engine.GetRedis()
+	r.FlushDB()
+
+	consumer := r.NewStreamGroupAutoScaledConsumer("test-consumer", "test-group", true, 5, "test-stream")
+	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
+	consumer.DisableLoop()
+	heartBeats := 0
+	consumer.SetHeartBeat(time.Second, func() {
+		heartBeats++
+	})
+	//engine.EnableQueryDebug()
+	consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
+	assert.Equal(t, "1", consumer.(*redisStreamGroupConsumer).nr)
+	consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
+	assert.Equal(t, "1", consumer.(*redisStreamGroupConsumer).nr)
+}
+
 func testRedisStreamGroupConsumer(t *testing.T, autoDelete bool) {
 	registry := &Registry{}
 	registry.RegisterRedis("localhost:6381", 15)

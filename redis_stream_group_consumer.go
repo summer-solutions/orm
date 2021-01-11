@@ -3,6 +3,7 @@ package orm
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -40,17 +41,27 @@ type RedisStreamGroupConsumer interface {
 }
 
 func (r *RedisCache) NewStreamGroupConsumer(name, group string, autoDelete bool, count int, streams ...string) RedisStreamGroupConsumer {
-	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, autoDelete: autoDelete,
+	return r.newStreamGroupConsumer(name, group, false, autoDelete, count, streams...)
+}
+
+func (r *RedisCache) NewStreamGroupAutoScaledConsumer(prefix, group string, autoDelete bool, count int, streams ...string) RedisStreamGroupConsumer {
+	return r.newStreamGroupConsumer(prefix, group, true, autoDelete, count, streams...)
+}
+
+func (r *RedisCache) newStreamGroupConsumer(name, group string, autoScale, autoDelete bool, count int, streams ...string) RedisStreamGroupConsumer {
+	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, autoScale: autoScale, autoDelete: autoDelete,
 		loop: true, count: count, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute}
 }
 
 type redisStreamGroupConsumer struct {
 	redis             *RedisCache
 	name              string
+	nr                string
 	streams           []string
 	group             string
 	autoDelete        bool
 	loop              bool
+	autoScale         bool
 	count             int
 	block             time.Duration
 	heartBeatTime     time.Time
@@ -79,6 +90,39 @@ func (r *redisStreamGroupConsumer) HeartBeat(force bool) {
 func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStreamGroupHandler) {
 	uniqueLockKey := r.group + "_" + r.name
 	locker := r.redis.engine.GetLocker()
+	if r.autoScale {
+		freeNumber := 0
+		func() {
+			lockScripts, has := locker.Obtain(ctx, uniqueLockKey+"_lock", time.Second*2, time.Second)
+			if !has {
+				panic(fmt.Errorf("unable to aquire lock"))
+			}
+			defer lockScripts.Release()
+			runningScripts := r.redis.HGetAll(uniqueLockKey + "_running")
+			max := 1
+			for k := range runningScripts {
+				nr, _ := strconv.Atoi(k)
+				if max == 0 || nr > max {
+					max = nr
+				}
+			}
+			for freeNumber = 1; freeNumber <= max+1; freeNumber++ {
+				timestampString, has := runningScripts[strconv.Itoa(freeNumber)]
+				if !has {
+					break
+				}
+				timestamp, _ := strconv.ParseInt(timestampString, 10, 64)
+				if time.Since(time.Unix(0, timestamp)) > r.lockTTL {
+					break
+				}
+			}
+			r.nr = strconv.Itoa(freeNumber)
+			r.redis.HSet(uniqueLockKey+"_running", r.nr, time.Now().UnixNano())
+		}()
+		defer func() {
+			r.redis.HDel(uniqueLockKey+"_running", r.nr)
+		}()
+	}
 	lock, has := locker.Obtain(ctx, uniqueLockKey, r.lockTTL, time.Millisecond)
 	if !has {
 		panic(fmt.Errorf("consumer %s for group %s is running already", r.name, r.group))
