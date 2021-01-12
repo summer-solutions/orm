@@ -3,12 +3,14 @@ package orm
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 )
 
-const maxConsumers = 200
+const countPending = 100
 
 type RedisStreamGroupHandler func(streams []redis.XStream, ack *RedisStreamGroupAck)
 
@@ -41,17 +43,9 @@ type RedisStreamGroupConsumer interface {
 	SetHeartBeat(duration time.Duration, beat func())
 }
 
-func (r *RedisCache) NewStreamGroupConsumer(name, group string, autoDelete bool, count int, streams ...string) RedisStreamGroupConsumer {
-	return r.newStreamGroupConsumer(name, group, false, autoDelete, count, streams...)
-}
-
-func (r *RedisCache) NewStreamGroupAutoScaledConsumer(prefix, group string, autoDelete bool, count int, streams ...string) RedisStreamGroupConsumer {
-	return r.newStreamGroupConsumer(prefix, group, true, autoDelete, count, streams...)
-}
-
-func (r *RedisCache) newStreamGroupConsumer(name, group string, autoScale, autoDelete bool, count int, streams ...string) RedisStreamGroupConsumer {
-	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, autoScale: autoScale, autoDelete: autoDelete,
-		loop: true, count: count, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute}
+func (r *RedisCache) NewStreamGroupConsumer(name, group string, autoDelete bool, count, maxScripts int, streams ...string) RedisStreamGroupConsumer {
+	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, maxScripts: maxScripts, autoDelete: autoDelete,
+		loop: true, count: count, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute, minIdle: time.Minute * 2}
 }
 
 type redisStreamGroupConsumer struct {
@@ -62,7 +56,7 @@ type redisStreamGroupConsumer struct {
 	group             string
 	autoDelete        bool
 	loop              bool
-	autoScale         bool
+	maxScripts        int
 	count             int
 	block             time.Duration
 	heartBeatTime     time.Time
@@ -70,6 +64,7 @@ type redisStreamGroupConsumer struct {
 	heartBeatDuration time.Duration
 	lockTTL           time.Duration
 	lockTick          time.Duration
+	minIdle           time.Duration
 }
 
 func (r *redisStreamGroupConsumer) DisableLoop() {
@@ -96,18 +91,18 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 	var lock *Lock
 	for {
 		nr++
-		if r.autoScale {
+		if r.maxScripts > 1 {
 			lockName = fmt.Sprintf("%s-%d", uniqueLockKey, nr)
 		}
 		locked, has := locker.Obtain(ctx, lockName, r.lockTTL, time.Millisecond*10)
 		if !has {
-			if r.autoScale && nr < maxConsumers {
+			if r.maxScripts > 1 && nr < r.maxScripts {
 				continue
 			}
 			panic(fmt.Errorf("consumer %s for group %s is running already", r.getName(), r.group))
 		}
 		lock = locked
-		if r.autoScale {
+		if r.maxScripts > 1 {
 			r.nr = nr
 		}
 		break
@@ -146,7 +141,11 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 		ack.max[stream] = 0
 		ack.ids[stream] = make([]string, r.count)
 	}
-	keys := []string{"0", ">"}
+	keys := make([]string, 0)
+	if r.maxScripts > 1 {
+		keys = append(keys, "pending")
+	}
+	keys = append(keys, "0", ">")
 	streams := make([]string, len(r.streams)*2)
 	hasInvalid := true
 	if r.heartBeat != nil {
@@ -156,6 +155,35 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 	KEYS:
 		for _, key := range keys {
 			invalidCheck := key == "0"
+			pendingCheck := key == "pending"
+			if pendingCheck {
+				// TODO execute only every X minute
+				for _, stream := range r.streams {
+					start := "-"
+					for {
+						end := fmt.Sprintf("%d", time.Now().Add(-r.minIdle).UnixNano()/1000000)
+						pending := r.redis.XPendingExt(&redis.XPendingExtArgs{Stream: stream, Group: r.group, Start: start, End: end, Count: countPending})
+						if len(pending) == 0 {
+							break
+						}
+						ids := make([]string, 0)
+						for _, row := range pending {
+							if row.Consumer != r.getName() && row.Idle >= r.minIdle {
+								ids = append(ids, row.ID)
+							}
+							start = r.incrementLastID(row.ID)
+						}
+						if len(ids) > 0 {
+							arg := &redis.XClaimArgs{Consumer: r.getName(), Stream: stream, Group: r.group, MinIdle: r.minIdle, Messages: ids}
+							r.redis.XClaimJustID(arg)
+						}
+						if len(pending) < countPending {
+							break
+						}
+					}
+				}
+				continue
+			}
 			if invalidCheck {
 				if !hasInvalid {
 					continue
@@ -199,7 +227,7 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 					if l > 0 {
 						totalMessages += l
 						if invalidCheck {
-							lastIDs[row.Stream] = row.Messages[l-1].ID
+							lastIDs[row.Stream] = r.incrementLastID(row.Messages[l-1].ID)
 						}
 					}
 				}
@@ -230,8 +258,14 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 }
 
 func (r *redisStreamGroupConsumer) getName() string {
-	if r.autoScale {
+	if r.maxScripts > 1 {
 		return fmt.Sprintf("%s-%d", r.name, r.nr)
 	}
 	return r.name
+}
+
+func (r *redisStreamGroupConsumer) incrementLastID(id string) string {
+	s := strings.Split(id, "-")
+	counter, _ := strconv.Atoi(s[1])
+	return fmt.Sprintf("%s-%d", s[0], counter+1)
 }

@@ -12,6 +12,8 @@ const dirtyChannelPrefix = "dirty-channel-"
 
 type DirtyConsumer struct {
 	engine            *Engine
+	name              string
+	maxScripts        int
 	block             time.Duration
 	disableLoop       bool
 	heartBeat         func()
@@ -34,8 +36,8 @@ type DirtyData struct {
 	Deleted     bool
 }
 
-func NewDirtyConsumer(engine *Engine) *DirtyConsumer {
-	return &DirtyConsumer{engine: engine, block: time.Minute}
+func NewDirtyConsumer(engine *Engine, name string, maxScripts int) *DirtyConsumer {
+	return &DirtyConsumer{engine: engine, name: name, block: time.Minute, maxScripts: maxScripts}
 }
 
 func (r *DirtyConsumer) DisableLoop() {
@@ -54,8 +56,8 @@ func (r *DirtyConsumer) Digest(ctx context.Context, codes []string, count int, h
 	for i, code := range codes {
 		streams[i] = dirtyChannelPrefix + code
 	}
-	consumer := r.engine.GetRedis().NewStreamGroupConsumer("default-consumer", "orm-group-"+counterRedisKeysGet,
-		true, count, streams...)
+	consumer := r.engine.GetRedis().NewStreamGroupConsumer(r.name, "orm-group-"+counterRedisKeysGet,
+		true, count, r.maxScripts, streams...)
 	consumer.(*redisStreamGroupConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()

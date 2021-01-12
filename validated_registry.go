@@ -13,7 +13,7 @@ type ValidatedRegistry interface {
 	GetSourceRegistry() *Registry
 	GetEnum(code string) Enum
 	GetEnums() map[string]Enum
-	GetRedisChannels() map[string]map[string]uint64
+	GetRedisStreams() map[string]map[string]uint64
 	GetEntities() map[string]reflect.Type
 }
 
@@ -25,7 +25,7 @@ type validatedRegistry struct {
 	clickHouseClients       map[string]*ClickHouseConfig
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
-	redisChannels           map[string]map[string]uint64
+	redisStreams            map[string]map[string]uint64
 	elasticServers          map[string]*ElasticConfig
 	rabbitMQServers         map[string]*rabbitMQConnection
 	rabbitMQChannelsToQueue map[string]*rabbitMQChannelToQueue
@@ -46,8 +46,8 @@ func (r *validatedRegistry) GetEnums() map[string]Enum {
 	return r.enums
 }
 
-func (r *validatedRegistry) GetRedisChannels() map[string]map[string]uint64 {
-	return r.redisChannels
+func (r *validatedRegistry) GetRedisStreams() map[string]map[string]uint64 {
+	return r.redisStreams
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {

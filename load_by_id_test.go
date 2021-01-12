@@ -14,6 +14,12 @@ type loadByIDEntity struct {
 	ReferenceMany []*loadByIDReference
 }
 
+type loadByIDLocalEntity struct {
+	ORM  `orm:"localCache"`
+	ID   uint
+	Name string `orm:"max=100"`
+}
+
 type loadByIDRedisEntity struct {
 	ORM `orm:"redisCache"`
 	ID  uint
@@ -106,4 +112,27 @@ func TestLoadById(t *testing.T) {
 	assert.PanicsWithError(t, "entity 'orm.loadByIDEntity' is not registered", func() {
 		engine.LoadByID(1, entity)
 	})
+}
+
+func BenchmarkLoadByIdLocalCache(b *testing.B) {
+	var entity *loadByIDLocalEntity
+	registry := &Registry{}
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3312)/test")
+	registry.RegisterEntity(entity)
+	registry.RegisterLocalCache(1000)
+	validatedRegistry, err := registry.Validate()
+	if err != nil {
+		panic(err)
+	}
+	engine := validatedRegistry.CreateEngine()
+	engine.GetRegistry().GetTableSchemaForEntity(entity).UpdateSchema(engine)
+	engine.GetRegistry().GetTableSchemaForEntity(entity).TruncateTable(engine)
+	e := &loadByIDLocalEntity{}
+	engine.TrackAndFlush(&loadByIDLocalEntity{})
+	engine.LoadByID(1, e)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		engine.LoadByID(1, e)
+	}
 }

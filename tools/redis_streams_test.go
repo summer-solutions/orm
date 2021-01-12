@@ -8,18 +8,18 @@ import (
 	"github.com/summer-solutions/orm"
 )
 
-func TestRedisChannelsStatus(t *testing.T) {
+func TestRedisStreamsStatus(t *testing.T) {
 	registry := &orm.Registry{}
 	registry.RegisterRedis("localhost:6381", 15)
 	registry.RegisterLocker("default", "default")
-	registry.RegisterRedisChannel("test-stream", "default", 0)
+	registry.RegisterRedisStream("test-stream", "default", 0)
 	validatedRegistry, err := registry.Validate()
 	assert.NoError(t, err)
 	engine := validatedRegistry.CreateEngine()
 	r := engine.GetRedis()
 	r.FlushDB()
 
-	stats := GetRedisChannelsStatistics(engine)
+	stats := GetRedisStreamsStatistics(engine)
 	assert.Len(t, stats, 1)
 	assert.Equal(t, "test-stream", stats[0].Stream)
 	assert.Equal(t, "default", stats[0].RedisPool)
@@ -31,7 +31,7 @@ func TestRedisChannelsStatus(t *testing.T) {
 	id := r.XAdd("test-stream", []string{"a", "b"})
 	r.XReadGroup(&redis.XReadGroupArgs{Group: "test-group", Consumer: "test-consumer", Count: 1, Streams: []string{"test-stream", ">"}})
 
-	stats = GetRedisChannelsStatistics(engine)
+	stats = GetRedisStreamsStatistics(engine)
 	assert.Equal(t, uint64(1), stats[0].Len)
 	assert.Equal(t, uint64(0), stats[0].MaxLen)
 	assert.Len(t, stats[0].Groups, 1)

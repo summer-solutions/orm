@@ -681,10 +681,10 @@ func main() {
     
     // you need to run code that will read data from queue and execute changes
     // run in in a separate goroutine (cron script)
-    consumer := NewAsyncConsumer(engine, "default")
+    consumer := NewAsyncConsumer(engine, "my-consumer", "default")
     consumer.Digest() //It will wait for new messages in a loop, run receiver.DisableLoop() to run loop once
 
-    consumerAnotherPool := NewAsyncConsumer(engine, "another_redis")
+    consumerAnotherPool := NewAsyncConsumer(engine,  "my-consumer", "another_redis")
     consumerAnotherPool.Digets()
 }
 
@@ -760,10 +760,10 @@ func main() {
     // you can set meta only in specific entity
     engine.SetEntityLogMeta("user_name", "john", entity)
     
-    consumer := NewAsyncConsumer(engine, "default")
+    consumer := NewAsyncConsumer(engine, "my-consumer", "default")
     consumer.Digets() //it will wait for new messages in queue
 
-    consumerAnotherPool := NewAsyncConsumer(engine, "another_redis")
+    consumerAnotherPool := NewAsyncConsumer(engine, "my-consumer", "another_redis")
     consumerAnotherPool.Digets()
 }
 
@@ -793,7 +793,7 @@ func main() {
     // now just use Flush and events will be send to queue
 
     // receiving events
-    consumer := NewDirtyConsumer(engine)
+    consumer := NewDirtyConsumer(engine, "my-consumer")
     
     // in this case data length is max 100
     consumer.Digest("user_changed", 100, func(data []*orm.DirtyData) {
@@ -1348,6 +1348,6 @@ package main
 import "github.com/summer-solutions/orm/tools"
 
 func main() {
-   stats := tools.GetRedisChannelsStatistics(engine) 
+   stats := tools.GetRedisStreamsStatistics(engine) 
 }    
 ```

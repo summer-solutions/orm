@@ -28,7 +28,9 @@ type LogQueueValue struct {
 
 type AsyncConsumer struct {
 	engine            *Engine
+	name              string
 	redisPool         string
+	maxScripts        int
 	block             time.Duration
 	disableLoop       bool
 	heartBeat         func()
@@ -36,8 +38,8 @@ type AsyncConsumer struct {
 	logLogger         func(log *LogQueueValue)
 }
 
-func NewAsyncConsumer(engine *Engine, redisPool string) *AsyncConsumer {
-	return &AsyncConsumer{engine: engine, redisPool: redisPool, block: time.Minute}
+func NewAsyncConsumer(engine *Engine, name string, redisPool string, maxScripts int) *AsyncConsumer {
+	return &AsyncConsumer{engine: engine, name: name, redisPool: redisPool, block: time.Minute, maxScripts: maxScripts}
 }
 
 func (r *AsyncConsumer) DisableLoop() {
@@ -54,8 +56,8 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 }
 
 func (r *AsyncConsumer) Digest(ctx context.Context) {
-	consumer := r.engine.GetRedis(r.redisPool).NewStreamGroupConsumer("default-consumer", "orm-async-group",
-		true, 100, lazyChannelName, logChannelName)
+	consumer := r.engine.GetRedis(r.redisPool).NewStreamGroupConsumer(r.name, "orm-async-group",
+		true, 100, r.maxScripts, lazyChannelName, logChannelName)
 	consumer.(*redisStreamGroupConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()

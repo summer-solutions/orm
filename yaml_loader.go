@@ -24,7 +24,7 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 				validateClickHouseURI(registry, value, key)
 			case "redis":
 				validateRedisURI(registry, value, key)
-			case "redisChannels":
+			case "redisStreams":
 				validateRedisChannels(registry, value, key)
 			case "rabbitmq":
 				validateOrmRabbitMQ(registry, value, key)
@@ -79,7 +79,7 @@ func validateRedisChannels(registry *Registry, value interface{}, key string) {
 		if err != nil {
 			panic(errors.NotValidf("redis channel %s max size '%v'", name, max))
 		}
-		registry.RegisterRedisChannel(name, key, parsedUint)
+		registry.RegisterRedisStream(name, key, parsedUint)
 	}
 }
 

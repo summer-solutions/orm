@@ -1382,7 +1382,8 @@ func (r *RedisCache) XPendingExt(a *redis.XPendingExtArgs) []redis.XPendingExt {
 	checkError(err)
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][XPENDING]", start, "xpending", 0, 1,
-			map[string]interface{}{"arg": a}, nil)
+			map[string]interface{}{"group": a.Group, "stream": a.Stream, "consumer": a.Consumer, "count": a.Count,
+				"start": a.Start, "end": a.End}, nil)
 	}
 	if r.engine.dataDog != nil {
 		r.engine.dataDog.incrementCounter(counterRedisAll, 1)
@@ -1397,7 +1398,7 @@ func (r *RedisCache) XPendingExt(a *redis.XPendingExtArgs) []redis.XPendingExt {
 //   - map[string]interface{}{"key1": "value1", "key2": "value2"}
 //
 func (r *RedisCache) XAdd(stream string, values interface{}) (id string) {
-	max, has := r.engine.registry.redisChannels[r.code][stream]
+	max, has := r.engine.registry.redisStreams[r.code][stream]
 	if !has {
 		panic(fmt.Errorf("unregistered channel %s in redis pool %s", stream, r.code))
 	}
