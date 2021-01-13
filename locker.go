@@ -66,7 +66,7 @@ func (l *Locker) Obtain(ctx context.Context, key string, ttl time.Duration, wait
 	checkError(err)
 	lock = &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}
 	lock.timer = time.NewTimer(ttl)
-	lock.done = make(chan bool)
+	lock.done = make(chan bool, 1)
 	go func() {
 		for {
 			select {
