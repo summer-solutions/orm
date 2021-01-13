@@ -98,7 +98,7 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 		if r.maxScripts > 1 {
 			lockName = fmt.Sprintf("%s-%d", uniqueLockKey, nr)
 		}
-		locked, has := locker.Obtain(ctx, lockName, r.lockTTL, time.Millisecond*10)
+		locked, has := locker.Obtain(ctx, lockName, r.lockTTL, 0)
 		if !has {
 			if r.maxScripts > 1 && nr < r.maxScripts {
 				continue
@@ -309,7 +309,7 @@ func (r *redisStreamGroupConsumer) garbageCollector(ctx context.Context) {
 		locker := r.redis.engine.GetLocker()
 		def := r.redis.engine.registry.redisStreamGroups[r.redis.code]
 		for _, stream := range r.streams {
-			_, has := locker.Obtain(ctx, "garbage_"+stream+"_"+r.redis.code, r.garbageLock, time.Millisecond*10)
+			_, has := locker.Obtain(ctx, "garbage_"+stream+"_"+r.redis.code, r.garbageLock, 0)
 			if !has {
 				continue
 			}

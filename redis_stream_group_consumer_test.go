@@ -83,7 +83,7 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 		consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			assert.Equal(t, 1, consumer.(*redisStreamGroupConsumer).nr)
 			iterations1 = true
-			time.Sleep(time.Millisecond * 20)
+			time.Sleep(time.Millisecond * 100)
 		})
 	}()
 	time.Sleep(time.Millisecond)
@@ -95,7 +95,6 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 		consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			assert.Equal(t, 2, consumer.(*redisStreamGroupConsumer).nr)
 			iterations2 = true
-			time.Sleep(time.Millisecond * 20)
 		})
 	}()
 	wg.Wait()

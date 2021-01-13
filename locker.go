@@ -38,13 +38,16 @@ func (l *Locker) Obtain(ctx context.Context, key string, ttl time.Duration, wait
 	if ttl == 0 {
 		panic(errors.NotValidf("ttl"))
 	}
-	if waitTimeout == 0 {
-		waitTimeout = ttl
+	var options *redislock.Options
+	if waitTimeout > 0 {
+		minInterval := 16 * time.Millisecond
+		maxInterval := 256 * time.Millisecond
+		max := int(waitTimeout / maxInterval)
+		if max == 0 {
+			max = 1
+		}
+		options = &redislock.Options{RetryStrategy: redislock.LimitRetry(redislock.ExponentialBackoff(minInterval, maxInterval), max)}
 	}
-	minInterval := 16 * time.Millisecond
-	maxInterval := 256 * time.Millisecond
-	max := int(waitTimeout / maxInterval)
-	options := &redislock.Options{RetryStrategy: redislock.LimitRetry(redislock.ExponentialBackoff(minInterval, maxInterval), max)}
 	start := time.Now()
 	redisLock, err := l.locker.Obtain(ctx, key, ttl, options)
 	if err != nil {
