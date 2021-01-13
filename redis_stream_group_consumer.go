@@ -11,6 +11,7 @@ import (
 )
 
 const countPending = 100
+const pendingClaimCheckDuration = time.Minute * 5
 
 type RedisStreamGroupHandler func(streams []redis.XStream, ack *RedisStreamGroupAck)
 
@@ -151,13 +152,17 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 	if r.heartBeat != nil {
 		r.heartBeatTime = time.Now()
 	}
+	pendingChecked := false
+	var pendingCheckedTime time.Time
 	for {
 	KEYS:
 		for _, key := range keys {
 			invalidCheck := key == "0"
 			pendingCheck := key == "pending"
 			if pendingCheck {
-				// TODO execute only every X minute
+				if pendingChecked && time.Since(pendingCheckedTime) < pendingClaimCheckDuration {
+					continue
+				}
 				for _, stream := range r.streams {
 					start := "-"
 					for {
@@ -182,6 +187,8 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 						}
 					}
 				}
+				pendingChecked = true
+				pendingCheckedTime = time.Now()
 				continue
 			}
 			if invalidCheck {
