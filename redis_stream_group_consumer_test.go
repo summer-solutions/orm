@@ -27,10 +27,12 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 	consumer1 := r.NewStreamGroupConsumer("test-consumer", "test-group-1", 1, 1, "test-stream")
 	consumer1.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer1.(*redisStreamGroupConsumer).garbageTick = time.Millisecond * 15
+	consumer1.(*redisStreamGroupConsumer).garbageLock = time.Millisecond * 15
 	consumer1.DisableLoop()
 	consumer2 := r.NewStreamGroupConsumer("test-consumer", "test-group-2", 1, 1, "test-stream")
 	consumer2.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer2.(*redisStreamGroupConsumer).garbageTick = time.Millisecond * 15
+	consumer2.(*redisStreamGroupConsumer).garbageLock = time.Millisecond * 15
 	consumer2.DisableLoop()
 
 	consumer1.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {

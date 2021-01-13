@@ -48,7 +48,7 @@ func (r *RedisCache) NewStreamGroupConsumer(name, group string, count, maxScript
 	}
 	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, maxScripts: maxScripts,
 		loop: true, count: count, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute,
-		garbageTick: time.Minute, minIdle: time.Minute * 2}
+		garbageTick: time.Second * 30, garbageLock: time.Minute, minIdle: time.Minute * 2}
 }
 
 type redisStreamGroupConsumer struct {
@@ -67,6 +67,7 @@ type redisStreamGroupConsumer struct {
 	lockTTL           time.Duration
 	lockTick          time.Duration
 	garbageTick       time.Duration
+	garbageLock       time.Duration
 	minIdle           time.Duration
 }
 
@@ -298,7 +299,7 @@ func (r *redisStreamGroupConsumer) garbageCollector(ctx context.Context) {
 	locker := r.redis.engine.GetLocker()
 	def := r.redis.engine.registry.redisStreamGroups[r.redis.code]
 	for _, stream := range r.streams {
-		_, has := locker.Obtain(ctx, "garbage_"+stream+"_"+r.redis.code, r.garbageTick, time.Millisecond*10)
+		_, has := locker.Obtain(ctx, "garbage_"+stream+"_"+r.redis.code, r.garbageLock, time.Millisecond*10)
 		if !has {
 			continue
 		}

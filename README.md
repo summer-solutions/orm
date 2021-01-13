@@ -1294,7 +1294,7 @@ func main() {
     }
     consumer := orm.NewAsyncConsumer(engine, "test-consumer", 1)
     consumer.SetHeartBeat(heartBeat) //consumer will execute this method every minute
-    consumer.Digest()
+    consumer.Digest(ctx.Background())
 
 }    
 ```
