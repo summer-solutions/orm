@@ -296,64 +296,75 @@ func (r *redisStreamGroupConsumer) incrementLastID(id string) string {
 }
 
 func (r *redisStreamGroupConsumer) garbageCollector(ctx context.Context) {
-	locker := r.redis.engine.GetLocker()
-	def := r.redis.engine.registry.redisStreamGroups[r.redis.code]
-	for _, stream := range r.streams {
-		_, has := locker.Obtain(ctx, "garbage_"+stream+"_"+r.redis.code, r.garbageLock, time.Millisecond*10)
-		if !has {
-			continue
-		}
-		info := r.redis.XInfoGroups(stream)
-		ids := make(map[string][]int64)
-		for name := range def[stream] {
-			ids[name] = []int64{0, 0}
-		}
-		for _, group := range info {
-			_, has := ids[group.Name]
-			if !has {
-				r.redis.XGroupDestroy(stream, r.group)
-				continue
-			}
-			if group.LastDeliveredID == "" {
-				continue
-			}
-			s := strings.Split(group.LastDeliveredID, "-")
-			id, _ := strconv.ParseInt(s[0], 10, 64)
-			ids[group.Name][0] = id
-			counter, _ := strconv.ParseInt(s[1], 10, 64)
-			ids[group.Name][1] = counter
-		}
-		minID := []int64{-1, 0}
-		for _, id := range ids {
-			if id[0] == 0 {
-				minID[0] = 0
-				minID[1] = 0
-			} else if minID[0] == -1 || id[0] < minID[0] || (id[0] == minID[0] && id[1] < minID[1]) {
-				minID[0] = id[0]
-				minID[1] = id[1]
-			}
-		}
-		if minID[0] == 0 {
-			continue
-		}
-		// TODO check of redis 6.2 and use trim with minid
-
-		start := "-"
-		end := fmt.Sprintf("%d-%d", minID[0], minID[1])
-		for {
-			messages := r.redis.XRange(stream, start, end, garbageCollectorCount)
-			l := len(messages)
-			if l > 0 {
-				keys := make([]string, l)
-				for i, message := range messages {
-					keys[i] = message.ID
+	func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				err := rec.(error)
+				r.redis.engine.Log().Error(err, nil)
+				if r.redis.engine.dataDog != nil {
+					r.redis.engine.dataDog.RegisterAPMError(err)
 				}
-				r.redis.XDel(stream, keys...)
-				start = r.incrementLastID(keys[l-1])
 			}
-			if l < garbageCollectorCount {
-				break
+		}()
+		locker := r.redis.engine.GetLocker()
+		def := r.redis.engine.registry.redisStreamGroups[r.redis.code]
+		for _, stream := range r.streams {
+			_, has := locker.Obtain(ctx, "garbage_"+stream+"_"+r.redis.code, r.garbageLock, time.Millisecond*10)
+			if !has {
+				continue
+			}
+			info := r.redis.XInfoGroups(stream)
+			ids := make(map[string][]int64)
+			for name := range def[stream] {
+				ids[name] = []int64{0, 0}
+			}
+			for _, group := range info {
+				_, has := ids[group.Name]
+				if !has {
+					r.redis.XGroupDestroy(stream, r.group)
+					continue
+				}
+				if group.LastDeliveredID == "" {
+					continue
+				}
+				s := strings.Split(group.LastDeliveredID, "-")
+				id, _ := strconv.ParseInt(s[0], 10, 64)
+				ids[group.Name][0] = id
+				counter, _ := strconv.ParseInt(s[1], 10, 64)
+				ids[group.Name][1] = counter
+			}
+			minID := []int64{-1, 0}
+			for _, id := range ids {
+				if id[0] == 0 {
+					minID[0] = 0
+					minID[1] = 0
+				} else if minID[0] == -1 || id[0] < minID[0] || (id[0] == minID[0] && id[1] < minID[1]) {
+					minID[0] = id[0]
+					minID[1] = id[1]
+				}
+			}
+			if minID[0] == 0 {
+				continue
+			}
+			// TODO check of redis 6.2 and use trim with minid
+
+			start := "-"
+			end := fmt.Sprintf("%d-%d", minID[0], minID[1])
+			for {
+				messages := r.redis.XRange(stream, start, end, garbageCollectorCount)
+				l := len(messages)
+				if l > 0 {
+					keys := make([]string, l)
+					for i, message := range messages {
+						keys[i] = message.ID
+					}
+					r.redis.XDel(stream, keys...)
+					start = r.incrementLastID(keys[l-1])
+				}
+				if l < garbageCollectorCount {
+					break
+				}
 			}
 		}
-	}
+	}()
 }
