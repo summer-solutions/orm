@@ -14,6 +14,7 @@ import (
 
 const lazyChannelName = "orm-lazy-channel"
 const logChannelName = "orm-log-channel"
+const lazyConsumerGroupName = "orm-async-group"
 
 type LogQueueValue struct {
 	PoolName  string
@@ -56,8 +57,8 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 }
 
 func (r *AsyncConsumer) Digest(ctx context.Context) {
-	consumer := r.engine.GetRedis(r.redisPool).NewStreamGroupConsumer(r.name, "orm-async-group",
-		true, 100, r.maxScripts, lazyChannelName, logChannelName)
+	consumer := r.engine.GetRedis(r.redisPool).NewStreamGroupConsumer(r.name, lazyConsumerGroupName,
+		100, r.maxScripts, lazyChannelName, logChannelName)
 	consumer.(*redisStreamGroupConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()

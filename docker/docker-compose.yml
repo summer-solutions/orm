@@ -82,7 +82,6 @@ volumes:
   orm_logs_mysql: {}
   orm_data_mysql8: {}
   orm_data_redis: {}
-  orm_data_redis62: {}
   orm_data_rabbitmq: {}
   orm_elasticsearch: {}
   orm_data_clickhouse: {}

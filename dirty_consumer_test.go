@@ -18,16 +18,16 @@ type dirtyReceiverEntity struct {
 func TestDirtyConsumer(t *testing.T) {
 	var entity *dirtyReceiverEntity
 	registry := &Registry{}
+	registry.RegisterRedisStream("entity_changed", "default", []string{"test-group"})
+	registry.RegisterRedisStream("name_changed", "default", []string{"test-group"})
 	engine := PrepareTables(t, registry, 5, entity)
 	ctx := context.Background()
 
 	channels := engine.GetRegistry().GetRedisStreams()
 	assert.Len(t, channels, 1)
 	assert.Len(t, channels["default"], 4)
-	assert.Equal(t, uint64(0), channels["default"]["dirty-channel-entity_changed"])
-	assert.Equal(t, uint64(0), channels["default"]["dirty-channel-name_changed"])
 
-	consumer := NewDirtyConsumer(engine, "default-consumer", 1)
+	consumer := NewDirtyConsumer(engine, "default-consumer", "test-group", 1)
 	consumer.DisableLoop()
 	consumer.block = time.Millisecond
 

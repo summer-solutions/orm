@@ -33,7 +33,7 @@ type Registry struct {
 	enums                map[string]Enum
 	locks                map[string]string
 	defaultEncoding      string
-	redisStreams         map[string]map[string]uint64
+	redisStreamGroups    map[string]map[string]map[string]bool
 }
 
 func (r *Registry) Validate() (ValidatedRegistry, error) {
@@ -195,18 +195,10 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		}
 		registry.tableSchemas[entityType] = tableSchema
 		registry.entities[name] = entityType
-		r.RegisterRedisStream(lazyChannelName, tableSchema.asyncRedisLazyFlush, 0)
-		r.RegisterRedisStream(logChannelName, tableSchema.asyncRedisLogs, 0)
-		for _, tags := range tableSchema.tags {
-			channels, has := tags["dirty"]
-			if has {
-				for _, code := range strings.Split(channels, ",") {
-					r.RegisterRedisStream(dirtyChannelPrefix+code, tableSchema.asyncRedisLogs, 0)
-				}
-			}
-		}
+		r.RegisterRedisStream(lazyChannelName, tableSchema.asyncRedisLazyFlush, []string{lazyConsumerGroupName})
+		r.RegisterRedisStream(logChannelName, tableSchema.asyncRedisLogs, []string{lazyConsumerGroupName})
 	}
-	registry.redisStreams = r.redisStreams
+	registry.redisStreamGroups = r.redisStreamGroups
 	engine := registry.CreateEngine()
 	for _, schema := range registry.tableSchemas {
 		_, err := checkStruct(schema, engine, schema.t, make(map[string]*index), make(map[string]*foreignIndex), "")
@@ -374,14 +366,18 @@ func (r *Registry) RegisterRedisRing(addresses []string, db int, code ...string)
 	r.redisServers[dbCode] = redisCache
 }
 
-func (r *Registry) RegisterRedisStream(name string, redisPool string, maxSize uint64) {
-	if r.redisStreams == nil {
-		r.redisStreams = make(map[string]map[string]uint64)
+func (r *Registry) RegisterRedisStream(name string, redisPool string, groups []string) {
+	if r.redisStreamGroups == nil {
+		r.redisStreamGroups = make(map[string]map[string]map[string]bool)
 	}
-	if r.redisStreams[redisPool] == nil {
-		r.redisStreams[redisPool] = make(map[string]uint64)
+	if r.redisStreamGroups[redisPool] == nil {
+		r.redisStreamGroups[redisPool] = make(map[string]map[string]bool)
 	}
-	r.redisStreams[redisPool][name] = maxSize
+	groupsMap := make(map[string]bool, len(groups))
+	for _, group := range groups {
+		groupsMap[group] = true
+	}
+	r.redisStreamGroups[redisPool][name] = groupsMap
 }
 
 func (r *Registry) RegisterRabbitMQServer(address string, code ...string) {

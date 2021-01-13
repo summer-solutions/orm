@@ -1164,7 +1164,7 @@ func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]*DirtyQ
 		for code, v := range dirtyChannels {
 			for _, k := range v {
 				asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
-				engine.GetRedis().XAdd(dirtyChannelPrefix+code, []string{"v", string(asJSON)})
+				engine.GetRedis().XAdd(code, []string{"v", string(asJSON)})
 			}
 		}
 	}

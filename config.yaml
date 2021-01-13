@@ -3,8 +3,11 @@ default:
   mysql: root:root@tcp(localhost:3308)/test
   redis: localhost:6381:0
   redisStreams:
-    channel-1: 0
-    channel-2: 100
+    channel-1:
+      - test-group-1
+      - test-group-2
+    channel-2:
+      - test-group-1
   elastic: http://localhost:9209
   elastic_trace: http://localhost:9209
   clickhouse: http://localhost:9002?debug=false
@@ -33,6 +36,7 @@ another:
     - localhost:6381:1
     - localhost:6381:2
   redisStreams:
-      channel-3: 7
+      channel-3:
+        - test-group-1
 default_queue:
   redis: localhost:6381:1

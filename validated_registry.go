@@ -13,7 +13,7 @@ type ValidatedRegistry interface {
 	GetSourceRegistry() *Registry
 	GetEnum(code string) Enum
 	GetEnums() map[string]Enum
-	GetRedisStreams() map[string]map[string]uint64
+	GetRedisStreams() map[string]map[string][]string
 	GetEntities() map[string]reflect.Type
 }
 
@@ -25,7 +25,7 @@ type validatedRegistry struct {
 	clickHouseClients       map[string]*ClickHouseConfig
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
-	redisStreams            map[string]map[string]uint64
+	redisStreamGroups       map[string]map[string]map[string]bool
 	elasticServers          map[string]*ElasticConfig
 	rabbitMQServers         map[string]*rabbitMQConnection
 	rabbitMQChannelsToQueue map[string]*rabbitMQChannelToQueue
@@ -46,8 +46,20 @@ func (r *validatedRegistry) GetEnums() map[string]Enum {
 	return r.enums
 }
 
-func (r *validatedRegistry) GetRedisStreams() map[string]map[string]uint64 {
-	return r.redisStreams
+func (r *validatedRegistry) GetRedisStreams() map[string]map[string][]string {
+	res := make(map[string]map[string][]string)
+	for redisPool, row := range r.redisStreamGroups {
+		res[redisPool] = make(map[string][]string)
+		for stream, groups := range row {
+			res[redisPool][stream] = make([]string, len(groups))
+			i := 0
+			for group := range groups {
+				res[redisPool][stream][i] = group
+				i++
+			}
+		}
+	}
+	return res
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {

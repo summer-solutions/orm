@@ -32,7 +32,11 @@ jobs:
         ports:
           - 6381:6379
         options: --entrypoint redis-server
-
+      redis62:
+        image: redis:6.2-rc
+        ports:
+          - 6382:6379
+        options: --entrypoint redis-server
       mysql:
         image: mysql:5.7
         env:

@@ -8,11 +8,10 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-const dirtyChannelPrefix = "dirty-channel-"
-
 type DirtyConsumer struct {
 	engine            *Engine
 	name              string
+	group             string
 	maxScripts        int
 	block             time.Duration
 	disableLoop       bool
@@ -36,8 +35,8 @@ type DirtyData struct {
 	Deleted     bool
 }
 
-func NewDirtyConsumer(engine *Engine, name string, maxScripts int) *DirtyConsumer {
-	return &DirtyConsumer{engine: engine, name: name, block: time.Minute, maxScripts: maxScripts}
+func NewDirtyConsumer(engine *Engine, name, group string, maxScripts int) *DirtyConsumer {
+	return &DirtyConsumer{engine: engine, name: name, group: group, block: time.Minute, maxScripts: maxScripts}
 }
 
 func (r *DirtyConsumer) DisableLoop() {
@@ -52,12 +51,7 @@ func (r *DirtyConsumer) SetHeartBeat(duration time.Duration, beat func()) {
 type DirtyHandler func(data []*DirtyData)
 
 func (r *DirtyConsumer) Digest(ctx context.Context, codes []string, count int, handler DirtyHandler) {
-	streams := make([]string, len(codes))
-	for i, code := range codes {
-		streams[i] = dirtyChannelPrefix + code
-	}
-	consumer := r.engine.GetRedis().NewStreamGroupConsumer(r.name, "orm-group-"+counterRedisKeysGet,
-		true, count, r.maxScripts, streams...)
+	consumer := r.engine.GetRedis().NewStreamGroupConsumer(r.name, r.group, count, r.maxScripts, codes...)
 	consumer.(*redisStreamGroupConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()

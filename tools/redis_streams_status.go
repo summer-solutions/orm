@@ -12,7 +12,6 @@ type RedisStreamStatistics struct {
 	Stream    string
 	RedisPool string
 	Len       uint64
-	MaxLen    uint64
 	Groups    []*RedisStreamGroupStatistics
 }
 
@@ -37,8 +36,8 @@ func GetRedisStreamsStatistics(engine *orm.Engine) []*RedisStreamStatistics {
 	now := time.Now()
 	results := make([]*RedisStreamStatistics, 0)
 	for redisPool, channels := range engine.GetRegistry().GetRedisStreams() {
-		for stream, max := range channels {
-			stat := &RedisStreamStatistics{Stream: stream, MaxLen: max, RedisPool: redisPool}
+		for stream := range channels {
+			stat := &RedisStreamStatistics{Stream: stream, RedisPool: redisPool}
 			results = append(results, stat)
 			stat.Groups = make([]*RedisStreamGroupStatistics, 0)
 			r := engine.GetRedis(redisPool)

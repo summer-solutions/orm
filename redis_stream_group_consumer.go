@@ -11,7 +11,8 @@ import (
 )
 
 const countPending = 100
-const pendingClaimCheckDuration = time.Minute * 5
+const garbageCollectorCount = 100
+const pendingClaimCheckDuration = time.Minute * 2
 
 type RedisStreamGroupHandler func(streams []redis.XStream, ack *RedisStreamGroupAck)
 
@@ -29,13 +30,7 @@ func (s *RedisStreamGroupAck) Ack(stream string, message ...redis.XMessage) {
 		i++
 	}
 	s.max[stream] = i
-	if s.consumer.autoDelete {
-		// todo in pipeline and transaction
-		s.consumer.redis.XAck(stream, s.consumer.group, s.ids[stream][start:i]...)
-		s.consumer.redis.XDel(stream, s.ids[stream][start:i]...)
-	} else {
-		s.consumer.redis.XAck(stream, s.consumer.group, s.ids[stream][start:i]...)
-	}
+	s.consumer.redis.XAck(stream, s.consumer.group, s.ids[stream][start:i]...)
 }
 
 type RedisStreamGroupConsumer interface {
@@ -44,9 +39,16 @@ type RedisStreamGroupConsumer interface {
 	SetHeartBeat(duration time.Duration, beat func())
 }
 
-func (r *RedisCache) NewStreamGroupConsumer(name, group string, autoDelete bool, count, maxScripts int, streams ...string) RedisStreamGroupConsumer {
-	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, maxScripts: maxScripts, autoDelete: autoDelete,
-		loop: true, count: count, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute, minIdle: time.Minute * 2}
+func (r *RedisCache) NewStreamGroupConsumer(name, group string, count, maxScripts int, streams ...string) RedisStreamGroupConsumer {
+	for _, stream := range streams {
+		_, has := r.engine.registry.redisStreamGroups[r.code][stream][group]
+		if !has {
+			panic(fmt.Errorf("unregistered group %s in channel %s in redis pool %s", group, stream, r.code))
+		}
+	}
+	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, maxScripts: maxScripts,
+		loop: true, count: count, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute,
+		garbageTick: time.Minute, minIdle: time.Minute * 2}
 }
 
 type redisStreamGroupConsumer struct {
@@ -55,7 +57,6 @@ type redisStreamGroupConsumer struct {
 	nr                int
 	streams           []string
 	group             string
-	autoDelete        bool
 	loop              bool
 	maxScripts        int
 	count             int
@@ -65,6 +66,7 @@ type redisStreamGroupConsumer struct {
 	heartBeatDuration time.Duration
 	lockTTL           time.Duration
 	lockTick          time.Duration
+	garbageTick       time.Duration
 	minIdle           time.Duration
 }
 
@@ -85,7 +87,7 @@ func (r *redisStreamGroupConsumer) HeartBeat(force bool) {
 }
 
 func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStreamGroupHandler) {
-	uniqueLockKey := r.group + "_" + r.name
+	uniqueLockKey := r.group + "_" + r.name + "_" + r.redis.code
 	locker := r.redis.engine.GetLocker()
 	nr := 0
 	lockName := uniqueLockKey
@@ -135,6 +137,21 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 		ticker.Stop()
 		done <- true
 	}()
+	garbageTicker := time.NewTicker(r.garbageTick)
+	go func() {
+		r.garbageCollector(ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-done:
+				return
+			case <-garbageTicker.C:
+				r.garbageCollector(ctx)
+			}
+		}
+	}()
+
 	ack := &RedisStreamGroupAck{max: make(map[string]int), ids: make(map[string][]string), consumer: r}
 	lastIDs := make(map[string]string)
 	for _, stream := range r.streams {
@@ -275,4 +292,66 @@ func (r *redisStreamGroupConsumer) incrementLastID(id string) string {
 	s := strings.Split(id, "-")
 	counter, _ := strconv.Atoi(s[1])
 	return fmt.Sprintf("%s-%d", s[0], counter+1)
+}
+
+func (r *redisStreamGroupConsumer) garbageCollector(ctx context.Context) {
+	locker := r.redis.engine.GetLocker()
+	def := r.redis.engine.registry.redisStreamGroups[r.redis.code]
+	for _, stream := range r.streams {
+		_, has := locker.Obtain(ctx, "garbage_"+stream+"_"+r.redis.code, r.garbageTick, time.Millisecond*10)
+		if !has {
+			continue
+		}
+		info := r.redis.XInfoGroups(stream)
+		ids := make(map[string][]int64)
+		for name := range def[stream] {
+			ids[name] = []int64{0, 0}
+		}
+		for _, group := range info {
+			_, has := ids[group.Name]
+			if !has {
+				r.redis.XGroupDestroy(stream, r.group)
+				continue
+			}
+			if group.LastDeliveredID == "" {
+				continue
+			}
+			s := strings.Split(group.LastDeliveredID, "-")
+			id, _ := strconv.ParseInt(s[0], 10, 64)
+			ids[group.Name][0] = id
+			counter, _ := strconv.ParseInt(s[1], 10, 64)
+			ids[group.Name][1] = counter
+		}
+		minID := []int64{-1, 0}
+		for _, id := range ids {
+			if id[0] == 0 {
+				minID[0] = 0
+				minID[1] = 0
+			} else if minID[0] == -1 || id[0] < minID[0] || (id[0] == minID[0] && id[1] < minID[1]) {
+				minID[0] = id[0]
+				minID[1] = id[1]
+			}
+		}
+		if minID[0] == 0 {
+			continue
+		}
+		// TODO check of redis 6.2 and use trim with minid
+		start := "-"
+		end := fmt.Sprintf("%d-%d", minID[0], minID[1])
+		for {
+			messages := r.redis.XRange(stream, start, end, garbageCollectorCount)
+			l := len(messages)
+			if l > 0 {
+				keys := make([]string, l)
+				for i, message := range messages {
+					keys[i] = message.ID
+				}
+				r.redis.XDel(stream, keys...)
+				start = r.incrementLastID(keys[l-1])
+			}
+			if l < garbageCollectorCount {
+				break
+			}
+		}
+	}
 }

@@ -1398,14 +1398,11 @@ func (r *RedisCache) XPendingExt(a *redis.XPendingExtArgs) []redis.XPendingExt {
 //   - map[string]interface{}{"key1": "value1", "key2": "value2"}
 //
 func (r *RedisCache) XAdd(stream string, values interface{}) (id string) {
-	max, has := r.engine.registry.redisStreams[r.code][stream]
+	_, has := r.engine.registry.redisStreamGroups[r.code][stream]
 	if !has {
 		panic(fmt.Errorf("unregistered channel %s in redis pool %s", stream, r.code))
 	}
 	a := &redis.XAddArgs{Stream: stream, ID: "*", Values: values}
-	if max > 0 {
-		a.MaxLen = int64(max)
-	}
 	start := time.Now()
 	id, err := r.client.XAdd(a)
 	checkError(err)

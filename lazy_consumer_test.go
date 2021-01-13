@@ -124,5 +124,4 @@ func TestLazyReceiver(t *testing.T) {
 	receiver.Digest(context.Background())
 	loaded = engine.LoadByID(1, e)
 	assert.False(t, loaded)
-	assert.Equal(t, int64(0), engine.GetRedis().XLen(lazyChannelName))
 }

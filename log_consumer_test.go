@@ -124,6 +124,4 @@ func TestLogReceiver(t *testing.T) {
 	assert.False(t, changesNullable.Valid)
 	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": \"Germany\", \"LastName\": \"Summer\"}", before.String)
 	assert.Equal(t, "{\"user_id\": 12}", meta.String)
-
-	assert.Equal(t, int64(0), engine.GetRedis().XLen(logChannelName))
 }

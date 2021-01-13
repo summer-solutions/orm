@@ -223,7 +223,7 @@ func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) {
 	for _, id := range ids {
 		val := &DirtyQueueValue{Updated: true, ID: id, EntityName: entityName}
 		asJSON, _ := json.Marshal(val)
-		e.GetRedis().XAdd(dirtyChannelPrefix+queueCode, []string{"v", string(asJSON)})
+		e.GetRedis().XAdd(queueCode, []string{"v", string(asJSON)})
 	}
 }
 

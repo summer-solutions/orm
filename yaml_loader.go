@@ -73,13 +73,16 @@ func validateClickHouseURI(registry *Registry, value interface{}, key string) {
 
 func validateRedisChannels(registry *Registry, value interface{}, key string) {
 	def := fixYamlMap(value, key)
-	for name, max := range def {
-		asString := fmt.Sprintf("%v", max)
-		parsedUint, err := strconv.ParseUint(asString, 10, 64)
-		if err != nil {
-			panic(errors.NotValidf("redis channel %s max size '%v'", name, max))
+	for name, groups := range def {
+		asSlice, ok := groups.([]interface{})
+		if !ok {
+			panic(errors.NotValidf("redisStreams '%v'", groups))
 		}
-		registry.RegisterRedisStream(name, key, parsedUint)
+		asString := make([]string, len(asSlice))
+		for i, val := range asSlice {
+			asString[i] = fmt.Sprintf("%v", val)
+		}
+		registry.RegisterRedisStream(name, key, asString)
 	}
 }
 
