@@ -133,7 +133,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 
 	consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", 5, 1, "test-stream")
 
-	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
+	consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 10
 	consumer.DisableLoop()
 	heartBeats := 0
 	consumer.SetHeartBeat(time.Second, func() {
