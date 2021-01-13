@@ -43,7 +43,7 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 
 	consumer2.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		ack.Ack(streams[0].Stream, streams[0].Messages...)
-		time.Sleep(time.Millisecond * 20)
+		time.Sleep(time.Millisecond * 100)
 	})
 	assert.Equal(t, int64(0), engine.GetRedis().XLen("test-stream"))
 }

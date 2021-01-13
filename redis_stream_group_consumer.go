@@ -337,6 +337,7 @@ func (r *redisStreamGroupConsumer) garbageCollector(ctx context.Context) {
 			continue
 		}
 		// TODO check of redis 6.2 and use trim with minid
+
 		start := "-"
 		end := fmt.Sprintf("%d-%d", minID[0], minID[1])
 		for {
