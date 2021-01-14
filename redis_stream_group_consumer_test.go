@@ -177,10 +177,8 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, 2, iterations)
 
 	r.XTrim("test-stream", 0, false)
-	engine.EnableQueryDebug()
 	for i := 11; i <= 20; i++ {
-		id := r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
-		fmt.Printf("%s\n", id)
+		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	iterations = 0
 	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {

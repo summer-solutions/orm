@@ -252,7 +252,7 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 					if l > 0 {
 						totalMessages += l
 						if invalidCheck {
-							lastIDs[row.Stream] = r.incrementLastID(row.Messages[l-1].ID)
+							lastIDs[row.Stream] = row.Messages[l-1].ID
 						}
 					}
 				}
