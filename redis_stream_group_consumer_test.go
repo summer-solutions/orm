@@ -120,7 +120,7 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 
 func TestRedisStreamGroupConsumer(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterRedis("localhost:6381", 15)
+	registry.RegisterRedis("localhost:6381", 11)
 	registry.RegisterLocker("default", "default")
 	registry.RegisterRedisStream("test-stream", "default", []string{"test-group"})
 	registry.RegisterRedisStream("test-stream-a", "default", []string{"test-group", "test-group-multi"})
@@ -177,8 +177,10 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, 2, iterations)
 
 	r.XTrim("test-stream", 0, false)
+	engine.EnableQueryDebug()
 	for i := 11; i <= 20; i++ {
-		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
+		id := r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
+		fmt.Printf("%s\n", id)
 	}
 	iterations = 0
 	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
