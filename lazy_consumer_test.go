@@ -49,7 +49,7 @@ func TestLazyReceiver(t *testing.T) {
 	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest(context.Background())
+	receiver.Digest(context.Background(), 100)
 	assert.True(t, validHeartBeat)
 
 	loaded = engine.LoadByID(1, e)
@@ -76,7 +76,7 @@ func TestLazyReceiver(t *testing.T) {
 	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest(context.Background())
+	receiver.Digest(context.Background(), 100)
 	assert.True(t, validHeartBeat)
 
 	e = &lazyReceiverEntity{}
@@ -92,7 +92,7 @@ func TestLazyReceiver(t *testing.T) {
 	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest(context.Background())
+	receiver.Digest(context.Background(), 100)
 	assert.True(t, validHeartBeat)
 
 	e = &lazyReceiverEntity{Name: "Adam", EnumNullable: "wrong"}
@@ -100,7 +100,7 @@ func TestLazyReceiver(t *testing.T) {
 	engine.FlushLazy()
 
 	assert.NotPanics(t, func() {
-		receiver.Digest(context.Background())
+		receiver.Digest(context.Background(), 100)
 	})
 	e = &lazyReceiverEntity{Name: "Tom"}
 	engine.SetOnDuplicateKeyUpdate(NewWhere("Age = ?", 38), e)
@@ -121,7 +121,7 @@ func TestLazyReceiver(t *testing.T) {
 	engine.LoadByID(1, e)
 	engine.MarkToDelete(e)
 	engine.FlushLazy()
-	receiver.Digest(context.Background())
+	receiver.Digest(context.Background(), 100)
 	loaded = engine.LoadByID(1, e)
 	assert.False(t, loaded)
 }

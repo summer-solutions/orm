@@ -51,7 +51,7 @@ func (r *DirtyConsumer) SetHeartBeat(duration time.Duration, beat func()) {
 type DirtyHandler func(data []*DirtyData)
 
 func (r *DirtyConsumer) Digest(ctx context.Context, codes []string, count int, handler DirtyHandler) {
-	consumer := r.engine.GetRedis().NewStreamGroupConsumer(r.name, r.group, count, r.maxScripts, codes...)
+	consumer := r.engine.GetRedis().NewStreamGroupConsumer(r.name, r.group, r.maxScripts, codes...)
 	consumer.(*redisStreamGroupConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()
@@ -59,7 +59,7 @@ func (r *DirtyConsumer) Digest(ctx context.Context, codes []string, count int, h
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeatDuration, r.heartBeat)
 	}
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, count, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		for _, stream := range streams {
 			data := make([]*DirtyData, len(stream.Messages))
 			for i, item := range stream.Messages {

@@ -24,24 +24,24 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 	for i := 1; i <= 10; i++ {
 		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
-	consumer1 := r.NewStreamGroupConsumer("test-consumer", "test-group-1", 1, 1, "test-stream")
+	consumer1 := r.NewStreamGroupConsumer("test-consumer", "test-group-1", 1, "test-stream")
 	consumer1.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer1.(*redisStreamGroupConsumer).garbageTick = time.Millisecond * 15
 	consumer1.(*redisStreamGroupConsumer).garbageLock = time.Millisecond * 15
 	consumer1.DisableLoop()
-	consumer2 := r.NewStreamGroupConsumer("test-consumer", "test-group-2", 1, 1, "test-stream")
+	consumer2 := r.NewStreamGroupConsumer("test-consumer", "test-group-2", 1, "test-stream")
 	consumer2.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer2.(*redisStreamGroupConsumer).garbageTick = time.Millisecond * 15
 	consumer2.(*redisStreamGroupConsumer).garbageLock = time.Millisecond * 15
 	consumer2.DisableLoop()
 
-	consumer1.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer1.Consume(context.Background(), 1, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		ack.Ack(streams[0].Stream, streams[0].Messages...)
 		time.Sleep(time.Millisecond * 20)
 	})
 	assert.Equal(t, int64(10), engine.GetRedis().XLen("test-stream"))
 
-	consumer2.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer2.Consume(context.Background(), 1, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		ack.Ack(streams[0].Stream, streams[0].Messages...)
 		time.Sleep(time.Millisecond * 100)
 	})
@@ -59,12 +59,12 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 	r := engine.GetRedis()
 	r.FlushDB()
 
-	consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", 1, 2, "test-stream")
+	consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", 2, "test-stream")
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer.DisableLoop()
-	consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
+	consumer.Consume(context.Background(), 1, func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
 	assert.Equal(t, 1, consumer.(*redisStreamGroupConsumer).nr)
-	consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
+	consumer.Consume(context.Background(), 1, func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
 	assert.Equal(t, 1, consumer.(*redisStreamGroupConsumer).nr)
 
 	r.FlushDB()
@@ -77,10 +77,10 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", 5, 2, "test-stream")
+		consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", 2, "test-stream")
 		consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 		consumer.DisableLoop()
-		consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+		consumer.Consume(context.Background(), 5, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			assert.Equal(t, 1, consumer.(*redisStreamGroupConsumer).nr)
 			iterations1 = true
 			time.Sleep(time.Millisecond * 100)
@@ -89,10 +89,10 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 	time.Sleep(time.Millisecond)
 	go func() {
 		defer wg.Done()
-		consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", 5, 2, "test-stream")
+		consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", 2, "test-stream")
 		consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 		consumer.DisableLoop()
-		consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+		consumer.Consume(context.Background(), 5, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			assert.Equal(t, 2, consumer.(*redisStreamGroupConsumer).nr)
 			iterations2 = true
 		})
@@ -106,12 +106,12 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 	assert.NotEmpty(t, pending.Consumers["test-consumer-1"])
 	assert.NotEmpty(t, pending.Consumers["test-consumer-2"])
 
-	consumer = r.NewStreamGroupConsumer("test-consumer", "test-group", 100, 2, "test-stream")
+	consumer = r.NewStreamGroupConsumer("test-consumer", "test-group", 2, "test-stream")
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer.DisableLoop()
 	consumer.(*redisStreamGroupConsumer).minIdle = time.Millisecond
 	time.Sleep(time.Millisecond * 100)
-	consumer.Consume(context.Background(), func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
+	consumer.Consume(context.Background(), 100, func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
 
 	pending = r.XPending("test-stream", "test-group")
 	assert.Len(t, pending.Consumers, 1)
@@ -131,7 +131,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	r := engine.GetRedis()
 	r.FlushDB()
 
-	consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", 5, 1, "test-stream")
+	consumer := r.NewStreamGroupConsumer("test-consumer", "test-group", 1, "test-stream")
 
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 10
 	consumer.DisableLoop()
@@ -140,14 +140,14 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		heartBeats++
 	})
 	ctx, cancel := context.WithCancel(context.Background())
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
+	consumer.Consume(ctx, 5, func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
 	assert.Equal(t, 1, heartBeats)
 
 	for i := 1; i <= 10; i++ {
 		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	iterations := 0
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, 5, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		assert.Len(t, streams, 1)
 		assert.Len(t, streams[0].Messages, 5)
@@ -173,7 +173,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, 2, heartBeats)
 	assert.Equal(t, int64(10), r.XLen("test-stream"))
 	assert.Equal(t, int64(0), r.XInfoGroups("test-stream")[0].Pending)
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
+	consumer.Consume(ctx, 5, func(streams []redis.XStream, ack *RedisStreamGroupAck) {})
 	assert.Equal(t, 2, iterations)
 
 	r.XTrim("test-stream", 0, false)
@@ -181,7 +181,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	iterations = 0
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, 5, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		assert.Len(t, streams[0].Messages, 5)
 		if iterations == 1 {
@@ -195,7 +195,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, int64(10), r.XInfoGroups("test-stream")[0].Pending)
 	iterations = 0
 	heartBeats = 0
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, 5, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		assert.Len(t, streams[0].Messages, 5)
 		if iterations == 1 {
@@ -214,10 +214,10 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	for i := 1; i <= 10; i++ {
 		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
-	consumer = r.NewStreamGroupConsumer("test-consumer", "test-group", 5, 1, "test-stream")
+	consumer = r.NewStreamGroupConsumer("test-consumer", "test-group", 1, "test-stream")
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	iterations = 0
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, 5, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		if iterations == 1 {
 			assert.Len(t, streams[0].Messages, 5)
@@ -258,7 +258,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, 6, iterations)
 	r.FlushDB()
 	iterations = 0
-	consumer = r.NewStreamGroupConsumer("test-consumer-multi", "test-group-multi", 8, 1,
+	consumer = r.NewStreamGroupConsumer("test-consumer-multi", "test-group-multi", 1,
 		"test-stream-a", "test-stream-b")
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond
 	consumer.DisableLoop()
@@ -266,7 +266,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		r.XAdd("test-stream-a", []string{"name", fmt.Sprintf("a%d", i)})
 		r.XAdd("test-stream-b", []string{"name", fmt.Sprintf("b%d", i)})
 	}
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, 8, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		iterations++
 		assert.Len(t, streams, 2)
 		if iterations == 1 {
@@ -283,29 +283,29 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	iterations = 0
 	messages := 0
 	valid := false
-	consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 8, 1,
+	consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 1,
 		"test-stream")
 	for i := 1; i <= 10; i++ {
 		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	go func() {
-		consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 8, 1,
+		consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 1,
 			"test-stream")
 		consumer.DisableLoop()
 		consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 10
-		consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+		consumer.Consume(ctx, 8, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			iterations++
 			messages += len(streams[0].Messages)
 		})
 	}()
 	time.Sleep(time.Millisecond)
 	go func() {
-		consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 8, 1,
+		consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 1,
 			"test-stream")
 		consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 10
 		assert.PanicsWithError(t, "consumer test-consumer-unique for group test-group is running already", func() {
 			valid = true
-			consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+			consumer.Consume(ctx, 8, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			})
 		})
 	}()
@@ -318,14 +318,14 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		r.XAdd("test-stream", []string{"name", fmt.Sprintf("a%d", i)})
 	}
 	valid = false
-	consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 1, 1,
+	consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 1,
 		"test-stream")
 	consumer.(*redisStreamGroupConsumer).lockTTL = time.Millisecond * 100
 	consumer.(*redisStreamGroupConsumer).lockTick = time.Millisecond * 100
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 100
 	consumer.DisableLoop()
-	assert.PanicsWithError(t, "consumer test-consumer-unique for group test-group lost lock", func() { // TODO
-		consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	assert.PanicsWithError(t, "consumer test-consumer-unique for group test-group lost lock", func() {
+		consumer.Consume(ctx, 1, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 			valid = true
 			time.Sleep(time.Millisecond * 500)
 		})
@@ -333,7 +333,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.True(t, valid)
 
 	r.FlushDB()
-	consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 1, 1,
+	consumer = r.NewStreamGroupConsumer("test-consumer-unique", "test-group", 1,
 		"test-stream")
 	consumer.(*redisStreamGroupConsumer).block = time.Millisecond * 400
 	valid = true
@@ -341,7 +341,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		time.Sleep(time.Millisecond * 200)
 		cancel()
 	}()
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, 1, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		valid = false
 	})
 	assert.True(t, valid)

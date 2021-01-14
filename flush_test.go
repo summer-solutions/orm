@@ -490,7 +490,7 @@ func TestFlush(t *testing.T) {
 	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
-	receiver.Digest(context.Background())
+	receiver.Digest(context.Background(), 100)
 	assert.True(t, validHeartBeat)
 	assert.Len(t, testLogger.Entries, 1)
 	assert.Equal(t, "UPDATE flushEntitySmart SET `Age` = ? WHERE `ID` = ?", testLogger.Entries[0].Fields["Query"])

@@ -34,12 +34,12 @@ func (s *RedisStreamGroupAck) Ack(stream string, message ...redis.XMessage) {
 }
 
 type RedisStreamGroupConsumer interface {
-	Consume(ctx context.Context, handler RedisStreamGroupHandler)
+	Consume(ctx context.Context, count int, handler RedisStreamGroupHandler)
 	DisableLoop()
 	SetHeartBeat(duration time.Duration, beat func())
 }
 
-func (r *RedisCache) NewStreamGroupConsumer(name, group string, count, maxScripts int, streams ...string) RedisStreamGroupConsumer {
+func (r *RedisCache) NewStreamGroupConsumer(name, group string, maxScripts int, streams ...string) RedisStreamGroupConsumer {
 	for _, stream := range streams {
 		_, has := r.engine.registry.redisStreamGroups[r.code][stream][group]
 		if !has {
@@ -47,7 +47,7 @@ func (r *RedisCache) NewStreamGroupConsumer(name, group string, count, maxScript
 		}
 	}
 	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, maxScripts: maxScripts,
-		loop: true, count: count, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute,
+		loop: true, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute,
 		garbageTick: time.Second * 30, garbageLock: time.Minute, minIdle: time.Minute * 2}
 }
 
@@ -59,7 +59,6 @@ type redisStreamGroupConsumer struct {
 	group             string
 	loop              bool
 	maxScripts        int
-	count             int
 	block             time.Duration
 	heartBeatTime     time.Time
 	heartBeat         func()
@@ -87,7 +86,7 @@ func (r *redisStreamGroupConsumer) HeartBeat(force bool) {
 	}
 }
 
-func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStreamGroupHandler) {
+func (r *redisStreamGroupConsumer) Consume(ctx context.Context, count int, handler RedisStreamGroupHandler) {
 	uniqueLockKey := r.group + "_" + r.name + "_" + r.redis.code
 	locker := r.redis.engine.GetLocker()
 	nr := 0
@@ -158,7 +157,7 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 	for _, stream := range r.streams {
 		r.redis.XGroupCreateMkStream(stream, r.group, "0")
 		ack.max[stream] = 0
-		ack.ids[stream] = make([]string, r.count)
+		ack.ids[stream] = make([]string, count)
 	}
 	keys := make([]string, 0)
 	if r.maxScripts > 1 {
@@ -241,7 +240,7 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, handler RedisStr
 					}
 					i++
 				}
-				a := &redis.XReadGroupArgs{Consumer: r.getName(), Group: r.group, Streams: streams, Count: int64(r.count), Block: r.block}
+				a := &redis.XReadGroupArgs{Consumer: r.getName(), Group: r.group, Streams: streams, Count: int64(count), Block: r.block}
 				results := r.redis.XReadGroup(a)
 				if canceled {
 					return

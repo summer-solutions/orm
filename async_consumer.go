@@ -56,9 +56,9 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 	r.logLogger = logger
 }
 
-func (r *AsyncConsumer) Digest(ctx context.Context) {
+func (r *AsyncConsumer) Digest(ctx context.Context, count int) {
 	consumer := r.engine.GetRedis(r.redisPool).NewStreamGroupConsumer(r.name, lazyConsumerGroupName,
-		100, r.maxScripts, lazyChannelName, logChannelName)
+		r.maxScripts, lazyChannelName, logChannelName)
 	consumer.(*redisStreamGroupConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()
@@ -66,7 +66,7 @@ func (r *AsyncConsumer) Digest(ctx context.Context) {
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeatDuration, r.heartBeat)
 	}
-	consumer.Consume(ctx, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
+	consumer.Consume(ctx, count, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
 		for _, stream := range streams {
 			if stream.Stream == lazyChannelName {
 				r.handleLazy(stream.Messages, ack)
