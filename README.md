@@ -113,6 +113,10 @@ default:
     mysql: root:root@tcp(localhost:3310)/db
     mysqlEncoding: utf8 //optional, default is utf8mb4
     redis: localhost:6379:0
+    redisStreams:
+      channel-1:
+        - test-group-1
+        - test-group-2
     elastic: http://127.0.0.1:9200
     elastic_trace: http://127.0.0.1:9201 //with trace log
     clickhouse: http://127.0.0.1:9000
@@ -1340,7 +1344,7 @@ func main() {
 
 ## Tools
 
-Redis channels statistics
+Redis streams statistics
 
 ```go
 package main
