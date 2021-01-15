@@ -688,10 +688,10 @@ func main() {
     
     // you need to run code that will read data from queue and execute changes
     // run in separate goroutine (cron script)
-    consumer := NewAsyncConsumer(engine, "my-consumer", "default", 1) // you can run maximum one consumer
+    consumer := NewAsyncConsumer(engine, "my-consumer", 1) // you can run maximum one consumer
     consumer.Digest() //It will wait for new messages in a loop, run receiver.DisableLoop() to run loop once
 
-    consumerAnotherPool := NewAsyncConsumer(engine,  "my-consumer", "another_redis", 5) // you can run up to 5 consumers at the same time
+    consumerAnotherPool := NewAsyncConsumer(engine,  "my-consumer", 5) // you can run up to 5 consumers at the same time
     consumerAnotherPool.Digets()
 }
 
@@ -767,10 +767,10 @@ func main() {
     // you can set meta only in specific entity
     engine.SetEntityLogMeta("user_name", "john", entity)
     
-    consumer := NewAsyncConsumer(engine, "my-consumer", "default", 1)
+    consumer := NewAsyncConsumer(engine, "my-consumer",  1)
     consumer.Digets() //it will wait for new messages in queue
 
-    consumerAnotherPool := NewAsyncConsumer(engine, "my-consumer", "another_redis", 1)
+    consumerAnotherPool := NewAsyncConsumer(engine, "my-consumer", 1)
     consumerAnotherPool.Digets()
 }
 

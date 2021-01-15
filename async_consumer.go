@@ -27,7 +27,6 @@ type LogQueueValue struct {
 type AsyncConsumer struct {
 	engine            *Engine
 	name              string
-	redisPool         string
 	maxScripts        int
 	block             time.Duration
 	disableLoop       bool
@@ -36,8 +35,8 @@ type AsyncConsumer struct {
 	logLogger         func(log *LogQueueValue)
 }
 
-func NewAsyncConsumer(engine *Engine, name, redisPool string, maxScripts int) *AsyncConsumer {
-	return &AsyncConsumer{engine: engine, name: name, redisPool: redisPool, block: time.Minute, maxScripts: maxScripts}
+func NewAsyncConsumer(engine *Engine, name string, maxScripts int) *AsyncConsumer {
+	return &AsyncConsumer{engine: engine, name: name, block: time.Minute, maxScripts: maxScripts}
 }
 
 func (r *AsyncConsumer) DisableLoop() {
