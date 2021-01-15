@@ -1370,7 +1370,6 @@ default:
       - test-group-1
     stream-3:
       - test-group-3
-
 ```
 or using go:
 
@@ -1459,6 +1458,19 @@ func main() {
 
 }    
 ```
+
+Setting another redis pool for AsyncConsumer:
+```yaml
+another_pool:
+  redis: localhost:6381:0
+  streams:
+   orm-lazy-channel: # FlushLazy()
+      - default-group # group name for AsyncConsumer
+    orm-log-channel: # adding changes to logs
+      - default-group # group name for AsyncConsumer
+      - test-group-2 # you can register another consumers to read logs  
+```
+
 
 ## Tools
 
