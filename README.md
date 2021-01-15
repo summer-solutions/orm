@@ -33,7 +33,7 @@ Menu:
  * [Lazy flush](https://github.com/summer-solutions/orm#lazy-flush)
  * [Data loader](https://github.com/summer-solutions/orm#data-loader) 
  * [Log entity changes](https://github.com/summer-solutions/orm#log-entity-changes) 
- * [Dirty channels](https://github.com/summer-solutions/orm#dirty-queues) 
+ * [Dirty stream](https://github.com/summer-solutions/orm#dirty-stream) 
  * [Fake delete](https://github.com/summer-solutions/orm#fake-delete) 
  * [Working with Redis](https://github.com/summer-solutions/orm#working-with-redis) 
  * [Working with local cache](https://github.com/summer-solutions/orm#working-with-local-cache) 
@@ -776,7 +776,7 @@ func main() {
 
 ```
 
-## Dirty channels
+## Dirty stream
 
 You can send event to event broker if any specific data in entity was changed.
 
@@ -803,20 +803,20 @@ func main() {
         Name     string `orm:"dirty=age_name_changed"` //event will be send to age_name_changed if Name or Age changed
         Age      int `orm:"dirty=age_name_changed,age_changed"` //event will be send to age_changed if Age changed
     }
+ 
+    consumer := engine.GetEventProker().Consume("my-consumer", "my-consumer-group", 1)
 
-    // now just use Flush and events will be send to evebt broker
-
-    // receiving events
-    consumer := NewDirtyConsumer(engine, "my-consumer", "my-consumer-group", 1)
-    
-    // in this case data length is max 100
-    consumer.Digest("user_changed", 100, func(data []*orm.DirtyData) {
-        for _, item := range data {
-            // data.TableSchema is TableSchema of entity
-            // data.ID has entity ID
-            // data.Added is true if entity was added
-            // data.Updated is true if entity was updated
-            // data.Deleted is true if entity was deleted
+    consumer.Consume(context.Background(), 100, func(events []orm.Event) {
+        for _, event := range events {
+           dirty := orm.EventDirtyEntity(event) // created wrapper around event to easily access data
+           if dirty.Added() {
+           	 fmt.Printf("Entity %s with ID %d was added", dirty.TableSchema().GetType().String(), dirty.ID())
+           } else if dirty.Updated() {
+           	 fmt.Printf("Entity %s with ID %d was updated", dirty.TableSchema().GetType().String(), dirty.ID())
+           } else if dirty.Deleted() {
+             fmt.Printf("Entity %s with ID %d was deleted", dirty.TableSchema().GetType().String(), dirty.ID())
+           }
+           event.Ack()
         }
     })
 }

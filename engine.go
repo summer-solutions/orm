@@ -41,7 +41,7 @@ type Engine struct {
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
 	afterCommitDataLoaderSets    dataLoaderSets
-	afterCommitDirtyQueues       map[string][]*DirtyQueueValue
+	afterCommitDirtyQueues       map[string][]EventAsMap
 	afterCommitLogQueues         []*LogQueueValue
 	dataDog                      *dataDog
 	eventBroker                  *eventBroker
@@ -216,7 +216,7 @@ func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) {
 	entityName := initIfNeeded(e, entity).tableSchema.t.String()
 	broker := e.GetEventBroker()
 	for _, id := range ids {
-		broker.Publish(queueCode, &DirtyQueueValue{Updated: true, ID: id, EntityName: entityName})
+		broker.PublishMap(queueCode, EventAsMap{"A": "u", "I": id, "E": entityName})
 	}
 }
 

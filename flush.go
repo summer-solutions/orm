@@ -50,7 +50,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	dataLoaderSets := make(map[*tableSchema]map[uint64][]string)
 	localCacheDeletes := make(map[string]map[string]bool)
 	redisKeysToDelete := make(map[string]map[string]bool)
-	dirtyChannels := make(map[string][]*DirtyQueueValue)
+	dirtyChannels := make(map[string][]EventAsMap)
 	logQueues := make([]*LogQueueValue, 0)
 	lazyMap := make(map[string]interface{})
 	isInTransaction := transaction
@@ -455,11 +455,11 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		addElementsToLogQueues(engine, logQueues)
 	} else {
 		if engine.afterCommitDirtyQueues == nil {
-			engine.afterCommitDirtyQueues = make(map[string][]*DirtyQueueValue)
+			engine.afterCommitDirtyQueues = make(map[string][]EventAsMap)
 		}
 		for key, values := range dirtyChannels {
 			if engine.afterCommitDirtyQueues[key] == nil {
-				engine.afterCommitDirtyQueues[key] = make([]*DirtyQueueValue, 0)
+				engine.afterCommitDirtyQueues[key] = make([]EventAsMap, 0)
 			}
 			engine.afterCommitDirtyQueues[key] = append(engine.afterCommitDirtyQueues[key], values...)
 		}
@@ -473,7 +473,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entity Entity, bind map[string]interface{},
 	schema *tableSchema, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	db *DB, currentID uint64, redisKeysToDelete map[string]map[string]bool,
-	dirtyChannels map[string][]*DirtyQueueValue, logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
+	dirtyChannels map[string][]EventAsMap, logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
 	old := make(map[string]interface{}, len(dbData))
 	for k, v := range dbData {
 		old[k] = v
@@ -914,9 +914,9 @@ func addCacheDeletes(cacheDeletes map[string]map[string]bool, cacheCode string, 
 	}
 }
 
-func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interface{}, schema *tableSchema, id uint64, action string) {
-	results := make(map[string]*DirtyQueueValue)
-	key := &DirtyQueueValue{EntityName: schema.t.String(), ID: id, Added: action == "i", Updated: action == "u", Deleted: action == "d"}
+func addDirtyQueues(keys map[string][]EventAsMap, bind map[string]interface{}, schema *tableSchema, id uint64, action string) {
+	results := make(map[string]EventAsMap)
+	key := EventAsMap{"E": schema.t.String(), "I": id, "A": action}
 	for column, tags := range schema.tags {
 		queues, has := tags["dirty"]
 		if !has {
@@ -998,7 +998,7 @@ func convertToError(err error) error {
 
 func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 	bind map[string]interface{}, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
-	redisKeysToDelete map[string]map[string]bool, dirtyChannels map[string][]*DirtyQueueValue,
+	redisKeysToDelete map[string]map[string]bool, dirtyChannels map[string][]EventAsMap,
 	logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
 	schema := entity.getORM().tableSchema
 	engine := entity.getORM().engine
@@ -1107,11 +1107,11 @@ func (e *Engine) flushWithCheck(transaction bool) error {
 	return err
 }
 
-func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]*DirtyQueueValue) {
+func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]EventAsMap) {
 	broker := engine.GetEventBroker()
 	for code, v := range dirtyChannels {
 		for _, k := range v {
-			broker.Publish(code, k)
+			broker.PublishMap(code, k)
 		}
 	}
 }
