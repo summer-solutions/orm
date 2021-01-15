@@ -47,8 +47,8 @@ func (r *DirtyConsumer) SetHeartBeat(duration time.Duration, beat func()) {
 
 type DirtyHandler func(data []*DirtyData)
 
-func (r *DirtyConsumer) Digest(ctx context.Context, codes []string, count int, handler DirtyHandler) {
-	consumer := r.engine.GetEventBroker().Consumer(r.name, r.group, r.maxScripts, codes...)
+func (r *DirtyConsumer) Digest(ctx context.Context, count int, handler DirtyHandler) {
+	consumer := r.engine.GetEventBroker().Consumer(r.name, r.group, r.maxScripts)
 	consumer.(*eventsConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()

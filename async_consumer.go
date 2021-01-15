@@ -27,7 +27,6 @@ type LogQueueValue struct {
 type AsyncConsumer struct {
 	engine            *Engine
 	name              string
-	group             string
 	redisPool         string
 	maxScripts        int
 	block             time.Duration
@@ -37,8 +36,8 @@ type AsyncConsumer struct {
 	logLogger         func(log *LogQueueValue)
 }
 
-func NewAsyncConsumer(engine *Engine, name, redisPool, group string, maxScripts int) *AsyncConsumer {
-	return &AsyncConsumer{engine: engine, name: name, group: group, redisPool: redisPool, block: time.Minute, maxScripts: maxScripts}
+func NewAsyncConsumer(engine *Engine, name, redisPool string, maxScripts int) *AsyncConsumer {
+	return &AsyncConsumer{engine: engine, name: name, redisPool: redisPool, block: time.Minute, maxScripts: maxScripts}
 }
 
 func (r *AsyncConsumer) DisableLoop() {
@@ -55,7 +54,7 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 }
 
 func (r *AsyncConsumer) Digest(ctx context.Context, count int) {
-	consumer := r.engine.GetEventBroker().Consumer(r.name, r.group, r.maxScripts, lazyChannelName, logChannelName)
+	consumer := r.engine.GetEventBroker().Consumer(r.name, defaultEventBrokerGroupName, r.maxScripts)
 	consumer.(*eventsConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()

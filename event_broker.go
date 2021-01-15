@@ -66,7 +66,7 @@ func (ev *event) Unserialize(value interface{}) error {
 type EventBroker interface {
 	PublishMap(stream string, event EventAsMap) (id string)
 	Publish(stream string, event interface{}) (id string)
-	Consumer(name, group string, maxScripts int, streams ...string) EventsConsumer
+	Consumer(name, group string, maxScripts int) EventsConsumer
 }
 
 type eventBroker struct {
@@ -106,20 +106,22 @@ type EventsConsumer interface {
 	SetHeartBeat(duration time.Duration, beat func())
 }
 
-func (eb *eventBroker) Consumer(name, group string, maxScripts int, streams ...string) EventsConsumer {
+func (eb *eventBroker) Consumer(name, group string, maxScripts int) EventsConsumer {
+	streams := make([]string, 0)
+	for _, row := range eb.engine.registry.redisStreamGroups {
+		for stream, groups := range row {
+			_, has := groups[group]
+			if has {
+				streams = append(streams, stream)
+			}
+		}
+	}
 	if len(streams) == 0 {
-		panic(fmt.Errorf("empty list of stream"))
+		panic(fmt.Errorf("unregistered streams for group %s", group))
 	}
 	redisPool := ""
 	for _, stream := range streams {
-		pool, has := eb.engine.registry.redisStreamPools[stream]
-		if !has {
-			panic(fmt.Errorf("unregistered stream %s", stream))
-		}
-		_, has = eb.engine.registry.redisStreamGroups[pool][stream][group]
-		if !has {
-			panic(fmt.Errorf("unregistered group %s in channel %s in redis pool %s", group, stream, pool))
-		}
+		pool := eb.engine.registry.redisStreamPools[stream]
 		if redisPool == "" {
 			redisPool = pool
 		} else if redisPool != pool {
