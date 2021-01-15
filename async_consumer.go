@@ -53,7 +53,7 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 }
 
 func (r *AsyncConsumer) Digest(ctx context.Context, count int) {
-	consumer := r.engine.GetEventBroker().Consumer(r.name, defaultEventBrokerGroupName, r.maxScripts)
+	consumer := r.engine.GetEventBroker().Consumer(r.name, "orm-async-group", r.maxScripts)
 	consumer.(*eventsConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()

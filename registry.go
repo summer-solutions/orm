@@ -19,8 +19,6 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-const defaultEventBrokerGroupName = "default-group"
-
 type Registry struct {
 	sqlClients           map[string]*DBConfig
 	clickHouseClients    map[string]*ClickHouseConfig
@@ -200,11 +198,11 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.entities[name] = entityType
 		_, has := r.redisStreamPools[lazyChannelName]
 		if !has {
-			r.RegisterRedisStream(lazyChannelName, "default", []string{defaultEventBrokerGroupName})
+			r.RegisterRedisStream(lazyChannelName, "default", []string{"orm-async-group"})
 		}
 		_, has = r.redisStreamPools[logChannelName]
 		if !has {
-			r.RegisterRedisStream(logChannelName, "default", []string{defaultEventBrokerGroupName})
+			r.RegisterRedisStream(logChannelName, "default", []string{"orm-async-group"})
 		}
 	}
 	registry.redisStreamGroups = r.redisStreamGroups

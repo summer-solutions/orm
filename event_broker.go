@@ -418,7 +418,6 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 			for _, group := range info {
 				_, has := ids[group.Name]
 				if !has {
-					r.redis.XGroupDestroy(stream, r.group)
 					continue
 				}
 				if group.LastDeliveredID == "" {
