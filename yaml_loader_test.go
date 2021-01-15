@@ -20,10 +20,10 @@ func TestYamlLoader(t *testing.T) {
 	assert.Len(t, registry.redisStreamGroups, 2)
 	assert.Len(t, registry.redisStreamGroups["default"], 2)
 	assert.Len(t, registry.redisStreamGroups["another"], 1)
-	assert.Len(t, registry.redisStreamGroups["default"]["channel-1"], 2)
-	assert.True(t, registry.redisStreamGroups["default"]["channel-1"]["test-group-1"])
-	assert.True(t, registry.redisStreamGroups["default"]["channel-1"]["test-group-2"])
-	assert.True(t, registry.redisStreamGroups["default"]["channel-2"]["test-group-1"])
+	assert.Len(t, registry.redisStreamGroups["default"]["stream-1"], 2)
+	assert.True(t, registry.redisStreamGroups["default"]["stream-1"]["test-group-1"])
+	assert.True(t, registry.redisStreamGroups["default"]["stream-1"]["test-group-2"])
+	assert.True(t, registry.redisStreamGroups["default"]["stream-2"]["test-group-1"])
 
 	invalidYaml := make(map[string]interface{})
 	invalidYaml["test"] = "invalid"

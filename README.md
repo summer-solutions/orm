@@ -14,7 +14,7 @@ ORM that delivers support for full stack data access:
  * Elastic Search - for full text search
  * Local Cache - in memory local (not shared) cache
  * ClickHouse - time series database
- * RabbitMQ - message broker 
+ * RabbitMQ - message broker
  * DataDog - monitoring
  
 Menu:
@@ -45,7 +45,8 @@ Menu:
  * [Query logging](https://github.com/summer-solutions/orm#query-logging) 
  * [Logger](https://github.com/summer-solutions/orm#logger) 
  * [DataDog Profiler](https://github.com/summer-solutions/orm#datadog-profiler) 
- * [DataDog APM](https://github.com/summer-solutions/orm#datadog-apm) 
+ * [DataDog APM](https://github.com/summer-solutions/orm#datadog-apm)
+ * [Event broker](https://github.com/summer-solutions/orm#event-broker)
  * [Tools](https://github.com/summer-solutions/orm#tools)
 
 ## Configuration
@@ -113,8 +114,8 @@ default:
     mysql: root:root@tcp(localhost:3310)/db
     mysqlEncoding: utf8 //optional, default is utf8mb4
     redis: localhost:6379:0
-    redisStreams:
-      channel-1:
+    streams:
+      stream-1:
         - test-group-1
         - test-group-2
     elastic: http://127.0.0.1:9200
@@ -664,6 +665,8 @@ func main() {
     // you need to register redis  
     registry.RegisterRedis("localhost:6379", 0)
     registry.RegisterRedis("localhost:6380", 0, "another_redis")
+    
+    // .. create engine
 
     type User struct {
        ORM  `orm:"log"`
@@ -681,7 +684,7 @@ func main() {
        
     // now in code you can use FlushLazy() methods instead of Flush().
     // it will send changes to queue (database and cached is not updated yet)
-    user.FlushLazy()
+    engine.FlushLazy()
     
     // you need to run code that will read data from queue and execute changes
     // run in separate goroutine (cron script)
@@ -773,9 +776,9 @@ func main() {
 
 ```
 
-## Dirty queues
+## Dirty channels
 
-You can send event to queue if any specific data in entity was changed.
+You can send event to event broker if any specific data in entity was changed.
 
 ```go
 package main
@@ -783,10 +786,17 @@ package main
 import "github.com/summer-solutions/orm"
 
 func main() {
-    
-    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
 
-    // next you need to define in Entity that you want to log changes. Just add "log" tag
+	//define at least one redis pool
+    registry.RegisterRedis("localhost:6379", 0, "event-broker-pool")
+    //define stream with consumer groups for events
+    registry.RegisterRedisStream("user_changed", "event-broker-pool", []string{"my-consumer-group"})
+    registry.RegisterRedisStream("age_name_changed", "event-broker-pool", []string{"my-consumer-group"})
+    registry.RegisterRedisStream("age_changed", "event-broker-pool", []string{"my-consumer-group"})
+
+    // create engine
+    
+    // next you need to define in Entity that you want to log changes. Just add "dirty" tag
     type User struct {
         orm.ORM  `orm:"dirty=user_changed"` //define dirty here to track all changes
         ID       uint
@@ -794,10 +804,10 @@ func main() {
         Age      int `orm:"dirty=age_name_changed,age_changed"` //event will be send to age_changed if Age changed
     }
 
-    // now just use Flush and events will be send to queue
+    // now just use Flush and events will be send to evebt broker
 
     // receiving events
-    consumer := NewDirtyConsumer(engine, "my-consumer", 1)
+    consumer := NewDirtyConsumer(engine, "my-consumer", "my-consumer-group", 1)
     
     // in this case data length is max 100
     consumer.Digest("user_changed", 100, func(data []*orm.DirtyData) {
@@ -1338,6 +1348,114 @@ func main() {
         defer.span.Finish()
         //some work
     }()
+
+}    
+```
+
+## Event broker
+
+ORM provides easy way to use event broker.
+
+First yuo need to define streams and consumer groups:
+
+```yaml
+#YAML config file
+default:
+  redis: localhost:6381:0 // redis is required
+  streams:
+    stream-1:
+      - test-group-1
+      - test-group-2
+    stream-2:
+      - test-group-1
+    stream-3:
+      - test-group-3
+
+```
+or using go:
+
+```go
+package main
+
+import "github.com/summer-solutions/orm"
+
+func main() {
+ registry := &orm.Registry{}
+ registry.RegisterRedisStream("stream-1", "default", []string{"test-group-1", "test-group-2"})
+ registry.RegisterRedisStream("stream-2", "default", []string{"test-group-1"})
+ registry.RegisterRedisStream("stream-3", "default", []string{"test-group-3"})
+}    
+```
+
+
+Publishing and receiving eventsr:
+
+```go
+package main
+
+import (
+ "context"
+ "github.com/summer-solutions/orm"
+)
+
+func main() {
+
+ // .. create engine
+
+ type Person struct {
+  Name string
+  Age  int
+ }
+
+ // fastest, no serialization
+ engine.GetEventProker().PublishMap("stream-1", orm.EventAsMap{"key": "value", "anotherKey": "value 2"})
+ // using serialization
+ engine.GetEventProker().Publish("stream-3", Person{Name: "Adam", Age: 18})
+
+ // reading from "stream-1" and "stream-2" streams, you can run max one consumer at once
+ consumerTestGroup1 := engine.GetEventProker().Consume("my-consumer", "test-group-1", 1)
+ 
+ // reading max 100 events in one loop, this line stop execution, waiting for new events
+ consumerTestGroup1.Consume(context.Background(), 100, func(events []orm.Event) {
+ 	for _, event := range events {
+            values := event.RawData() // map[string]interface{}{"key": "value", "anotherKey": "value 2"}
+            //do some work
+            event.Ack() // this line is acknowledging event
+ 	}
+ })
+
+ // auto acknowledging
+ consumerTestGroup1.Consume(context.Background(), 100, func(events []orm.Event) { 
+ 	//do some work, for example put all events at once to DB
+ 	// in this example all events will be acknowledge when this method is finished 
+ })
+
+ // skipping some events
+ consumerTestGroup1.Consume(context.Background(), 100, func(events []orm.Event) {
+  for _, event := range events {
+        if someCondition {
+             event.Ack()
+        } else {
+             event.Skip() //this event will be consumed again later
+        }
+    }
+ })
+
+ // reading from "stream-3" stream, you can run max to two consumers at once
+ consumerTestGroup3 := engine.GetEventProker().Consume("my-consumer", "test-group-2", 2)
+ consumerTestGroup3.DisableLoop() // all events will be consumed once withour waiting for new events   
+
+ consumerTestGroup3.Consume(context.Background(), 100, func(events []orm.Event) {
+    var person Person
+ 	for _, event := range events {
+        err := event.Unserialize(&person)
+        if err != nil {
+        	// ...
+        }
+        //do some work
+        event.Ack() // this line is acknowledging event
+    }
+ })
 
 }    
 ```

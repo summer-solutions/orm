@@ -23,7 +23,7 @@ type Event interface {
 	ID() string
 	Stream() string
 	RawData() map[string]interface{}
-	ToStruct(val interface{}) error
+	Unserialize(val interface{}) error
 }
 
 type event struct {
@@ -55,7 +55,7 @@ func (ev *event) RawData() map[string]interface{} {
 	return ev.message.Values
 }
 
-func (ev *event) ToStruct(value interface{}) error {
+func (ev *event) Unserialize(value interface{}) error {
 	val, has := ev.message.Values["_s"]
 	if !has {
 		return fmt.Errorf("event without struct data")

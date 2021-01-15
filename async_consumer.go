@@ -76,7 +76,7 @@ func (r *AsyncConsumer) Digest(ctx context.Context, count int) {
 
 func (r *AsyncConsumer) handleLog(event Event) {
 	var value LogQueueValue
-	err := event.ToStruct(&value)
+	err := event.Unserialize(&value)
 	if err != nil {
 		r.engine.reportError(err)
 		return
@@ -111,7 +111,7 @@ func (r *AsyncConsumer) handleLog(event Event) {
 
 func (r *AsyncConsumer) handleLazy(event Event) {
 	var data map[string]interface{}
-	err := event.ToStruct(&data)
+	err := event.Unserialize(&data)
 	if err != nil {
 		r.engine.reportError(err)
 		return

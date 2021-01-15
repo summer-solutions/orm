@@ -60,7 +60,7 @@ func (r *DirtyConsumer) Digest(ctx context.Context, codes []string, count int, h
 		data := make([]*DirtyData, len(events))
 		for i, event := range events {
 			var value DirtyQueueValue
-			err := event.ToStruct(&value)
+			err := event.Unserialize(&value)
 			if err != nil {
 				r.engine.reportError(err)
 				continue
