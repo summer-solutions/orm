@@ -192,9 +192,14 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 		}
 		break
 	}
-	defer lock.Release()
 	ticker := time.NewTicker(r.lockTick)
 	done := make(chan bool, 2)
+	defer func() {
+		lock.Release()
+		ticker.Stop()
+		done <- true
+		done <- true
+	}()
 	hasLock := true
 	canceled := false
 	lockAcquired := time.Now()
@@ -214,10 +219,6 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 				lockAcquired = time.Now()
 			}
 		}
-	}()
-	defer func() {
-		ticker.Stop()
-		done <- true
 	}()
 	garbageTicker := time.NewTicker(r.garbageTick)
 	go func() {
@@ -272,7 +273,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 							if row.Consumer != r.getName() && row.Idle >= r.minIdle {
 								ids = append(ids, row.ID)
 							}
-							start = r.incrementLastID(row.ID)
+							start = r.incrementID(row.ID)
 						}
 						if len(ids) > 0 {
 							arg := &redis.XClaimArgs{Consumer: r.getName(), Stream: stream, Group: r.group, MinIdle: r.minIdle, Messages: ids}
@@ -388,7 +389,7 @@ func (r *eventsConsumer) getName() string {
 	return r.name
 }
 
-func (r *eventsConsumer) incrementLastID(id string) string {
+func (r *eventsConsumer) incrementID(id string) string {
 	s := strings.Split(id, "-")
 	counter, _ := strconv.Atoi(s[1])
 	return fmt.Sprintf("%s-%d", s[0], counter+1)
@@ -413,6 +414,7 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 			for name := range def[stream] {
 				ids[name] = []int64{0, 0}
 			}
+			inPending := false
 			for _, group := range info {
 				_, has := ids[group.Name]
 				if !has {
@@ -422,7 +424,13 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 				if group.LastDeliveredID == "" {
 					continue
 				}
-				s := strings.Split(group.LastDeliveredID, "-")
+				lastDelivered := group.LastDeliveredID
+				pending := r.redis.XPending(stream, group.Name)
+				if pending.Lower != "" {
+					lastDelivered = pending.Lower
+					inPending = true
+				}
+				s := strings.Split(lastDelivered, "-")
 				id, _ := strconv.ParseInt(s[0], 10, 64)
 				ids[group.Name][0] = id
 				counter, _ := strconv.ParseInt(s[1], 10, 64)
@@ -442,9 +450,17 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 				continue
 			}
 			// TODO check of redis 6.2 and use trim with minid
-
 			start := "-"
-			end := fmt.Sprintf("%d-%d", minID[0], minID[1])
+			var end string
+			if inPending {
+				if minID[1] > 0 {
+					end = fmt.Sprintf("%d-%d", minID[0], minID[1]-1)
+				} else {
+					end = fmt.Sprintf("%d", minID[0]-1)
+				}
+			} else {
+				end = fmt.Sprintf("%d-%d", minID[0], minID[1])
+			}
 			for {
 				messages := r.redis.XRange(stream, start, end, garbageCollectorCount)
 				l := len(messages)
@@ -454,7 +470,7 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 						keys[i] = message.ID
 					}
 					r.redis.XDel(stream, keys...)
-					start = r.incrementLastID(keys[l-1])
+					start = r.incrementID(keys[l-1])
 				}
 				if l < garbageCollectorCount {
 					break

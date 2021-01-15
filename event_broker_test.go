@@ -34,14 +34,13 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 	consumer2.(*eventsConsumer).garbageLock = time.Millisecond * 15
 	consumer2.DisableLoop()
 
-	consumer1.Consume(context.Background(), 1, func(events []Event) {
-		time.Sleep(time.Millisecond * 20)
-	})
+	consumer1.Consume(context.Background(), 1, func(events []Event) {})
+	time.Sleep(time.Millisecond * 20)
 	assert.Equal(t, int64(10), engine.GetRedis().XLen("test-stream"))
 
-	consumer2.Consume(context.Background(), 1, func(events []Event) {
-		time.Sleep(time.Millisecond * 100)
-	})
+	consumer2.Consume(context.Background(), 1, func(events []Event) {})
+	time.Sleep(time.Millisecond * 20)
+	consumer2.(*eventsConsumer).garbageCollector(context.Background())
 	assert.Equal(t, int64(0), engine.GetRedis().XLen("test-stream"))
 }
 
@@ -144,6 +143,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	consumer := broker.Consumer("test-consumer", "test-group", 1)
 
 	consumer.(*eventsConsumer).block = time.Millisecond * 10
+	consumer.(*eventsConsumer).garbageLock = time.Millisecond * 10
 	consumer.DisableLoop()
 	heartBeats := 0
 	consumer.SetHeartBeat(time.Second, func() {
@@ -177,17 +177,27 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 			assert.Equal(t, "a9", events[3].RawData()["name"])
 			assert.Equal(t, "a10", events[4].RawData()["name"])
 		}
-	})
-	assert.Equal(t, 2, iterations)
-	assert.Equal(t, 2, heartBeats)
-	assert.Equal(t, int64(10), engine.GetRedis().XLen("test-stream"))
-	assert.Equal(t, int64(0), engine.GetRedis().XInfoGroups("test-stream")[0].Pending)
-	consumer.Consume(ctx, 5, func(events []Event) {
 		for _, event := range events {
 			event.Skip()
 		}
 	})
 	assert.Equal(t, 2, iterations)
+	assert.Equal(t, 2, heartBeats)
+	time.Sleep(time.Millisecond * 20)
+	consumer.(*eventsConsumer).garbageCollector(ctx)
+	time.Sleep(time.Second)
+	assert.Equal(t, int64(10), engine.GetRedis().XLen("test-stream"))
+	assert.Equal(t, int64(10), engine.GetRedis().XInfoGroups("test-stream")[0].Pending)
+	iterations = 0
+	consumer.Consume(ctx, 10, func(events []Event) {
+		iterations++
+		assert.Len(t, events, 10)
+		for _, event := range events {
+			assert.Len(t, event.RawData(), 1)
+		}
+	})
+	assert.Equal(t, 1, iterations)
+	consumer.(*eventsConsumer).garbageLock = time.Minute
 
 	engine.GetRedis().XTrim("test-stream", 0, false)
 	for i := 11; i <= 20; i++ {
