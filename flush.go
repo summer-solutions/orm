@@ -51,8 +51,8 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	localCacheDeletes := make(map[string]map[string]bool)
 	redisKeysToDelete := make(map[string]map[string]bool)
 	dirtyChannels := make(map[string][]*DirtyQueueValue)
-	logQueues := make(map[string][]*LogQueueValue)
-	lazyMap := make(map[string]map[string]interface{})
+	logQueues := make([]*LogQueueValue, 0)
+	lazyMap := make(map[string]interface{})
 	isInTransaction := transaction
 
 	var referencesToFlash map[Entity]Entity
@@ -147,16 +147,16 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 					injectBind(entity, bind)
 					entity.getORM().attributes.idElem.SetUint(lastID)
 					if affected == 1 {
-						updateCacheForInserted(entity, lazy, lastID, bind, localCacheSets,
+						logQueues = updateCacheForInserted(entity, lazy, lastID, bind, localCacheSets,
 							localCacheDeletes, redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 					} else {
 						_ = loadByID(engine, lastID, entity, false)
-						updateCacheAfterUpdate(dbData, engine, entity, lazy, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
+						logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
 							redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 					}
 				} else if currentID > 0 {
 					_ = loadByID(engine, currentID, entity, false)
-					updateCacheForInserted(entity, lazy, currentID, bind, localCacheSets,
+					logQueues = updateCacheForInserted(entity, lazy, currentID, bind, localCacheSets,
 						localCacheDeletes, redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 				} else {
 				OUTER:
@@ -226,7 +226,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			db := schema.GetMysql(engine)
 			values[i] = currentID
 			if lazy {
-				fillLazyQuery(lazyMap, schema.asyncRedisLazyFlush, db.GetPoolCode(), sql, values)
+				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 			} else {
 				smartUpdate := false
 				if smart && !db.inTransaction && schema.hasLocalCache && !schema.hasRedisCache {
@@ -234,12 +234,12 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 					smartUpdate = len(keys) == 0
 				}
 				if smartUpdate {
-					fillLazyQuery(lazyMap, schema.asyncRedisLazyFlush, db.GetPoolCode(), sql, values)
+					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
 				} else {
 					_ = db.Exec(sql, values...)
 				}
 			}
-			updateCacheAfterUpdate(dbData, engine, entity, lazy, bind, schema, localCacheSets, localCacheDeletes, db, currentID,
+			logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, currentID,
 				redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 		}
 	}
@@ -279,7 +279,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		id := uint64(0)
 		db := schema.GetMysql(engine)
 		if lazy {
-			fillLazyQuery(lazyMap, schema.asyncRedisLazyFlush, db.GetPoolCode(), sql, insertArguments[typeOf])
+			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, insertArguments[typeOf])
 		} else {
 			res := db.Exec(sql, insertArguments[typeOf]...)
 			id = res.LastInsertId()
@@ -293,7 +293,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				insertedID = id
 				id = id + db.autoincrement
 			}
-			updateCacheForInserted(entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,
+			logQueues = updateCacheForInserted(entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,
 				redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 		}
 	}
@@ -309,7 +309,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.tableName, NewWhere("`ID` IN ?", ids))
 		db := schema.GetMysql(engine)
 		if lazy {
-			fillLazyQuery(lazyMap, schema.asyncRedisLazyFlush, db.GetPoolCode(), sql, ids)
+			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, ids)
 		} else {
 			usage := schema.GetUsage(engine.registry)
 			if len(usage) > 0 {
@@ -354,11 +354,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
-				code := localCache.code
-				if lazy {
-					code = schema.asyncRedisLazyFlush + " " + code
-				}
-				addCacheDeletes(localCacheDeletes, code, keys...)
+				addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 			}
 		} else if engine.dataLoader != nil {
 			for id := range deleteBinds {
@@ -367,18 +363,14 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		}
 		if hasRedis {
 			for id, bind := range deleteBinds {
-				code := redisCache.code
-				if lazy {
-					code = schema.asyncRedisLazyFlush + " " + code
-				}
-				addCacheDeletes(redisKeysToDelete, code, schema.getCacheKey(id))
+				addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(id))
 				keys := getCacheQueriesKeys(schema, bind, bind, true)
-				addCacheDeletes(redisKeysToDelete, code, keys...)
+				addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 			}
 		}
 		for id, bind := range deleteBinds {
 			addDirtyQueues(dirtyChannels, bind, schema, id, "d")
-			addToLogQueue(logQueues, schema, id, bind, nil, nil)
+			logQueues = addToLogQueue(logQueues, schema, id, bind, nil, nil)
 		}
 	}
 	for _, values := range localCacheSets {
@@ -394,7 +386,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			}
 		}
 	}
-	for cacheCodes, allKeys := range localCacheDeletes {
+	for cacheCode, allKeys := range localCacheDeletes {
 		keys := make([]string, len(allKeys))
 		i := 0
 		for key := range allKeys {
@@ -402,23 +394,17 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			i++
 		}
 		if lazy {
-			s := strings.Split(cacheCodes, " ")
-			m, has := lazyMap[s[0]]
-			if !has {
-				m = make(map[string]interface{})
-				lazyMap[s[0]] = m
-			}
-			deletesLocalCache := m["cl"]
+			deletesLocalCache := lazyMap["cl"]
 			if deletesLocalCache == nil {
 				deletesLocalCache = make(map[string][]string)
-				m["cl"] = deletesLocalCache
+				lazyMap["cl"] = deletesLocalCache
 			}
-			deletesLocalCache.(map[string][]string)[s[1]] = keys
+			deletesLocalCache.(map[string][]string)[cacheCode] = keys
 		} else {
-			engine.GetLocalCache(cacheCodes).Remove(keys...)
+			engine.GetLocalCache(cacheCode).Remove(keys...)
 		}
 	}
-	for cacheCodes, allKeys := range redisKeysToDelete {
+	for cacheCode, allKeys := range redisKeysToDelete {
 		keys := make([]string, len(allKeys))
 		i := 0
 		for key := range allKeys {
@@ -426,27 +412,21 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			i++
 		}
 		if lazy {
-			s := strings.Split(cacheCodes, " ")
-			m, has := lazyMap[s[0]]
-			if !has {
-				m = make(map[string]interface{})
-				lazyMap[s[0]] = m
-			}
-			deletesRedisCache := m["cr"]
+			deletesRedisCache := lazyMap["cr"]
 			if deletesRedisCache == nil {
 				deletesRedisCache = make(map[string][]string)
-				m["cr"] = deletesRedisCache
+				lazyMap["cr"] = deletesRedisCache
 			}
-			deletesRedisCache.(map[string][]string)[s[1]] = keys
+			deletesRedisCache.(map[string][]string)[cacheCode] = keys
 		} else {
-			cache := engine.GetRedis(cacheCodes)
+			cache := engine.GetRedis(cacheCode)
 			if !isInTransaction {
 				cache.Del(keys...)
 			} else {
 				if engine.afterCommitRedisCacheDeletes == nil {
 					engine.afterCommitRedisCacheDeletes = make(map[string][]string)
 				}
-				engine.afterCommitRedisCacheDeletes[cacheCodes] = append(engine.afterCommitRedisCacheDeletes[cacheCodes], keys...)
+				engine.afterCommitRedisCacheDeletes[cacheCode] = append(engine.afterCommitRedisCacheDeletes[cacheCode], keys...)
 			}
 		}
 	}
@@ -468,9 +448,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		}
 	}
 	if len(lazyMap) > 0 {
-		for k, v := range lazyMap {
-			engine.GetRedis(k).XAdd(lazyChannelName, []string{"v", string(serializeForLazyQueue(v))})
-		}
+		engine.GetEventBroker().Publish(lazyChannelName, lazyMap)
 	}
 	if !isInTransaction {
 		addElementsToDirtyQueues(engine, dirtyChannels)
@@ -486,21 +464,16 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			engine.afterCommitDirtyQueues[key] = append(engine.afterCommitDirtyQueues[key], values...)
 		}
 		if engine.afterCommitLogQueues == nil {
-			engine.afterCommitLogQueues = make(map[string][]*LogQueueValue)
+			engine.afterCommitLogQueues = make([]*LogQueueValue, 0)
 		}
-		for key, values := range logQueues {
-			if engine.afterCommitLogQueues[key] == nil {
-				engine.afterCommitLogQueues[key] = make([]*LogQueueValue, 0)
-			}
-			engine.afterCommitLogQueues[key] = append(engine.afterCommitLogQueues[key], values...)
-		}
+		engine.afterCommitLogQueues = append(engine.afterCommitLogQueues, logQueues...)
 	}
 }
 
-func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entity Entity, lazy bool, bind map[string]interface{},
+func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entity Entity, bind map[string]interface{},
 	schema *tableSchema, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	db *DB, currentID uint64, redisKeysToDelete map[string]map[string]bool,
-	dirtyChannels map[string][]*DirtyQueueValue, logQueues map[string][]*LogQueueValue, dataLoaderSets dataLoaderSets) {
+	dirtyChannels map[string][]*DirtyQueueValue, logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
 	old := make(map[string]interface{}, len(dbData))
 	for k, v := range dbData {
 		old[k] = v
@@ -515,34 +488,21 @@ func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entit
 	if hasLocalCache {
 		addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(currentID), buildLocalCacheValue(entity))
 		keys := getCacheQueriesKeys(schema, bind, dbData, false)
-		code := localCache.code
-		if lazy {
-			code = schema.asyncRedisLazyFlush + " " + code
-		}
-		addCacheDeletes(localCacheDeletes, code, keys...)
+		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 		keys = getCacheQueriesKeys(schema, bind, old, false)
-		addCacheDeletes(localCacheDeletes, code, keys...)
+		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 	} else if engine.dataLoader != nil {
 		addToDataLoader(dataLoaderSets, schema, currentID, buildLocalCacheValue(entity))
 	}
 	if hasRedis {
-		code := redisCache.code
-		if lazy {
-			code = schema.asyncRedisLazyFlush + " " + code
-		}
-		addCacheDeletes(redisKeysToDelete, code, schema.getCacheKey(currentID))
+		addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(currentID))
 		keys := getCacheQueriesKeys(schema, bind, dbData, false)
-		addCacheDeletes(redisKeysToDelete, code, keys...)
+		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 		keys = getCacheQueriesKeys(schema, bind, old, false)
-		addCacheDeletes(redisKeysToDelete, code, keys...)
+		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 	}
 	addDirtyQueues(dirtyChannels, bind, schema, currentID, "u")
-	addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().attributes.logMeta)
-}
-
-func serializeForLazyQueue(lazyMap map[string]interface{}) []byte {
-	encoded, _ := jsoniter.ConfigFastest.Marshal(lazyMap)
-	return encoded
+	return addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().attributes.logMeta)
 }
 
 func injectBind(entity Entity, bind map[string]interface{}) map[string]interface{} {
@@ -979,10 +939,10 @@ func addDirtyQueues(keys map[string][]*DirtyQueueValue, bind map[string]interfac
 	}
 }
 
-func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, id uint64,
-	before map[string]interface{}, changes map[string]interface{}, entityMeta map[string]interface{}) {
+func addToLogQueue(keys []*LogQueueValue, tableSchema *tableSchema, id uint64,
+	before map[string]interface{}, changes map[string]interface{}, entityMeta map[string]interface{}) []*LogQueueValue {
 	if !tableSchema.hasLog {
-		return
+		return keys
 	}
 	if changes != nil && len(tableSchema.skipLogs) > 0 {
 		skipped := 0
@@ -993,34 +953,27 @@ func addToLogQueue(keys map[string][]*LogQueueValue, tableSchema *tableSchema, i
 			}
 		}
 		if skipped == len(changes) {
-			return
+			return keys
 		}
 	}
 	val := &LogQueueValue{TableName: tableSchema.logTableName, ID: id,
 		PoolName: tableSchema.logPoolName, Before: before,
 		Changes: changes, Updated: time.Now(), Meta: entityMeta}
-	if keys[tableSchema.asyncRedisLogs] == nil {
-		keys[tableSchema.asyncRedisLogs] = make([]*LogQueueValue, 0)
-	}
-	keys[tableSchema.asyncRedisLogs] = append(keys[tableSchema.asyncRedisLogs], val)
+	keys = append(keys, val)
+	return keys
 }
 
-func fillLazyQuery(lazyMap map[string]map[string]interface{}, asyncRedisLazyFlush string, dbCode string, sql string, values []interface{}) {
-	m, has := lazyMap[asyncRedisLazyFlush]
-	if !has {
-		m = make(map[string]interface{})
-		lazyMap[asyncRedisLazyFlush] = m
-	}
-	updatesMap := m["q"]
+func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, values []interface{}) {
+	updatesMap := lazyMap["q"]
 	if updatesMap == nil {
 		updatesMap = make([]interface{}, 0)
-		m["q"] = updatesMap
+		lazyMap["q"] = updatesMap
 	}
 	lazyValue := make([]interface{}, 3)
 	lazyValue[0] = dbCode
 	lazyValue[1] = sql
 	lazyValue[2] = values
-	m["q"] = append(updatesMap.([]interface{}), lazyValue)
+	lazyMap["q"] = append(updatesMap.([]interface{}), lazyValue)
 }
 
 func convertToError(err error) error {
@@ -1046,7 +999,7 @@ func convertToError(err error) error {
 func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 	bind map[string]interface{}, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	redisKeysToDelete map[string]map[string]bool, dirtyChannels map[string][]*DirtyQueueValue,
-	logQueues map[string][]*LogQueueValue, dataLoaderSets dataLoaderSets) {
+	logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
 	schema := entity.getORM().tableSchema
 	engine := entity.getORM().engine
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
@@ -1056,29 +1009,24 @@ func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 	}
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if hasLocalCache {
-		code := localCache.code
 		if !lazy {
 			addLocalCacheSet(localCacheSets, schema.GetMysql(engine).GetPoolCode(), localCache.code, schema.getCacheKey(id), buildLocalCacheValue(entity))
 		} else {
-			code = schema.asyncRedisLazyFlush + " " + code
-			addCacheDeletes(localCacheDeletes, code, schema.getCacheKey(id))
+			addCacheDeletes(localCacheDeletes, localCache.code, schema.getCacheKey(id))
 		}
 		keys := getCacheQueriesKeys(schema, bind, bind, true)
-		addCacheDeletes(localCacheDeletes, code, keys...)
+		addCacheDeletes(localCacheDeletes, localCache.code, keys...)
 	} else if !lazy && engine.dataLoader != nil {
 		addToDataLoader(dataLoaderSets, schema, id, buildLocalCacheValue(entity))
 	}
 	if hasRedis {
-		code := redisCache.code
-		if lazy {
-			code = schema.asyncRedisLazyFlush + " " + code
-		}
-		addCacheDeletes(redisKeysToDelete, code, schema.getCacheKey(id))
+		addCacheDeletes(redisKeysToDelete, redisCache.code, schema.getCacheKey(id))
 		keys := getCacheQueriesKeys(schema, bind, bind, true)
-		addCacheDeletes(redisKeysToDelete, code, keys...)
+		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 	}
 	addDirtyQueues(dirtyChannels, bind, schema, id, "i")
-	addToLogQueue(logQueues, schema, id, nil, bind, entity.getORM().attributes.logMeta)
+	logQueues = addToLogQueue(logQueues, schema, id, nil, bind, entity.getORM().attributes.logMeta)
+	return logQueues
 }
 
 func getDirtyBind(entity Entity) (is bool, bind map[string]interface{}) {
@@ -1160,30 +1108,24 @@ func (e *Engine) flushWithCheck(transaction bool) error {
 }
 
 func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]*DirtyQueueValue) {
-	{
-		for code, v := range dirtyChannels {
-			for _, k := range v {
-				asJSON, _ := jsoniter.ConfigFastest.Marshal(k)
-				engine.GetRedis().XAdd(code, []string{"v", string(asJSON)})
-			}
+	broker := engine.GetEventBroker()
+	for code, v := range dirtyChannels {
+		for _, k := range v {
+			broker.Publish(code, k)
 		}
 	}
 }
 
-func addElementsToLogQueues(engine *Engine, logQueues map[string][]*LogQueueValue) {
-	{
-		for redisPool, v := range logQueues {
-			for _, val := range v {
-				if val.Meta == nil {
-					val.Meta = engine.logMetaData
-				} else {
-					for k, v := range engine.logMetaData {
-						val.Meta[k] = v
-					}
-				}
-				asJSON, _ := jsoniter.ConfigFastest.Marshal(val)
-				engine.GetRedis(redisPool).XAdd(logChannelName, []string{"v", string(asJSON)})
+func addElementsToLogQueues(engine *Engine, logQueues []*LogQueueValue) {
+	broker := engine.GetEventBroker()
+	for _, val := range logQueues {
+		if val.Meta == nil {
+			val.Meta = engine.logMetaData
+		} else {
+			for k, v := range engine.logMetaData {
+				val.Meta[k] = v
 			}
 		}
+		broker.Publish(logChannelName, val)
 	}
 }

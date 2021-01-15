@@ -2,7 +2,6 @@ package orm
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -1392,16 +1391,7 @@ func (r *RedisCache) XPendingExt(a *redis.XPendingExtArgs) []redis.XPendingExt {
 	return res
 }
 
-// values in the following formats:XAdd
-//   - []interface{}{"key1", "value1", "key2", "value2"}
-//   - []string("key1", "value1", "key2", "value2")
-//   - map[string]interface{}{"key1": "value1", "key2": "value2"}
-//
-func (r *RedisCache) XAdd(stream string, values interface{}) (id string) {
-	_, has := r.engine.registry.redisStreamGroups[r.code][stream]
-	if !has {
-		panic(fmt.Errorf("unregistered channel %s in redis pool %s", stream, r.code))
-	}
+func (r *RedisCache) xAdd(stream string, values interface{}) (id string) {
 	a := &redis.XAddArgs{Stream: stream, ID: "*", Values: values}
 	start := time.Now()
 	id, err := r.client.XAdd(a)

@@ -26,6 +26,7 @@ type validatedRegistry struct {
 	localCacheContainers    map[string]*LocalCacheConfig
 	redisServers            map[string]*RedisCacheConfig
 	redisStreamGroups       map[string]map[string]map[string]bool
+	redisStreamPools        map[string]string
 	elasticServers          map[string]*ElasticConfig
 	rabbitMQServers         map[string]*rabbitMQConnection
 	rabbitMQChannelsToQueue map[string]*rabbitMQChannelToQueue

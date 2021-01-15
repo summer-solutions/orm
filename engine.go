@@ -2,7 +2,6 @@ package orm
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"reflect"
 	"sync"
@@ -19,12 +18,6 @@ import (
 
 	"github.com/apex/log/handlers/text"
 )
-
-type obj struct {
-	ID         uint64
-	StorageKey string
-	Data       interface{}
-}
 
 type Engine struct {
 	registry                     *validatedRegistry
@@ -49,8 +42,9 @@ type Engine struct {
 	afterCommitRedisCacheDeletes map[string][]string
 	afterCommitDataLoaderSets    dataLoaderSets
 	afterCommitDirtyQueues       map[string][]*DirtyQueueValue
-	afterCommitLogQueues         map[string][]*LogQueueValue
+	afterCommitLogQueues         []*LogQueueValue
 	dataDog                      *dataDog
+	eventBroker                  *eventBroker
 }
 
 func (e *Engine) DataDog() DataDog {
@@ -220,10 +214,9 @@ func (e *Engine) ForceMarkToDelete(entity ...Entity) {
 
 func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) {
 	entityName := initIfNeeded(e, entity).tableSchema.t.String()
+	broker := e.GetEventBroker()
 	for _, id := range ids {
-		val := &DirtyQueueValue{Updated: true, ID: id, EntityName: entityName}
-		asJSON, _ := json.Marshal(val)
-		e.GetRedis().XAdd(queueCode, []string{"v", string(asJSON)})
+		broker.Publish(queueCode, &DirtyQueueValue{Updated: true, ID: id, EntityName: entityName})
 	}
 }
 
@@ -527,4 +520,11 @@ func (e *Engine) GetAlters() (alters []Alter) {
 
 func (e *Engine) GetElasticIndexAlters() (alters []ElasticIndexAlter) {
 	return getElasticIndexAlters(e)
+}
+
+func (e *Engine) reportError(err interface{}) {
+	e.Log().Error(err, nil)
+	if e.dataDog != nil {
+		e.dataDog.RegisterAPMError(err)
+	}
 }

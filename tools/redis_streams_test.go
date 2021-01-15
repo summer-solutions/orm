@@ -27,7 +27,7 @@ func TestRedisStreamsStatus(t *testing.T) {
 	assert.Len(t, stats[0].Groups, 0)
 
 	r.XGroupCreateMkStream("test-stream", "test-group", "0")
-	id := r.XAdd("test-stream", []string{"a", "b"})
+	id := engine.GetEventBroker().PublishMap("test-stream", orm.EventAsMap{"a": "b"})
 	r.XReadGroup(&redis.XReadGroupArgs{Group: "test-group", Consumer: "test-consumer", Count: 1, Streams: []string{"test-stream", ">"}})
 
 	stats = GetRedisStreamsStatistics(engine)

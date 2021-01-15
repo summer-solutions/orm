@@ -12,6 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type obj struct {
+	ID         uint64
+	StorageKey string
+	Data       interface{}
+}
+
 type flushStruct struct {
 	Name string
 	Age  int
@@ -474,7 +480,7 @@ func TestFlush(t *testing.T) {
 	assert.True(t, found)
 	entitySmart.Age = 20
 
-	receiver := NewAsyncConsumer(engine, "default-consumer", "default", 1)
+	receiver := NewAsyncConsumer(engine, "default-consumer", "default", "default-group", 1)
 	receiver.DisableLoop()
 	receiver.block = time.Millisecond
 

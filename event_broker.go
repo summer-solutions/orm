@@ -8,50 +8,130 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	jsoniter "github.com/json-iterator/go"
 )
 
 const countPending = 100
 const garbageCollectorCount = 100
 const pendingClaimCheckDuration = time.Minute * 2
 
-type RedisStreamGroupHandler func(streams []redis.XStream, ack *RedisStreamGroupAck)
+type EventAsMap map[string]interface{}
 
-type RedisStreamGroupAck struct {
-	consumer *redisStreamGroupConsumer
-	ids      map[string][]string
-	max      map[string]int
+type Event interface {
+	Ack()
+	Skip()
+	ID() string
+	Stream() string
+	RawData() map[string]interface{}
+	ToStruct(val interface{}) error
 }
 
-func (s *RedisStreamGroupAck) Ack(stream string, message ...redis.XMessage) {
-	start := s.max[stream]
-	i := start
-	for _, m := range message {
-		s.ids[stream][i] = m.ID
-		i++
+type event struct {
+	consumer *eventsConsumer
+	stream   string
+	message  redis.XMessage
+	ack      bool
+	skip     bool
+}
+
+func (ev *event) Ack() {
+	ev.consumer.redis.XAck(ev.stream, ev.consumer.group, ev.message.ID)
+	ev.ack = true
+}
+
+func (ev *event) Skip() {
+	ev.skip = true
+}
+
+func (ev *event) ID() string {
+	return ev.message.ID
+}
+
+func (ev *event) Stream() string {
+	return ev.stream
+}
+
+func (ev *event) RawData() map[string]interface{} {
+	return ev.message.Values
+}
+
+func (ev *event) ToStruct(value interface{}) error {
+	val, has := ev.message.Values["_s"]
+	if !has {
+		return fmt.Errorf("event without struct data")
 	}
-	s.max[stream] = i
-	s.consumer.redis.XAck(stream, s.consumer.group, s.ids[stream][start:i]...)
+	return jsoniter.ConfigFastest.Unmarshal([]byte(val.(string)), &value)
 }
 
-type RedisStreamGroupConsumer interface {
-	Consume(ctx context.Context, count int, handler RedisStreamGroupHandler)
+type EventBroker interface {
+	PublishMap(stream string, event EventAsMap) (id string)
+	Publish(stream string, event interface{}) (id string)
+	Consumer(name, group string, maxScripts int, streams ...string) EventsConsumer
+}
+
+type eventBroker struct {
+	engine *Engine
+}
+
+func (e *Engine) GetEventBroker() EventBroker {
+	if e.eventBroker == nil {
+		e.eventBroker = &eventBroker{engine: e}
+	}
+	return e.eventBroker
+}
+
+func (eb *eventBroker) PublishMap(stream string, event EventAsMap) (id string) {
+	pool, has := eb.engine.registry.redisStreamPools[stream]
+	if !has {
+		panic(fmt.Errorf("unregistered stream %s", stream))
+	}
+	var v map[string]interface{} = event
+	id = eb.engine.GetRedis(pool).xAdd(stream, v)
+	return id
+}
+
+func (eb *eventBroker) Publish(stream string, event interface{}) (id string) {
+	asJSON, err := jsoniter.ConfigFastest.Marshal(event)
+	if err != nil {
+		panic(err)
+	}
+	return eb.PublishMap(stream, EventAsMap{"_s": string(asJSON)})
+}
+
+type EventConsumerHandler func([]Event)
+
+type EventsConsumer interface {
+	Consume(ctx context.Context, count int, handler EventConsumerHandler)
 	DisableLoop()
 	SetHeartBeat(duration time.Duration, beat func())
 }
 
-func (r *RedisCache) NewStreamGroupConsumer(name, group string, maxScripts int, streams ...string) RedisStreamGroupConsumer {
+func (eb *eventBroker) Consumer(name, group string, maxScripts int, streams ...string) EventsConsumer {
+	if len(streams) == 0 {
+		panic(fmt.Errorf("empty list of stream"))
+	}
+	redisPool := ""
 	for _, stream := range streams {
-		_, has := r.engine.registry.redisStreamGroups[r.code][stream][group]
+		pool, has := eb.engine.registry.redisStreamPools[stream]
 		if !has {
-			panic(fmt.Errorf("unregistered group %s in channel %s in redis pool %s", group, stream, r.code))
+			panic(fmt.Errorf("unregistered stream %s", stream))
+		}
+		_, has = eb.engine.registry.redisStreamGroups[pool][stream][group]
+		if !has {
+			panic(fmt.Errorf("unregistered group %s in channel %s in redis pool %s", group, stream, pool))
+		}
+		if redisPool == "" {
+			redisPool = pool
+		} else if redisPool != pool {
+			panic(fmt.Errorf("reading from different redis pool not allowed"))
 		}
 	}
-	return &redisStreamGroupConsumer{redis: r, name: name, streams: streams, group: group, maxScripts: maxScripts,
+	return &eventsConsumer{redis: eb.engine.GetRedis(redisPool), name: name, streams: streams, group: group, maxScripts: maxScripts,
 		loop: true, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute,
 		garbageTick: time.Second * 30, garbageLock: time.Minute, minIdle: time.Minute * 2}
 }
 
-type redisStreamGroupConsumer struct {
+type eventsConsumer struct {
 	redis             *RedisCache
 	name              string
 	nr                int
@@ -70,23 +150,23 @@ type redisStreamGroupConsumer struct {
 	minIdle           time.Duration
 }
 
-func (r *redisStreamGroupConsumer) DisableLoop() {
+func (r *eventsConsumer) DisableLoop() {
 	r.loop = false
 }
 
-func (r *redisStreamGroupConsumer) SetHeartBeat(duration time.Duration, beat func()) {
+func (r *eventsConsumer) SetHeartBeat(duration time.Duration, beat func()) {
 	r.heartBeat = beat
 	r.heartBeatDuration = duration
 }
 
-func (r *redisStreamGroupConsumer) HeartBeat(force bool) {
+func (r *eventsConsumer) HeartBeat(force bool) {
 	if r.heartBeat != nil && (force || time.Since(r.heartBeatTime) >= r.heartBeatDuration) {
 		r.heartBeat()
 		r.heartBeatTime = time.Now()
 	}
 }
 
-func (r *redisStreamGroupConsumer) Consume(ctx context.Context, count int, handler RedisStreamGroupHandler) {
+func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventConsumerHandler) {
 	uniqueLockKey := r.group + "_" + r.name + "_" + r.redis.code
 	locker := r.redis.engine.GetLocker()
 	nr := 0
@@ -152,12 +232,9 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, count int, handl
 		}
 	}()
 
-	ack := &RedisStreamGroupAck{max: make(map[string]int), ids: make(map[string][]string), consumer: r}
 	lastIDs := make(map[string]string)
 	for _, stream := range r.streams {
 		r.redis.XGroupCreateMkStream(stream, r.group, "0")
-		ack.max[stream] = 0
-		ack.ids[stream] = make([]string, count)
 	}
 	keys := make([]string, 0)
 	if r.maxScripts > 1 {
@@ -262,12 +339,33 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, count int, handl
 					}
 					continue KEYS
 				}
-
+				events := make([]Event, totalMessages)
+				i = 0
+				for _, row := range results {
+					for _, message := range row.Messages {
+						events[i] = &event{stream: row.Stream, message: message, consumer: r}
+						i++
+					}
+				}
+				handler(events)
 				totalACK := 0
-				handler(results, ack)
-				for _, stream := range r.streams {
-					totalACK += ack.max[stream]
-					ack.max[stream] = 0
+				var toAck map[string][]string
+				for _, ev := range events {
+					ev := ev.(*event)
+					if ev.ack {
+						totalACK++
+					} else if !ev.skip {
+						if toAck == nil {
+							toAck = make(map[string][]string)
+						} else if toAck[ev.stream] == nil {
+							toAck[ev.stream] = make([]string, 0)
+						}
+						toAck[ev.stream] = append(toAck[ev.stream], ev.message.ID)
+						totalACK++
+					}
+				}
+				for stream, ids := range toAck {
+					r.redis.XAck(stream, r.group, ids...)
 				}
 				if totalACK < totalMessages {
 					hasInvalid = true
@@ -281,28 +379,24 @@ func (r *redisStreamGroupConsumer) Consume(ctx context.Context, count int, handl
 	}
 }
 
-func (r *redisStreamGroupConsumer) getName() string {
+func (r *eventsConsumer) getName() string {
 	if r.maxScripts > 1 {
 		return fmt.Sprintf("%s-%d", r.name, r.nr)
 	}
 	return r.name
 }
 
-func (r *redisStreamGroupConsumer) incrementLastID(id string) string {
+func (r *eventsConsumer) incrementLastID(id string) string {
 	s := strings.Split(id, "-")
 	counter, _ := strconv.Atoi(s[1])
 	return fmt.Sprintf("%s-%d", s[0], counter+1)
 }
 
-func (r *redisStreamGroupConsumer) garbageCollector(ctx context.Context) {
+func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 	func() {
 		defer func() {
 			if rec := recover(); rec != nil {
-				err := rec.(error)
-				r.redis.engine.Log().Error(err, nil)
-				if r.redis.engine.dataDog != nil {
-					r.redis.engine.dataDog.RegisterAPMError(err)
-				}
+				r.redis.engine.reportError(rec)
 			}
 		}()
 		locker := r.redis.engine.GetLocker()

@@ -7,14 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis/v8"
-
 	jsoniter "github.com/json-iterator/go"
 )
 
 const lazyChannelName = "orm-lazy-channel"
 const logChannelName = "orm-log-channel"
-const lazyConsumerGroupName = "orm-async-group"
 
 type LogQueueValue struct {
 	PoolName  string
@@ -30,6 +27,7 @@ type LogQueueValue struct {
 type AsyncConsumer struct {
 	engine            *Engine
 	name              string
+	group             string
 	redisPool         string
 	maxScripts        int
 	block             time.Duration
@@ -39,8 +37,8 @@ type AsyncConsumer struct {
 	logLogger         func(log *LogQueueValue)
 }
 
-func NewAsyncConsumer(engine *Engine, name string, redisPool string, maxScripts int) *AsyncConsumer {
-	return &AsyncConsumer{engine: engine, name: name, redisPool: redisPool, block: time.Minute, maxScripts: maxScripts}
+func NewAsyncConsumer(engine *Engine, name, redisPool, group string, maxScripts int) *AsyncConsumer {
+	return &AsyncConsumer{engine: engine, name: name, group: group, redisPool: redisPool, block: time.Minute, maxScripts: maxScripts}
 }
 
 func (r *AsyncConsumer) DisableLoop() {
@@ -57,68 +55,71 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 }
 
 func (r *AsyncConsumer) Digest(ctx context.Context, count int) {
-	consumer := r.engine.GetRedis(r.redisPool).NewStreamGroupConsumer(r.name, lazyConsumerGroupName,
-		r.maxScripts, lazyChannelName, logChannelName)
-	consumer.(*redisStreamGroupConsumer).block = r.block
+	consumer := r.engine.GetEventBroker().Consumer(r.name, r.group, r.maxScripts, lazyChannelName, logChannelName)
+	consumer.(*eventsConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()
 	}
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeatDuration, r.heartBeat)
 	}
-	consumer.Consume(ctx, count, func(streams []redis.XStream, ack *RedisStreamGroupAck) {
-		for _, stream := range streams {
-			if stream.Stream == lazyChannelName {
-				r.handleLazy(stream.Messages, ack)
+	consumer.Consume(ctx, count, func(events []Event) {
+		for _, event := range events {
+			if event.Stream() == lazyChannelName {
+				r.handleLazy(event)
 			} else {
-				r.handleLog(stream.Messages, ack)
+				r.handleLog(event)
 			}
 		}
 	})
 }
 
-func (r *AsyncConsumer) handleLog(messages []redis.XMessage, ack *RedisStreamGroupAck) {
-	for _, item := range messages {
-		var value LogQueueValue
-		_ = jsoniter.ConfigFastest.Unmarshal([]byte(item.Values["v"].(string)), &value)
-		poolDB := r.engine.GetMysql(value.PoolName)
-		/* #nosec */
-		query := fmt.Sprintf("INSERT INTO `%s`(`entity_id`, `added_at`, `meta`, `before`, `changes`) VALUES(?, ?, ?, ?, ?)", value.TableName)
-		var meta, before, changes interface{}
-		if value.Meta != nil {
-			meta, _ = jsoniter.ConfigFastest.Marshal(value.Meta)
-		}
-		if value.Before != nil {
-			before, _ = jsoniter.ConfigFastest.Marshal(value.Before)
-		}
-		if value.Changes != nil {
-			changes, _ = jsoniter.ConfigFastest.Marshal(value.Changes)
-		}
-		func() {
-			if r.logLogger != nil {
-				poolDB.Begin()
-			}
-			defer poolDB.Rollback()
-			res := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
-			if r.logLogger != nil {
-				value.LogID = res.LastInsertId()
-				r.logLogger(&value)
-				poolDB.Commit()
-			}
-			ack.Ack(logChannelName, item)
-		}()
+func (r *AsyncConsumer) handleLog(event Event) {
+	var value LogQueueValue
+	err := event.ToStruct(&value)
+	if err != nil {
+		r.engine.reportError(err)
+		return
 	}
+	poolDB := r.engine.GetMysql(value.PoolName)
+	/* #nosec */
+	query := fmt.Sprintf("INSERT INTO `%s`(`entity_id`, `added_at`, `meta`, `before`, `changes`) VALUES(?, ?, ?, ?, ?)", value.TableName)
+	var meta, before, changes interface{}
+	if value.Meta != nil {
+		meta, _ = jsoniter.ConfigFastest.Marshal(value.Meta)
+	}
+	if value.Before != nil {
+		before, _ = jsoniter.ConfigFastest.Marshal(value.Before)
+	}
+	if value.Changes != nil {
+		changes, _ = jsoniter.ConfigFastest.Marshal(value.Changes)
+	}
+	func() {
+		if r.logLogger != nil {
+			poolDB.Begin()
+		}
+		defer poolDB.Rollback()
+		res := poolDB.Exec(query, value.ID, value.Updated.Format("2006-01-02 15:04:05"), meta, before, changes)
+		if r.logLogger != nil {
+			value.LogID = res.LastInsertId()
+			r.logLogger(&value)
+			poolDB.Commit()
+		}
+		event.Ack()
+	}()
 }
 
-func (r *AsyncConsumer) handleLazy(messages []redis.XMessage, ack *RedisStreamGroupAck) {
-	for _, item := range messages {
-		var data map[string]interface{}
-		_ = jsoniter.ConfigFastest.Unmarshal([]byte(item.Values["v"].(string)), &data)
-		ids := r.handleQueries(r.engine, data)
-		r.handleClearCache(data, "cl", ids)
-		r.handleClearCache(data, "cr", ids)
-		ack.Ack(lazyChannelName, item)
+func (r *AsyncConsumer) handleLazy(event Event) {
+	var data map[string]interface{}
+	err := event.ToStruct(&data)
+	if err != nil {
+		r.engine.reportError(err)
+		return
 	}
+	ids := r.handleQueries(r.engine, data)
+	r.handleClearCache(data, "cl", ids)
+	r.handleClearCache(data, "cr", ids)
+	event.Ack()
 }
 
 func (r *AsyncConsumer) handleQueries(engine *Engine, validMap map[string]interface{}) []uint64 {
@@ -133,12 +134,8 @@ func (r *AsyncConsumer) handleQueries(engine *Engine, validMap map[string]interf
 		attributes := validInsert[2].([]interface{})
 		func() {
 			defer func() {
-				if r := recover(); r != nil {
-					err := r.(error)
-					engine.Log().Error(err, nil)
-					if engine.dataDog != nil {
-						engine.dataDog.RegisterAPMError(err)
-					}
+				if rec := recover(); rec != nil {
+					r.engine.reportError(rec)
 				}
 			}()
 			res := db.Exec(sql, attributes...)

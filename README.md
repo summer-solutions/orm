@@ -1101,7 +1101,7 @@ func main() {
     //Simple queue
     channel := engine.GetRabbitMQQueue("test_queue") //provide Queue name
     defer channel.Close()
-    channel.Publish([]byte("hello"))
+    channel.GetEventBroker().PublishMap([]byte("hello"))
 
     //start consumer (you can add as many you want)
     consumer, err := channel.NewConsumer("test consumer")
@@ -1121,7 +1121,7 @@ func main() {
 
     channel = engine.GetRabbitMQRouter("test_queue_router") 
     defer channel.Close()
-    channel.Publish("router.key", []byte("hello"))
+    channel.GetEventBroker().PublishMap("router.key", []byte("hello"))
 
     //start consumer
    consumer := channel.NewConsumer("test consumer")

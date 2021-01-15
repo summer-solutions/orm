@@ -34,6 +34,7 @@ type Registry struct {
 	locks                map[string]string
 	defaultEncoding      string
 	redisStreamGroups    map[string]map[string]map[string]bool
+	redisStreamPools     map[string]string
 }
 
 func (r *Registry) Validate() (ValidatedRegistry, error) {
@@ -195,10 +196,17 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		}
 		registry.tableSchemas[entityType] = tableSchema
 		registry.entities[name] = entityType
-		r.RegisterRedisStream(lazyChannelName, tableSchema.asyncRedisLazyFlush, []string{lazyConsumerGroupName})
-		r.RegisterRedisStream(logChannelName, tableSchema.asyncRedisLogs, []string{lazyConsumerGroupName})
+		_, has := r.redisStreamPools[lazyChannelName]
+		if !has {
+			r.RegisterRedisStream(lazyChannelName, "default", []string{"default-group"})
+		}
+		_, has = r.redisStreamPools[logChannelName]
+		if !has {
+			r.RegisterRedisStream(logChannelName, "default", []string{"default-group"})
+		}
 	}
 	registry.redisStreamGroups = r.redisStreamGroups
+	registry.redisStreamPools = r.redisStreamPools
 	engine := registry.CreateEngine()
 	for _, schema := range registry.tableSchemas {
 		_, err := checkStruct(schema, engine, schema.t, make(map[string]*index), make(map[string]*foreignIndex), "")
@@ -369,7 +377,13 @@ func (r *Registry) RegisterRedisRing(addresses []string, db int, code ...string)
 func (r *Registry) RegisterRedisStream(name string, redisPool string, groups []string) {
 	if r.redisStreamGroups == nil {
 		r.redisStreamGroups = make(map[string]map[string]map[string]bool)
+		r.redisStreamPools = make(map[string]string)
 	}
+	_, has := r.redisStreamPools[name]
+	if has {
+		panic(fmt.Errorf("stream with name %s aleady exists", name))
+	}
+	r.redisStreamPools[name] = redisPool
 	if r.redisStreamGroups[redisPool] == nil {
 		r.redisStreamGroups[redisPool] = make(map[string]map[string]bool)
 	}
