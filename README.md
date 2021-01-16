@@ -804,7 +804,7 @@ func main() {
         Age      int `orm:"dirty=age_name_changed,age_changed"` //event will be send to age_changed if Age changed
     }
  
-    consumer := engine.GetEventProker().Consume("my-consumer", "my-consumer-group", 1)
+    consumer := engine.GetEventBroker().Consume("my-consumer", "my-consumer-group", 1)
 
     consumer.Consume(context.Background(), 100, func(events []orm.Event) {
         for _, event := range events {
@@ -1407,12 +1407,12 @@ func main() {
  }
 
  // fastest, no serialization
- engine.GetEventProker().PublishMap("stream-1", orm.EventAsMap{"key": "value", "anotherKey": "value 2"})
+ engine.GetEventBroker().PublishMap("stream-1", orm.EventAsMap{"key": "value", "anotherKey": "value 2"})
  // using serialization
- engine.GetEventProker().Publish("stream-3", Person{Name: "Adam", Age: 18})
+ engine.GetEventBroker().Publish("stream-3", Person{Name: "Adam", Age: 18})
 
  // reading from "stream-1" and "stream-2" streams, you can run max one consumer at once
- consumerTestGroup1 := engine.GetEventProker().Consume("my-consumer", "test-group-1", 1)
+ consumerTestGroup1 := engine.GetEventBroker().Consume("my-consumer", "test-group-1", 1)
  
  // reading max 100 events in one loop, this line stop execution, waiting for new events
  consumerTestGroup1.Consume(context.Background(), 100, func(events []orm.Event) {
@@ -1441,7 +1441,7 @@ func main() {
  })
 
  // reading from "stream-3" stream, you can run max to two consumers at once
- consumerTestGroup3 := engine.GetEventProker().Consume("my-consumer", "test-group-2", 2)
+ consumerTestGroup3 := engine.GetEventBroker().Consume("my-consumer", "test-group-2", 2)
  consumerTestGroup3.DisableLoop() // all events will be consumed once withour waiting for new events   
 
  consumerTestGroup3.Consume(context.Background(), 100, func(events []orm.Event) {
