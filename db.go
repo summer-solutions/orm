@@ -7,11 +7,6 @@ import (
 	"github.com/juju/errors"
 )
 
-const counterDBAll = "db.all"
-const counterDBTransaction = "db.transaction"
-const counterDBQuery = "db.query"
-const counterDBExec = "db.exec"
-
 type DBConfig struct {
 	dataSourceName string
 	code           string
@@ -207,10 +202,6 @@ func (db *DB) Begin() {
 	if db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][BEGIN]", start, "transaction", "START TRANSACTION", nil, err)
 	}
-	if db.engine.dataDog != nil {
-		db.engine.dataDog.incrementCounter(counterDBAll, 1)
-		db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
-	}
 	checkError(err)
 	db.inTransaction = true
 }
@@ -220,10 +211,6 @@ func (db *DB) Commit() {
 	err := db.client.Commit()
 	if db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][COMMIT]", start, "transaction", "COMMIT", nil, err)
-	}
-	if db.engine.dataDog != nil {
-		db.engine.dataDog.incrementCounter(counterDBAll, 1)
-		db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
 	}
 	checkError(err)
 	db.inTransaction = false
@@ -269,10 +256,6 @@ func (db *DB) Rollback() {
 		if db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
 			db.fillLogFields("[ORM][MYSQL][ROLLBACK]", start, "transaction", "ROLLBACK", nil, err)
 		}
-		if db.engine.dataDog != nil {
-			db.engine.dataDog.incrementCounter(counterDBAll, 1)
-			db.engine.dataDog.incrementCounter(counterDBTransaction, 1)
-		}
 	}
 	checkError(err)
 	db.engine.afterCommitLocalCacheSets = nil
@@ -287,10 +270,6 @@ func (db *DB) Exec(query string, args ...interface{}) ExecResult {
 	if db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][EXEC]", start, "exec", query, args, err)
 	}
-	if db.engine.dataDog != nil {
-		db.engine.dataDog.incrementCounter(counterDBAll, 1)
-		db.engine.dataDog.incrementCounter(counterDBExec, 1)
-	}
 	if err != nil {
 		panic(convertToError(err))
 	}
@@ -301,10 +280,6 @@ func (db *DB) QueryRow(query *Where, toFill ...interface{}) (found bool) {
 	start := time.Now()
 	row := db.client.QueryRow(query.String(), query.GetParameters()...)
 	err := row.Scan(toFill...)
-	if db.engine.dataDog != nil {
-		db.engine.dataDog.incrementCounter(counterDBAll, 1)
-		db.engine.dataDog.incrementCounter(counterDBQuery, 1)
-	}
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			if db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
@@ -328,10 +303,6 @@ func (db *DB) Query(query string, args ...interface{}) (rows Rows, deferF func()
 	result, err := db.client.Query(query, args...)
 	if db.engine.queryLoggers[QueryLoggerSourceDB] != nil {
 		db.fillLogFields("[ORM][MYSQL][SELECT]", start, "select", query, args, err)
-	}
-	if db.engine.dataDog != nil {
-		db.engine.dataDog.incrementCounter(counterDBAll, 1)
-		db.engine.dataDog.incrementCounter(counterDBQuery, 1)
 	}
 	checkError(err)
 	return &rowsStruct{result}, func() {

@@ -29,7 +29,6 @@ type dataDog struct {
 	ctx      []context.Context
 	apm      *apm
 	hasError bool
-	counters map[string]uint
 }
 
 type DataDog interface {
@@ -114,13 +113,6 @@ type httpAPM struct {
 }
 
 func (s *apm) finish() {
-	dd := s.engine.dataDog
-	for k, v := range dd.counters {
-		if v > 0 {
-			dd.span.SetTag("orm."+k, v)
-			dd.counters[k] = 0
-		}
-	}
 	s.engine.dataDog.span.Finish()
 }
 
@@ -283,17 +275,5 @@ func (dd *dataDog) registerAPMError(err error) {
 		dd.span.SetTag("error.group", hash)
 		dd.hasError = true
 		dd.span.SetTag(ext.ManualKeep, true)
-	}
-}
-
-func (dd *dataDog) incrementCounter(key string, value uint) {
-	before, has := dd.counters[key]
-	if has {
-		dd.counters[key] = before + value
-	} else {
-		if dd.counters == nil {
-			dd.counters = make(map[string]uint)
-		}
-		dd.counters[key] = value
 	}
 }

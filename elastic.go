@@ -14,9 +14,6 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-const counterElasticAll = "elastic.all"
-const counterElasticSearch = "elastic.search"
-
 type ElasticIndexDefinition interface {
 	GetName() string
 	GetDefinition() map[string]interface{}
@@ -124,10 +121,6 @@ func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, option
 			}
 		}
 		e.fillLogFields("[ORM][ELASTIC][QUERY]", start, "query", fields, err)
-	}
-	if e.engine.dataDog != nil {
-		e.engine.dataDog.incrementCounter(counterElasticAll, 1)
-		e.engine.dataDog.incrementCounter(counterElasticSearch, 1)
 	}
 	checkError(err)
 	return result
