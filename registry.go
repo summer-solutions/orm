@@ -198,11 +198,11 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		registry.entities[name] = entityType
 		_, has := r.redisStreamPools[lazyChannelName]
 		if !has {
-			r.RegisterRedisStream(lazyChannelName, "default", []string{"orm-async-group"})
+			r.RegisterRedisStream(lazyChannelName, "default", []string{asyncConsumerGroupName})
 		}
 		_, has = r.redisStreamPools[logChannelName]
 		if !has {
-			r.RegisterRedisStream(logChannelName, "default", []string{"orm-async-group"})
+			r.RegisterRedisStream(logChannelName, "default", []string{asyncConsumerGroupName})
 		}
 	}
 	registry.redisStreamGroups = r.redisStreamGroups

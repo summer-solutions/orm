@@ -12,6 +12,7 @@ import (
 
 const lazyChannelName = "orm-lazy-channel"
 const logChannelName = "orm-log-channel"
+const asyncConsumerGroupName = "orm-async-consumer"
 
 type LogQueueValue struct {
 	PoolName  string
@@ -53,7 +54,7 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 }
 
 func (r *AsyncConsumer) Digest(ctx context.Context, count int) {
-	consumer := r.engine.GetEventBroker().Consumer(r.name, "orm-async-group", r.maxScripts)
+	consumer := r.engine.GetEventBroker().Consumer(r.name, asyncConsumerGroupName, r.maxScripts)
 	consumer.(*eventsConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()
