@@ -193,12 +193,11 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 		break
 	}
 	ticker := time.NewTicker(r.lockTick)
-	done := make(chan bool, 2)
+	done := make(chan bool)
 	defer func() {
 		lock.Release()
 		ticker.Stop()
-		done <- true
-		done <- true
+		close(done)
 	}()
 	hasLock := true
 	canceled := false
@@ -418,6 +417,8 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 			for _, group := range info {
 				_, has := ids[group.Name]
 				if !has {
+					// TODO remove only of has old events
+					r.redis.XGroupDestroy(stream, group.Name)
 					continue
 				}
 				if group.LastDeliveredID == "" {

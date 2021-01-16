@@ -1,11 +1,10 @@
 package tools
 
 import (
-	"testing"
-
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
+	"testing"
 )
 
 func TestRedisStreamsStatus(t *testing.T) {

@@ -66,7 +66,7 @@ func (l *Locker) Obtain(ctx context.Context, key string, ttl time.Duration, wait
 	checkError(err)
 	lock = &Lock{lock: redisLock, locker: l, key: key, has: true, engine: l.engine}
 	lock.timer = time.NewTimer(ttl)
-	lock.done = make(chan bool, 1)
+	lock.done = make(chan bool)
 	go func() {
 		for {
 			select {
@@ -110,7 +110,7 @@ func (l *Lock) Release() {
 		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release lock", err, nil)
 	}
 	l.has = false
-	l.done <- true
+	close(l.done)
 	if l.engine.dataDog != nil {
 		l.engine.dataDog.incrementCounter(counterRedisAll, 1)
 		l.engine.dataDog.incrementCounter(counterRedisLockRelease, 1)
