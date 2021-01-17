@@ -417,8 +417,9 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 			for _, group := range info {
 				_, has := ids[group.Name]
 				if !has {
-					// TODO remove only of has old events
-					r.redis.XGroupDestroy(stream, group.Name)
+					// TODO remove only if has old events
+					//r.redis.XGroupDestroy(stream, group.Name)
+					r.redis.engine.log.Warn(fmt.Sprintf("not registered stream group %s in stream %s", group.Name, stream), nil)
 					continue
 				}
 				if group.LastDeliveredID == "" {
