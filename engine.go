@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bsm/redislock"
-
 	"github.com/golang/groupcache/lru"
 
 	logApex "github.com/apex/log"
@@ -20,24 +19,36 @@ import (
 )
 
 type Engine struct {
+	mutex                        sync.Mutex
 	registry                     *validatedRegistry
 	context                      context.Context
 	dbs                          map[string]*DB
+	dbsMutex                     sync.Mutex
 	clickHouseDbs                map[string]*ClickHouse
+	clickHouseMutex              sync.Mutex
 	localCache                   map[string]*LocalCache
+	localCacheMutex              sync.Mutex
 	redis                        map[string]*RedisCache
+	redisMutex                   sync.Mutex
 	elastic                      map[string]*Elastic
+	elasticMutex                 sync.Mutex
 	locks                        map[string]*Locker
+	locksMutex                   sync.Mutex
 	rabbitMQChannels             map[string]*rabbitMQChannel
 	rabbitMQQueues               map[string]*RabbitMQQueue
 	rabbitMQRouters              map[string]*RabbitMQRouter
+	rabbitMQMutex                sync.Mutex
 	logMetaData                  map[string]interface{}
+	logMetaDataMutex             sync.RWMutex
 	dataLoader                   *dataLoader
 	hasRequestCache              bool
 	trackedEntities              []Entity
 	trackedEntitiesCounter       int
 	queryLoggers                 map[QueryLoggerSource]*logger
 	log                          *log
+	logOnce                      sync.Once
+	logMutex                     sync.Mutex
+	logDebugOnce                 sync.Once
 	afterCommitLocalCacheSets    map[string][]interface{}
 	afterCommitRedisCacheDeletes map[string][]string
 	afterCommitDataLoaderSets    dataLoaderSets
@@ -45,27 +56,32 @@ type Engine struct {
 	afterCommitLogQueues         []*LogQueueValue
 	dataDog                      *dataDog
 	eventBroker                  *eventBroker
+	dataDogOnce                  sync.Once
 }
 
 func (e *Engine) DataDog() DataDog {
-	if e.dataDog == nil {
+	e.dataDogOnce.Do(func() {
 		e.dataDog = &dataDog{engine: e}
-	}
+	})
 	return e.dataDog
 }
 
 func (e *Engine) Log() Log {
-	if e.log == nil {
+	e.logOnce.Do(func() {
 		e.log = newLog(e)
-	}
+	})
 	return e.log
 }
 
 func (e *Engine) EnableRequestCache(goroutines bool) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	if goroutines {
 		e.dataLoader = &dataLoader{engine: e, maxBatchSize: dataLoaderMaxPatch}
+		e.hasRequestCache = false
 	} else {
 		e.hasRequestCache = true
+		e.dataLoader = nil
 	}
 }
 
@@ -73,21 +89,29 @@ func (e *Engine) EnableLogger(level logApex.Level, handlers ...logApex.Handler) 
 	if len(handlers) == 0 {
 		handlers = []logApex.Handler{&jsonHandler{}}
 	}
+	l := e.Log()
+	e.logMutex.Lock()
+	defer e.logMutex.Unlock()
 	for _, handler := range handlers {
-		e.Log().(*log).logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(handler, level))
+		l.(*log).logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(handler, level))
 	}
 }
 
 func (e *Engine) EnableDebug() {
-	e.Log().(*log).logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(text.New(os.Stderr), logApex.DebugLevel))
+	l := e.Log()
+	e.logDebugOnce.Do(func() {
+		l.(*log).logger.handler.Handlers = append(e.log.logger.handler.Handlers, levelHandler.New(text.New(os.Stderr), logApex.DebugLevel))
+	})
 }
 
 func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, source ...QueryLoggerSource) {
-	if e.queryLoggers == nil {
-		e.queryLoggers = make(map[QueryLoggerSource]*logger)
-	}
 	if len(source) == 0 {
 		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic, QueryLoggerSourceClickHouse}
+	}
+	e.logMutex.Lock()
+	defer e.logMutex.Unlock()
+	if e.queryLoggers == nil {
+		e.queryLoggers = make(map[QueryLoggerSource]*logger)
 	}
 	newHandler := levelHandler.New(handler, level)
 	for _, source := range source {
@@ -105,11 +129,232 @@ func (e *Engine) EnableQueryDebug(source ...QueryLoggerSource) {
 }
 
 func (e *Engine) SetLogMetaData(key string, value interface{}) {
+	e.logMetaDataMutex.Lock()
+	defer e.logMetaDataMutex.Unlock()
 	if e.logMetaData == nil {
 		e.logMetaData = make(map[string]interface{})
 	}
 	e.logMetaData[key] = value
 }
+
+func (e *Engine) GetMysql(code ...string) *DB {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	e.dbsMutex.Lock()
+	defer e.dbsMutex.Unlock()
+	db, has := e.dbs[dbCode]
+	if !has {
+		val, has := e.registry.sqlClients[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered mysql pool '%s'", dbCode))
+		}
+		db = &DB{engine: e, code: val.code, databaseName: val.databaseName,
+			client: &standardSQLClient{db: val.db}, autoincrement: val.autoincrement, version: val.version}
+		if e.dbs == nil {
+			e.dbs = map[string]*DB{dbCode: db}
+		} else {
+			e.dbs[dbCode] = db
+		}
+	}
+	return db
+}
+
+func (e *Engine) GetLocalCache(code ...string) *LocalCache {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	e.localCacheMutex.Lock()
+	defer e.localCacheMutex.Unlock()
+	cache, has := e.localCache[dbCode]
+	if !has {
+		val, has := e.registry.localCacheContainers[dbCode]
+		if !has {
+			if dbCode == requestCacheKey {
+				cache = &LocalCache{code: dbCode, engine: e, m: &sync.Mutex{}, lru: lru.New(5000)}
+				if e.localCache == nil {
+					e.localCache = map[string]*LocalCache{dbCode: cache}
+				} else {
+					e.localCache[dbCode] = cache
+				}
+				return cache
+			}
+			panic(errors.Errorf("unregistered local cache pool '%s'", dbCode))
+		}
+		cache = &LocalCache{engine: e, code: val.code, lru: val.lru, m: &val.m}
+		if e.localCache == nil {
+			e.localCache = map[string]*LocalCache{dbCode: cache}
+		} else {
+			e.localCache[dbCode] = cache
+		}
+	}
+	return cache
+}
+
+func (e *Engine) GetRedis(code ...string) *RedisCache {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	e.redisMutex.Lock()
+	defer e.redisMutex.Unlock()
+	cache, has := e.redis[dbCode]
+	if !has {
+		val, has := e.registry.redisServers[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered redis cache pool '%s'", dbCode))
+		}
+		client := val.client
+		if client != nil {
+			client = client.WithContext(e.context)
+		}
+		ring := val.ring
+		if ring != nil {
+			ring = ring.WithContext(e.context)
+		}
+		cache = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
+		if e.redis == nil {
+			e.redis = map[string]*RedisCache{dbCode: cache}
+		} else {
+			e.redis[dbCode] = cache
+		}
+	}
+	return cache
+}
+
+func (e *Engine) GetClickHouse(code ...string) *ClickHouse {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	e.clickHouseMutex.Lock()
+	defer e.clickHouseMutex.Unlock()
+	ch, has := e.clickHouseDbs[dbCode]
+	if !has {
+		val, has := e.registry.clickHouseClients[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered clickhouse pool '%s'", dbCode))
+		}
+		ch = &ClickHouse{engine: e, code: val.code, client: val.db}
+		if e.clickHouseDbs == nil {
+			e.clickHouseDbs = map[string]*ClickHouse{dbCode: ch}
+		} else {
+			e.clickHouseDbs[dbCode] = ch
+		}
+	}
+	return ch
+}
+
+func (e *Engine) GetElastic(code ...string) *Elastic {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	e.elasticMutex.Lock()
+	defer e.elasticMutex.Unlock()
+	elastic, has := e.elastic[dbCode]
+	if !has {
+		val, has := e.registry.elasticServers[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered elastic pool '%s'", dbCode))
+		}
+		elastic = &Elastic{engine: e, code: val.code, client: val.client}
+		if e.elastic == nil {
+			e.elastic = map[string]*Elastic{dbCode: elastic}
+		} else {
+			e.elastic[dbCode] = elastic
+		}
+	}
+	return elastic
+}
+
+func (e *Engine) GetLocker(code ...string) *Locker {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	e.locksMutex.Lock()
+	defer e.locksMutex.Unlock()
+	locker, has := e.locks[dbCode]
+	if !has {
+		val, has := e.registry.lockServers[dbCode]
+		if !has {
+			panic(errors.Errorf("unregistered locker pool '%s'", dbCode))
+		}
+		lockerClient := &standardLockerClient{client: redislock.New(e.registry.redisServers[val].client)}
+		locker = &Locker{locker: lockerClient, code: val, engine: e}
+		if e.locks == nil {
+			e.locks = map[string]*Locker{dbCode: locker}
+		} else {
+			e.locks[dbCode] = locker
+		}
+	}
+	return locker
+}
+
+func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {
+	e.rabbitMQMutex.Lock()
+	defer e.rabbitMQMutex.Unlock()
+	queue, has := e.rabbitMQQueues[queueName]
+	if has {
+		return queue
+	}
+	channel, has := e.rabbitMQChannels[queueName]
+	if !has {
+		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
+		if !has {
+			panic(errors.Errorf("unregistered rabbitMQ queue '%s'", queueName))
+		}
+		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
+		if e.rabbitMQChannels == nil {
+			e.rabbitMQChannels = map[string]*rabbitMQChannel{queueName: channel}
+		} else {
+			e.rabbitMQChannels[queueName] = channel
+		}
+	}
+	if channel.config.Router != "" {
+		panic(errors.Errorf("rabbitMQ queue '%s' is declared as router", queueName))
+	}
+	if e.rabbitMQQueues == nil {
+		e.rabbitMQQueues = make(map[string]*RabbitMQQueue)
+	}
+	e.rabbitMQQueues[queueName] = &RabbitMQQueue{channel}
+	return e.rabbitMQQueues[queueName]
+}
+
+func (e *Engine) GetRabbitMQRouter(queueName string) *RabbitMQRouter {
+	e.rabbitMQMutex.Lock()
+	defer e.rabbitMQMutex.Unlock()
+	queue, has := e.rabbitMQRouters[queueName]
+	if has {
+		return queue
+	}
+	channel, has := e.rabbitMQChannels[queueName]
+	if !has {
+		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
+		if !has {
+			panic(errors.Errorf("unregistered rabbitMQ router '%s'. Use queue name, not router name.", queueName))
+		}
+		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
+		if e.rabbitMQChannels == nil {
+			e.rabbitMQChannels = map[string]*rabbitMQChannel{queueName: channel}
+		} else {
+			e.rabbitMQChannels[queueName] = channel
+		}
+	}
+	if channel.config.Router == "" {
+		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as router", queueName))
+	}
+	if e.rabbitMQRouters == nil {
+		e.rabbitMQRouters = make(map[string]*RabbitMQRouter)
+	}
+	e.rabbitMQRouters[queueName] = &RabbitMQRouter{channel}
+	return e.rabbitMQRouters[queueName]
+}
+
+// TODO mutex
 
 func (e *Engine) Track(entity ...Entity) {
 	for _, entity := range entity {
@@ -240,207 +485,6 @@ func (e *Engine) GetDirtyBind(entity Entity) (bool, map[string]interface{}) {
 
 func (e *Engine) GetRegistry() ValidatedRegistry {
 	return e.registry
-}
-
-func (e *Engine) GetMysql(code ...string) *DB {
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	db, has := e.dbs[dbCode]
-	if !has {
-		val, has := e.registry.sqlClients[dbCode]
-		if !has {
-			panic(errors.Errorf("unregistered mysql pool '%s'", dbCode))
-		}
-		db = &DB{engine: e, code: val.code, databaseName: val.databaseName,
-			client: &standardSQLClient{db: val.db}, autoincrement: val.autoincrement, version: val.version}
-		if e.dbs == nil {
-			e.dbs = map[string]*DB{dbCode: db}
-		} else {
-			e.dbs[dbCode] = db
-		}
-	}
-	return db
-}
-
-func (e *Engine) GetLocalCache(code ...string) *LocalCache {
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	cache, has := e.localCache[dbCode]
-	if !has {
-		val, has := e.registry.localCacheContainers[dbCode]
-		if !has {
-			if dbCode == requestCacheKey {
-				cache = &LocalCache{code: dbCode, engine: e, m: &sync.Mutex{}, lru: lru.New(5000)}
-				if e.localCache == nil {
-					e.localCache = map[string]*LocalCache{dbCode: cache}
-				} else {
-					e.localCache[dbCode] = cache
-				}
-				return cache
-			}
-			panic(errors.Errorf("unregistered local cache pool '%s'", dbCode))
-		}
-		cache = &LocalCache{engine: e, code: val.code, lru: val.lru, m: &val.m}
-		if e.localCache == nil {
-			e.localCache = map[string]*LocalCache{dbCode: cache}
-		} else {
-			e.localCache[dbCode] = cache
-		}
-	}
-	return cache
-}
-
-func (e *Engine) GetRedis(code ...string) *RedisCache {
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	cache, has := e.redis[dbCode]
-	if !has {
-		val, has := e.registry.redisServers[dbCode]
-		if !has {
-			panic(errors.Errorf("unregistered redis cache pool '%s'", dbCode))
-		}
-		client := val.client
-		if client != nil {
-			client = client.WithContext(e.context)
-		}
-		ring := val.ring
-		if ring != nil {
-			ring = ring.WithContext(e.context)
-		}
-		cache = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
-		if e.redis == nil {
-			e.redis = map[string]*RedisCache{dbCode: cache}
-		} else {
-			e.redis[dbCode] = cache
-		}
-	}
-	return cache
-}
-
-func (e *Engine) GetElastic(code ...string) *Elastic {
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	elastic, has := e.elastic[dbCode]
-	if !has {
-		val, has := e.registry.elasticServers[dbCode]
-		if !has {
-			panic(errors.Errorf("unregistered elastic pool '%s'", dbCode))
-		}
-		elastic = &Elastic{engine: e, code: val.code, client: val.client}
-		if e.elastic == nil {
-			e.elastic = map[string]*Elastic{dbCode: elastic}
-		} else {
-			e.elastic[dbCode] = elastic
-		}
-	}
-	return elastic
-}
-
-func (e *Engine) GetClickHouse(code ...string) *ClickHouse {
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	ch, has := e.clickHouseDbs[dbCode]
-	if !has {
-		val, has := e.registry.clickHouseClients[dbCode]
-		if !has {
-			panic(errors.Errorf("unregistered clickhouse pool '%s'", dbCode))
-		}
-		ch = &ClickHouse{engine: e, code: val.code, client: val.db}
-		if e.clickHouseDbs == nil {
-			e.clickHouseDbs = map[string]*ClickHouse{dbCode: ch}
-		} else {
-			e.clickHouseDbs[dbCode] = ch
-		}
-	}
-	return ch
-}
-
-func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {
-	queue, has := e.rabbitMQQueues[queueName]
-	if has {
-		return queue
-	}
-	channel, has := e.rabbitMQChannels[queueName]
-	if !has {
-		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
-		if !has {
-			panic(errors.Errorf("unregistered rabbitMQ queue '%s'", queueName))
-		}
-		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
-		if e.rabbitMQChannels == nil {
-			e.rabbitMQChannels = map[string]*rabbitMQChannel{queueName: channel}
-		} else {
-			e.rabbitMQChannels[queueName] = channel
-		}
-	}
-	if channel.config.Router != "" {
-		panic(errors.Errorf("rabbitMQ queue '%s' is declared as router", queueName))
-	}
-	if e.rabbitMQQueues == nil {
-		e.rabbitMQQueues = make(map[string]*RabbitMQQueue)
-	}
-	e.rabbitMQQueues[queueName] = &RabbitMQQueue{channel}
-	return e.rabbitMQQueues[queueName]
-}
-
-func (e *Engine) GetRabbitMQRouter(queueName string) *RabbitMQRouter {
-	queue, has := e.rabbitMQRouters[queueName]
-	if has {
-		return queue
-	}
-	channel, has := e.rabbitMQChannels[queueName]
-	if !has {
-		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
-		if !has {
-			panic(errors.Errorf("unregistered rabbitMQ router '%s'. Use queue name, not router name.", queueName))
-		}
-		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
-		if e.rabbitMQChannels == nil {
-			e.rabbitMQChannels = map[string]*rabbitMQChannel{queueName: channel}
-		} else {
-			e.rabbitMQChannels[queueName] = channel
-		}
-	}
-	if channel.config.Router == "" {
-		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as router", queueName))
-	}
-	if e.rabbitMQRouters == nil {
-		e.rabbitMQRouters = make(map[string]*RabbitMQRouter)
-	}
-	e.rabbitMQRouters[queueName] = &RabbitMQRouter{channel}
-	return e.rabbitMQRouters[queueName]
-}
-
-func (e *Engine) GetLocker(code ...string) *Locker {
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	locker, has := e.locks[dbCode]
-	if !has {
-		val, has := e.registry.lockServers[dbCode]
-		if !has {
-			panic(errors.Errorf("unregistered locker pool '%s'", dbCode))
-		}
-		lockerClient := &standardLockerClient{client: redislock.New(e.registry.redisServers[val].client)}
-		locker = &Locker{locker: lockerClient, code: val, engine: e}
-		if e.locks == nil {
-			e.locks = map[string]*Locker{dbCode: locker}
-		} else {
-			e.locks[dbCode] = locker
-		}
-	}
-	return locker
 }
 
 func (e *Engine) SearchWithCount(where *Where, pager *Pager, entities interface{}, references ...string) (totalRows int) {
