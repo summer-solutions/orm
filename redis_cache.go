@@ -40,6 +40,7 @@ type redisClient interface {
 	HSet(key string, field string, value interface{}) (int64, error)
 	HDel(key string, fields ...string) (int64, error)
 	MGet(keys ...string) ([]interface{}, error)
+	HIncrBy(key, field string, incr int64) (int64, error)
 	Set(key string, value interface{}, expiration time.Duration) error
 	MSet(pairs ...interface{}) error
 	Del(keys ...string) error
@@ -338,6 +339,13 @@ func (c *standardRedisClient) HDel(key string, fields ...string) (int64, error) 
 		return c.ring.HDel(c.ring.Context(), key, fields...).Result()
 	}
 	return c.client.HDel(c.client.Context(), key, fields...).Result()
+}
+
+func (c *standardRedisClient) HIncrBy(key, field string, incr int64) (int64, error) {
+	if c.ring != nil {
+		return c.ring.HIncrBy(c.ring.Context(), key, field, incr).Result()
+	}
+	return c.client.HIncrBy(c.client.Context(), key, field, incr).Result()
 }
 
 func (c *standardRedisClient) MGet(keys ...string) ([]interface{}, error) {
@@ -797,6 +805,17 @@ func (r *RedisCache) HGetAll(key string) map[string]string {
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][HGETALL]", start, "hgetall", -1, 1,
 			map[string]interface{}{"Key": key}, err)
+	}
+	checkError(err)
+	return val
+}
+
+func (r *RedisCache) HIncrBy(key, field string, incr int64) int64 {
+	start := time.Now()
+	val, err := r.client.HIncrBy(key, field, incr)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][HINCRBY]", start, "hincrby", -1, 1,
+			map[string]interface{}{"Key": key, "incr": incr}, err)
 	}
 	checkError(err)
 	return val
