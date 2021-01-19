@@ -19,7 +19,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 		}
 		fillFromDBRow(id, engine, e, entity, false)
 		if len(references) > 0 {
-			warmUpReferences(engine, schema, orm.attributes.elem, references, false)
+			warmUpReferences(engine, schema, orm.elem, references, false)
 		}
 		return true
 	}
@@ -41,7 +41,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 				}
 				fillFromDBRow(id, engine, e.([]string), entity, false)
 				if len(references) > 0 {
-					warmUpReferences(engine, schema, orm.attributes.elem, references, false)
+					warmUpReferences(engine, schema, orm.elem, references, false)
 				}
 				return true
 			}
@@ -57,7 +57,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 				_ = json.Unmarshal([]byte(row), &decoded)
 				fillFromDBRow(id, engine, decoded, entity, false)
 				if len(references) > 0 {
-					warmUpReferences(engine, schema, orm.attributes.elem, references, false)
+					warmUpReferences(engine, schema, orm.elem, references, false)
 				}
 				return true
 			}
@@ -84,7 +84,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 	}
 
 	if len(references) > 0 {
-		warmUpReferences(engine, schema, orm.attributes.elem, references, false)
+		warmUpReferences(engine, schema, orm.elem, references, false)
 	}
 	return true
 }
@@ -121,10 +121,11 @@ func initIfNeeded(engine *Engine, entity Entity) *ORM {
 		if tableSchema == nil {
 			panic(fmt.Errorf("entity '%s' is not registered", t.String()))
 		}
-		orm.engine = engine
 		orm.tableSchema = tableSchema
 		orm.dBData = make(map[string]interface{}, len(tableSchema.columnNames))
-		orm.attributes = &entityAttributes{nil, false, false, value, elem, elem.Field(1), nil}
+		orm.value = value
+		orm.elem = elem
+		orm.idElem = elem.Field(1)
 	}
 	return orm
 }

@@ -55,7 +55,7 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	}
 	fillFromDBRow(id, engine, finalValues[1:], entity, true)
 	if len(references) > 0 {
-		warmUpReferences(engine, schema, entity.getORM().attributes.elem, references, false)
+		warmUpReferences(engine, schema, entity.getORM().elem, references, false)
 	}
 	return true
 }
@@ -168,11 +168,11 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 
 func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity, fillDataLoader bool) {
 	orm := initIfNeeded(engine, entity)
-	elem := orm.attributes.elem
-	orm.attributes.idElem.SetUint(id)
+	elem := orm.elem
+	orm.idElem.SetUint(id)
 	_ = fillStruct(engine, 0, data, orm.tableSchema.fields, elem)
 	orm.dBData["ID"] = id
-	orm.attributes.loaded = true
+	orm.loaded = true
 	for key, column := range orm.tableSchema.columnNames[1:] {
 		orm.dBData[column] = data[key]
 	}
@@ -389,7 +389,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 			n := reflect.New(refType.Elem())
 			orm := initIfNeeded(engine, n.Interface().(Entity))
 			orm.dBData["ID"] = integer
-			orm.attributes.idElem.SetUint(integer)
+			orm.idElem.SetUint(integer)
 			field.Set(n)
 		} else {
 			field.Set(reflect.Zero(refType))
@@ -412,7 +412,7 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 				n := reflect.New(refType.Elem())
 				orm := initIfNeeded(engine, n.Interface().(Entity))
 				orm.dBData["ID"] = id
-				orm.attributes.idElem.SetUint(id)
+				orm.idElem.SetUint(id)
 				slice.Index(i).Set(n)
 			}
 			field.Set(slice)

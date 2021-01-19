@@ -264,7 +264,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 			refs, has := warmUpRefs[t][id]
 			if has {
 				for _, ref := range refs {
-					ref.Set(v.getORM().attributes.value)
+					ref.Set(v.getORM().value)
 				}
 			}
 		}
