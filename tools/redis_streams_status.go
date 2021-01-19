@@ -21,9 +21,9 @@ type RedisStreamGroupStatistics struct {
 	LastDeliveredID       string
 	LastDeliveredDuration string
 	Lower                 string
-	LowerDuration         time.Duration
+	LowerDuration         string
 	Higher                string
-	HigherDuration        time.Duration
+	HigherDuration        string
 	Consumers             []*RedisStreamConsumerStatistics
 }
 
@@ -45,7 +45,7 @@ func GetRedisStreamsStatistics(engine *orm.Engine) []*RedisStreamStatistics {
 			for _, group := range r.XInfoGroups(stream) {
 				groupStats := &RedisStreamGroupStatistics{Group: group.Name, Pending: uint64(group.Pending)}
 				groupStats.LastDeliveredID = group.LastDeliveredID
-				groupStats.LastDeliveredDuration = idToSince(group.LastDeliveredID, now).String()
+				groupStats.LastDeliveredDuration = idToSince(group.LastDeliveredID, now)
 				groupStats.Consumers = make([]*RedisStreamConsumerStatistics, 0)
 
 				pending := r.XPending(stream, group.Name)
@@ -67,15 +67,15 @@ func GetRedisStreamsStatistics(engine *orm.Engine) []*RedisStreamStatistics {
 	return results
 }
 
-func idToSince(id string, now time.Time) time.Duration {
+func idToSince(id string, now time.Time) string {
 	if id == "" || id == "0-0" {
-		return time.Duration(0)
+		return "0"
 	}
 	unixInt, _ := strconv.ParseInt(strings.Split(id, "-")[0], 10, 64)
 	unix := time.Unix(0, unixInt*1000000)
 	s := now.Sub(unix)
 	if s < 0 {
-		return time.Duration(0)
+		return "0"
 	}
-	return s
+	return s.String()
 }
