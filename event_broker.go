@@ -14,6 +14,7 @@ import (
 const countPending = 100
 const garbageCollectorCount = 100
 const pendingClaimCheckDuration = time.Minute * 2
+const pendingClaimCheckDurationOne = time.Minute * 10
 
 type EventAsMap map[string]interface{}
 
@@ -238,11 +239,11 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 	for _, stream := range r.streams {
 		r.redis.XGroupCreateMkStream(stream, r.group, "0")
 	}
-	keys := make([]string, 0)
-	if r.maxScripts > 1 {
-		keys = append(keys, "pending")
+	pendingClaimDuration := pendingClaimCheckDuration
+	if r.maxScripts == 1 {
+		pendingClaimDuration = pendingClaimCheckDurationOne
 	}
-	keys = append(keys, "0", ">")
+	keys := []string{"pending", "0", ">"}
 	streams := make([]string, len(r.streams)*2)
 	hasInvalid := true
 	if r.heartBeat != nil {
@@ -256,7 +257,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 			invalidCheck := key == "0"
 			pendingCheck := key == "pending"
 			if pendingCheck {
-				if pendingChecked && time.Since(pendingCheckedTime) < pendingClaimCheckDuration {
+				if pendingChecked && time.Since(pendingCheckedTime) < pendingClaimDuration {
 					continue
 				}
 				for _, stream := range r.streams {

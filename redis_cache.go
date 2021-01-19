@@ -12,6 +12,7 @@ import (
 )
 
 type redisClient interface {
+	Info(section ...string) (string, error)
 	Get(key string) (string, error)
 	LRange(key string, start, stop int64) ([]string, error)
 	HMGet(key string, fields ...string) ([]interface{}, error)
@@ -171,6 +172,13 @@ func (c *standardRedisClient) Get(key string) (string, error) {
 		return c.ring.Get(c.ring.Context(), key).Result()
 	}
 	return c.client.Get(c.client.Context(), key).Result()
+}
+
+func (c *standardRedisClient) Info(section ...string) (string, error) {
+	if c.ring != nil {
+		return c.ring.Info(c.ring.Context(), section...).Result()
+	}
+	return c.client.Info(c.client.Context(), section...).Result()
 }
 
 func (c *standardRedisClient) LRange(key string, start, stop int64) ([]string, error) {
@@ -603,6 +611,17 @@ func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 	var data interface{}
 	_ = jsoniter.ConfigFastest.Unmarshal([]byte(val), &data)
 	return data
+}
+
+func (r *RedisCache) Info(section ...string) string {
+	start := time.Now()
+	val, err := r.client.Info(section...)
+	checkError(err)
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][INFO]", start, "info", 0, 1,
+			map[string]interface{}{"section": section}, nil)
+	}
+	return val
 }
 
 func (r *RedisCache) Get(key string) (value string, has bool) {

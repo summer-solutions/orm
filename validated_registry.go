@@ -14,6 +14,7 @@ type ValidatedRegistry interface {
 	GetEnum(code string) Enum
 	GetEnums() map[string]Enum
 	GetRedisStreams() map[string]map[string][]string
+	GetRedisPools() []string
 	GetEntities() map[string]reflect.Type
 }
 
@@ -61,6 +62,15 @@ func (r *validatedRegistry) GetRedisStreams() map[string]map[string][]string {
 		}
 	}
 	return res
+}
+
+func (r *validatedRegistry) GetRedisPools() []string {
+	pools := make([]string, len(r.redisServers))
+	i := 0
+	for code := range r.redisServers {
+		pools[i] = code
+	}
+	return pools
 }
 
 func (r *validatedRegistry) CreateEngine() *Engine {
