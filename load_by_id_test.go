@@ -52,12 +52,12 @@ func TestLoadById(t *testing.T) {
 	var subReference *loadByIDSubReference
 	engine := PrepareTables(t, &Registry{}, 5, entity, entityRedis, entityNoCache, reference, subReference)
 
-	engine.TrackAndFlush(&loadByIDEntity{Name: "a", ReferenceOne: &loadByIDReference{Name: "r1", ReferenceTwo: &loadByIDSubReference{Name: "s1"}}},
+	engine.FlushMany(&loadByIDEntity{Name: "a", ReferenceOne: &loadByIDReference{Name: "r1", ReferenceTwo: &loadByIDSubReference{Name: "s1"}}},
 		&loadByIDEntity{Name: "b", ReferenceOne: &loadByIDReference{Name: "r2", ReferenceTwo: &loadByIDSubReference{Name: "s2"}}},
 		&loadByIDEntity{Name: "c"}, &loadByIDNoCacheEntity{Name: "a"})
 
-	engine.TrackAndFlush(&loadByIDReference{Name: "rm1", ID: 100}, &loadByIDReference{Name: "rm2", ID: 101}, &loadByIDReference{Name: "rm3", ID: 102})
-	engine.TrackAndFlush(&loadByIDEntity{Name: "eMany", ID: 200, ReferenceMany: []*loadByIDReference{{ID: 100}, {ID: 101}, {ID: 102}}})
+	engine.FlushMany(&loadByIDReference{Name: "rm1", ID: 100}, &loadByIDReference{Name: "rm2", ID: 101}, &loadByIDReference{Name: "rm3", ID: 102})
+	engine.FlushMany(&loadByIDEntity{Name: "eMany", ID: 200, ReferenceMany: []*loadByIDReference{{ID: 100}, {ID: 101}, {ID: 102}}})
 
 	entity = &loadByIDEntity{}
 	found := engine.LoadByID(1, entity, "ReferenceOne/ReferenceTwo")
@@ -128,7 +128,7 @@ func BenchmarkLoadByIdLocalCache(b *testing.B) {
 	engine.GetRegistry().GetTableSchemaForEntity(entity).UpdateSchema(engine)
 	engine.GetRegistry().GetTableSchemaForEntity(entity).TruncateTable(engine)
 	e := &loadByIDLocalEntity{}
-	engine.TrackAndFlush(&loadByIDLocalEntity{})
+	engine.Flush(&loadByIDLocalEntity{})
 	engine.LoadByID(1, e)
 	b.ResetTimer()
 	b.ReportAllocs()

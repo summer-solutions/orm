@@ -29,10 +29,11 @@ func TestDataLoader(t *testing.T) {
 	var ref *dataLoaderEntityRef
 	engine := PrepareTables(t, &Registry{}, 5, entity, ref)
 
-	engine.Track(&dataLoaderEntity{Name: "a", Ref: &dataLoaderEntityRef{Name: "r1"}})
-	engine.Track(&dataLoaderEntity{Name: "b", Ref: &dataLoaderEntityRef{Name: "r2"}})
-	engine.Track(&dataLoaderEntity{Name: "c", Ref: &dataLoaderEntityRef{Name: "r3"}})
-	engine.Flush()
+	flusher := engine.Flusher()
+	flusher.Track(&dataLoaderEntity{Name: "a", Ref: &dataLoaderEntityRef{Name: "r1"}})
+	flusher.Track(&dataLoaderEntity{Name: "b", Ref: &dataLoaderEntityRef{Name: "r2"}})
+	flusher.Track(&dataLoaderEntity{Name: "c", Ref: &dataLoaderEntityRef{Name: "r3"}})
+	flusher.Flush()
 
 	engine.EnableRequestCache(true)
 
@@ -139,7 +140,7 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, redisLogger.Entries, 1)
 
 	entities[0].Name = "c2"
-	engine.TrackAndFlush(entities[0])
+	engine.Flush(entities[0])
 	entity = &dataLoaderEntity{}
 	found = engine.LoadByID(3, entity)
 	assert.True(t, found)
@@ -147,7 +148,7 @@ func TestDataLoader(t *testing.T) {
 
 	engine.GetMysql().Begin()
 	entities[0].Name = "c3"
-	engine.TrackAndFlush(entities[0])
+	engine.Flush(entities[0])
 	engine.GetMysql().Commit()
 	entity = &dataLoaderEntity{}
 	engine.LoadByID(3, entity)
@@ -155,7 +156,7 @@ func TestDataLoader(t *testing.T) {
 
 	engine.dataLoader.Clear()
 	entity = &dataLoaderEntity{Name: "d"}
-	engine.TrackAndFlush(entity)
+	engine.Flush(entity)
 	DBLogger.Entries = make([]*apexLog.Entry, 0)
 	redisLogger.Entries = make([]*apexLog.Entry, 0)
 	found = engine.LoadByID(4, entity)
@@ -195,8 +196,8 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, redisLogger.Entries, 0)
 
 	engine.LoadByID(4, entity)
-	engine.MarkToDelete(entity)
-	engine.Flush()
+	entity.MarkToDelete()
+	engine.Flush(entity)
 	found = engine.LoadByID(4, entity)
 	assert.False(t, found)
 

@@ -62,26 +62,26 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 		schema.hasRedisCache = true
 	}
 
+	flusher := engine.Flusher()
 	for i := 1; i <= 5; i++ {
-		e := &cachedSearchRefEntity{Name: "Name " + strconv.Itoa(i)}
-		engine.Track(e)
+		flusher.Track(&cachedSearchRefEntity{Name: "Name " + strconv.Itoa(i)})
 	}
-	engine.Flush()
+	flusher.Flush()
 
 	var entities = make([]interface{}, 10)
 	for i := 1; i <= 5; i++ {
 		e := &cachedSearchEntity{Name: "Name " + strconv.Itoa(i), Age: uint16(10)}
-		engine.Track(e)
+		flusher.Track(e)
 		e.ReferenceOne = &cachedSearchRefEntity{ID: uint(i)}
 		entities[i-1] = e
 	}
-	engine.Flush()
+	flusher.Flush()
 	for i := 6; i <= 10; i++ {
 		e := &cachedSearchEntity{Name: "Name " + strconv.Itoa(i), Age: uint16(18)}
 		entities[i-1] = e
-		engine.Track(e)
+		flusher.Track(e)
 	}
-	engine.Flush()
+	flusher.Flush()
 
 	pager := NewPager(1, 100)
 	var rows []*cachedSearchEntity
@@ -130,9 +130,8 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	assert.Equal(t, uint(1), rows[0].ID)
 	assert.Len(t, DBLogger.Entries, 0)
 
-	engine.Track(rows[0])
 	rows[0].Age = 18
-	engine.Flush()
+	engine.Flush(rows[0])
 
 	pager = NewPager(1, 10)
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
@@ -150,8 +149,8 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 
-	engine.MarkToDelete(rows[1])
-	engine.Flush()
+	rows[1].MarkToDelete()
+	engine.Flush(rows[1])
 
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 3, totalRows)
@@ -163,8 +162,7 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	assert.Len(t, rows, 9)
 
 	entity = &cachedSearchEntity{Name: "Name 11", Age: uint16(18)}
-	engine.Track(entity)
-	engine.Flush()
+	engine.Flush(entity)
 
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 7, totalRows)

@@ -38,8 +38,7 @@ func TestLazyReceiver(t *testing.T) {
 	receiver.block = time.Millisecond
 
 	e := &lazyReceiverEntity{Name: "John", Age: 18}
-	engine.Track(e)
-	engine.FlushLazy()
+	engine.FlushLazy(e)
 
 	e = &lazyReceiverEntity{}
 	loaded := engine.LoadByID(1, e)
@@ -58,8 +57,7 @@ func TestLazyReceiver(t *testing.T) {
 	assert.Equal(t, uint64(18), e.Age)
 
 	e.Name = "Tom"
-	engine.Track(e)
-	engine.FlushLazy()
+	engine.FlushLazy(e)
 
 	e = &lazyReceiverEntity{}
 	loaded = engine.LoadByID(1, e)
@@ -85,8 +83,7 @@ func TestLazyReceiver(t *testing.T) {
 	assert.Equal(t, "Tom", e.Name)
 
 	e = &lazyReceiverEntity{Name: "Tom"}
-	engine.Track(e)
-	engine.FlushLazy()
+	engine.FlushLazy(e)
 
 	validHeartBeat = false
 	receiver.SetHeartBeat(time.Minute, func() {
@@ -96,31 +93,26 @@ func TestLazyReceiver(t *testing.T) {
 	assert.True(t, validHeartBeat)
 
 	e = &lazyReceiverEntity{Name: "Adam", EnumNullable: "wrong"}
-	engine.Track(e)
-	engine.FlushLazy()
+	engine.FlushLazy(e)
 
 	assert.NotPanics(t, func() {
 		receiver.Digest(context.Background(), 100)
 	})
 	e = &lazyReceiverEntity{Name: "Tom"}
-	engine.SetOnDuplicateKeyUpdate(NewWhere("Age = ?", 38), e)
-	engine.Track(e)
+	e.SetOnDuplicateKeyUpdate(map[string]interface{}{"Age": 38})
 	assert.PanicsWithError(t, "lazy flush on duplicate key not supported", func() {
-		engine.FlushLazy()
+		engine.FlushLazy(e)
 	})
-	engine.ClearTrackedEntities()
 
 	e = &lazyReceiverEntity{Name: "Adam", RefOne: &lazyReceiverReference{Name: "Test"}}
-	engine.Track(e)
 	assert.PanicsWithError(t, "lazy flush for unsaved references not supported", func() {
-		engine.FlushLazy()
+		engine.FlushLazy(e)
 	})
-	engine.ClearTrackedEntities()
 
 	e = &lazyReceiverEntity{}
 	engine.LoadByID(1, e)
-	engine.MarkToDelete(e)
-	engine.FlushLazy()
+	e.MarkToDelete()
+	engine.FlushLazy(e)
 	receiver.Digest(context.Background(), 100)
 	loaded = engine.LoadByID(1, e)
 	assert.False(t, loaded)

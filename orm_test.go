@@ -217,7 +217,7 @@ func TestORM(t *testing.T) {
 	assert.EqualError(t, err, "field StructPtr not supported")
 
 	ref := &ormEntityRef{}
-	engine.TrackAndFlush(ref)
+	engine.Flush(ref)
 
 	err = entity.SetField("Ref", ref)
 	assert.NoError(t, err)

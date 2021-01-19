@@ -58,12 +58,13 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	var referencesToFlash map[Entity]Entity
 
 	for _, entity := range entities {
+		initIfNeeded(engine, entity)
 		schema := entity.getORM().tableSchema
 		if !isInTransaction && schema.GetMysql(engine).inTransaction {
 			isInTransaction = true
 		}
 		for _, refName := range schema.refOne {
-			refValue := entity.getORM().attributes.elem.FieldByName(refName)
+			refValue := entity.getORM().elem.FieldByName(refName)
 			if refValue.IsValid() && !refValue.IsNil() {
 				refEntity := refValue.Interface().(Entity)
 				initIfNeeded(engine, refEntity)
@@ -76,7 +77,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			}
 		}
 		for _, refName := range schema.refMany {
-			refValue := entity.getORM().attributes.elem.FieldByName(refName)
+			refValue := entity.getORM().elem.FieldByName(refName)
 			if refValue.IsValid() && !refValue.IsNil() {
 				length := refValue.Len()
 				for i := 0; i < length; i++ {
@@ -105,13 +106,16 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 
 		t := orm.tableSchema.t
 		currentID := entity.GetID()
-		if orm.attributes.delete {
+		if orm.fakeDelete && !orm.tableSchema.hasFakeDelete {
+			orm.delete = true
+		}
+		if orm.delete {
 			if deleteBinds[t] == nil {
 				deleteBinds[t] = make(map[uint64]map[string]interface{})
 			}
 			deleteBinds[t][currentID] = dbData
 		} else if len(dbData) == 0 {
-			onUpdate := entity.getORM().attributes.onDuplicateKeyUpdate
+			onUpdate := entity.getORM().onDuplicateKeyUpdate
 			if onUpdate != nil {
 				if lazy {
 					panic(errors.NotSupportedf("lazy flush on duplicate key"))
@@ -133,31 +137,38 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				/* #nosec */
 				sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES (%s)", schema.tableName, strings.Join(columns, ","), strings.Join(values, ","))
 				sql += " ON DUPLICATE KEY UPDATE "
-				subSQL := onUpdate.String()
-				if subSQL == "" {
-					subSQL = "`Id` = `Id`"
+				first := true
+				for k, v := range onUpdate {
+					if !first {
+						sql += ", "
+					}
+					sql += "`" + k + "` = ?"
+					bindRow = append(bindRow, v)
+					first = false
 				}
-				sql += subSQL
-				bindRow = append(bindRow, onUpdate.GetParameters()...)
+				if len(onUpdate) == 0 {
+					sql += "`Id` = `Id`"
+				}
 				db := schema.GetMysql(engine)
 				result := db.Exec(sql, bindRow...)
 				affected := result.RowsAffected()
-				if affected > 0 && currentID == 0 {
+				if affected > 0 {
 					lastID := result.LastInsertId()
 					injectBind(entity, bind)
-					entity.getORM().attributes.idElem.SetUint(lastID)
+					entity.getORM().idElem.SetUint(lastID)
 					if affected == 1 {
-						logQueues = updateCacheForInserted(entity, lazy, lastID, bind, localCacheSets,
+						logQueues = updateCacheForInserted(engine, entity, lazy, lastID, bind, localCacheSets,
 							localCacheDeletes, redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 					} else {
+						for k, v := range onUpdate {
+							err := entity.SetField(k, v)
+							checkError(err)
+						}
+						_, bind := engine.GetDirtyBind(entity)
 						_ = loadByID(engine, lastID, entity, false)
 						logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
 							redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 					}
-				} else if currentID > 0 {
-					_ = loadByID(engine, currentID, entity, false)
-					logQueues = updateCacheForInserted(entity, lazy, currentID, bind, localCacheSets,
-						localCacheDeletes, redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 				} else {
 				OUTER:
 					for _, index := range schema.uniqueIndices {
@@ -212,7 +223,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		} else {
 			values := make([]interface{}, bindLength+1)
 			if !engine.Loaded(entity) {
-				panic(errors.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().attributes.elem.Type().String(), currentID))
+				panic(errors.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().elem.Type().String(), currentID))
 			}
 			fields := make([]string, bindLength)
 			i := 0
@@ -289,11 +300,11 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			injectBind(entity, bind)
 			insertedID := entity.GetID()
 			if insertedID == 0 {
-				entity.getORM().attributes.idElem.SetUint(id)
+				entity.getORM().idElem.SetUint(id)
 				insertedID = id
 				id = id + db.autoincrement
 			}
-			logQueues = updateCacheForInserted(entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,
+			logQueues = updateCacheForInserted(engine, entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,
 				redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
 		}
 	}
@@ -332,7 +343,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 								toDeleteAll := make([]Entity, total)
 								for i := 0; i < total; i++ {
 									toDeleteValue := subElem.Index(i).Interface().(Entity)
-									engine.MarkToDelete(toDeleteValue)
+									toDeleteValue.MarkToDelete()
 									toDeleteAll[i] = toDeleteValue
 								}
 								flush(engine, transaction, lazy, false, toDeleteAll...)
@@ -502,7 +513,7 @@ func updateCacheAfterUpdate(dbData map[string]interface{}, engine *Engine, entit
 		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 	}
 	addDirtyQueues(dirtyChannels, bind, schema, currentID, "u")
-	return addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().attributes.logMeta)
+	return addToLogQueue(logQueues, schema, currentID, old, bind, entity.getORM().logMeta)
 }
 
 func injectBind(entity Entity, bind map[string]interface{}) map[string]interface{} {
@@ -510,7 +521,7 @@ func injectBind(entity Entity, bind map[string]interface{}) map[string]interface
 	for key, value := range bind {
 		orm.dBData[key] = value
 	}
-	orm.attributes.loaded = true
+	orm.loaded = true
 	return orm.dBData
 }
 
@@ -996,12 +1007,11 @@ func convertToError(err error) error {
 	return err
 }
 
-func updateCacheForInserted(entity Entity, lazy bool, id uint64,
+func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 	bind map[string]interface{}, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	redisKeysToDelete map[string]map[string]bool, dirtyChannels map[string][]EventAsMap,
 	logQueues []*LogQueueValue, dataLoaderSets dataLoaderSets) []*LogQueueValue {
 	schema := entity.getORM().tableSchema
-	engine := entity.getORM().engine
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	if !hasLocalCache && engine.hasRequestCache {
 		hasLocalCache = true
@@ -1025,86 +1035,28 @@ func updateCacheForInserted(entity Entity, lazy bool, id uint64,
 		addCacheDeletes(redisKeysToDelete, redisCache.code, keys...)
 	}
 	addDirtyQueues(dirtyChannels, bind, schema, id, "i")
-	logQueues = addToLogQueue(logQueues, schema, id, nil, bind, entity.getORM().attributes.logMeta)
+	logQueues = addToLogQueue(logQueues, schema, id, nil, bind, entity.getORM().logMeta)
 	return logQueues
 }
 
 func getDirtyBind(entity Entity) (is bool, bind map[string]interface{}) {
 	orm := entity.getORM()
-	if orm.attributes.delete {
+	if orm.delete {
 		return true, nil
 	}
+	if orm.fakeDelete {
+		if orm.tableSchema.hasFakeDelete {
+			orm.elem.FieldByName("FakeDelete").SetBool(true)
+		} else {
+			orm.delete = true
+			return true, nil
+		}
+	}
 	id := orm.GetID()
-	t := orm.attributes.elem.Type()
-	bind = createBind(id, orm.tableSchema, t, orm.attributes.elem, orm.dBData, "")
+	t := orm.elem.Type()
+	bind = createBind(id, orm.tableSchema, t, orm.elem, orm.dBData, "")
 	is = id == 0 || len(bind) > 0
 	return is, bind
-}
-
-func (e *Engine) flushTrackedEntities(lazy bool, transaction bool, smart bool) {
-	if e.trackedEntitiesCounter == 0 {
-		return
-	}
-	var dbPools map[string]*DB
-	if transaction {
-		dbPools = make(map[string]*DB)
-		for _, entity := range e.trackedEntities {
-			db := entity.getORM().tableSchema.GetMysql(e)
-			dbPools[db.code] = db
-		}
-		for _, db := range dbPools {
-			db.Begin()
-		}
-	}
-	defer func() {
-		for _, db := range dbPools {
-			db.Rollback()
-		}
-	}()
-	flush(e, lazy, transaction, smart, e.trackedEntities...)
-	if transaction {
-		for _, db := range dbPools {
-			db.Commit()
-		}
-	}
-	e.trackedEntities = nil
-	e.trackedEntitiesCounter = 0
-}
-
-func (e *Engine) flushWithLock(transaction bool, lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
-	locker := e.GetLocker(lockerPool)
-	lock, has := locker.Obtain(e.context, lockName, ttl, waitTimeout)
-	if !has {
-		panic(errors.Timeoutf("lock wait"))
-	}
-	defer lock.Release()
-	e.flushTrackedEntities(false, transaction, false)
-}
-
-func (e *Engine) flushWithCheck(transaction bool) error {
-	var err error
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				e.ClearTrackedEntities()
-				asErr := r.(error)
-				source := errors.Cause(asErr)
-				assErr1, is := source.(*ForeignKeyError)
-				if is {
-					err = assErr1
-					return
-				}
-				assErr2, is := source.(*DuplicatedKeyError)
-				if is {
-					err = assErr2
-					return
-				}
-				panic(asErr)
-			}
-		}()
-		e.flushTrackedEntities(false, transaction, false)
-	}()
-	return err
 }
 
 func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]EventAsMap) {

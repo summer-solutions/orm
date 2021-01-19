@@ -236,7 +236,7 @@ func testSchema(t *testing.T, version int) {
 	alters = engine.GetAlters()
 	assert.Len(t, alters, 0)
 
-	engine.TrackAndFlush(&schemaEntityRef{Name: "test"})
+	engine.Flush(&schemaEntityRef{Name: "test"})
 	engine.GetMysql().Exec("ALTER TABLE `schemaEntityRef` ADD COLUMN `Year2` varchar(255) NOT NULL DEFAULT ''")
 	alters = engine.GetAlters()
 	assert.Len(t, alters, 1)

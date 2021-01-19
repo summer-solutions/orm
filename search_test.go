@@ -27,14 +27,15 @@ func TestSearch(t *testing.T) {
 	var reference *searchEntityReference
 	engine := PrepareTables(t, &Registry{}, 5, entity, reference)
 
+	flusher := engine.Flusher()
 	for i := 1; i <= 10; i++ {
-		engine.Track(&searchEntity{Name: fmt.Sprintf("name %d", i), ReferenceOne: &searchEntityReference{Name: fmt.Sprintf("name %d", i)}})
+		flusher.Track(&searchEntity{Name: fmt.Sprintf("name %d", i), ReferenceOne: &searchEntityReference{Name: fmt.Sprintf("name %d", i)}})
 	}
-	engine.Flush()
+	flusher.Flush()
 	entity = &searchEntity{ID: 1}
 	engine.Load(entity)
 	entity.ReferenceMany = []*searchEntityReference{{ID: 1}, {ID: 2}, {ID: 3}}
-	engine.TrackAndFlush(entity)
+	engine.Flush(entity)
 
 	var rows []*searchEntity
 	missing := engine.LoadByIDs([]uint64{1, 2, 20}, &rows)

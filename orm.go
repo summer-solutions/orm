@@ -13,24 +13,24 @@ import (
 type Entity interface {
 	getORM() *ORM
 	GetID() uint64
+	MarkToDelete()
+	ForceMarkToDelete()
+	SetOnDuplicateKeyUpdate(bind map[string]interface{})
+	SetEntityLogMeta(key string, value interface{})
 	SetField(field string, value interface{}) error
 }
 
-type entityAttributes struct {
-	onDuplicateKeyUpdate *Where
+type ORM struct {
+	dBData               map[string]interface{}
+	tableSchema          *tableSchema
+	onDuplicateKeyUpdate map[string]interface{}
 	loaded               bool
 	delete               bool
+	fakeDelete           bool
 	value                reflect.Value
 	elem                 reflect.Value
 	idElem               reflect.Value
 	logMeta              map[string]interface{}
-}
-
-type ORM struct {
-	dBData      map[string]interface{}
-	tableSchema *tableSchema
-	engine      *Engine
-	attributes  *entityAttributes
 }
 
 func (orm *ORM) getORM() *ORM {
@@ -38,10 +38,29 @@ func (orm *ORM) getORM() *ORM {
 }
 
 func (orm *ORM) GetID() uint64 {
-	if orm.attributes == nil {
+	if !orm.idElem.IsValid() {
 		return 0
 	}
-	return orm.attributes.idElem.Uint()
+	return orm.idElem.Uint()
+}
+
+func (orm *ORM) MarkToDelete() {
+	orm.fakeDelete = true
+}
+
+func (orm *ORM) ForceMarkToDelete() {
+	orm.delete = true
+}
+
+func (orm *ORM) SetOnDuplicateKeyUpdate(bind map[string]interface{}) {
+	orm.onDuplicateKeyUpdate = bind
+}
+
+func (orm *ORM) SetEntityLogMeta(key string, value interface{}) {
+	if orm.logMeta == nil {
+		orm.logMeta = make(map[string]interface{})
+	}
+	orm.logMeta[key] = value
 }
 
 func (orm *ORM) SetField(field string, value interface{}) error {
@@ -52,10 +71,10 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			value = nil
 		}
 	}
-	if orm.attributes == nil {
+	if !orm.elem.IsValid() {
 		return errors.New("entity is not loaded")
 	}
-	f := orm.attributes.elem.FieldByName(field)
+	f := orm.elem.FieldByName(field)
 	if !f.IsValid() {
 		return errors.NotFoundf("field %s", field)
 	}

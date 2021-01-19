@@ -38,10 +38,9 @@ func TestLogReceiver(t *testing.T) {
 	consumer.block = time.Millisecond
 
 	e1 := &logReceiverEntity1{Name: "John", LastName: "Smith", Country: "Poland"}
-	engine.Track(e1)
+	engine.Flush(e1)
 	e2 := &logReceiverEntity2{Name: "Tom", Age: 18}
-	engine.Track(e2)
-	engine.Flush()
+	engine.Flush(e2)
 
 	valid := false
 	validHeartBeat := false
@@ -74,12 +73,13 @@ func TestLogReceiver(t *testing.T) {
 	assert.Equal(t, "{\"Age\": \"18\", \"Name\": \"Tom\"}", changes)
 
 	engine.SetLogMetaData("user_id", 12)
+	flusher := engine.Flusher()
 	e1 = &logReceiverEntity1{Name: "John2"}
-	engine.Track(e1)
+	flusher.Track(e1)
 	e2 = &logReceiverEntity2{Name: "Tom2", Age: 18}
-	engine.SetEntityLogMeta("admin_id", "10", e2)
-	engine.Track(e2)
-	engine.Flush()
+	e2.SetEntityLogMeta("admin_id", "10")
+	flusher.Track(e2)
+	flusher.Flush()
 
 	consumer.Digest(context.Background(), 100)
 
@@ -98,14 +98,14 @@ func TestLogReceiver(t *testing.T) {
 	assert.Equal(t, "{\"user_id\": 12, \"admin_id\": \"10\"}", meta.String)
 
 	e1.Country = "Germany"
-	engine.TrackAndFlush(e1)
+	engine.Flush(e1)
 	consumer.Digest(context.Background(), 100)
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 3")
 	found := engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
 	assert.False(t, found)
 
 	e1.LastName = "Summer"
-	engine.TrackAndFlush(e1)
+	engine.Flush(e1)
 	consumer.Digest(context.Background(), 100)
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 3")
 	engine.GetMysql().QueryRow(where1, &entityID, &meta, &before, &changes)
@@ -114,8 +114,8 @@ func TestLogReceiver(t *testing.T) {
 	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": \"Germany\", \"LastName\": null}", before.String)
 	assert.Equal(t, "{\"user_id\": 12}", meta.String)
 
-	engine.MarkToDelete(e1)
-	engine.TrackAndFlush(e1)
+	e1.MarkToDelete()
+	engine.Flush(e1)
 	consumer.Digest(context.Background(), 100)
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 4")
 	var changesNullable sql.NullString

@@ -5,7 +5,6 @@ import (
 	"os"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/bsm/redislock"
 	"github.com/golang/groupcache/lru"
@@ -42,8 +41,6 @@ type Engine struct {
 	logMetaDataMutex             sync.RWMutex
 	dataLoader                   *dataLoader
 	hasRequestCache              bool
-	trackedEntities              []Entity
-	trackedEntitiesCounter       int
 	queryLoggers                 map[QueryLoggerSource]*logger
 	log                          *log
 	logOnce                      sync.Once
@@ -354,120 +351,28 @@ func (e *Engine) GetRabbitMQRouter(queueName string) *RabbitMQRouter {
 	return e.rabbitMQRouters[queueName]
 }
 
-// TODO mutex
-
-func (e *Engine) Track(entity ...Entity) {
-	for _, entity := range entity {
-		initIfNeeded(e, entity)
-		if e.trackedEntities == nil {
-			e.trackedEntities = []Entity{entity}
-		} else {
-			e.trackedEntities = append(e.trackedEntities, entity)
-		}
-		e.trackedEntitiesCounter++
-		if e.trackedEntitiesCounter == 10000 {
-			panic(errors.Errorf("track limit 10000 exceeded"))
-		}
-	}
+func (e *Engine) Flusher() Flusher {
+	return &flusher{engine: e}
 }
 
-func (e *Engine) TrackAndFlush(entity ...Entity) {
-	e.Track(entity...)
-	e.Flush()
+func (e *Engine) Flush(entity Entity) {
+	e.FlushMany(entity)
 }
 
-func (e *Engine) Flush() {
-	e.flushTrackedEntities(false, false, true)
+func (e *Engine) FlushLazy(entity Entity) {
+	e.FlushLazyMany(entity)
 }
 
-func (e *Engine) FlushWithCheck() error {
-	return e.flushWithCheck(false)
+func (e *Engine) FlushMany(entities ...Entity) {
+	flush(e, false, false, true, entities...)
 }
 
-func (e *Engine) FlushInTransactionWithCheck() error {
-	return e.flushWithCheck(true)
-}
-
-func (e *Engine) FlushWithFullCheck() error {
-	var err error
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				e.ClearTrackedEntities()
-				asErr := r.(error)
-				err = asErr
-			}
-		}()
-		e.flushTrackedEntities(false, false, false)
-	}()
-	return err
-}
-
-func (e *Engine) FlushLazy() {
-	e.flushTrackedEntities(true, false, false)
-}
-
-func (e *Engine) FlushInTransaction() {
-	e.flushTrackedEntities(false, true, false)
-}
-
-func (e *Engine) FlushWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
-	e.flushWithLock(false, lockerPool, lockName, ttl, waitTimeout)
-}
-
-func (e *Engine) FlushInTransactionWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration) {
-	e.flushWithLock(true, lockerPool, lockName, ttl, waitTimeout)
-}
-
-func (e *Engine) ClearTrackedEntities() {
-	e.trackedEntities = nil
-}
-
-func (e *Engine) SetOnDuplicateKeyUpdate(update *Where, entity Entity) {
-	initIfNeeded(e, entity).attributes.onDuplicateKeyUpdate = update
-}
-
-func (e *Engine) SetEntityLogMeta(key string, value interface{}, entity ...Entity) {
-	for _, row := range entity {
-		orm := initIfNeeded(e, row)
-		if orm.attributes.logMeta == nil {
-			orm.attributes.logMeta = make(map[string]interface{})
-		}
-		orm.attributes.logMeta[key] = value
-	}
-}
-
-func (e *Engine) MarkToDelete(entity ...Entity) {
-	for _, row := range entity {
-		e.Track(row)
-		orm := initIfNeeded(e, row)
-		if orm.tableSchema.hasFakeDelete {
-			orm.attributes.elem.FieldByName("FakeDelete").SetBool(true)
-			continue
-		}
-		orm.attributes.delete = true
-	}
-}
-
-func (e *Engine) ForceMarkToDelete(entity ...Entity) {
-	for _, row := range entity {
-		orm := initIfNeeded(e, row)
-		orm.attributes.delete = true
-		e.Track(row)
-	}
-}
-
-func (e *Engine) MarkDirty(entity Entity, queueCode string, ids ...uint64) {
-	entityName := initIfNeeded(e, entity).tableSchema.t.String()
-	broker := e.GetEventBroker()
-	for _, id := range ids {
-		broker.PublishMap(queueCode, EventAsMap{"A": "u", "I": id, "E": entityName})
-	}
+func (e *Engine) FlushLazyMany(entities ...Entity) {
+	flush(e, true, false, true, entities...)
 }
 
 func (e *Engine) Loaded(entity Entity) bool {
-	orm := initIfNeeded(e, entity)
-	return orm.attributes.loaded
+	return initIfNeeded(e, entity).loaded
 }
 
 func (e *Engine) IsDirty(entity Entity) bool {
@@ -543,7 +448,7 @@ func (e *Engine) Load(entity Entity, references ...string) {
 	if e.Loaded(entity) {
 		if len(references) > 0 {
 			orm := entity.getORM()
-			warmUpReferences(e, orm.tableSchema, orm.attributes.elem, references, false)
+			warmUpReferences(e, orm.tableSchema, orm.elem, references, false)
 		}
 		return
 	}

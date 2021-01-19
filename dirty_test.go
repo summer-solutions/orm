@@ -35,10 +35,9 @@ func TestDirtyConsumer(t *testing.T) {
 	consumer2.(*eventsConsumer).block = time.Millisecond
 
 	e := &dirtyReceiverEntity{Name: "John", Age: 18}
-	engine.Track(e)
+	engine.Flush(e)
 	e = &dirtyReceiverEntity{Name: "Tom", Age: 18}
-	engine.Track(e)
-	engine.Flush()
+	engine.Flush(e)
 
 	valid := false
 	validHeartBeat := false
@@ -78,7 +77,7 @@ func TestDirtyConsumer(t *testing.T) {
 	assert.Equal(t, 2, iterations)
 
 	e.Name = "Bob"
-	engine.TrackAndFlush(e)
+	engine.Flush(e)
 	valid = false
 	consumer.Consume(ctx, 2, func(events []Event) {
 		valid = true
@@ -106,7 +105,7 @@ func TestDirtyConsumer(t *testing.T) {
 	assert.True(t, valid)
 
 	e.Age = 30
-	engine.TrackAndFlush(e)
+	engine.Flush(e)
 	valid = false
 	consumer.Consume(ctx, 2, func(events []Event) {
 		valid = true
@@ -121,8 +120,7 @@ func TestDirtyConsumer(t *testing.T) {
 	assert.True(t, valid)
 
 	e.Name = "test transaction"
-	engine.Track(e)
-	engine.FlushInTransaction()
+	engine.Flusher().Track(e).FlushInTransaction()
 	valid = false
 	consumer.Consume(ctx, 2, func(events []Event) {
 		valid = true
@@ -137,8 +135,8 @@ func TestDirtyConsumer(t *testing.T) {
 	})
 	assert.True(t, valid)
 
-	engine.MarkToDelete(e)
-	engine.Flush()
+	e.MarkToDelete()
+	engine.Flush(e)
 
 	valid = false
 	consumer.Consume(ctx, 2, func(events []Event) {
@@ -166,7 +164,7 @@ func TestDirtyConsumer(t *testing.T) {
 	})
 	assert.True(t, valid)
 
-	engine.MarkDirty(e, "name_changed", 2)
+	engine.Flusher().MarkDirty(e.tableSchema, "name_changed", 2)
 	valid = false
 	consumer2.Consume(ctx, 1, func(events []Event) {
 		valid = true

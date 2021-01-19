@@ -32,7 +32,7 @@ func TestLoadByIds(t *testing.T) {
 	var subReference *loadByIdsSubReference
 	engine := PrepareTables(t, &Registry{}, 5, entity, reference, subReference)
 
-	engine.TrackAndFlush(&loadByIdsEntity{Name: "a", ReferenceOne: &loadByIdsReference{Name: "r1", ReferenceTwo: &loadByIdsSubReference{Name: "s1"}}},
+	engine.FlushMany(&loadByIdsEntity{Name: "a", ReferenceOne: &loadByIdsReference{Name: "r1", ReferenceTwo: &loadByIdsSubReference{Name: "s1"}}},
 		&loadByIdsEntity{Name: "b", ReferenceOne: &loadByIdsReference{Name: "r2", ReferenceTwo: &loadByIdsSubReference{Name: "s2"}}},
 		&loadByIdsEntity{Name: "c"})
 
