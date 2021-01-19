@@ -17,8 +17,8 @@ type Entity interface {
 	ForceMarkToDelete()
 	Loaded() bool
 	IsDirty() bool
-	GetDirtyBind() (bind map[string]interface{}, has bool)
-	SetOnDuplicateKeyUpdate(bind map[string]interface{})
+	GetDirtyBind() (bind Bind, has bool)
+	SetOnDuplicateKeyUpdate(bind Bind)
 	SetEntityLogMeta(key string, value interface{})
 	SetField(field string, value interface{}) error
 }
@@ -59,7 +59,7 @@ func (orm *ORM) Loaded() bool {
 	return orm.loaded
 }
 
-func (orm *ORM) SetOnDuplicateKeyUpdate(bind map[string]interface{}) {
+func (orm *ORM) SetOnDuplicateKeyUpdate(bind Bind) {
 	orm.onDuplicateKeyUpdate = bind
 }
 
@@ -78,7 +78,7 @@ func (orm *ORM) IsDirty() bool {
 	return is
 }
 
-func (orm *ORM) GetDirtyBind() (bind map[string]interface{}, has bool) {
+func (orm *ORM) GetDirtyBind() (bind Bind, has bool) {
 	if orm.delete {
 		return nil, true
 	}

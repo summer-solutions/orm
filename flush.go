@@ -18,6 +18,8 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
+type Bind map[string]interface{}
+
 type DuplicatedKeyError struct {
 	Message string
 	Index   string

@@ -93,6 +93,7 @@ func (f *flusher) Clear() {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	f.trackedEntities = nil
+	f.trackedEntitiesCounter = 0
 }
 
 func (f *flusher) MarkDirty(tableSchema TableSchema, queueCode string, ids ...uint64) {
@@ -131,8 +132,6 @@ func (f *flusher) flushTrackedEntities(lazy bool, transaction bool, smart bool) 
 			db.Commit()
 		}
 	}
-	f.trackedEntities = nil
-	f.trackedEntitiesCounter = 0
 }
 
 func (f *flusher) flushWithCheck(transaction bool) error {

@@ -274,7 +274,7 @@ func TestFlush(t *testing.T) {
 
 	entity2.ReferenceOne = nil
 	entity2.Name = "Tom"
-	entity2.SetOnDuplicateKeyUpdate(map[string]interface{}{"Age": 40})
+	entity2.SetOnDuplicateKeyUpdate(Bind{"Age": 40})
 	engine.Flush(entity2)
 
 	assert.Equal(t, uint(1), entity2.ID)
@@ -284,13 +284,13 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, 40, entity.Age)
 
 	entity2 = &flushEntity{Name: "Tom", Age: 12, EnumNotNull: "a"}
-	entity2.SetOnDuplicateKeyUpdate(map[string]interface{}{})
+	entity2.SetOnDuplicateKeyUpdate(Bind{})
 	engine.Flush(entity2)
 	assert.Equal(t, uint(1), entity2.ID)
 
 	entity2 = &flushEntity{Name: "Arthur", Age: 18, EnumNotNull: "a"}
 	entity2.ReferenceTwo = reference
-	entity2.SetOnDuplicateKeyUpdate(map[string]interface{}{})
+	entity2.SetOnDuplicateKeyUpdate(Bind{})
 	engine.Flush(entity2)
 	assert.Equal(t, uint(6), entity2.ID)
 
@@ -454,7 +454,7 @@ func TestFlush(t *testing.T) {
 
 	flusher.Clear()
 	entity2 = &flushEntity{ID: 100, Age: 1, EnumNotNull: "a"}
-	entity2.SetOnDuplicateKeyUpdate(map[string]interface{}{"Age": 2})
+	entity2.SetOnDuplicateKeyUpdate(Bind{"Age": 2})
 	engine.Flush(entity2)
 	assert.Equal(t, uint(12), entity2.ID)
 	assert.Equal(t, 2, entity2.Age)
@@ -462,14 +462,14 @@ func TestFlush(t *testing.T) {
 	found = engine.LoadByID(100, entity2)
 	assert.False(t, found)
 	entity2 = &flushEntity{Name: "Frank", ID: 100, Age: 1, EnumNotNull: "a"}
-	entity2.SetOnDuplicateKeyUpdate(map[string]interface{}{"Age": 2})
+	entity2.SetOnDuplicateKeyUpdate(Bind{"Age": 2})
 	engine.Flush(entity2)
 	found = engine.LoadByID(100, entity2)
 	assert.True(t, found)
 	assert.Equal(t, 1, entity2.Age)
 
 	entity2 = &flushEntity{ID: 100, Age: 1, EnumNotNull: "a"}
-	entity2.SetOnDuplicateKeyUpdate(map[string]interface{}{"Age": 2})
+	entity2.SetOnDuplicateKeyUpdate(Bind{"Age": 2})
 	engine.Flush(entity2)
 	assert.Equal(t, uint(100), entity2.ID)
 	assert.Equal(t, 2, entity2.Age)

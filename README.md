@@ -420,48 +420,49 @@ func main() {
      /* adding */
 
     entity := testEntity{Name: "Name 1"}
-    engine.TrackAndFlush(&entity)
+    engine.Flush(&entity)
 
     entity2 := testEntity{Name: "Name 1"}
-    engine.SetOnDuplicateKeyUpdate(NewWhere("`counter` = `counter` + 1"), entity2)
-    engine.TrackAndFlush(&entity)
+    entity2.SetOnDuplicateKeyUpdate(orm.Bind{"Counter": 2}, entity2)
+    engine.Flush(&entity2)
 
     entity2 = testEntity{Name: "Name 1"}
-    engine.SetOnDuplicateKeyUpdate(NewWhere(""), entity2) //it will change nothing un row
-    engine.TrackAndFlush(&entity)
+    engine.SetOnDuplicateKeyUpdate(orm.Bind{}, entity2) //it will change nothing un row
+    engine.Flush(&entity)
 
     /*if you need to add more than one entity*/
     entity = testEntity{Name: "Name 2"}
     entity2 := testEntity{Name: "Name 3"}
-    engine.Track(&entity, &entity2) //it will also automatically run RegisterEntity()
+    flusher := engine.Flusher()
+    flusher.Track(&entity, &entity2)
     //it will execute only one query in MySQL adding two rows at once (atomic)
-    engine.Flush()
+    flusher.Flush()
  
     /* editing */
 
-    engine.Track(&entity, &entity2)
+    flusher := engine.Flusher().Track(&entity, &entity2)
     entity.Name = "New name 2"
     //you can also use (but it's slower):
     entity.SetField("Name", "New name 2")
-    engine.IsDirty(entity) //returns true
-    engine.IsDirty(entity2) //returns false
-    entity.Flush() //it will save data in DB for all dirty tracked entities and untrack all of them
+    entity.IsDirty() //returns true
+    entity2.IsDirty() //returns false
+    flusher.Flush() //it will save data in DB for all dirty tracked entities
     engine.IsDirty(entity) //returns false
     
     /* deleting */
-    engine.MarkToDelete(entity2)
-    engine.IsDirty(entity2) //returns true
-    engine.Flush()
+    entity2.MarkToDelete()
+    entity2.IsDirty() //returns true
+    engine.Flush(entity2)
 
     /* flush will panic if there is any error. You can catch 2 special errors using this method  */
-    err := engine.FlushWithCheck()
+    err := flusher.FlushWithCheck()
     //or
-    err := engine.FlushInTransactionWithCheck()
+    err := flusher.FlushInTransactionWithCheck()
     orm.DuplicatedKeyError{} //when unique index is broken
     orm.ForeignKeyError{} //when foreign key is broken
     
     /* You can catch all errors using this method  */
-    err := engine.FlushWithFullCheck()
+    err := flusher.FlushWithFullCheck()
 }
 ```
 
@@ -476,14 +477,14 @@ func main() {
 	
     entity = testEntity{Name: "Name 2"}
     entity2 := testEntity{Name: "Name 3"}
-    engine.Track(&entity, &entity2)
+    flusher := engine.Flusher().Track(&entity, &entity2)
 
     // DB transcation
-    engine.FlushInTransaction()
+    flusher.FlushInTransaction()
     // or redis lock
-    engine.FlushWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
+    flusher.FlushWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
     // or DB transcation nad redis lock
-    engine.FlushInTransactionWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
+    flusher.FlushInTransactionWithLock("default", "lock_name", 10 * time.Second, 10 * time.Second)
  
     //manual transaction
     db := engine.GetMysql()
