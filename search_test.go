@@ -51,14 +51,14 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, uint(1), entity.ID)
 	assert.Equal(t, "name 1", entity.Name)
 	assert.Equal(t, "name 1", entity.ReferenceOne.Name)
-	assert.True(t, engine.Loaded(entity.ReferenceOne))
+	assert.True(t, entity.ReferenceOne.Loaded())
 
 	engine.Search(NewWhere("ID > 0"), nil, &rows, "ReferenceOne")
 	assert.Len(t, rows, 10)
 	assert.Equal(t, uint(1), rows[0].ID)
 	assert.Equal(t, "name 1", rows[0].Name)
 	assert.Equal(t, "name 1", rows[0].ReferenceOne.Name)
-	assert.True(t, engine.Loaded(rows[0].ReferenceOne))
+	assert.True(t, rows[0].ReferenceOne.Loaded())
 
 	total := engine.SearchWithCount(NewWhere("ID > 2"), nil, &rows)
 	assert.Equal(t, 8, total)
@@ -76,9 +76,9 @@ func TestSearch(t *testing.T) {
 	entity = &searchEntity{ID: 1}
 	engine.Load(entity, "ReferenceMany")
 	assert.Len(t, entity.ReferenceMany, 3)
-	assert.True(t, engine.Loaded(entity.ReferenceMany[0]))
-	assert.True(t, engine.Loaded(entity.ReferenceMany[1]))
-	assert.True(t, engine.Loaded(entity.ReferenceMany[2]))
+	assert.True(t, entity.ReferenceMany[0].Loaded())
+	assert.True(t, entity.ReferenceMany[1].Loaded())
+	assert.True(t, entity.ReferenceMany[2].Loaded())
 
 	engine = PrepareTables(t, &Registry{}, 5)
 	assert.PanicsWithError(t, "entity 'orm.searchEntity' is not registered", func() {

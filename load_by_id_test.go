@@ -65,17 +65,17 @@ func TestLoadById(t *testing.T) {
 	assert.Equal(t, uint(1), entity.ID)
 	assert.Equal(t, "a", entity.Name)
 	assert.Equal(t, "r1", entity.ReferenceOne.Name)
-	assert.True(t, engine.Loaded(entity.ReferenceOne))
+	assert.True(t, entity.ReferenceOne.Loaded())
 	assert.Equal(t, "s1", entity.ReferenceOne.ReferenceTwo.Name)
-	assert.True(t, engine.Loaded(entity.ReferenceOne.ReferenceTwo))
+	assert.True(t, entity.ReferenceOne.ReferenceTwo.Loaded())
 
 	entity = &loadByIDEntity{}
 	engine.LoadByID(1, entity)
 	engine.Load(entity, "ReferenceOne/ReferenceTwo")
 	assert.Equal(t, "r1", entity.ReferenceOne.Name)
-	assert.True(t, engine.Loaded(entity.ReferenceOne))
+	assert.True(t, entity.ReferenceOne.Loaded())
 	assert.Equal(t, "s1", entity.ReferenceOne.ReferenceTwo.Name)
-	assert.True(t, engine.Loaded(entity.ReferenceOne.ReferenceTwo))
+	assert.True(t, entity.ReferenceOne.ReferenceTwo.Loaded())
 
 	entityNoCache = &loadByIDNoCacheEntity{}
 	found = engine.LoadByID(1, entityNoCache, "*")
@@ -103,9 +103,9 @@ func TestLoadById(t *testing.T) {
 	assert.Equal(t, "rm1", entity.ReferenceMany[0].Name)
 	assert.Equal(t, "rm2", entity.ReferenceMany[1].Name)
 	assert.Equal(t, "rm3", entity.ReferenceMany[2].Name)
-	assert.True(t, engine.Loaded(entity.ReferenceMany[0]))
-	assert.True(t, engine.Loaded(entity.ReferenceMany[1]))
-	assert.True(t, engine.Loaded(entity.ReferenceMany[2]))
+	assert.True(t, entity.ReferenceMany[0].Loaded())
+	assert.True(t, entity.ReferenceMany[1].Loaded())
+	assert.True(t, entity.ReferenceMany[2].Loaded())
 
 	engine = PrepareTables(t, &Registry{}, 5)
 	entity = &loadByIDEntity{}

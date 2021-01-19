@@ -115,22 +115,22 @@ func TestFlush(t *testing.T) {
 	entity.TimeWithTime = now
 	entity.TimeWithTimeNullable = &now
 	entity.Images = []obj{{ID: 1, StorageKey: "aaa", Data: map[string]string{"sss": "vv", "bb": "cc"}}}
-	assert.True(t, engine.IsDirty(entity))
-	assert.True(t, engine.IsDirty(entity.ReferenceOne))
+	assert.True(t, entity.IsDirty())
+	assert.True(t, entity.ReferenceOne.IsDirty())
 	flusher := engine.Flusher().Track(entity)
 	flusher.Flush()
 	flusher.Flush()
-	assert.True(t, engine.Loaded(entity))
-	assert.True(t, engine.Loaded(entity.ReferenceOne))
-	assert.False(t, engine.IsDirty(entity))
+	assert.True(t, entity.Loaded())
+	assert.True(t, entity.ReferenceOne.Loaded())
+	assert.False(t, entity.IsDirty())
 
-	assert.False(t, engine.IsDirty(entity.ReferenceOne))
+	assert.False(t, entity.ReferenceOne.IsDirty())
 	assert.Equal(t, uint(1), entity.ID)
 	assert.NotEqual(t, uint(0), entity.ReferenceOne.ID)
-	assert.True(t, engine.Loaded(entity))
-	assert.True(t, engine.Loaded(entity.ReferenceOne))
+	assert.True(t, entity.Loaded())
+	assert.True(t, entity.ReferenceOne.Loaded())
 	assert.NotEqual(t, uint(0), entity.ReferenceMany[0].ID)
-	assert.True(t, engine.Loaded(entity.ReferenceMany[0]))
+	assert.True(t, entity.ReferenceMany[0].Loaded())
 	refOneID := entity.ReferenceOne.ID
 	refManyID := entity.ReferenceMany[0].ID
 
@@ -158,9 +158,9 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, entity.BoolNullable)
 	assert.Nil(t, entity.FloatNullable)
 	assert.Nil(t, entity.Float32Nullable)
-	assert.False(t, engine.IsDirty(entity))
-	assert.True(t, engine.Loaded(entity))
-	assert.False(t, engine.Loaded(entity.ReferenceOne))
+	assert.False(t, entity.IsDirty())
+	assert.True(t, entity.Loaded())
+	assert.False(t, entity.ReferenceOne.Loaded())
 	assert.Equal(t, refOneID, entity.ReferenceOne.ID)
 	assert.Nil(t, entity.Blob)
 	assert.Nil(t, entity.Int8Nullable)
@@ -250,12 +250,12 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, 134.35, entity.Decimal)
 	assert.Equal(t, 134.35, *entity.DecimalNullable)
 	assert.Nil(t, entity.ReferenceMany)
-	assert.False(t, engine.IsDirty(entity))
-	assert.False(t, engine.IsDirty(reference))
-	assert.True(t, engine.Loaded(reference))
+	assert.False(t, entity.IsDirty())
+	assert.False(t, reference.IsDirty())
+	assert.True(t, reference.Loaded())
 
 	entity.ReferenceMany = []*flushEntityReference{}
-	assert.False(t, engine.IsDirty(entity))
+	assert.False(t, entity.IsDirty())
 	engine.Flush(entity)
 	entity = &flushEntity{}
 	engine.LoadByID(1, entity)
@@ -304,9 +304,9 @@ func TestFlush(t *testing.T) {
 	entity2.BoolNullable = &i4
 	entity2.FloatNullable = &i5
 	entity2.City = "Warsaw"
-	assert.True(t, engine.IsDirty(entity2))
+	assert.True(t, entity2.IsDirty())
 	engine.Flush(entity2)
-	assert.False(t, engine.IsDirty(entity2))
+	assert.False(t, entity2.IsDirty())
 	engine.LoadByID(10, entity2)
 	assert.Equal(t, 21, entity2.Age)
 
@@ -314,9 +314,9 @@ func TestFlush(t *testing.T) {
 	entity2.BoolNullable = nil
 	entity2.FloatNullable = nil
 	entity2.City = ""
-	assert.True(t, engine.IsDirty(entity2))
+	assert.True(t, entity2.IsDirty())
 	engine.Flush(entity2)
-	assert.False(t, engine.IsDirty(entity2))
+	assert.False(t, entity2.IsDirty())
 	entity2 = &flushEntity{}
 	engine.LoadByID(10, entity2)
 	assert.Nil(t, entity2.UintNullable)
@@ -325,7 +325,7 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, "", entity2.City)
 
 	entity2.MarkToDelete()
-	assert.True(t, engine.IsDirty(entity2))
+	assert.True(t, entity2.IsDirty())
 	engine.Flush(entity2)
 	found = engine.LoadByID(10, entity2)
 	assert.True(t, found)
@@ -334,7 +334,7 @@ func TestFlush(t *testing.T) {
 	referenceCascade = &flushEntityReferenceCascade{ReferenceOne: entity}
 	engine.Flush(referenceCascade)
 	entity.ForceMarkToDelete()
-	assert.True(t, engine.IsDirty(entity))
+	assert.True(t, entity.IsDirty())
 	assert.PanicsWithError(t, "foreign key error in key `test:flushEntityReferenceCascade:ReferenceOne`", func() {
 		engine.Flush(entity)
 	})

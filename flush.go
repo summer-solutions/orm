@@ -98,7 +98,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 
 		orm := entity.getORM()
 		dbData := orm.dBData
-		isDirty, bind := getDirtyBind(entity)
+		bind, isDirty := orm.GetDirtyBind()
 		if !isDirty {
 			continue
 		}
@@ -164,7 +164,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 							err := entity.SetField(k, v)
 							checkError(err)
 						}
-						_, bind := engine.GetDirtyBind(entity)
+						bind, _ := orm.GetDirtyBind()
 						_ = loadByID(engine, lastID, entity, false)
 						logQueues = updateCacheAfterUpdate(dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
 							redisKeysToDelete, dirtyChannels, logQueues, dataLoaderSets)
@@ -222,7 +222,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			totalInsert[t]++
 		} else {
 			values := make([]interface{}, bindLength+1)
-			if !engine.Loaded(entity) {
+			if !entity.Loaded() {
 				panic(errors.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().elem.Type().String(), currentID))
 			}
 			fields := make([]string, bindLength)
@@ -1037,26 +1037,6 @@ func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 	addDirtyQueues(dirtyChannels, bind, schema, id, "i")
 	logQueues = addToLogQueue(logQueues, schema, id, nil, bind, entity.getORM().logMeta)
 	return logQueues
-}
-
-func getDirtyBind(entity Entity) (is bool, bind map[string]interface{}) {
-	orm := entity.getORM()
-	if orm.delete {
-		return true, nil
-	}
-	if orm.fakeDelete {
-		if orm.tableSchema.hasFakeDelete {
-			orm.elem.FieldByName("FakeDelete").SetBool(true)
-		} else {
-			orm.delete = true
-			return true, nil
-		}
-	}
-	id := orm.GetID()
-	t := orm.elem.Type()
-	bind = createBind(id, orm.tableSchema, t, orm.elem, orm.dBData, "")
-	is = id == 0 || len(bind) > 0
-	return is, bind
 }
 
 func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]EventAsMap) {

@@ -371,23 +371,6 @@ func (e *Engine) FlushLazyMany(entities ...Entity) {
 	flush(e, true, false, true, entities...)
 }
 
-func (e *Engine) Loaded(entity Entity) bool {
-	return initIfNeeded(e, entity).loaded
-}
-
-func (e *Engine) IsDirty(entity Entity) bool {
-	if !e.Loaded(entity) {
-		return true
-	}
-	is, _ := e.GetDirtyBind(entity)
-	return is
-}
-
-func (e *Engine) GetDirtyBind(entity Entity) (bool, map[string]interface{}) {
-	initIfNeeded(e, entity)
-	return getDirtyBind(entity)
-}
-
 func (e *Engine) GetRegistry() ValidatedRegistry {
 	return e.registry
 }
@@ -445,7 +428,7 @@ func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found
 }
 
 func (e *Engine) Load(entity Entity, references ...string) {
-	if e.Loaded(entity) {
+	if entity.Loaded() {
 		if len(references) > 0 {
 			orm := entity.getORM()
 			warmUpReferences(e, orm.tableSchema, orm.elem, references, false)

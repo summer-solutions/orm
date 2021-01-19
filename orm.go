@@ -15,6 +15,9 @@ type Entity interface {
 	GetID() uint64
 	MarkToDelete()
 	ForceMarkToDelete()
+	Loaded() bool
+	IsDirty() bool
+	GetDirtyBind() (bind map[string]interface{}, has bool)
 	SetOnDuplicateKeyUpdate(bind map[string]interface{})
 	SetEntityLogMeta(key string, value interface{})
 	SetField(field string, value interface{}) error
@@ -52,6 +55,10 @@ func (orm *ORM) ForceMarkToDelete() {
 	orm.delete = true
 }
 
+func (orm *ORM) Loaded() bool {
+	return orm.loaded
+}
+
 func (orm *ORM) SetOnDuplicateKeyUpdate(bind map[string]interface{}) {
 	orm.onDuplicateKeyUpdate = bind
 }
@@ -61,6 +68,33 @@ func (orm *ORM) SetEntityLogMeta(key string, value interface{}) {
 		orm.logMeta = make(map[string]interface{})
 	}
 	orm.logMeta[key] = value
+}
+
+func (orm *ORM) IsDirty() bool {
+	if !orm.loaded {
+		return true
+	}
+	_, is := orm.GetDirtyBind()
+	return is
+}
+
+func (orm *ORM) GetDirtyBind() (bind map[string]interface{}, has bool) {
+	if orm.delete {
+		return nil, true
+	}
+	if orm.fakeDelete {
+		if orm.tableSchema.hasFakeDelete {
+			orm.elem.FieldByName("FakeDelete").SetBool(true)
+		} else {
+			orm.delete = true
+			return nil, true
+		}
+	}
+	id := orm.GetID()
+	t := orm.elem.Type()
+	bind = createBind(id, orm.tableSchema, t, orm.elem, orm.dBData, "")
+	has = id == 0 || len(bind) > 0
+	return bind, has
 }
 
 func (orm *ORM) SetField(field string, value interface{}) error {
