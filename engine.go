@@ -371,6 +371,35 @@ func (e *Engine) FlushLazyMany(entities ...Entity) {
 	flush(e, true, false, true, entities...)
 }
 
+func (e *Engine) FlushWithCheck(entity Entity) error {
+	return e.FlushWithCheckMany(entity)
+}
+
+func (e *Engine) FlushWithCheckMany(entities ...Entity) error {
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				asErr := r.(error)
+				source := errors.Cause(asErr)
+				assErr1, is := source.(*ForeignKeyError)
+				if is {
+					err = assErr1
+					return
+				}
+				assErr2, is := source.(*DuplicatedKeyError)
+				if is {
+					err = assErr2
+					return
+				}
+				panic(asErr)
+			}
+		}()
+		flush(e, false, false, true, entities...)
+	}()
+	return err
+}
+
 func (e *Engine) GetRegistry() ValidatedRegistry {
 	return e.registry
 }
