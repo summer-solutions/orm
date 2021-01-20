@@ -94,6 +94,9 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	assert.Equal(t, uint(4), rows[3].ReferenceOne.ID)
 	assert.Equal(t, uint(5), rows[4].ReferenceOne.ID)
 
+	totalRows = engine.CachedSearchCount(entity, "IndexAge", 10)
+	assert.EqualValues(t, 5, totalRows)
+
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 18)
 	assert.Equal(t, 5, totalRows)
 	assert.Len(t, rows, 5)

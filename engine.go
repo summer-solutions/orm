@@ -459,6 +459,11 @@ func (e *Engine) CachedSearchIDs(entity Entity, indexName string, pager *Pager, 
 	return cachedSearch(e, entity, indexName, pager, arguments, nil)
 }
 
+func (e *Engine) CachedSearchCount(entity Entity, indexName string, arguments ...interface{}) int {
+	total, _ := cachedSearch(e, entity, indexName, NewPager(1, 1), arguments, nil)
+	return total
+}
+
 func (e *Engine) CachedSearchWithReferences(entities interface{}, indexName string, pager *Pager,
 	arguments []interface{}, references []string) (totalRows int) {
 	total, _ := cachedSearch(e, entities, indexName, pager, arguments, references)
