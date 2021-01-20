@@ -17,7 +17,7 @@ func GetRedisStatistics(engine *orm.Engine) []*RedisStatistics {
 	for i, pool := range pools {
 		poolStats := &RedisStatistics{RedisPool: pool, Info: make(map[string]string)}
 		r := engine.GetRedis(pool)
-		info := r.Info("everything")
+		info := r.Info()
 		lines := strings.Split(info, "\r\n")
 		for _, line := range lines {
 			if line == "" || strings.HasPrefix(line, "#") {
