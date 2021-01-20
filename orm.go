@@ -13,8 +13,8 @@ import (
 type Entity interface {
 	getORM() *ORM
 	GetID() uint64
-	MarkToDelete()
-	ForceMarkToDelete()
+	markToDelete()
+	forceMarkToDelete()
 	Loaded() bool
 	IsDirty() bool
 	GetDirtyBind() (bind Bind, has bool)
@@ -47,11 +47,11 @@ func (orm *ORM) GetID() uint64 {
 	return orm.idElem.Uint()
 }
 
-func (orm *ORM) MarkToDelete() {
+func (orm *ORM) markToDelete() {
 	orm.fakeDelete = true
 }
 
-func (orm *ORM) ForceMarkToDelete() {
+func (orm *ORM) forceMarkToDelete() {
 	orm.delete = true
 }
 

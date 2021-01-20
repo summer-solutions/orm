@@ -324,19 +324,17 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, entity2.FloatNullable)
 	assert.Equal(t, "", entity2.City)
 
-	entity2.MarkToDelete()
+	entity2.markToDelete()
 	assert.True(t, entity2.IsDirty())
-	engine.Flush(entity2)
+	engine.Delete(entity2)
 	found = engine.LoadByID(10, entity2)
 	assert.True(t, found)
 	assert.True(t, entity2.FakeDelete)
 
 	referenceCascade = &flushEntityReferenceCascade{ReferenceOne: entity}
 	engine.Flush(referenceCascade)
-	entity.ForceMarkToDelete()
-	assert.True(t, entity.IsDirty())
 	assert.PanicsWithError(t, "foreign key error in key `test:flushEntityReferenceCascade:ReferenceOne`", func() {
-		engine.Flush(entity)
+		engine.ForceDelete(entity)
 	})
 	referenceCascade.ReferenceOne = nil
 	referenceCascade.ReferenceTwo = entity
@@ -345,8 +343,7 @@ func TestFlush(t *testing.T) {
 	assert.Nil(t, referenceCascade.ReferenceOne)
 	assert.NotNil(t, referenceCascade.ReferenceTwo)
 	assert.Equal(t, uint(1), referenceCascade.ReferenceTwo.ID)
-	entity.MarkToDelete()
-	engine.Flush(entity)
+	engine.Delete(entity)
 	found = engine.LoadByID(1, referenceCascade)
 	assert.False(t, found)
 
@@ -369,7 +366,6 @@ func TestFlush(t *testing.T) {
 	assert.Equal(t, []string{"a", "c"}, entity4.SetNullable)
 
 	engine.GetMysql().Begin()
-	entity4.ForceMarkToDelete()
 	entity5 := &flushEntity{Name: "test_transaction", EnumNotNull: "a"}
 	engine.Flush(entity5)
 	entity5.Age = 38

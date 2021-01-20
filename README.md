@@ -450,9 +450,9 @@ func main() {
     engine.IsDirty(entity) //returns false
     
     /* deleting */
-    entity2.MarkToDelete()
-    entity2.IsDirty() //returns true
-    engine.Flush(entity2)
+    entity2.Delete()
+    //or
+    flusher.Delete(&entity, &entity2).Flush()
 
     /* flush will panic if there is any error. You can catch 2 special errors using this method  */
     err := flusher.FlushWithCheck()
@@ -842,7 +842,7 @@ func main() {
     }
 
     //you can delete in two ways:
-    engine.MarkToDelete(user) -> will set user.FakeDelete = true
+    engine.Delete(user) -> will set user.FakeDelete = true
     //or:
     user.FakeDelete = true
 
@@ -852,8 +852,7 @@ func main() {
     total, err = engine.SearchWithCount(NewWhere("1"), nil, &rows)
 
     //To force delete (remove row from DB):
-    engine.ForceMarkToDelete(user)
-    engine.Flush(user)
+    engine.ForceDelete(user)
 }
 
 

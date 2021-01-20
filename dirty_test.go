@@ -135,8 +135,7 @@ func TestDirtyConsumer(t *testing.T) {
 	})
 	assert.True(t, valid)
 
-	e.MarkToDelete()
-	engine.Flush(e)
+	engine.Delete(e)
 
 	valid = false
 	consumer.Consume(ctx, 2, func(events []Event) {

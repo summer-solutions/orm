@@ -19,6 +19,8 @@ type Flusher interface {
 	FlushInTransactionWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration)
 	Clear()
 	MarkDirty(tableSchema TableSchema, queueCode string, ids ...uint64)
+	Delete(entity ...Entity) Flusher
+	ForceDelete(entity ...Entity) Flusher
 }
 
 type flusher struct {
@@ -43,6 +45,22 @@ func (f *flusher) Track(entity ...Entity) Flusher {
 			panic(errors.Errorf("track limit 10000 exceeded"))
 		}
 	}
+	return f
+}
+
+func (f *flusher) Delete(entity ...Entity) Flusher {
+	for _, e := range entity {
+		e.markToDelete()
+	}
+	f.Track(entity...)
+	return f
+}
+
+func (f *flusher) ForceDelete(entity ...Entity) Flusher {
+	for _, e := range entity {
+		e.forceMarkToDelete()
+	}
+	f.Track(entity...)
 	return f
 }
 

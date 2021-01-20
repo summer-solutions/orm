@@ -196,8 +196,7 @@ func TestDataLoader(t *testing.T) {
 	assert.Len(t, redisLogger.Entries, 0)
 
 	engine.LoadByID(4, entity)
-	entity.MarkToDelete()
-	engine.Flush(entity)
+	engine.Delete(entity)
 	found = engine.LoadByID(4, entity)
 	assert.False(t, found)
 

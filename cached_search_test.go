@@ -149,8 +149,7 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	assert.Equal(t, 10, totalRows)
 	assert.Len(t, rows, 10)
 
-	rows[1].MarkToDelete()
-	engine.Flush(rows[1])
+	engine.Delete(rows[1])
 
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 10)
 	assert.Equal(t, 3, totalRows)

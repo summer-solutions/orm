@@ -114,8 +114,7 @@ func TestLogReceiver(t *testing.T) {
 	assert.Equal(t, "{\"Name\": \"John2\", \"Country\": \"Germany\", \"LastName\": null}", before.String)
 	assert.Equal(t, "{\"user_id\": 12}", meta.String)
 
-	e1.MarkToDelete()
-	engine.Flush(e1)
+	engine.Delete(e1)
 	consumer.Digest(context.Background(), 100)
 	where1 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity1` WHERE `ID` = 4")
 	var changesNullable sql.NullString

@@ -400,6 +400,23 @@ func (e *Engine) FlushWithCheckMany(entities ...Entity) error {
 	return err
 }
 
+func (e *Engine) Delete(entity Entity) {
+	entity.markToDelete()
+	e.Flush(entity)
+}
+
+func (e *Engine) ForceDelete(entity Entity) {
+	entity.forceMarkToDelete()
+	e.Flush(entity)
+}
+
+func (e *Engine) DeleteMany(entities ...Entity) {
+	for _, entity := range entities {
+		entity.markToDelete()
+	}
+	e.FlushMany(entities...)
+}
+
 func (e *Engine) GetRegistry() ValidatedRegistry {
 	return e.registry
 }

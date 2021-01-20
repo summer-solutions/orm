@@ -345,7 +345,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 								toDeleteAll := make([]Entity, total)
 								for i := 0; i < total; i++ {
 									toDeleteValue := subElem.Index(i).Interface().(Entity)
-									toDeleteValue.MarkToDelete()
+									toDeleteValue.markToDelete()
 									toDeleteAll[i] = toDeleteValue
 								}
 								flush(engine, transaction, lazy, false, toDeleteAll...)
