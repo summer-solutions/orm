@@ -28,7 +28,6 @@ type LogQueueValue struct {
 type AsyncConsumer struct {
 	engine            *Engine
 	name              string
-	maxScripts        int
 	block             time.Duration
 	disableLoop       bool
 	heartBeat         func()
@@ -36,8 +35,8 @@ type AsyncConsumer struct {
 	logLogger         func(log *LogQueueValue)
 }
 
-func NewAsyncConsumer(engine *Engine, name string, maxScripts int) *AsyncConsumer {
-	return &AsyncConsumer{engine: engine, name: name, block: time.Minute, maxScripts: maxScripts}
+func NewAsyncConsumer(engine *Engine, name string) *AsyncConsumer {
+	return &AsyncConsumer{engine: engine, name: name, block: time.Minute}
 }
 
 func (r *AsyncConsumer) DisableLoop() {
@@ -54,7 +53,7 @@ func (r *AsyncConsumer) SetLogLogger(logger func(log *LogQueueValue)) {
 }
 
 func (r *AsyncConsumer) Digest(ctx context.Context, count int) {
-	consumer := r.engine.GetEventBroker().Consumer(r.name, asyncConsumerGroupName, r.maxScripts)
+	consumer := r.engine.GetEventBroker().Consumer(r.name, asyncConsumerGroupName)
 	consumer.(*eventsConsumer).block = r.block
 	if r.disableLoop {
 		consumer.DisableLoop()

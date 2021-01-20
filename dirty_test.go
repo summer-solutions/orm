@@ -27,10 +27,10 @@ func TestDirtyConsumer(t *testing.T) {
 	assert.Len(t, channels, 1)
 	assert.Len(t, channels["default"], 4)
 
-	consumer := engine.GetEventBroker().Consumer("default-consumer", "test-group-1", 1)
+	consumer := engine.GetEventBroker().Consumer("default-consumer", "test-group-1")
 	consumer.DisableLoop()
 	consumer.(*eventsConsumer).block = time.Millisecond
-	consumer2 := engine.GetEventBroker().Consumer("default-consumer", "test-group-2", 1)
+	consumer2 := engine.GetEventBroker().Consumer("default-consumer", "test-group-2")
 	consumer2.DisableLoop()
 	consumer2.(*eventsConsumer).block = time.Millisecond
 

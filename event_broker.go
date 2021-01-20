@@ -13,8 +13,8 @@ import (
 
 const countPending = 100
 const garbageCollectorCount = 100
+const maxConsumers = 100
 const pendingClaimCheckDuration = time.Minute * 2
-const pendingClaimCheckDurationOne = time.Minute * 10
 
 type EventAsMap map[string]interface{}
 
@@ -67,7 +67,7 @@ func (ev *event) Unserialize(value interface{}) error {
 type EventBroker interface {
 	PublishMap(stream string, event EventAsMap) (id string)
 	Publish(stream string, event interface{}) (id string)
-	Consumer(name, group string, maxScripts int) EventsConsumer
+	Consumer(name, group string) EventsConsumer
 }
 
 type eventBroker struct {
@@ -107,7 +107,7 @@ type EventsConsumer interface {
 	SetHeartBeat(duration time.Duration, beat func())
 }
 
-func (eb *eventBroker) Consumer(name, group string, maxScripts int) EventsConsumer {
+func (eb *eventBroker) Consumer(name, group string) EventsConsumer {
 	streams := make([]string, 0)
 	for _, row := range eb.engine.registry.redisStreamGroups {
 		for stream, groups := range row {
@@ -129,19 +129,20 @@ func (eb *eventBroker) Consumer(name, group string, maxScripts int) EventsConsum
 			panic(fmt.Errorf("reading from different redis pool not allowed"))
 		}
 	}
-	return &eventsConsumer{redis: eb.engine.GetRedis(redisPool), name: name, streams: streams, group: group, maxScripts: maxScripts,
+	return &eventsConsumer{redis: eb.engine.GetRedis(redisPool), name: name, streams: streams, group: group,
 		loop: true, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute,
-		garbageTick: time.Second * 30, garbageLock: time.Minute, minIdle: time.Minute * 2}
+		garbageTick: time.Second * 30, garbageLock: time.Minute, minIdle: time.Minute * 2, claimDuration: pendingClaimCheckDuration}
 }
 
 type eventsConsumer struct {
 	redis             *RedisCache
 	name              string
 	nr                int
+	deadConsumers     int
+	nrString          string
 	streams           []string
 	group             string
 	loop              bool
-	maxScripts        int
 	block             time.Duration
 	heartBeatTime     time.Time
 	heartBeat         func()
@@ -151,6 +152,7 @@ type eventsConsumer struct {
 	garbageTick       time.Duration
 	garbageLock       time.Duration
 	minIdle           time.Duration
+	claimDuration     time.Duration
 }
 
 func (r *eventsConsumer) DisableLoop() {
@@ -171,26 +173,25 @@ func (r *eventsConsumer) HeartBeat(force bool) {
 
 func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventConsumerHandler) {
 	uniqueLockKey := r.group + "_" + r.name + "_" + r.redis.code
+	runningKey := uniqueLockKey + "_running"
 	locker := r.redis.engine.GetLocker()
 	nr := 0
-	lockName := uniqueLockKey
+	var lockName string
 	var lock *Lock
 	for {
 		nr++
-		if r.maxScripts > 1 {
-			lockName = fmt.Sprintf("%s-%d", uniqueLockKey, nr)
-		}
+		lockName = fmt.Sprintf("%s-%d", uniqueLockKey, nr)
 		locked, has := locker.Obtain(ctx, lockName, r.lockTTL, 0)
 		if !has {
-			if r.maxScripts > 1 && nr < r.maxScripts {
+			if nr < maxConsumers {
 				continue
 			}
-			panic(fmt.Errorf("consumer %s for group %s is running already", r.getName(), r.group))
+			panic(fmt.Errorf("consumer %s for group %s limit %d reached", r.getName(), r.group, maxConsumers))
 		}
 		lock = locked
-		if r.maxScripts > 1 {
-			r.nr = nr
-		}
+		r.nr = nr
+		r.nrString = strconv.Itoa(nr)
+		r.redis.HSet(runningKey, r.nrString, fmt.Sprintf("%d", time.Now().Unix()))
 		break
 	}
 	ticker := time.NewTicker(r.lockTick)
@@ -216,7 +217,9 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 					hasLock = false
 					return
 				}
-				lockAcquired = time.Now()
+				now := time.Now()
+				lockAcquired = now
+				r.redis.HSet(runningKey, r.nrString, fmt.Sprintf("%d", now.Unix()))
 			}
 		}
 	}()
@@ -239,10 +242,6 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 	for _, stream := range r.streams {
 		r.redis.XGroupCreateMkStream(stream, r.group, "0")
 	}
-	pendingClaimDuration := pendingClaimCheckDuration
-	if r.maxScripts == 1 {
-		pendingClaimDuration = pendingClaimCheckDurationOne
-	}
 	keys := []string{"pending", "0", ">"}
 	streams := make([]string, len(r.streams)*2)
 	hasInvalid := true
@@ -257,7 +256,22 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 			invalidCheck := key == "0"
 			pendingCheck := key == "pending"
 			if pendingCheck {
-				if pendingChecked && time.Since(pendingCheckedTime) < pendingClaimDuration {
+				if pendingChecked && time.Since(pendingCheckedTime) < r.claimDuration {
+					continue
+				}
+
+				r.deadConsumers = 0
+				all := r.redis.HGetAll(runningKey)
+				for k, v := range all {
+					if k == r.nrString {
+						continue
+					}
+					unix, _ := strconv.ParseInt(v, 10, 64)
+					if time.Since(time.Unix(unix, 0)) >= r.claimDuration {
+						r.deadConsumers++
+					}
+				}
+				if r.deadConsumers == 0 {
 					continue
 				}
 				for _, stream := range r.streams {
@@ -373,6 +387,9 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 				if totalACK < totalMessages {
 					hasInvalid = true
 				}
+				if r.deadConsumers > 0 && time.Since(pendingCheckedTime) >= r.claimDuration {
+					break
+				}
 			}
 		}
 		if !r.loop {
@@ -383,10 +400,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 }
 
 func (r *eventsConsumer) getName() string {
-	if r.maxScripts > 1 {
-		return fmt.Sprintf("%s-%d", r.name, r.nr)
-	}
-	return r.name
+	return fmt.Sprintf("%s-%d", r.name, r.nr)
 }
 
 func (r *eventsConsumer) incrementID(id string) string {
