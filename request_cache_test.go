@@ -22,7 +22,7 @@ func TestRequestCache(t *testing.T) {
 	var entity *requestCacheEntity
 	engine := PrepareTables(t, &Registry{}, 5, entity)
 
-	flusher := engine.Flusher()
+	flusher := engine.NewFlusher()
 	flusher.Track(&requestCacheEntity{Name: "a", Code: "a1"})
 	flusher.Track(&requestCacheEntity{Name: "b", Code: "a2"})
 	flusher.Track(&requestCacheEntity{Name: "c", Code: "a3"})

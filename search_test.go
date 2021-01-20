@@ -27,7 +27,7 @@ func TestSearch(t *testing.T) {
 	var reference *searchEntityReference
 	engine := PrepareTables(t, &Registry{}, 5, entity, reference)
 
-	flusher := engine.Flusher()
+	flusher := engine.NewFlusher()
 	for i := 1; i <= 10; i++ {
 		flusher.Track(&searchEntity{Name: fmt.Sprintf("name %d", i), ReferenceOne: &searchEntityReference{Name: fmt.Sprintf("name %d", i)}})
 	}

@@ -120,7 +120,7 @@ func TestDirtyConsumer(t *testing.T) {
 	assert.True(t, valid)
 
 	e.Name = "test transaction"
-	engine.Flusher().Track(e).FlushInTransaction()
+	engine.NewFlusher().Track(e).FlushInTransaction()
 	valid = false
 	consumer.Consume(ctx, 2, func(events []Event) {
 		valid = true
@@ -163,7 +163,7 @@ func TestDirtyConsumer(t *testing.T) {
 	})
 	assert.True(t, valid)
 
-	engine.Flusher().MarkDirty(e, "name_changed", 2)
+	engine.NewFlusher().MarkDirty(e, "name_changed", 2)
 	valid = false
 	consumer2.Consume(ctx, 1, func(events []Event) {
 		valid = true

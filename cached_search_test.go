@@ -62,7 +62,7 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 		schema.hasRedisCache = true
 	}
 
-	flusher := engine.Flusher()
+	flusher := engine.NewFlusher()
 	for i := 1; i <= 5; i++ {
 		flusher.Track(&cachedSearchRefEntity{Name: "Name " + strconv.Itoa(i)})
 	}

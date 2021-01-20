@@ -29,7 +29,7 @@ func TestDataLoader(t *testing.T) {
 	var ref *dataLoaderEntityRef
 	engine := PrepareTables(t, &Registry{}, 5, entity, ref)
 
-	flusher := engine.Flusher()
+	flusher := engine.NewFlusher()
 	flusher.Track(&dataLoaderEntity{Name: "a", Ref: &dataLoaderEntityRef{Name: "r1"}})
 	flusher.Track(&dataLoaderEntity{Name: "b", Ref: &dataLoaderEntityRef{Name: "r2"}})
 	flusher.Track(&dataLoaderEntity{Name: "c", Ref: &dataLoaderEntityRef{Name: "r3"}})

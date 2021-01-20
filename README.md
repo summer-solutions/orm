@@ -433,14 +433,14 @@ func main() {
     /*if you need to add more than one entity*/
     entity = testEntity{Name: "Name 2"}
     entity2 := testEntity{Name: "Name 3"}
-    flusher := engine.Flusher()
+    flusher := engine.NewFlusher()
     flusher.Track(&entity, &entity2)
     //it will execute only one query in MySQL adding two rows at once (atomic)
     flusher.Flush()
  
     /* editing */
 
-    flusher := engine.Flusher().Track(&entity, &entity2)
+    flusher := engine.NewFlusher().Track(&entity, &entity2)
     entity.Name = "New name 2"
     //you can also use (but it's slower):
     entity.SetField("Name", "New name 2")
@@ -477,7 +477,7 @@ func main() {
 	
     entity = testEntity{Name: "Name 2"}
     entity2 := testEntity{Name: "Name 3"}
-    flusher := engine.Flusher().Track(&entity, &entity2)
+    flusher := engine.NewFlusher().Track(&entity, &entity2)
 
     // DB transcation
     flusher.FlushInTransaction()

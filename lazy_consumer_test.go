@@ -111,7 +111,7 @@ func TestLazyReceiver(t *testing.T) {
 
 	e = &lazyReceiverEntity{}
 	engine.LoadByID(1, e)
-	engine.Flusher().Delete(e).FlushLazy()
+	engine.NewFlusher().Delete(e).FlushLazy()
 	receiver.Digest(context.Background(), 100)
 	loaded = engine.LoadByID(1, e)
 	assert.False(t, loaded)

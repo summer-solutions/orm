@@ -117,7 +117,7 @@ func TestFlush(t *testing.T) {
 	entity.Images = []obj{{ID: 1, StorageKey: "aaa", Data: map[string]string{"sss": "vv", "bb": "cc"}}}
 	assert.True(t, entity.IsDirty())
 	assert.True(t, entity.ReferenceOne.IsDirty())
-	flusher := engine.Flusher().Track(entity)
+	flusher := engine.NewFlusher().Track(entity)
 	flusher.Flush()
 	flusher.Flush()
 	assert.True(t, entity.Loaded())
@@ -514,7 +514,7 @@ func TestFlush(t *testing.T) {
 	engine.LoadByID(102, entity)
 	assert.Nil(t, entity.ReferenceMany)
 
-	flusher = engine.Flusher()
+	flusher = engine.NewFlusher()
 	entity = &flushEntity{Name: "Irena", EnumNotNull: "a"}
 	flusher.Track(entity)
 	ref1 := &flushEntityReferenceCascade{ReferenceOne: entity}

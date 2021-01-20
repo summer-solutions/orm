@@ -351,7 +351,7 @@ func (e *Engine) GetRabbitMQRouter(queueName string) *RabbitMQRouter {
 	return e.rabbitMQRouters[queueName]
 }
 
-func (e *Engine) Flusher() Flusher {
+func (e *Engine) NewFlusher() Flusher {
 	return &flusher{engine: e}
 }
 

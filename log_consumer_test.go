@@ -73,7 +73,7 @@ func TestLogReceiver(t *testing.T) {
 	assert.Equal(t, "{\"Age\": \"18\", \"Name\": \"Tom\"}", changes)
 
 	engine.SetLogMetaData("user_id", 12)
-	flusher := engine.Flusher()
+	flusher := engine.NewFlusher()
 	e1 = &logReceiverEntity1{Name: "John2"}
 	flusher.Track(e1)
 	e2 = &logReceiverEntity2{Name: "Tom2", Age: 18}
