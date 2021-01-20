@@ -289,7 +289,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		f.Set(reflect.ValueOf(value))
 	default:
 		k := f.Type().Kind().String()
-		if k == "struct" {
+		if k == "struct" || k == "slice" {
 			f.Set(reflect.ValueOf(value))
 		} else if k == "ptr" {
 			modelType := reflect.TypeOf((*Entity)(nil)).Elem()

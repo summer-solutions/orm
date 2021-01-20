@@ -8,6 +8,7 @@ import (
 )
 
 type ormEntityStruct struct {
+	Name string
 }
 
 type ormEntityRef struct {
@@ -44,6 +45,7 @@ type ormEntity struct {
 	NotSupported   map[string]string `orm:"ignore"`
 	Struct         ormEntityStruct   `orm:"ignore"`
 	StructPtr      *ormEntityStruct  `orm:"ignore"`
+	Slice          []ormEntityStruct
 }
 
 func TestORM(t *testing.T) {
@@ -215,6 +217,11 @@ func TestORM(t *testing.T) {
 
 	err = entity.SetField("StructPtr", "hello")
 	assert.EqualError(t, err, "field StructPtr not supported")
+
+	err = entity.SetField("Slice", []ormEntityStruct{{Name: "Hello"}, {Name: "John"}})
+	assert.NoError(t, err)
+	assert.Len(t, entity.Slice, 2)
+	engine.Flush(entity)
 
 	ref := &ormEntityRef{}
 	engine.Flush(ref)
