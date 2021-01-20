@@ -65,10 +65,9 @@ func (r *validatedRegistry) GetRedisStreams() map[string]map[string][]string {
 }
 
 func (r *validatedRegistry) GetRedisPools() []string {
-	pools := make([]string, len(r.redisServers))
-	i := 0
+	pools := make([]string, 0)
 	for code := range r.redisServers {
-		pools[i] = code
+		pools = append(pools, code)
 	}
 	return pools
 }
