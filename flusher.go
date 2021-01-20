@@ -18,7 +18,7 @@ type Flusher interface {
 	FlushWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration)
 	FlushInTransactionWithLock(lockerPool string, lockName string, ttl time.Duration, waitTimeout time.Duration)
 	Clear()
-	MarkDirty(tableSchema TableSchema, queueCode string, ids ...uint64)
+	MarkDirty(entity Entity, queueCode string, ids ...uint64)
 	Delete(entity ...Entity) Flusher
 	ForceDelete(entity ...Entity) Flusher
 }
@@ -114,8 +114,8 @@ func (f *flusher) Clear() {
 	f.trackedEntitiesCounter = 0
 }
 
-func (f *flusher) MarkDirty(tableSchema TableSchema, queueCode string, ids ...uint64) {
-	entityName := tableSchema.GetType().String()
+func (f *flusher) MarkDirty(entity Entity, queueCode string, ids ...uint64) {
+	entityName := f.engine.GetRegistry().GetTableSchemaForEntity(entity).GetType().String()
 	broker := f.engine.GetEventBroker()
 	for _, id := range ids {
 		broker.PublishMap(queueCode, EventAsMap{"A": "u", "I": id, "E": entityName})
