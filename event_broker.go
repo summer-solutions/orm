@@ -102,7 +102,7 @@ func (eb *eventBroker) Publish(stream string, event interface{}) (id string) {
 type EventConsumerHandler func([]Event)
 
 type EventsConsumer interface {
-	Consume(ctx context.Context, count int, handler EventConsumerHandler)
+	Consume(ctx context.Context, count int, blocking bool, handler EventConsumerHandler)
 	DisableLoop()
 	SetHeartBeat(duration time.Duration, beat func())
 }
@@ -171,7 +171,7 @@ func (r *eventsConsumer) HeartBeat(force bool) {
 	}
 }
 
-func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventConsumerHandler) {
+func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, handler EventConsumerHandler) {
 	uniqueLockKey := r.group + "_" + r.name + "_" + r.redis.code
 	runningKey := uniqueLockKey + "_running"
 	locker := r.redis.engine.GetLocker()
@@ -250,11 +250,16 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 	}
 	pendingChecked := false
 	var pendingCheckedTime time.Time
+	b := r.block
+	if !blocking {
+		b = -1
+	}
 	for {
 	KEYS:
 		for _, key := range keys {
 			invalidCheck := key == "0"
 			pendingCheck := key == "pending"
+			normalCheck := key == ">"
 			if pendingCheck {
 				if pendingChecked && time.Since(pendingCheckedTime) < r.claimDuration {
 					continue
@@ -334,7 +339,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 					}
 					i++
 				}
-				a := &redis.XReadGroupArgs{Consumer: r.getName(), Group: r.group, Streams: streams, Count: int64(count), Block: r.block}
+				a := &redis.XReadGroupArgs{Consumer: r.getName(), Group: r.group, Streams: streams, Count: int64(count), Block: b}
 				results := r.redis.XReadGroup(a)
 				if canceled {
 					return
@@ -353,6 +358,8 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, handler EventCo
 				if totalMessages == 0 {
 					if invalidCheck && zeroCount == len(r.streams) {
 						hasInvalid = false
+					} else if !blocking && normalCheck {
+						time.Sleep(time.Second * 10)
 					}
 					continue KEYS
 				}

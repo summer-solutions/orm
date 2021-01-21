@@ -12,6 +12,7 @@ import (
 )
 
 type redisClient interface {
+	Pipeline() redis.Pipeliner
 	Info(section ...string) (string, error)
 	Get(key string) (string, error)
 	LRange(key string, start, stop int64) ([]string, error)
@@ -179,6 +180,13 @@ func (c *standardRedisClient) Info(section ...string) (string, error) {
 		return c.ring.Info(c.ring.Context(), section...).Result()
 	}
 	return c.client.Info(c.client.Context(), section...).Result()
+}
+
+func (c *standardRedisClient) Pipeline() redis.Pipeliner {
+	if c.ring != nil {
+		return c.ring.Pipeline()
+	}
+	return c.client.Pipeline()
 }
 
 func (c *standardRedisClient) LRange(key string, start, stop int64) ([]string, error) {
@@ -611,6 +619,10 @@ func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 	var data interface{}
 	_ = jsoniter.ConfigFastest.Unmarshal([]byte(val), &data)
 	return data
+}
+
+func (r *RedisCache) PipeLine() *RedisPipeLine {
+	return &RedisPipeLine{ctx: r.client.Context(), engine: r.engine, pipeLine: r.client.Pipeline()}
 }
 
 func (r *RedisCache) Info(section ...string) string {

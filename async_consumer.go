@@ -61,7 +61,7 @@ func (r *AsyncConsumer) Digest(ctx context.Context, count int) {
 	if r.heartBeat != nil {
 		consumer.SetHeartBeat(r.heartBeatDuration, r.heartBeat)
 	}
-	consumer.Consume(ctx, count, func(events []Event) {
+	consumer.Consume(ctx, count, true, func(events []Event) {
 		for _, event := range events {
 			if event.Stream() == lazyChannelName {
 				r.handleLazy(event)

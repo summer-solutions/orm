@@ -34,11 +34,11 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 	consumer2.(*eventsConsumer).garbageLock = time.Millisecond * 15
 	consumer2.DisableLoop()
 
-	consumer1.Consume(context.Background(), 1, func(events []Event) {})
+	consumer1.Consume(context.Background(), 1, true, func(events []Event) {})
 	time.Sleep(time.Millisecond * 20)
 	assert.Equal(t, int64(10), engine.GetRedis().XLen("test-stream"))
 
-	consumer2.Consume(context.Background(), 1, func(events []Event) {})
+	consumer2.Consume(context.Background(), 1, true, func(events []Event) {})
 	time.Sleep(time.Millisecond * 20)
 	consumer2.(*eventsConsumer).garbageCollector(context.Background())
 	assert.Equal(t, int64(0), engine.GetRedis().XLen("test-stream"))
@@ -58,9 +58,9 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 	consumer := broker.Consumer("test-consumer", "test-group")
 	consumer.(*eventsConsumer).block = time.Millisecond
 	consumer.DisableLoop()
-	consumer.Consume(context.Background(), 1, func(events []Event) {})
+	consumer.Consume(context.Background(), 1, true, func(events []Event) {})
 	assert.Equal(t, 1, consumer.(*eventsConsumer).nr)
-	consumer.Consume(context.Background(), 1, func(events []Event) {
+	consumer.Consume(context.Background(), 1, true, func(events []Event) {
 		for _, event := range events {
 			event.Skip()
 		}
@@ -80,7 +80,7 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 		consumer := broker.Consumer("test-consumer", "test-group")
 		consumer.(*eventsConsumer).block = time.Millisecond
 		consumer.DisableLoop()
-		consumer.Consume(context.Background(), 5, func(events []Event) {
+		consumer.Consume(context.Background(), 5, true, func(events []Event) {
 			assert.Equal(t, 1, consumer.(*eventsConsumer).nr)
 			iterations1 = true
 			for _, event := range events {
@@ -95,7 +95,7 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 		consumer := broker.Consumer("test-consumer", "test-group")
 		consumer.(*eventsConsumer).block = time.Millisecond
 		consumer.DisableLoop()
-		consumer.Consume(context.Background(), 5, func(events []Event) {
+		consumer.Consume(context.Background(), 5, true, func(events []Event) {
 			for _, event := range events {
 				event.Skip()
 			}
@@ -117,7 +117,7 @@ func TestRedisStreamGroupConsumerAutoScaled(t *testing.T) {
 	consumer.(*eventsConsumer).minIdle = time.Millisecond
 	consumer.(*eventsConsumer).claimDuration = time.Millisecond
 	time.Sleep(time.Millisecond * 100)
-	consumer.Consume(context.Background(), 100, func(events []Event) {
+	consumer.Consume(context.Background(), 100, true, func(events []Event) {
 		for _, event := range events {
 			event.Skip()
 		}
@@ -151,7 +151,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		heartBeats++
 	})
 	ctx, cancel := context.WithCancel(context.Background())
-	consumer.Consume(ctx, 5, func(events []Event) {
+	consumer.Consume(ctx, 5, true, func(events []Event) {
 		for _, event := range events {
 			event.Skip()
 		}
@@ -162,7 +162,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		engine.GetEventBroker().PublishMap("test-stream", EventAsMap{"name": fmt.Sprintf("a%d", i)})
 	}
 	iterations := 0
-	consumer.Consume(ctx, 5, func(events []Event) {
+	consumer.Consume(ctx, 5, true, func(events []Event) {
 		iterations++
 		assert.Len(t, events, 5)
 		if iterations == 1 {
@@ -190,7 +190,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, int64(10), engine.GetRedis().XLen("test-stream"))
 	assert.Equal(t, int64(10), engine.GetRedis().XInfoGroups("test-stream")[0].Pending)
 	iterations = 0
-	consumer.Consume(ctx, 10, func(events []Event) {
+	consumer.Consume(ctx, 10, true, func(events []Event) {
 		iterations++
 		assert.Len(t, events, 10)
 		for _, event := range events {
@@ -205,7 +205,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		engine.GetEventBroker().PublishMap("test-stream", EventAsMap{"name": fmt.Sprintf("a%d", i)})
 	}
 	iterations = 0
-	consumer.Consume(ctx, 5, func(events []Event) {
+	consumer.Consume(ctx, 5, true, func(events []Event) {
 		iterations++
 		assert.Len(t, events, 5)
 		if iterations == 1 {
@@ -222,7 +222,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, int64(10), engine.GetRedis().XInfoGroups("test-stream")[0].Pending)
 	iterations = 0
 	heartBeats = 0
-	consumer.Consume(ctx, 5, func(events []Event) {
+	consumer.Consume(ctx, 5, true, func(events []Event) {
 		iterations++
 		assert.Len(t, events, 5)
 		if iterations == 1 {
@@ -248,7 +248,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	consumer = broker.Consumer("test-consumer", "test-group")
 	consumer.(*eventsConsumer).block = time.Millisecond
 	iterations = 0
-	consumer.Consume(ctx, 5, func(events []Event) {
+	consumer.Consume(ctx, 5, true, func(events []Event) {
 		iterations++
 		if iterations == 1 {
 			assert.Len(t, events, 5)
@@ -310,7 +310,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		engine.GetEventBroker().PublishMap("test-stream-a", EventAsMap{"name": fmt.Sprintf("a%d", i)})
 		engine.GetEventBroker().PublishMap("test-stream-b", EventAsMap{"name": fmt.Sprintf("b%d", i)})
 	}
-	consumer.Consume(ctx, 8, func(events []Event) {
+	consumer.Consume(ctx, 8, true, func(events []Event) {
 		iterations++
 		if iterations == 1 {
 			assert.Len(t, events, 16)
@@ -335,7 +335,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		consumer = broker.Consumer("test-consumer-unique", "test-group")
 		consumer.DisableLoop()
 		consumer.(*eventsConsumer).block = time.Millisecond * 10
-		consumer.Consume(ctx, 8, func(events []Event) {
+		consumer.Consume(ctx, 8, true, func(events []Event) {
 			iterations++
 			messages += len(events)
 			for _, event := range events {
@@ -357,7 +357,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	consumer.(*eventsConsumer).block = time.Millisecond * 100
 	consumer.DisableLoop()
 	assert.PanicsWithError(t, "consumer test-consumer-unique-1 for group test-group lost lock", func() {
-		consumer.Consume(ctx, 1, func(events []Event) {
+		consumer.Consume(ctx, 1, true, func(events []Event) {
 			valid = true
 			time.Sleep(time.Millisecond * 500)
 			for _, event := range events {
@@ -375,7 +375,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		time.Sleep(time.Millisecond * 200)
 		cancel()
 	}()
-	consumer.Consume(ctx, 1, func(events []Event) {
+	consumer.Consume(ctx, 1, true, func(events []Event) {
 		valid = false
 		for _, event := range events {
 			event.Skip()
