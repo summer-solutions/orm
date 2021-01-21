@@ -130,8 +130,8 @@ func (eb *eventBroker) Consumer(name, group string) EventsConsumer {
 		}
 	}
 	return &eventsConsumer{redis: eb.engine.GetRedis(redisPool), name: name, streams: streams, group: group,
-		loop: true, block: time.Minute, lockTTL: time.Minute + time.Second*20, lockTick: time.Minute,
-		garbageTick: time.Second * 30, garbageLock: time.Minute, minIdle: time.Minute * 2, claimDuration: pendingClaimCheckDuration}
+		loop: true, block: time.Second * 30, lockTTL: time.Minute, lockTick: time.Second * 50,
+		garbageTick: time.Second * 30, garbageLock: time.Minute, minIdle: pendingClaimCheckDuration, claimDuration: pendingClaimCheckDuration}
 }
 
 type eventsConsumer struct {
@@ -260,6 +260,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 			invalidCheck := key == "0"
 			pendingCheck := key == "pending"
 			normalCheck := key == ">"
+			started := time.Now()
 			if pendingCheck {
 				if pendingChecked && time.Since(pendingCheckedTime) < r.claimDuration {
 					continue
@@ -395,6 +396,9 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 					hasInvalid = true
 				}
 				if r.deadConsumers > 0 && time.Since(pendingCheckedTime) >= r.claimDuration {
+					break
+				}
+				if normalCheck && hasInvalid && totalMessages < count && time.Since(started) > time.Minute*2 {
 					break
 				}
 			}
