@@ -344,8 +344,9 @@ func (r *Registry) RegisterLocalCache(size int, code ...string) {
 
 func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 	client := redis.NewClient(&redis.Options{
-		Addr: address,
-		DB:   db,
+		Addr:        address,
+		DB:          db,
+		ReadTimeout: time.Second * 10,
 	})
 	dbCode := "default"
 	if len(code) > 0 {
