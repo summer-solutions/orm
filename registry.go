@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	_ "github.com/go-sql-driver/mysql" // force this mysql driver
 	"github.com/golang/groupcache/lru"
 	"github.com/jmoiron/sqlx"
 	"github.com/juju/errors"
@@ -84,16 +85,19 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if maxConnections == 0 {
 			maxConnections = 1
 		}
-		maxIdleConnections := int(math.Floor(float64(maxConnections) * 0.2))
-		if maxIdleConnections == 0 {
-			maxIdleConnections = 2
+		maxLimit := v.maxConnections
+		if maxLimit == 0 {
+			maxLimit = 100
 		}
-		waitTimeout = int(math.Floor(float64(waitTimeout) * 0.8))
+		if maxConnections < maxLimit {
+			maxLimit = maxConnections
+		}
 		if waitTimeout == 0 {
-			waitTimeout = 1
+			waitTimeout = 180
 		}
-		db.SetMaxOpenConns(maxConnections)
-		db.SetMaxIdleConns(maxIdleConnections)
+		waitTimeout = int(math.Min(float64(waitTimeout), 180))
+		db.SetMaxOpenConns(maxLimit)
+		db.SetMaxIdleConns(maxLimit)
 		db.SetConnMaxLifetime(time.Duration(waitTimeout) * time.Second)
 		v.db = db
 		registry.sqlClients[k] = v
@@ -452,6 +456,17 @@ func (r *Registry) registerSQLPool(dataSourceName string, code ...string) {
 	}
 	parts := strings.Split(dataSourceName, "/")
 	dbName := strings.Split(parts[len(parts)-1], "?")[0]
+
+	pos := strings.Index(dataSourceName, "limit_connections=")
+	if pos > 0 {
+		val := dataSourceName[pos+18:]
+		val = strings.Split(val, "&")[0]
+		db.maxConnections, _ = strconv.Atoi(val)
+		dataSourceName = strings.Replace(dataSourceName, "limit_connections="+val, "", -1)
+		dataSourceName = strings.Trim(dataSourceName, "?&")
+		dataSourceName = strings.Replace(dataSourceName, "?&", "?", -1)
+		db.dataSourceName = dataSourceName
+	}
 
 	db.databaseName = dbName
 	r.sqlClients[dbCode] = db

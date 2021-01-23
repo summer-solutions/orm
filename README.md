@@ -65,7 +65,7 @@ func main() {
     registry := &Registry{}
 
     /*MySQL */
-    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name")
+    registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/database_name?limit_connections=10") // you should define max connections, default 100
     //optionally you can define pool name as second argument
     registry.RegisterMySQLPool("root:root@tcp(localhost:3307)/database_name", "second_pool")
     registry.DefaultEncoding("utf8") //optional, default is utf8mb4

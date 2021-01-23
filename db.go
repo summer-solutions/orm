@@ -14,6 +14,7 @@ type DBConfig struct {
 	db             *sql.DB
 	autoincrement  uint64
 	version        int
+	maxConnections int
 }
 
 type ExecResult interface {
