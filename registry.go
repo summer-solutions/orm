@@ -347,6 +347,8 @@ func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 		Addr:        address,
 		DB:          db,
 		ReadTimeout: time.Second * 10,
+		MaxRetries:  10,
+		PoolSize:    50,
 	})
 	dbCode := "default"
 	if len(code) > 0 {
