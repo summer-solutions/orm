@@ -116,10 +116,11 @@ func (f *flusher) Clear() {
 
 func (f *flusher) MarkDirty(entity Entity, queueCode string, ids ...uint64) {
 	entityName := f.engine.GetRegistry().GetTableSchemaForEntity(entity).GetType().String()
-	broker := f.engine.GetEventBroker()
+	flusher := f.engine.GetEventBroker().NewFlusher()
 	for _, id := range ids {
-		broker.PublishMap(queueCode, EventAsMap{"A": "u", "I": id, "E": entityName})
+		flusher.PublishMap(queueCode, EventAsMap{"A": "u", "I": id, "E": entityName})
 	}
+	flusher.Flush()
 }
 
 func (f *flusher) flushTrackedEntities(lazy bool, transaction bool, smart bool) {

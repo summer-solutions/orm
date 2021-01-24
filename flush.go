@@ -1042,12 +1042,16 @@ func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 }
 
 func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]EventAsMap) {
-	broker := engine.GetEventBroker()
+	if len(dirtyChannels) == 0 {
+		return
+	}
+	flusher := engine.GetEventBroker().NewFlusher()
 	for code, v := range dirtyChannels {
 		for _, k := range v {
-			broker.PublishMap(code, k)
+			flusher.PublishMap(code, k)
 		}
 	}
+	flusher.Flush()
 }
 
 func addElementsToLogQueues(engine *Engine, logQueues []*LogQueueValue) {
