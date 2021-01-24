@@ -20,9 +20,11 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 	engine := validatedRegistry.CreateEngine()
 	engine.GetRedis().FlushDB()
 	broker := engine.GetEventBroker()
+	eventFlusher := engine.GetEventBroker().NewFlusher()
 	for i := 1; i <= 10; i++ {
-		engine.GetEventBroker().PublishMap("test-stream", EventAsMap{"name": fmt.Sprintf("a%d", i)})
+		eventFlusher.PublishMap("test-stream", EventAsMap{"name": fmt.Sprintf("a%d", i)})
 	}
+	eventFlusher.Flush()
 	consumer1 := broker.Consumer("test-consumer", "test-group-1")
 	consumer1.(*eventsConsumer).block = time.Millisecond
 	consumer1.(*eventsConsumer).garbageTick = time.Millisecond * 15

@@ -1387,7 +1387,8 @@ func main() {
 ```
 
 
-Publishing and receiving eventsr:
+Publishing and receiving events
+:
 
 ```go
 package main
@@ -1408,9 +1409,16 @@ func main() {
 
  // fastest, no serialization
  engine.GetEventBroker().PublishMap("stream-1", orm.EventAsMap{"key": "value", "anotherKey": "value 2"})
+ 
  // using serialization
  engine.GetEventBroker().Publish("stream-3", Person{Name: "Adam", Age: 18})
 
+ // publishing many at once, recommended because it's much faster than one by one
+ flusher :=  engine.GetEventBroker().NewFlusher()
+ flusher.PublishMap("stream-1", orm.EventAsMap{"key": "value", "anotherKey": "value 2"})
+ flusher.Publish("stream-1", Person{Name: "Adam", Age: 18})
+ flusher.Flush()
+ 
  // reading from "stream-1" and "stream-2" streams, you can run max one consumer at once
  consumerTestGroup1 := engine.GetEventBroker().Consume("my-consumer", "test-group-1", 1)
  

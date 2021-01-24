@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -68,10 +69,75 @@ type EventBroker interface {
 	PublishMap(stream string, event EventAsMap) (id string)
 	Publish(stream string, event interface{}) (id string)
 	Consumer(name, group string) EventsConsumer
+	NewFlusher() EventFlusher
+}
+
+type EventFlusher interface {
+	PublishMap(stream string, event EventAsMap)
+	Publish(stream string, event interface{})
+	Flush()
+}
+
+type eventFlusher struct {
+	eb     *eventBroker
+	mutex  sync.Mutex
+	events map[string][]EventAsMap
 }
 
 type eventBroker struct {
 	engine *Engine
+}
+
+func (ef *eventFlusher) PublishMap(stream string, event EventAsMap) {
+	ef.mutex.Lock()
+	defer ef.mutex.Unlock()
+	if ef.events[stream] == nil {
+		ef.events[stream] = []EventAsMap{event}
+	} else {
+		ef.events[stream] = append(ef.events[stream], event)
+	}
+}
+
+func (ef *eventFlusher) Publish(stream string, event interface{}) {
+	asJSON, err := jsoniter.ConfigFastest.Marshal(event)
+	if err != nil {
+		panic(err)
+	}
+	ef.mutex.Lock()
+	defer ef.mutex.Unlock()
+	if ef.events[stream] == nil {
+		ef.events[stream] = []EventAsMap{{"_s": string(asJSON)}}
+	} else {
+		ef.events[stream] = append(ef.events[stream], EventAsMap{"_s": string(asJSON)})
+	}
+}
+
+func (ef *eventFlusher) Flush() {
+	ef.mutex.Lock()
+	defer ef.mutex.Unlock()
+	grouped := make(map[*RedisCache]map[string][]EventAsMap)
+	for stream, events := range ef.events {
+		r := ef.eb.getRedis(stream)
+		if grouped[r] == nil {
+			grouped[r] = make(map[string][]EventAsMap)
+		}
+		if grouped[r][stream] == nil {
+			grouped[r][stream] = events
+		} else {
+			grouped[r][stream] = append(grouped[r][stream], events...)
+		}
+	}
+	for r, events := range grouped {
+		p := r.PipeLine()
+		for stream, list := range events {
+			for _, e := range list {
+				var v map[string]interface{} = e
+				p.XAdd(stream, v)
+			}
+		}
+		p.Exec()
+	}
+	ef.events = make(map[string][]EventAsMap)
 }
 
 func (e *Engine) GetEventBroker() EventBroker {
@@ -81,13 +147,13 @@ func (e *Engine) GetEventBroker() EventBroker {
 	return e.eventBroker
 }
 
+func (eb *eventBroker) NewFlusher() EventFlusher {
+	return &eventFlusher{eb: eb, events: make(map[string][]EventAsMap)}
+}
+
 func (eb *eventBroker) PublishMap(stream string, event EventAsMap) (id string) {
-	pool, has := eb.engine.registry.redisStreamPools[stream]
-	if !has {
-		panic(fmt.Errorf("unregistered stream %s", stream))
-	}
 	var v map[string]interface{} = event
-	id = eb.engine.GetRedis(pool).xAdd(stream, v)
+	id = eb.getRedis(stream).xAdd(stream, v)
 	return id
 }
 
@@ -97,6 +163,14 @@ func (eb *eventBroker) Publish(stream string, event interface{}) (id string) {
 		panic(err)
 	}
 	return eb.PublishMap(stream, EventAsMap{"_s": string(asJSON)})
+}
+
+func (eb *eventBroker) getRedis(stream string) *RedisCache {
+	pool, has := eb.engine.registry.redisStreamPools[stream]
+	if !has {
+		panic(fmt.Errorf("unregistered stream %s", stream))
+	}
+	return eb.engine.GetRedis(pool)
 }
 
 type EventConsumerHandler func([]Event)

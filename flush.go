@@ -1052,6 +1052,9 @@ func addElementsToDirtyQueues(engine *Engine, dirtyChannels map[string][]EventAs
 
 func addElementsToLogQueues(engine *Engine, logQueues []*LogQueueValue) {
 	broker := engine.GetEventBroker()
+	if len(logQueues) == 0 {
+		return
+	}
 	for _, val := range logQueues {
 		if val.Meta == nil {
 			val.Meta = engine.logMetaData
@@ -1060,6 +1063,14 @@ func addElementsToLogQueues(engine *Engine, logQueues []*LogQueueValue) {
 				val.Meta[k] = v
 			}
 		}
-		broker.Publish(logChannelName, val)
+	}
+	if len(logQueues) == 1 {
+		broker.Publish(logChannelName, logQueues[0])
+	} else {
+		flusher := broker.NewFlusher()
+		for _, e := range logQueues {
+			flusher.Publish(logChannelName, e)
+		}
+		flusher.Flush()
 	}
 }
