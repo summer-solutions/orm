@@ -62,18 +62,6 @@ func TestYamlLoader(t *testing.T) {
 	})
 
 	invalidYaml = make(map[string]interface{})
-	invalidYaml["default"] = map[string]interface{}{"redis": []interface{}{"invalid"}}
-	assert.PanicsWithError(t, "redis uri 'invalid' not valid", func() {
-		registry = InitByYaml(invalidYaml)
-	})
-
-	invalidYaml = make(map[string]interface{})
-	invalidYaml["default"] = map[string]interface{}{"redis": []interface{}{"invalid:invalid:invalid"}}
-	assert.PanicsWithError(t, "redis uri 'invalid:invalid:invalid' not valid", func() {
-		registry = InitByYaml(invalidYaml)
-	})
-
-	invalidYaml = make(map[string]interface{})
 	invalidYaml["default"] = map[string]interface{}{"redis": []int{1}}
 	assert.PanicsWithError(t, "redis uri '[1]' not valid", func() {
 		registry = InitByYaml(invalidYaml)

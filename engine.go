@@ -207,11 +207,7 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 		if client != nil {
 			client = client.WithContext(e.context)
 		}
-		ring := val.ring
-		if ring != nil {
-			ring = ring.WithContext(e.context)
-		}
-		cache = &RedisCache{engine: e, code: val.code, client: &standardRedisClient{client, ring}}
+		cache = &RedisCache{engine: e, code: val.code, client: client, ctx: context.Background()}
 		if e.redis == nil {
 			e.redis = map[string]*RedisCache{dbCode: cache}
 		} else {

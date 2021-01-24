@@ -358,26 +358,6 @@ func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 	r.redisServers[dbCode] = redisCache
 }
 
-func (r *Registry) RegisterRedisRing(addresses []string, db int, code ...string) {
-	list := make(map[string]string, len(addresses))
-	for i, address := range addresses {
-		list[fmt.Sprintf("shard%d", i+1)] = address
-	}
-	ring := redis.NewRing(&redis.RingOptions{
-		Addrs: list,
-		DB:    db,
-	})
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	redisCache := &RedisCacheConfig{code: dbCode, ring: ring}
-	if r.redisServers == nil {
-		r.redisServers = make(map[string]*RedisCacheConfig)
-	}
-	r.redisServers[dbCode] = redisCache
-}
-
 func (r *Registry) RegisterRedisStream(name string, redisPool string, groups []string) {
 	if r.redisStreamGroups == nil {
 		r.redisStreamGroups = make(map[string]map[string]map[string]bool)
@@ -508,7 +488,6 @@ func (r *Registry) registerElastic(url string, withTrace bool, code ...string) {
 type RedisCacheConfig struct {
 	code   string
 	client *redis.Client
-	ring   *redis.Ring
 }
 
 type ElasticConfig struct {

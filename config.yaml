@@ -32,9 +32,7 @@ default:
   local_cache: 1000
   locker: default
 another:
-  redis:
-    - localhost:6381:1
-    - localhost:6381:2
+  redis: localhost:6381:1
   streams:
       stream-3:
         - test-group-1

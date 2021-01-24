@@ -89,27 +89,6 @@ func validateStreams(registry *Registry, value interface{}, key string) {
 func validateRedisURI(registry *Registry, value interface{}, key string) {
 	asString, ok := value.(string)
 	if !ok {
-		asStrings, ok := value.([]interface{})
-		if ok {
-			uris := make([]string, len(asStrings))
-			db := uint64(0)
-			for i, row := range asStrings {
-				elements := strings.Split(row.(string), ":")
-				if len(elements) < 2 {
-					panic(errors.NotValidf("redis uri '%v'", row))
-				}
-				if len(elements) == 3 {
-					dbUser, err := strconv.ParseUint(elements[2], 10, 64)
-					if err != nil {
-						panic(errors.NotValidf("redis uri '%v'", row))
-					}
-					db = dbUser
-				}
-				uris[i] = fmt.Sprintf("%s:%s", elements[0], elements[1])
-			}
-			registry.RegisterRedisRing(uris, int(db), key)
-			return
-		}
 		panic(errors.NotValidf("redis uri '%v'", value))
 	}
 	elements := strings.Split(asString, ":")

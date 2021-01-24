@@ -40,20 +40,6 @@ func TestRedis(t *testing.T) {
 	})
 }
 
-func TestRedisRing(t *testing.T) {
-	registry := &Registry{}
-	registry.RegisterRedisRing([]string{"localhost:6381"}, 15)
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test")
-	registry.RegisterRedisStream("test-stream", "default", []string{"test-group"})
-	registry.RegisterRedisStream("test-stream-a", "default", []string{"test-group"})
-	registry.RegisterRedisStream("test-stream-b", "default", []string{"test-group"})
-	validatedRegistry, err := registry.Validate()
-	assert.Nil(t, err)
-	engine := validatedRegistry.CreateEngine()
-	engine.DataDog().EnableORMAPMLog(apexLog.DebugLevel, true, QueryLoggerSourceRedis)
-	testRedis(t, engine)
-}
-
 func testRedis(t *testing.T, engine *Engine) {
 	r := engine.GetRedis()
 
