@@ -10,6 +10,7 @@ import (
 
 type RedisPipeLine struct {
 	engine   *Engine
+	pool     string
 	pipeLine redis.Pipeliner
 	ctx      context.Context
 	executed bool
@@ -94,6 +95,7 @@ func (rp *RedisPipeLine) fillLogFields(start time.Time, err error) {
 		WithField("microseconds", stop).
 		WithField("operation", "exec").
 		WithField("commands", rp.commands).
+		WithField("pool", rp.pool).
 		WithField("target", "redis").
 		WithField("started", start.UnixNano()).
 		WithField("finished", now.UnixNano())

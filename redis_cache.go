@@ -140,7 +140,7 @@ func (r *RedisCache) GetSet(key string, ttlSeconds int, provider GetSetProvider)
 }
 
 func (r *RedisCache) PipeLine() *RedisPipeLine {
-	return &RedisPipeLine{ctx: r.client.Context(), engine: r.engine, pipeLine: r.client.Pipeline()}
+	return &RedisPipeLine{ctx: r.client.Context(), pool: r.code, engine: r.engine, pipeLine: r.client.Pipeline()}
 }
 
 func (r *RedisCache) Info(section ...string) string {
