@@ -20,8 +20,9 @@ type RedisFlusher interface {
 
 type redisFlusherCommands struct {
 	diffs   map[int]bool
+	usePool bool
 	deletes []string
-	events  []EventAsMap
+	events  map[string][]EventAsMap
 }
 
 type redisFlusher struct {
@@ -36,6 +37,9 @@ func (f *redisFlusher) Del(redisPool string, keys ...string) {
 	}
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
+	if f.pipelines == nil {
+		f.pipelines = make(map[string]*redisFlusherCommands)
+	}
 	commands, has := f.pipelines[redisPool]
 	if !has {
 		commands = &redisFlusherCommands{deletes: keys, diffs: map[int]bool{commandDelete: true}}
@@ -53,19 +57,27 @@ func (f *redisFlusher) Del(redisPool string, keys ...string) {
 func (f *redisFlusher) PublishMap(stream string, event EventAsMap) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
+	if f.pipelines == nil {
+		f.pipelines = make(map[string]*redisFlusherCommands)
+	}
 	r := getRedisForStream(f.engine, stream)
 	commands, has := f.pipelines[r.code]
 	if !has {
-		commands = &redisFlusherCommands{events: []EventAsMap{event}, diffs: map[int]bool{commandXAdd: true}}
+		commands = &redisFlusherCommands{events: map[string][]EventAsMap{stream: {event}}, diffs: map[int]bool{commandXAdd: true}}
 		f.pipelines[r.code] = commands
 		return
 	}
 	commands.diffs[commandXAdd] = true
 	if commands.events == nil {
-		commands.events = []EventAsMap{event}
+		commands.events = map[string][]EventAsMap{stream: {event}}
 		return
 	}
-	commands.events = append(commands.events, event)
+	if commands.events[stream] == nil {
+		commands.events[stream] = []EventAsMap{event}
+		return
+	}
+	commands.events[stream] = append(commands.events[stream], event)
+	commands.usePool = true
 }
 
 func (f *redisFlusher) Publish(stream string, event interface{}) {
@@ -80,17 +92,30 @@ func (f *redisFlusher) Flush() {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	for poolCode, commands := range f.pipelines {
-		if len(commands.diffs) == 1 {
-			r := f.engine.GetRedis(poolCode)
-			if commands.deletes != nil {
-				r.Del(commands.deletes...)
-			}
-		} else {
+		usePool := commands.usePool || len(commands.diffs) > 1 || len(commands.events) > 1
+		if usePool {
 			p := f.engine.GetRedis(poolCode).PipeLine()
 			if commands.deletes != nil {
 				p.Del(commands.deletes...)
 			}
+			for stream, events := range commands.events {
+				for _, event := range events {
+					var v map[string]interface{} = event
+					p.XAdd(stream, v)
+				}
+			}
 			p.Exec()
+		} else {
+			r := f.engine.GetRedis(poolCode)
+			if commands.deletes != nil {
+				r.Del(commands.deletes...)
+			}
+			for stream, events := range commands.events {
+				for _, event := range events {
+					var v map[string]interface{} = event
+					r.xAdd(stream, v)
+				}
+			}
 		}
 	}
 	f.pipelines = nil

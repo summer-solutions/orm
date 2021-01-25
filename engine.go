@@ -18,42 +18,40 @@ import (
 )
 
 type Engine struct {
-	mutex                        sync.Mutex
-	registry                     *validatedRegistry
-	context                      context.Context
-	dbs                          map[string]*DB
-	dbsMutex                     sync.Mutex
-	clickHouseDbs                map[string]*ClickHouse
-	clickHouseMutex              sync.Mutex
-	localCache                   map[string]*LocalCache
-	localCacheMutex              sync.Mutex
-	redis                        map[string]*RedisCache
-	redisMutex                   sync.Mutex
-	elastic                      map[string]*Elastic
-	elasticMutex                 sync.Mutex
-	locks                        map[string]*Locker
-	locksMutex                   sync.Mutex
-	rabbitMQChannels             map[string]*rabbitMQChannel
-	rabbitMQQueues               map[string]*RabbitMQQueue
-	rabbitMQRouters              map[string]*RabbitMQRouter
-	rabbitMQMutex                sync.Mutex
-	logMetaData                  map[string]interface{}
-	logMetaDataMutex             sync.RWMutex
-	dataLoader                   *dataLoader
-	hasRequestCache              bool
-	queryLoggers                 map[QueryLoggerSource]*logger
-	log                          *log
-	logOnce                      sync.Once
-	logMutex                     sync.Mutex
-	logDebugOnce                 sync.Once
-	afterCommitLocalCacheSets    map[string][]interface{}
-	afterCommitRedisCacheDeletes map[string][]string
-	afterCommitDataLoaderSets    dataLoaderSets
-	afterCommitDirtyQueues       map[string][]EventAsMap
-	afterCommitLogQueues         []*LogQueueValue
-	dataDog                      *dataDog
-	eventBroker                  *eventBroker
-	dataDogOnce                  sync.Once
+	mutex                     sync.Mutex
+	registry                  *validatedRegistry
+	context                   context.Context
+	dbs                       map[string]*DB
+	dbsMutex                  sync.Mutex
+	clickHouseDbs             map[string]*ClickHouse
+	clickHouseMutex           sync.Mutex
+	localCache                map[string]*LocalCache
+	localCacheMutex           sync.Mutex
+	redis                     map[string]*RedisCache
+	redisMutex                sync.Mutex
+	elastic                   map[string]*Elastic
+	elasticMutex              sync.Mutex
+	locks                     map[string]*Locker
+	locksMutex                sync.Mutex
+	rabbitMQChannels          map[string]*rabbitMQChannel
+	rabbitMQQueues            map[string]*RabbitMQQueue
+	rabbitMQRouters           map[string]*RabbitMQRouter
+	rabbitMQMutex             sync.Mutex
+	logMetaData               map[string]interface{}
+	logMetaDataMutex          sync.RWMutex
+	dataLoader                *dataLoader
+	hasRequestCache           bool
+	queryLoggers              map[QueryLoggerSource]*logger
+	log                       *log
+	logOnce                   sync.Once
+	logMutex                  sync.Mutex
+	logDebugOnce              sync.Once
+	afterCommitLocalCacheSets map[string][]interface{}
+	afterCommitRedisFlusher   RedisFlusher
+	afterCommitDataLoaderSets dataLoaderSets
+	dataDog                   *dataDog
+	eventBroker               *eventBroker
+	dataDogOnce               sync.Once
 }
 
 func (e *Engine) DataDog() DataDog {

@@ -220,16 +220,13 @@ func (db *DB) Commit() {
 			cache := db.engine.GetLocalCache(cacheCode)
 			cache.MSet(pairs...)
 		}
+		db.engine.afterCommitLocalCacheSets = nil
 	}
-	db.engine.afterCommitLocalCacheSets = nil
 
-	if db.engine.afterCommitRedisCacheDeletes != nil {
-		for cacheCode, keys := range db.engine.afterCommitRedisCacheDeletes {
-			cache := db.engine.GetRedis(cacheCode)
-			cache.Del(keys...)
-		}
+	if db.engine.afterCommitRedisFlusher != nil {
+		db.engine.afterCommitRedisFlusher.Flush()
+		db.engine.afterCommitRedisFlusher = nil
 	}
-	db.engine.afterCommitRedisCacheDeletes = nil
 
 	if db.engine.afterCommitDataLoaderSets != nil {
 		for schema, rows := range db.engine.afterCommitDataLoaderSets {
@@ -239,15 +236,6 @@ func (db *DB) Commit() {
 		}
 	}
 	db.engine.afterCommitDataLoaderSets = nil
-
-	if db.engine.afterCommitDirtyQueues != nil {
-		addElementsToDirtyQueues(db.engine, db.engine.afterCommitDirtyQueues)
-		db.engine.afterCommitDirtyQueues = nil
-	}
-	if db.engine.afterCommitLogQueues != nil {
-		addElementsToLogQueues(db.engine, db.engine.afterCommitLogQueues)
-		db.engine.afterCommitLogQueues = nil
-	}
 }
 
 func (db *DB) Rollback() {
@@ -260,9 +248,7 @@ func (db *DB) Rollback() {
 	}
 	checkError(err)
 	db.engine.afterCommitLocalCacheSets = nil
-	db.engine.afterCommitRedisCacheDeletes = nil
-	db.engine.afterCommitDirtyQueues = nil
-	db.engine.afterCommitLogQueues = nil
+	db.engine.afterCommitRedisFlusher = nil
 }
 
 func (db *DB) Exec(query string, args ...interface{}) ExecResult {
