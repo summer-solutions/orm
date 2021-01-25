@@ -92,6 +92,7 @@ func (rp *RedisPipeLine) fillLogFields(start time.Time, err error) {
 	stop := time.Since(start).Microseconds()
 	e := rp.engine.queryLoggers[QueryLoggerSourceRedis].log.
 		WithField("microseconds", stop).
+		WithField("operation", "exec").
 		WithField("commands", rp.commands).
 		WithField("target", "redis").
 		WithField("started", start.UnixNano()).
