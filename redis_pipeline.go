@@ -17,6 +17,11 @@ type RedisPipeLine struct {
 	commands int
 }
 
+func (rp *RedisPipeLine) Del(key ...string) *PipeLineInt {
+	rp.commands++
+	return &PipeLineInt{p: rp, cmd: rp.pipeLine.Del(rp.ctx, key...)}
+}
+
 func (rp *RedisPipeLine) Get(key string) *PipeLineGet {
 	rp.commands++
 	return &PipeLineGet{p: rp, cmd: rp.pipeLine.Get(rp.ctx, key)}
@@ -72,6 +77,16 @@ type PipeLineString struct {
 }
 
 func (c *PipeLineString) Result() (string, error) {
+	checkExecuted(c.p)
+	return c.cmd.Result()
+}
+
+type PipeLineInt struct {
+	p   *RedisPipeLine
+	cmd *redis.IntCmd
+}
+
+func (c *PipeLineInt) Result() (int64, error) {
 	checkExecuted(c.p)
 	return c.cmd.Result()
 }

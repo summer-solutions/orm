@@ -117,7 +117,7 @@ func (ef *eventFlusher) Flush() {
 	defer ef.mutex.Unlock()
 	grouped := make(map[*RedisCache]map[string][]EventAsMap)
 	for stream, events := range ef.events {
-		r := ef.eb.getRedis(stream)
+		r := getRedisForStream(ef.eb.engine, stream)
 		if grouped[r] == nil {
 			grouped[r] = make(map[string][]EventAsMap)
 		}
@@ -153,7 +153,7 @@ func (eb *eventBroker) NewFlusher() EventFlusher {
 
 func (eb *eventBroker) PublishMap(stream string, event EventAsMap) (id string) {
 	var v map[string]interface{} = event
-	id = eb.getRedis(stream).xAdd(stream, v)
+	id = getRedisForStream(eb.engine, stream).xAdd(stream, v)
 	return id
 }
 
@@ -165,12 +165,12 @@ func (eb *eventBroker) Publish(stream string, event interface{}) (id string) {
 	return eb.PublishMap(stream, EventAsMap{"_s": string(asJSON)})
 }
 
-func (eb *eventBroker) getRedis(stream string) *RedisCache {
-	pool, has := eb.engine.registry.redisStreamPools[stream]
+func getRedisForStream(engine *Engine, stream string) *RedisCache {
+	pool, has := engine.registry.redisStreamPools[stream]
 	if !has {
 		panic(fmt.Errorf("unregistered stream %s", stream))
 	}
-	return eb.engine.GetRedis(pool)
+	return engine.GetRedis(pool)
 }
 
 type EventConsumerHandler func([]Event)
