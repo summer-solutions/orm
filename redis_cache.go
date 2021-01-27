@@ -359,6 +359,22 @@ func (r *RedisCache) HGetAll(key string) map[string]string {
 	return val
 }
 
+func (r *RedisCache) HGet(key, field string) (value string, has bool) {
+	misses := 0
+	start := time.Now()
+	val, err := r.client.HGet(r.ctx, key, field).Result()
+	if err == redis.Nil {
+		err = nil
+		misses = 1
+	}
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][HGET]", start, "hget", misses, 1,
+			map[string]interface{}{"Key": key, "field": field}, err)
+	}
+	checkError(err)
+	return val, misses == 0
+}
+
 func (r *RedisCache) HIncrBy(key, field string, incr int64) int64 {
 	start := time.Now()
 	val, err := r.client.HIncrBy(r.ctx, key, field, incr).Result()
