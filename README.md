@@ -75,8 +75,10 @@ func main() {
     //optionally you can define pool name as second argument
     registry.RegisterRedis("localhost:6379", 1, "second_pool")
 
-    /* Redis ring */
-    registry.RegisterRedisRing([]string{"localhost:6379", "localhost:6380"}, 0)
+    /* Redis sentinel */
+    registry.RegisterRedisSentinel("mymaster", 0, []string{":26379", "192.23.12.33:26379", "192.23.12.35:26379"})
+    // redis database number set to 2
+    registry.RegisterRedisSentinel("mymaster", 2, []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}, "second_pool") 
 
     /* RabbitMQ */
     registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
@@ -142,10 +144,11 @@ default:
               durable: false // optional, default true
 second_pool:
     mysql: root:root@tcp(localhost:3311)/db2
-    redis:  // redis ring
-        - localhost:6380:0
-        - localhost:6381
-        - localhost:6382
+      sentinel:
+        master:1:
+          - :26379
+          - 192.156.23.11:26379
+          - 192.156.23.12:26379
 ```
 
 ```go

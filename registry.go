@@ -347,15 +347,16 @@ func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 		Addr: address,
 		DB:   db,
 	})
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	redisCache := &RedisCacheConfig{code: dbCode, client: client}
-	if r.redisServers == nil {
-		r.redisServers = make(map[string]*RedisCacheConfig)
-	}
-	r.redisServers[dbCode] = redisCache
+	r.registerRedis(client, code)
+}
+
+func (r *Registry) RegisterRedisSentinel(masterName string, db int, sentinels []string, code ...string) {
+	client := redis.NewFailoverClient(&redis.FailoverOptions{
+		MasterName:    masterName,
+		SentinelAddrs: sentinels,
+		DB:            db,
+	})
+	r.registerRedis(client, code)
 }
 
 func (r *Registry) RegisterRedisStream(name string, redisPool string, groups []string) {
@@ -483,6 +484,18 @@ func (r *Registry) registerElastic(url string, withTrace bool, code ...string) {
 		r.elasticServers = make(map[string]*ElasticConfig)
 	}
 	r.elasticServers[dbCode] = config
+}
+
+func (r *Registry) registerRedis(client *redis.Client, code []string) {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	redisCache := &RedisCacheConfig{code: dbCode, client: client}
+	if r.redisServers == nil {
+		r.redisServers = make(map[string]*RedisCacheConfig)
+	}
+	r.redisServers[dbCode] = redisCache
 }
 
 type RedisCacheConfig struct {

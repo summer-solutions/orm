@@ -32,7 +32,11 @@ default:
   local_cache: 1000
   locker: default
 another:
-  redis: localhost:6381:1
+  sentinel:
+    master:1:
+      - :26379
+      - 192.156.23.11:26379
+      - 192.156.23.12:26379
   streams:
       stream-3:
         - test-group-1

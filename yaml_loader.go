@@ -24,6 +24,8 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 				validateClickHouseURI(registry, value, key)
 			case "redis":
 				validateRedisURI(registry, value, key)
+			case "sentinel":
+				validateSentinel(registry, value, key)
 			case "streams":
 				validateStreams(registry, value, key)
 			case "rabbitmq":
@@ -101,6 +103,31 @@ func validateRedisURI(registry *Registry, value interface{}, key string) {
 	}
 	uri := fmt.Sprintf("%s:%s", elements[0], elements[1])
 	registry.RegisterRedis(uri, int(db), key)
+}
+
+func validateSentinel(registry *Registry, value interface{}, key string) {
+	def := fixYamlMap(value, key)
+	for master, values := range def {
+		asSlice, ok := values.([]interface{})
+		if !ok {
+			panic(errors.NotValidf("sentinel '%v'", value))
+		}
+		asStrings := make([]string, len(asSlice))
+		for i, v := range asSlice {
+			asStrings[i] = fmt.Sprintf("%v", v)
+		}
+		db := 0
+		elements := strings.Split(master, ":")
+		if len(elements) == 2 {
+			master = elements[0]
+			nr, err := strconv.ParseUint(elements[1], 10, 64)
+			if err != nil {
+				panic(errors.NotValidf("sentinel db '%v'", value))
+			}
+			db = int(nr)
+		}
+		registry.RegisterRedisSentinel(master, db, asStrings, key)
+	}
 }
 
 func getBoolOptional(data map[string]interface{}, key string, defaultValue bool) bool {

@@ -18,6 +18,7 @@ func TestYamlLoader(t *testing.T) {
 	registry := InitByYaml(parsedYaml)
 	assert.NotNil(t, registry)
 	assert.Len(t, registry.redisStreamGroups, 2)
+	assert.NotNil(t, registry.redisServers["another"])
 	assert.Len(t, registry.redisStreamGroups["default"], 2)
 	assert.Len(t, registry.redisStreamGroups["another"], 1)
 	assert.Len(t, registry.redisStreamGroups["default"]["stream-1"], 2)
