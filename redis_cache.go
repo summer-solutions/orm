@@ -11,97 +11,6 @@ import (
 	"github.com/go-redis/redis_rate/v9"
 )
 
-type PubSub struct {
-	pubSub          *redis.PubSub
-	r               *RedisCache
-	disableLoop     bool
-	maxLoopDuration time.Duration
-	heartBeat       func()
-}
-
-func (p *PubSub) DisableLoop() {
-	p.disableLoop = true
-}
-
-func (p *PubSub) SetMaxLoopDuration(duration time.Duration) {
-	p.maxLoopDuration = duration
-}
-
-func (p *PubSub) SetHeartBeat(beat func()) {
-	p.heartBeat = beat
-}
-
-func (p *PubSub) Consume(size int, handler func(items []*redis.Message)) {
-	delivery := p.pubSub.ChannelSize(size)
-	counter := 0
-	items := make([]*redis.Message, 0)
-	beatTime := time.Now()
-	loopTime := time.Now().UnixNano()
-	for {
-		now := time.Now()
-		nowNano := now.UnixNano()
-		timeOut := (nowNano - loopTime) >= p.maxLoopDuration.Nanoseconds()
-		if counter > 0 && (timeOut || counter == size) {
-			handler(items)
-			items = nil
-			loopTime = time.Now().UnixNano()
-			counter = 0
-			if p.disableLoop {
-				if p.heartBeat != nil {
-					p.heartBeat()
-				}
-				return
-			}
-		} else if timeOut && p.disableLoop {
-			return
-		}
-		if p.heartBeat != nil && now.Sub(beatTime).Minutes() >= 1 {
-			p.heartBeat()
-			beatTime = now
-		}
-		select {
-		case item := <-delivery:
-			items = append(items, item)
-			counter++
-		case <-time.After(time.Second):
-		}
-	}
-}
-
-func (p *PubSub) Close() {
-	start := time.Now()
-	err := p.pubSub.Close()
-	if p.r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		p.r.fillLogFields("[ORM][REDIS][CLOSE PUBSUB]", start, "closepubsub", -1, 1,
-			map[string]interface{}{"Channels": p.pubSub.String()}, err)
-	}
-	checkError(err)
-}
-
-func (p *PubSub) Unsubscribe(channels ...string) {
-	start := time.Now()
-	err := p.pubSub.Unsubscribe(p.r.client.Context(), channels...)
-	if p.r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		p.r.fillLogFields("[ORM][REDIS][UNSUSCRIBE PUBSUB]", start, "unsusgribe", -1, len(channels),
-			map[string]interface{}{"Channels": channels}, err)
-	}
-	checkError(err)
-}
-
-func (p *PubSub) PUnsubscribe(channels ...string) {
-	start := time.Now()
-	err := p.pubSub.PUnsubscribe(p.r.client.Context(), channels...)
-	if p.r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		p.r.fillLogFields("[ORM][REDIS][PUNSUSCRIBE PUBSUB]", start, "punsusgribe", -1, len(channels),
-			map[string]interface{}{"Channels": channels}, err)
-	}
-	checkError(err)
-}
-
-func (p *PubSub) String() string {
-	return p.pubSub.String()
-}
-
 type RedisCache struct {
 	engine  *Engine
 	ctx     context.Context
@@ -546,36 +455,6 @@ func (r *RedisCache) Del(keys ...string) {
 	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		r.fillLogFields("[ORM][REDIS][DEL]", start, "del", -1, len(keys),
 			map[string]interface{}{"Keys": keys}, err)
-	}
-	checkError(err)
-}
-
-func (r *RedisCache) PSubscribe(channels ...string) *PubSub {
-	start := time.Now()
-	pubSub := r.client.PSubscribe(r.ctx, channels...)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][PSUBSCRIBE]", start, "psubscribe", -1, len(channels),
-			map[string]interface{}{"channels": channels}, nil)
-	}
-	return &PubSub{pubSub: pubSub, r: r}
-}
-
-func (r *RedisCache) Subscribe(channels ...string) *PubSub {
-	start := time.Now()
-	pubSub := r.client.Subscribe(r.ctx, channels...)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][SUBSCRIBE]", start, "subscribe", -1, len(channels),
-			map[string]interface{}{"channels": channels}, nil)
-	}
-	return &PubSub{pubSub: pubSub, r: r}
-}
-
-func (r *RedisCache) Publish(channel string, message interface{}) {
-	start := time.Now()
-	_, err := r.client.Publish(r.ctx, channel, message).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][PUBLISH]", start, "publish", -1, 1,
-			map[string]interface{}{"channel": channel, "message": message}, err)
 	}
 	checkError(err)
 }

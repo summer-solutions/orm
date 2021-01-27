@@ -347,7 +347,7 @@ func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 		Addr: address,
 		DB:   db,
 	})
-	r.registerRedis(client, code)
+	r.registerRedis(client, code, address)
 }
 
 func (r *Registry) RegisterRedisSentinel(masterName string, db int, sentinels []string, code ...string) {
@@ -356,7 +356,7 @@ func (r *Registry) RegisterRedisSentinel(masterName string, db int, sentinels []
 		SentinelAddrs: sentinels,
 		DB:            db,
 	})
-	r.registerRedis(client, code)
+	r.registerRedis(client, code, fmt.Sprintf("%v", sentinels))
 }
 
 func (r *Registry) RegisterRedisStream(name string, redisPool string, groups []string) {
@@ -486,12 +486,12 @@ func (r *Registry) registerElastic(url string, withTrace bool, code ...string) {
 	r.elasticServers[dbCode] = config
 }
 
-func (r *Registry) registerRedis(client *redis.Client, code []string) {
+func (r *Registry) registerRedis(client *redis.Client, code []string, address string) {
 	dbCode := "default"
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
-	redisCache := &RedisCacheConfig{code: dbCode, client: client}
+	redisCache := &RedisCacheConfig{code: dbCode, client: client, address: address}
 	if r.redisServers == nil {
 		r.redisServers = make(map[string]*RedisCacheConfig)
 	}
@@ -499,8 +499,9 @@ func (r *Registry) registerRedis(client *redis.Client, code []string) {
 }
 
 type RedisCacheConfig struct {
-	code   string
-	client *redis.Client
+	code    string
+	client  *redis.Client
+	address string
 }
 
 type ElasticConfig struct {
