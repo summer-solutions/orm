@@ -433,7 +433,13 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 }
 
 func getEntityTypeForSlice(registry *validatedRegistry, sliceType reflect.Type) (reflect.Type, bool, string) {
-	name := strings.Trim(sliceType.String(), "*[]")
+	name := sliceType.String()
+	if name[0] == 42 {
+		name = name[1:]
+	}
+	if name[0] == 91 {
+		name = name[3:]
+	}
 	e, has := registry.entities[name]
 	return e, has, name
 }

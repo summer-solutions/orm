@@ -278,6 +278,7 @@ func BenchmarkCachedSearch(b *testing.B) {
 	flusher.Flush()
 	var rows []*schemaEntity
 	pager := NewPager(1, 1000)
+	_ = engine.CachedSearch(&rows, "IndexAll", pager)
 	b.ResetTimer()
 	b.ReportAllocs()
 	//BenchmarkCachedSearch-12    	      82	  13700838 ns/op	 5137302 B/op	   67138 allocs/op
