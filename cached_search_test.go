@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -254,4 +255,33 @@ func TestCachedSearchErrors(t *testing.T) {
 	assert.PanicsWithError(t, "cache search not allowed for entity without cache: 'orm.cachedSearchRefEntity'", func() {
 		_ = engine.CachedSearchOne(&row2, "IndexName", 10)
 	})
+}
+
+func BenchmarkCachedSearch(b *testing.B) {
+	entity := &schemaEntity{}
+	ref := &schemaEntityRef{}
+	registry := &Registry{}
+	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
+	registry.RegisterLocalCache(10000)
+	engine := PrepareTables(nil, registry, 5, entity, ref)
+	flusher := engine.NewFlusher()
+	for i := 0; i < 1000; i++ {
+		e := &schemaEntity{}
+		e.Name = fmt.Sprintf("Name %d", i)
+		e.Uint32 = uint32(i)
+		e.Int32 = int32(i)
+		e.Int8 = int8(i)
+		e.Enum = TestEnum.A
+		e.RefOne = &schemaEntityRef{}
+		flusher.Track(e)
+	}
+	flusher.Flush()
+	var rows []*schemaEntity
+	pager := NewPager(1, 1000)
+	b.ResetTimer()
+	b.ReportAllocs()
+	//BenchmarkCachedSearch-12    	      82	  13700838 ns/op	 5137302 B/op	   67138 allocs/op
+	for n := 0; n < b.N; n++ {
+		_ = engine.CachedSearch(&rows, "IndexAll", pager)
+	}
 }

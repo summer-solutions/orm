@@ -50,7 +50,7 @@ var TestEnum = &testEnum{
 }
 
 type schemaEntity struct {
-	ORM             `orm:"log;unique=TestUniqueGlobal:Year,SubStructAge|TestUniqueGlobal2:Uint32"`
+	ORM             `orm:"localCache;log;unique=TestUniqueGlobal:Year,SubStructAge|TestUniqueGlobal2:Uint32"`
 	ID              uint
 	Name            string `orm:"index=TestIndex;required"`
 	NameNullable    string
@@ -62,9 +62,9 @@ type schemaEntity struct {
 	Uint32Medium    uint32 `orm:"mediumint"`
 	YearRequired    uint16 `orm:"year"`
 	Uint64          uint64
-	Int8            int8 `orm:"unique=TestUniqueIndex"`
+	Int8            int8
 	Int16           int16
-	Int32           int32
+	Int32           int32 `orm:"unique=TestUniqueIndex"`
 	Int32Medium     int32 `orm:"mediumint"`
 	Int64           int64
 	Int             int
@@ -92,6 +92,7 @@ type schemaEntity struct {
 	Enum            string   `orm:"enum=orm.TestEnum;required"`
 	Set             []string `orm:"set=orm.TestEnum;required"`
 	FakeDelete      bool
+	IndexAll        *CachedQuery `query:""`
 }
 
 func TestSchema5(t *testing.T) {
@@ -126,7 +127,7 @@ func testSchema(t *testing.T, version int) {
 		assert.Equal(t, "CREATE TABLE `test`.`schemaEntityRef` (\n  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,\n  `Name` varchar(255) NOT NULL DEFAULT '',\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;", alters[0].SQL)
 		assert.Equal(t, "CREATE TABLE `test`.`_log_default_schemaEntity` (\n  `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,\n  `entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `before` json DEFAULT NULL,\n  `changes` json DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;", alters[1].SQL)
 		assert.Equal(t, "CREATE TABLE `test`.`_log_default_schemaEntityRef` (\n  `id` bigint(11) unsigned NOT NULL AUTO_INCREMENT,\n  `entity_id` int(10) unsigned NOT NULL,\n  `added_at` datetime NOT NULL,\n  `meta` json DEFAULT NULL,\n  `before` json DEFAULT NULL,\n  `changes` json DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `entity_id` (`entity_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;", alters[2].SQL)
-		assert.Equal(t, "CREATE TABLE `test`.`schemaEntity` (\n  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,\n  `Name` varchar(255) NOT NULL DEFAULT '',\n  `NameNullable` varchar(255) DEFAULT NULL,\n  `NameMax` mediumtext,\n  `Year` year(4) DEFAULT NULL,\n  `Uint8` tinyint(3) unsigned NOT NULL DEFAULT '0',\n  `Uint16` smallint(5) unsigned NOT NULL DEFAULT '0',\n  `Uint32` int(10) unsigned NOT NULL DEFAULT '0',\n  `Uint32Medium` mediumint(8) unsigned NOT NULL DEFAULT '0',\n  `YearRequired` year(4) NOT NULL DEFAULT '0000',\n  `Uint64` bigint(20) unsigned NOT NULL DEFAULT '0',\n  `Int8` tinyint(4) NOT NULL DEFAULT '0',\n  `Int16` smallint(6) NOT NULL DEFAULT '0',\n  `Int32` int(11) NOT NULL DEFAULT '0',\n  `Int32Medium` mediumint(9) NOT NULL DEFAULT '0',\n  `Int64` bigint(20) NOT NULL DEFAULT '0',\n  `Int` int(11) NOT NULL DEFAULT '0',\n  `IntNullable` int(11) DEFAULT NULL,\n  `Bool` tinyint(1) NOT NULL DEFAULT '0',\n  `BoolNullable` tinyint(1) DEFAULT NULL,\n  `Interface` json DEFAULT NULL,\n  `Float32` float unsigned NOT NULL DEFAULT '0',\n  `Float32Nullable` float unsigned DEFAULT NULL,\n  `Float64` double unsigned NOT NULL DEFAULT '0',\n  `Time` date NOT NULL DEFAULT '0001-01-01',\n  `TimeFull` datetime NOT NULL,\n  `TimeNull` date DEFAULT NULL,\n  `Blob` blob,\n  `MediumBlob` mediumblob,\n  `LongBlob` longblob,\n  `SubStructName` varchar(255) NOT NULL DEFAULT '',\n  `SubStructAge` smallint(5) unsigned NOT NULL DEFAULT '0',\n  `SubStructRefInStruct` int(10) unsigned DEFAULT NULL,\n  `NameTranslated` json DEFAULT NULL,\n  `RefOne` int(10) unsigned DEFAULT NULL,\n  `RefOneCascade` int(10) unsigned DEFAULT NULL,\n  `RefMany` json DEFAULT NULL,\n  `Decimal` decimal(10,2) unsigned NOT NULL DEFAULT '0.00',\n  `Enum` enum('a','b','c') NOT NULL DEFAULT 'a',\n  `Set` set('a','b','c') NOT NULL DEFAULT 'a',\n  `FakeDelete` int(10) unsigned NOT NULL DEFAULT '0',\n  INDEX `RefOne` (`RefOne`),\n  INDEX `SubStructRefInStruct` (`SubStructRefInStruct`),\n  INDEX `TestIndex` (`Name`,`Uint16`),\n  UNIQUE INDEX `TestRefOneCascade` (`RefOneCascade`),\n  UNIQUE INDEX `TestUniqueGlobal2` (`Uint32`),\n  UNIQUE INDEX `TestUniqueGlobal` (`Year`,`SubStructAge`),\n  UNIQUE INDEX `TestUniqueIndex` (`Int8`),\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;", alters[3].SQL)
+		assert.Equal(t, "CREATE TABLE `test`.`schemaEntity` (\n  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,\n  `Name` varchar(255) NOT NULL DEFAULT '',\n  `NameNullable` varchar(255) DEFAULT NULL,\n  `NameMax` mediumtext,\n  `Year` year(4) DEFAULT NULL,\n  `Uint8` tinyint(3) unsigned NOT NULL DEFAULT '0',\n  `Uint16` smallint(5) unsigned NOT NULL DEFAULT '0',\n  `Uint32` int(10) unsigned NOT NULL DEFAULT '0',\n  `Uint32Medium` mediumint(8) unsigned NOT NULL DEFAULT '0',\n  `YearRequired` year(4) NOT NULL DEFAULT '0000',\n  `Uint64` bigint(20) unsigned NOT NULL DEFAULT '0',\n  `Int8` tinyint(4) NOT NULL DEFAULT '0',\n  `Int16` smallint(6) NOT NULL DEFAULT '0',\n  `Int32` int(11) NOT NULL DEFAULT '0',\n  `Int32Medium` mediumint(9) NOT NULL DEFAULT '0',\n  `Int64` bigint(20) NOT NULL DEFAULT '0',\n  `Int` int(11) NOT NULL DEFAULT '0',\n  `IntNullable` int(11) DEFAULT NULL,\n  `Bool` tinyint(1) NOT NULL DEFAULT '0',\n  `BoolNullable` tinyint(1) DEFAULT NULL,\n  `Interface` json DEFAULT NULL,\n  `Float32` float unsigned NOT NULL DEFAULT '0',\n  `Float32Nullable` float unsigned DEFAULT NULL,\n  `Float64` double unsigned NOT NULL DEFAULT '0',\n  `Time` date NOT NULL DEFAULT '0001-01-01',\n  `TimeFull` datetime NOT NULL,\n  `TimeNull` date DEFAULT NULL,\n  `Blob` blob,\n  `MediumBlob` mediumblob,\n  `LongBlob` longblob,\n  `SubStructName` varchar(255) NOT NULL DEFAULT '',\n  `SubStructAge` smallint(5) unsigned NOT NULL DEFAULT '0',\n  `SubStructRefInStruct` int(10) unsigned DEFAULT NULL,\n  `NameTranslated` json DEFAULT NULL,\n  `RefOne` int(10) unsigned DEFAULT NULL,\n  `RefOneCascade` int(10) unsigned DEFAULT NULL,\n  `RefMany` json DEFAULT NULL,\n  `Decimal` decimal(10,2) unsigned NOT NULL DEFAULT '0.00',\n  `Enum` enum('a','b','c') NOT NULL DEFAULT 'a',\n  `Set` set('a','b','c') NOT NULL DEFAULT 'a',\n  `FakeDelete` int(10) unsigned NOT NULL DEFAULT '0',\n  INDEX `RefOne` (`RefOne`),\n  INDEX `SubStructRefInStruct` (`SubStructRefInStruct`),\n  INDEX `TestIndex` (`Name`,`Uint16`),\n  UNIQUE INDEX `TestRefOneCascade` (`RefOneCascade`),\n  UNIQUE INDEX `TestUniqueGlobal2` (`Uint32`),\n  UNIQUE INDEX `TestUniqueGlobal` (`Year`,`SubStructAge`),\n  UNIQUE INDEX `TestUniqueIndex` (`Int32`),\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;", alters[3].SQL)
 		assert.Equal(t, "ALTER TABLE `test`.`schemaEntity`\n  ADD CONSTRAINT `test:schemaEntity:RefOneCascade` FOREIGN KEY (`RefOneCascade`) REFERENCES `test`.`schemaEntityRef` (`ID`) ON DELETE CASCADE,\n  ADD CONSTRAINT `test:schemaEntity:RefOne` FOREIGN KEY (`RefOne`) REFERENCES `test`.`schemaEntityRef` (`ID`) ON DELETE RESTRICT,\n  ADD CONSTRAINT `test:schemaEntity:SubStructRefInStruct` FOREIGN KEY (`SubStructRefInStruct`) REFERENCES `test`.`schemaEntityRef` (`ID`) ON DELETE RESTRICT;", alters[4].SQL)
 	} else {
 		assert.Equal(t, "CREATE TABLE `test`.`schemaEntityRef` (\n  `ID` int unsigned NOT NULL AUTO_INCREMENT,\n  `Name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '',\n  PRIMARY KEY (`ID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;", alters[0].SQL)
@@ -265,6 +266,7 @@ func testSchema(t *testing.T, version int) {
 
 	registry = &Registry{}
 	registry.RegisterMySQLPool(pool)
+	registry.RegisterLocalCache(1000)
 	registry.RegisterEntity(&schemaEntity{})
 	_, err = registry.Validate()
 	assert.EqualError(t, err, "invalid entity struct 'orm.schemaEntity': unregistered enum orm.TestEnum")

@@ -24,10 +24,14 @@ func PrepareTables(t *testing.T, registry *Registry, version int, entities ...En
 
 	registry.RegisterEntity(entities...)
 	validatedRegistry, err := registry.Validate()
-	assert.Nil(t, err)
+	if t != nil {
+		assert.Nil(t, err)
+	}
 
 	engine := validatedRegistry.CreateEngine()
-	assert.Equal(t, engine.GetRegistry(), validatedRegistry)
+	if t != nil {
+		assert.Equal(t, engine.GetRegistry(), validatedRegistry)
+	}
 	redisCache := engine.GetRedis()
 	redisCache.FlushDB()
 	redisCache = engine.GetRedis("default_queue")

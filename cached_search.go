@@ -50,10 +50,12 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	minCachePageCeil := minCachePage
 	maxCachePage := float64((pager.GetCurrentPage()-1)*pager.GetPageSize()+pager.GetPageSize()) / float64(idsOnCachePage)
 	maxCachePageCeil := math.Ceil(maxCachePage)
-	pages := make([]string, 0)
+	pages := make([]string, int(maxCachePageCeil-minCachePageCeil))
 	filledPages := make(map[string][]uint64)
+	j := 0
 	for i := minCachePageCeil; i < maxCachePageCeil; i++ {
-		pages = append(pages, strconv.Itoa(int(i)+1))
+		pages[j] = strconv.Itoa(int(i) + 1)
+		j++
 	}
 	var fromCache map[string]interface{}
 	var nilsKeys []string
