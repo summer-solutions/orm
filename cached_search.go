@@ -33,7 +33,6 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	if start+pager.GetPageSize() > definition.Max {
 		panic(errors.Errorf("max cache index page size (%d) exceeded %s", definition.Max, indexName))
 	}
-	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	if !hasLocalCache && engine.hasRequestCache {
 		hasLocalCache = true
@@ -43,31 +42,28 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	if !hasLocalCache && !hasRedis {
 		panic(errors.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String()))
 	}
-	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
+	where := NewWhere(definition.Query, arguments...)
+	cacheKey := getCacheKeySearch(schema, indexName, where.GetParameters()...)
 
 	minCachePage := float64((pager.GetCurrentPage() - 1) * pager.GetPageSize() / idsOnCachePage)
 	minCachePageCeil := minCachePage
 	maxCachePage := float64((pager.GetCurrentPage()-1)*pager.GetPageSize()+pager.GetPageSize()) / float64(idsOnCachePage)
 	maxCachePageCeil := math.Ceil(maxCachePage)
 	pages := make([]string, int(maxCachePageCeil-minCachePageCeil))
-	filledPages := make(map[string][]uint64)
 	j := 0
 	for i := minCachePageCeil; i < maxCachePageCeil; i++ {
 		pages[j] = strconv.Itoa(int(i) + 1)
 		j++
 	}
+	filledPages := make(map[string][]uint64)
+	fromRedis := false
 	var fromCache map[string]interface{}
 	var nilsKeys []string
 	if hasLocalCache {
-		nils := make(map[int]int)
 		nilsKeys = make([]string, 0)
-		i := 0
 		fromCache = localCache.HMget(cacheKey, pages...)
-		index := 0
 		for key, val := range fromCache {
 			if val == nil {
-				nils[index] = i
-				i++
 				nilsKeys = append(nilsKeys, key)
 			}
 		}
@@ -78,14 +74,15 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 			}
 		}
 	} else if hasRedis {
+		fromRedis = true
 		fromCache = redisCache.HMget(cacheKey, pages...)
 	}
 	hasNil := false
 	totalRows = 0
 	minPage := 9999
 	maxPage := 0
-	for key, idsAsString := range fromCache {
-		if idsAsString == nil {
+	for key, idsSlice := range fromCache {
+		if idsSlice == nil {
 			hasNil = true
 			p, _ := strconv.Atoi(key)
 			if p < minPage {
@@ -95,20 +92,26 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 				maxPage = p
 			}
 		} else {
-			ids := strings.Split(idsAsString.(string), " ")
-			totalRows, _ = strconv.Atoi(ids[0])
-			length := len(ids)
-			idsAsUint := make([]uint64, length-1)
-			for i := 1; i < length; i++ {
-				idsAsUint[i-1], _ = strconv.ParseUint(ids[i], 10, 64)
+			if fromRedis {
+				ids := strings.Split(idsSlice.(string), " ")
+				totalRows, _ = strconv.Atoi(ids[0])
+				length := len(ids)
+				idsAsUint := make([]uint64, length-1)
+				for i := 1; i < length; i++ {
+					idsAsUint[i-1], _ = strconv.ParseUint(ids[i], 10, 64)
+				}
+				filledPages[key] = idsAsUint
+			} else {
+				ids := idsSlice.([]uint64)
+				totalRows = int(ids[0])
+				filledPages[key] = ids[1:]
 			}
-			filledPages[key] = idsAsUint
 		}
 	}
 
 	if hasNil {
 		searchPager := NewPager(minPage, maxPage*idsOnCachePage)
-		results, total := searchIDsWithCount(true, engine, Where, searchPager, entityType)
+		results, total := searchIDsWithCount(true, engine, where, searchPager, entityType)
 		totalRows = total
 		cacheFields := make(map[string]interface{})
 		for key, ids := range fromCache {
@@ -137,19 +140,18 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 			redisCache.HMset(cacheKey, cacheFields)
 		}
 	}
-
 	nilKeysLen := len(nilsKeys)
 	if hasLocalCache && nilKeysLen > 0 {
 		fields := make(map[string]interface{}, nilKeysLen)
 		for _, v := range nilsKeys {
 			values := []uint64{uint64(totalRows)}
 			values = append(values, filledPages[v]...)
-			cacheValue := fmt.Sprintf("%v", values)
-			cacheValue = strings.Trim(cacheValue, "[]")
-			fields[v] = cacheValue
+			fields[v] = values
 		}
 		localCache.HMset(cacheKey, fields)
 	}
+
+	// TODO check benchmark below
 
 	resultsIDs := make([]uint64, 0, len(filledPages)*idsOnCachePage)
 	for i := minCachePageCeil; i < maxCachePageCeil; i++ {
