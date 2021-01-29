@@ -19,5 +19,4 @@ func TestRedisStatistics(t *testing.T) {
 
 	stats := GetRedisStatistics(engine)
 	assert.Len(t, stats, 1)
-	assert.Equal(t, "default", stats[0].RedisPool)
 }

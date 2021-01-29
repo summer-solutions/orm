@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
-
 	"github.com/segmentio/fasthash/fnv1a"
+
+	"github.com/juju/errors"
 )
 
 const idsOnCachePage = 1000
@@ -33,7 +33,6 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	if start+pager.GetPageSize() > definition.Max {
 		panic(errors.Errorf("max cache index page size (%d) exceeded %s", definition.Max, indexName))
 	}
-
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	if !hasLocalCache && engine.hasRequestCache {
@@ -236,6 +235,5 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 }
 
 func getCacheKeySearch(tableSchema *tableSchema, indexName string, parameters ...interface{}) string {
-	hash := fnv1a.HashString32(fmt.Sprintf("%v", parameters))
-	return fmt.Sprintf("%s_%s_%d", tableSchema.cachePrefix, indexName, hash)
+	return tableSchema.cachePrefix + "_" + indexName + strconv.Itoa(int(fnv1a.HashString32(fmt.Sprintf("%v", parameters))))
 }
