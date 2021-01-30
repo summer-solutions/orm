@@ -137,7 +137,7 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 	pool := schema.GetMysql(engine)
 	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
-	result := make([]uint64, 0, pager.GetPageSize())
+	result := make([]uint64, 0)
 	for results.Next() {
 		var row uint64
 		results.Scan(&row)

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 )
 
-const idsOnCachePage = 1000
+const idsOnCachePage = 100
 
 func cachedSearch(engine *Engine, entities interface{}, indexName string, pager *Pager,
 	arguments []interface{}, references []string) (totalRows int, ids []uint64) {
@@ -127,6 +127,10 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 				if sliceEnd > total {
 					sliceEnd = total
 				}
+				l := len(results)
+				if sliceEnd > l {
+					sliceEnd = l
+				}
 				values := []uint64{uint64(total)}
 				foundIDs := results[sliceStart:sliceEnd]
 				filledPages[key] = foundIDs
@@ -151,9 +155,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 		localCache.HMset(cacheKey, fields)
 	}
 
-	// TODO check benchmark below
-
-	resultsIDs := make([]uint64, 0, len(filledPages)*idsOnCachePage)
+	resultsIDs := make([]uint64, 0)
 	for i := minCachePageCeil; i < maxCachePageCeil; i++ {
 		resultsIDs = append(resultsIDs, filledPages[strconv.Itoa(int(i)+1)]...)
 	}
@@ -166,17 +168,11 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 		sliceEnd = length
 	}
 	idsToReturn := resultsIDs[sliceStart:sliceEnd]
-	nonZero := make([]uint64, 0, len(idsToReturn))
-	for _, id := range idsToReturn {
-		if id != 0 {
-			nonZero = append(nonZero, id)
-		}
-	}
 	_, is := entities.(Entity)
 	if !is {
-		engine.LoadByIDs(nonZero, entities, references...)
+		engine.LoadByIDs(idsToReturn, entities, references...)
 	}
-	return totalRows, nonZero
+	return totalRows, idsToReturn
 }
 
 func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments []interface{}, references []string) (has bool) {
