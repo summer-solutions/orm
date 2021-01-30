@@ -170,7 +170,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	idsToReturn := resultsIDs[sliceStart:sliceEnd]
 	_, is := entities.(Entity)
 	if !is {
-		engine.LoadByIDs(idsToReturn, entities, references...)
+		tryByIDs(engine, idsToReturn, value.Elem(), references)
 	}
 	return totalRows, idsToReturn
 }

@@ -1,9 +1,10 @@
 package orm
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, references ...string) (found bool) {
@@ -54,7 +55,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 					return false
 				}
 				var decoded []string
-				_ = json.Unmarshal([]byte(row), &decoded)
+				_ = jsoniter.ConfigFastest.Unmarshal([]byte(row), &decoded)
 				fillFromDBRow(id, engine, decoded, entity, false)
 				if len(references) > 0 {
 					warmUpReferences(engine, schema, orm.elem, references, false)
@@ -90,7 +91,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 }
 
 func buildRedisValue(entity Entity) string {
-	encoded, _ := json.Marshal(buildLocalCacheValue(entity))
+	encoded, _ := jsoniter.ConfigFastest.Marshal(buildLocalCacheValue(entity))
 	return string(encoded)
 }
 

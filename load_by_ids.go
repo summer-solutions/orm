@@ -1,10 +1,11 @@
 package orm
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/juju/errors"
 )
@@ -164,7 +165,7 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 			} else if fromRedis {
 				entity := reflect.New(entityType).Interface().(Entity)
 				var decoded []string
-				_ = json.Unmarshal([]byte(v.(string)), &decoded)
+				_ = jsoniter.ConfigFastest.Unmarshal([]byte(v.(string)), &decoded)
 				fillFromDBRow(keysMapping[k], engine, decoded, entity, false)
 				results[k] = entity
 			} else {

@@ -2,12 +2,13 @@ package orm
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 const dataLoaderMaxPatch = 200
@@ -192,7 +193,7 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 					if val == nil {
 						toSet = "nil"
 					} else {
-						encoded, _ := json.Marshal(val)
+						encoded, _ := jsoniter.ConfigFastest.Marshal(val)
 						toSet = string(encoded)
 					}
 					pairs[i+1] = toSet
@@ -222,7 +223,7 @@ func (b *dataLoaderBatch) getKeysForNils(l *dataLoader, schema *tableSchema, row
 				resultsKeys[k] = nil
 			} else {
 				var decoded []string
-				_ = json.Unmarshal([]byte(v.(string)), &decoded)
+				_ = jsoniter.ConfigFastest.Unmarshal([]byte(v.(string)), &decoded)
 				resultsKeys[k] = decoded
 				results[l.key(schema, keyMapping[k])] = decoded
 			}
