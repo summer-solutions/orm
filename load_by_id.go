@@ -106,7 +106,7 @@ func buildLocalCacheValue(entity Entity) []string {
 		if v == nil {
 			v = "nil"
 		}
-		value[j] = fmt.Sprintf("%s", v)
+		value[j] = v.(string)
 		j++
 	}
 	return value

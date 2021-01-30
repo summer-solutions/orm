@@ -2,7 +2,6 @@ package orm
 
 import (
 	"database/sql"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -236,7 +235,7 @@ func (b *dataLoaderBatch) search(schema *tableSchema, engine *Engine, ids []uint
 	where := NewWhere("`ID` IN ?", ids)
 	result := make(map[uint64][]string)
 	/* #nosec */
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s", schema.fieldsQuery, schema.tableName, where)
+	query := "SELECT " + schema.fieldsQuery + " FROM `" + schema.tableName + "` WHERE" + where.String()
 	pool := schema.GetMysql(engine)
 	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()

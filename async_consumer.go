@@ -2,7 +2,6 @@ package orm
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -81,7 +80,7 @@ func (r *AsyncConsumer) handleLog(event Event) {
 	}
 	poolDB := r.engine.GetMysql(value.PoolName)
 	/* #nosec */
-	query := fmt.Sprintf("INSERT INTO `%s`(`entity_id`, `added_at`, `meta`, `before`, `changes`) VALUES(?, ?, ?, ?, ?)", value.TableName)
+	query := "INSERT INTO `" + value.TableName + "`(`entity_id`, `added_at`, `meta`, `before`, `changes`) VALUES(?, ?, ?, ?, ?)"
 	var meta, before, changes interface{}
 	if value.Meta != nil {
 		meta, _ = jsoniter.ConfigFastest.Marshal(value.Meta)

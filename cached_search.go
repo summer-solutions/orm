@@ -208,10 +208,10 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	if fromCache["1"] == nil {
 		results, _ := searchIDs(true, engine, Where, NewPager(1, 1), false, entityType)
 		l := len(results)
-		value := fmt.Sprintf("%d", l)
+		value := strconv.Itoa(l)
 		if l > 0 {
 			id = results[0]
-			value += fmt.Sprintf(" %d", results[0])
+			value += " " + strconv.FormatUint(results[0], 10)
 		}
 		fields := map[string]interface{}{"1": value}
 		if hasLocalCache {

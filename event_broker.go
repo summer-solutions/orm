@@ -254,7 +254,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 	var lock *Lock
 	for {
 		nr++
-		lockName = fmt.Sprintf("%s-%d", uniqueLockKey, nr)
+		lockName = uniqueLockKey + "-" + strconv.Itoa(nr)
 		locked, has := locker.Obtain(ctx, lockName, r.lockTTL, 0)
 		if !has {
 			if nr < maxConsumers {
@@ -265,7 +265,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 		lock = locked
 		r.nr = nr
 		r.nrString = strconv.Itoa(nr)
-		r.redis.HSet(runningKey, r.nrString, fmt.Sprintf("%d", time.Now().Unix()))
+		r.redis.HSet(runningKey, r.nrString, strconv.FormatInt(time.Now().Unix(), 10))
 		break
 	}
 	ticker := time.NewTicker(r.lockTick)
@@ -293,7 +293,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 				}
 				now := time.Now()
 				lockAcquired = now
-				r.redis.HSet(runningKey, r.nrString, fmt.Sprintf("%d", now.Unix()))
+				r.redis.HSet(runningKey, r.nrString, strconv.FormatInt(now.Unix(), 10))
 			}
 		}
 	}()
@@ -357,7 +357,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 				for _, stream := range r.streams {
 					start := "-"
 					for {
-						end := fmt.Sprintf("%d", time.Now().Add(-r.minIdle).UnixNano()/1000000)
+						end := strconv.FormatInt(time.Now().Add(-r.minIdle).UnixNano()/1000000, 10)
 						pending := r.redis.XPendingExt(&redis.XPendingExtArgs{Stream: stream, Group: r.group, Start: start, End: end, Count: countPending})
 						if len(pending) == 0 {
 							break
@@ -485,13 +485,13 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 }
 
 func (r *eventsConsumer) getName() string {
-	return fmt.Sprintf("%s-%d", r.name, r.nr)
+	return r.name + "-" + r.nrString
 }
 
 func (r *eventsConsumer) incrementID(id string) string {
 	s := strings.Split(id, "-")
 	counter, _ := strconv.Atoi(s[1])
-	return fmt.Sprintf("%s-%d", s[0], counter+1)
+	return s[0] + "-" + strconv.Itoa(counter+1)
 }
 
 func (r *eventsConsumer) garbageCollector(ctx context.Context) {
@@ -519,7 +519,7 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 				if !has {
 					// TODO remove only if has old events
 					//r.redis.XGroupDestroy(stream, group.Name)
-					r.redis.engine.log.Warn(fmt.Sprintf("not registered stream group %s in stream %s", group.Name, stream), nil)
+					r.redis.engine.log.Warn("not registered stream group "+group.Name+" in stream"+stream, nil)
 					continue
 				}
 				if group.LastDeliveredID == "" {
@@ -555,12 +555,12 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 			var end string
 			if inPending {
 				if minID[1] > 0 {
-					end = fmt.Sprintf("%d-%d", minID[0], minID[1]-1)
+					end = strconv.FormatInt(minID[0], 10) + "-" + strconv.FormatInt(minID[1]-1, 10)
 				} else {
-					end = fmt.Sprintf("%d", minID[0]-1)
+					end = strconv.FormatInt(minID[0]-1, 10)
 				}
 			} else {
-				end = fmt.Sprintf("%d-%d", minID[0], minID[1])
+				end = strconv.FormatInt(minID[0], 10) + "-" + strconv.FormatInt(minID[1], 10)
 			}
 			for {
 				messages := r.redis.XRange(stream, start, end, garbageCollectorCount)
