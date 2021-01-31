@@ -257,6 +257,30 @@ func TestCachedSearchErrors(t *testing.T) {
 	})
 }
 
+func BenchmarkFillStructDefault(b *testing.B) {
+	entity := &schemaEntity{}
+	ref := &schemaEntityRef{}
+	registry := &Registry{}
+	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
+	registry.RegisterLocalCache(10000)
+	engine := PrepareTables(nil, registry, 5, entity, ref)
+	e := &schemaEntity{}
+	e.Name = fmt.Sprintf("Name %d", 1)
+	e.Uint32 = 1
+	e.Int32 = 1
+	e.Int8 = 1
+	e.Enum = TestEnum.A
+	e.RefOne = &schemaEntityRef{}
+	engine.Flush(e)
+	data := buildLocalCacheValue(e)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		e = &schemaEntity{}
+		fillFromDBRow(1, engine, data, e, false)
+	}
+}
+
 func BenchmarkCachedSearch(b *testing.B) {
 	entity := &schemaEntity{}
 	ref := &schemaEntityRef{}
@@ -281,7 +305,7 @@ func BenchmarkCachedSearch(b *testing.B) {
 	_ = engine.CachedSearch(&rows, "IndexAll", pager)
 	b.ResetTimer()
 	b.ReportAllocs()
-	//BenchmarkCachedSearch-12    	      82	  13700838 ns/op	 5137302 B/op	   67138 allocs/op
+	//BenchmarkCachedSearch-12    	  129385	      9247 ns/op	    6414 B/op	      72 allocs/op
 	for n := 0; n < b.N; n++ {
 		_ = engine.CachedSearch(&rows, "IndexAll", pager)
 	}
