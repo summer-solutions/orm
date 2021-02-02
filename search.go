@@ -15,6 +15,195 @@ func searchIDsWithCount(skipFakeDelete bool, engine *Engine, where *Where, pager
 	return searchIDs(skipFakeDelete, engine, where, pager, true, entityType)
 }
 
+func prepareScan(schema *tableSchema) (pointers []interface{}) {
+	count := len(schema.columnNames)
+	pointers = make([]interface{}, count)
+	prepareScanForFields(schema.fields, 0, pointers)
+	return pointers
+}
+
+func prepareScanForFields(fields *tableFields, start int, pointers []interface{}) {
+	for i := 0; i < len(fields.uintegers); i++ {
+		v := uint64(0)
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.uintegersNullable); i++ {
+		v := sql.NullInt64{}
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.integers); i++ {
+		v := int64(0)
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.integersNullable); i++ {
+		v := sql.NullInt64{}
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.strings); i++ {
+		v := sql.NullString{}
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.sliceStrings); i++ {
+		v := sql.NullString{}
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.bytes); i++ {
+		var v []byte
+		pointers[start] = &v
+		start++
+	}
+	if fields.fakeDelete > 0 {
+		v := uint64(0)
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.booleans); i++ {
+		v := false
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.booleansNullable); i++ {
+		v := sql.NullBool{}
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.floats); i++ {
+		v := float64(0)
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.floatsNullable); i++ {
+		v := sql.NullFloat64{}
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.timesNullable); i++ {
+		v := sql.NullString{}
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.times); i++ {
+		v := ""
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.jsons); i++ {
+		v := sql.NullString{}
+		pointers[start] = &v
+		start++
+	}
+
+}
+
+func convertScan(fields *tableFields, start int, pointers []interface{}) {
+	for i := 0; i < len(fields.uintegers); i++ {
+		pointers[start] = *pointers[start].(*uint64)
+		start++
+	}
+	for i := 0; i < len(fields.uintegersNullable); i++ {
+		v := pointers[start].(*sql.NullInt64)
+		if v.Valid {
+			pointers[start] = uint64(v.Int64)
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+	for i := 0; i < len(fields.integers); i++ {
+		pointers[start] = *pointers[start].(*int64)
+		start++
+	}
+	for i := 0; i < len(fields.integersNullable); i++ {
+		v := pointers[start].(*sql.NullInt64)
+		if v.Valid {
+			pointers[start] = v.Int64
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+	for i := 0; i < len(fields.strings); i++ {
+		v := pointers[start].(*sql.NullString)
+		if v.Valid {
+			pointers[start] = v.String
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+	for i := 0; i < len(fields.sliceStrings); i++ {
+		v := pointers[start].(*sql.NullString)
+		if v.Valid {
+			pointers[start] = strings.Split(v.String, ",")
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+	for i := 0; i < len(fields.bytes); i++ {
+		pointers[start] = *pointers[start].(*[]byte)
+		start++
+	}
+	if fields.fakeDelete > 0 {
+		pointers[start] = *pointers[start].(*uint64)
+		start++
+	}
+	for i := 0; i < len(fields.booleans); i++ {
+		pointers[start] = *pointers[start].(*bool)
+		start++
+	}
+	for i := 0; i < len(fields.booleansNullable); i++ {
+		v := pointers[start].(*sql.NullBool)
+		if v.Valid {
+			pointers[start] = v.Bool
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+	for i := 0; i < len(fields.floats); i++ {
+		pointers[start] = *pointers[start].(*float64)
+		start++
+	}
+	for i := 0; i < len(fields.floatsNullable); i++ {
+		v := pointers[start].(*sql.NullFloat64)
+		if v.Valid {
+			pointers[start] = v.Float64
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+	for i := 0; i < len(fields.timesNullable); i++ {
+		v := pointers[start].(*sql.NullString)
+		if v.Valid {
+			pointers[start] = v.String
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+	for i := 0; i < len(fields.times); i++ {
+		pointers[start] = *pointers[start].(*string)
+		start++
+	}
+	for i := 0; i < len(fields.jsons); i++ {
+		v := pointers[start].(*sql.NullString)
+		if v.Valid {
+			pointers[start] = v.String
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+}
+
 func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) bool {
 	orm := initIfNeeded(engine, entity)
 	schema := orm.tableSchema
@@ -31,29 +220,12 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	if !results.Next() {
 		return false
 	}
-	count := len(schema.columnNames)
-
-	values := make([]sql.NullString, count)
-	valuePointers := make([]interface{}, count)
-	for i := 0; i < count; i++ {
-		valuePointers[i] = &values[i]
-	}
-	results.Scan(valuePointers...)
+	pointers := prepareScan(schema)
+	results.Scan(pointers...)
 	def()
-	id := uint64(0)
-	if values[0].Valid {
-		id, _ = strconv.ParseUint(values[0].String, 10, 64)
-	}
-
-	finalValues := make([]string, count)
-	for i, v := range values {
-		if v.Valid {
-			finalValues[i] = v.String
-		} else {
-			finalValues[i] = "nil"
-		}
-	}
-	fillFromDBRow(id, engine, finalValues[1:], entity, true)
+	convertScan(schema.fields, 0, pointers)
+	id := pointers[0].(uint64)
+	fillFromDBRow(id, engine, pointers, entity, true)
 	if len(references) > 0 {
 		warmUpReferences(engine, schema, entity.getORM().elem, references, false)
 	}
@@ -81,30 +253,16 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
 
-	count := len(schema.columnNames)
-
-	values := make([]sql.NullString, count)
-	valuePointers := make([]interface{}, count)
-	for i := 0; i < count; i++ {
-		valuePointers[i] = &values[i]
-	}
-
 	valOrigin := entities
 	val := valOrigin
 	i := 0
 	for results.Next() {
-		results.Scan(valuePointers...)
-		finalValues := make([]string, count)
-		for i, v := range values {
-			if v.Valid {
-				finalValues[i] = v.String
-			} else {
-				finalValues[i] = "nil"
-			}
-		}
+		pointers := prepareScan(schema)
+		results.Scan(pointers...)
+		convertScan(schema.fields, 0, pointers)
 		value := reflect.New(entityType)
-		id, _ := strconv.ParseUint(finalValues[0], 10, 64)
-		fillFromDBRow(id, engine, finalValues[1:], value.Interface().(Entity), true)
+		id := pointers[0].(uint64)
+		fillFromDBRow(id, engine, pointers, value.Interface().(Entity), true)
 		val = reflect.Append(val, value)
 		i++
 	}
@@ -166,16 +324,15 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 	return totalRows
 }
 
-func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity, fillDataLoader bool) {
+func fillFromDBRow(id uint64, engine *Engine, data []interface{}, entity Entity, fillDataLoader bool) {
 	orm := initIfNeeded(engine, entity)
 	elem := orm.elem
 	orm.idElem.SetUint(id)
+	data[0] = id
 	_ = fillStruct(engine, 0, data, orm.tableSchema.fields, elem)
-	orm.dBData["ID"] = id
+	orm.inDB = true
 	orm.loaded = true
-	for key, column := range orm.tableSchema.columnNames[1:] {
-		orm.dBData[column] = data[key]
-	}
+	orm.dBData = data
 	if !fillDataLoader {
 		return
 	}
@@ -185,35 +342,18 @@ func fillFromDBRow(id uint64, engine *Engine, data []string, entity Entity, fill
 	}
 }
 
-func convertStringToUint(value string) uint64 {
-	v, _ := strconv.ParseUint(value, 10, 64)
-	return v
-}
-
-func convertStringToInt(value string) int64 {
-	v, _ := strconv.ParseInt(value, 10, 64)
-	return v
-}
-
-func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields, value reflect.Value) uint16 {
-	skip := 1
-	if fields.prefix != "" {
-		skip = -1
-	}
+func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableFields, value reflect.Value) uint16 {
 	for _, i := range fields.uintegers {
-		if i == skip {
-			continue
-		}
-		value.Field(i).SetUint(convertStringToUint(data[index]))
+		value.Field(i).SetUint(data[index].(uint64))
 		index++
 	}
 	for _, i := range fields.uintegersNullable {
 		field := value.Field(i)
-		if data[index] == "nil" {
+		if data[index] == nil {
 			field := value.Field(i)
 			field.Set(reflect.Zero(field.Type()))
 		} else {
-			val := convertStringToUint(data[index])
+			val := data[index].(uint64)
 			switch field.Type().String() {
 			case "*uint":
 				v := uint(val)
@@ -234,15 +374,15 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		index++
 	}
 	for _, i := range fields.integers {
-		value.Field(i).SetInt(convertStringToInt(data[index]))
+		value.Field(i).SetInt(data[index].(int64))
 		index++
 	}
 	for _, i := range fields.integersNullable {
 		field := value.Field(i)
-		if data[index] == "nil" {
+		if data[index] == nil {
 			field.Set(reflect.Zero(field.Type()))
 		} else {
-			val := convertStringToInt(data[index])
+			val := data[index].(int64)
 			switch field.Type().String() {
 			case "*int":
 				v := int(val)
@@ -264,20 +404,20 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	}
 	for _, i := range fields.strings {
 		field := value.Field(i)
-		if data[index] == "nil" {
+		if data[index] == nil {
 			field.SetString("")
 		} else {
-			field.SetString(data[index])
+			field.SetString(data[index].(string))
 		}
 		index++
 	}
 	for _, i := range fields.sliceStrings {
 		field := value.Field(i)
-		if data[index] != "nil" {
+		if data[index] != nil {
 			if data[index] == "" {
 				field.Set(reflect.MakeSlice(field.Type(), 0, 0))
 			} else {
-				var values = strings.Split(data[index], ",")
+				var values = strings.Split(data[index].(string), ",")
 				var length = len(values)
 				slice := reflect.MakeSlice(field.Type(), length, length)
 				for key, value := range values {
@@ -293,46 +433,41 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	for _, i := range fields.bytes {
 		bytes := data[index]
 		field := value.Field(i)
-		if bytes != "nil" {
-			field.SetBytes([]byte(bytes))
+		if bytes != nil {
+			field.SetBytes(bytes.([]byte))
 		} else {
 			field.Set(reflect.Zero(field.Type()))
 		}
 		index++
 	}
 	if fields.fakeDelete > 0 {
-		val := true
-		if data[index] == "0" {
-			val = false
-		}
-		value.Field(fields.fakeDelete).SetBool(val)
+		value.Field(fields.fakeDelete).SetBool(data[index].(uint64) > 0)
 		index++
 	}
 	for _, i := range fields.booleans {
-		value.Field(i).SetBool(data[index] == "1")
+		value.Field(i).SetBool(data[index].(bool))
 		index++
 	}
 	for _, i := range fields.booleansNullable {
 		field := value.Field(i)
-		if data[index] == "nil" {
+		if data[index] == nil {
 			field.Set(reflect.Zero(field.Type()))
 		} else {
-			v := data[index] == "1"
+			v := data[index].(bool)
 			field.Set(reflect.ValueOf(&v))
 		}
 		index++
 	}
 	for _, i := range fields.floats {
-		float, _ := strconv.ParseFloat(data[index], 64)
-		value.Field(i).SetFloat(float)
+		value.Field(i).SetFloat(data[index].(float64))
 		index++
 	}
 	for _, i := range fields.floatsNullable {
 		field := value.Field(i)
-		if data[index] == "nil" {
+		if data[index] == nil {
 			field.Set(reflect.Zero(field.Type()))
 		} else {
-			val, _ := strconv.ParseFloat(data[index], 64)
+			val, _ := data[index].(float64)
 			switch field.Type().String() {
 			case "*float32":
 				v := float32(val)
@@ -345,14 +480,15 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	}
 	for _, i := range fields.timesNullable {
 		field := value.Field(i)
-		if data[index] == "nil" {
+		if data[index] == nil {
 			field.Set(reflect.Zero(field.Type()))
 		} else {
+			v := data[index].(string)
 			layout := "2006-01-02"
-			if len(data[index]) == 19 {
+			if len(v) == 19 {
 				layout += " 15:04:05"
 			}
-			value, _ := time.ParseInLocation(layout, data[index], time.Local)
+			value, _ := time.ParseInLocation(layout, v, time.Local)
 			field.Set(reflect.ValueOf(&value))
 		}
 		index++
@@ -360,18 +496,19 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	for _, i := range fields.times {
 		field := value.Field(i)
 		layout := "2006-01-02"
-		if len(data[index]) == 19 {
+		v := data[index].(string)
+		if len(v) == 19 {
 			layout += " 15:04:05"
 		}
-		val, _ := time.ParseInLocation(layout, data[index], time.Local)
+		val, _ := time.ParseInLocation(layout, v, time.Local)
 		field.Set(reflect.ValueOf(val))
 		index++
 	}
 	for _, i := range fields.jsons {
 		field := value.Field(i)
-		if data[index] != "nil" {
+		if data[index] != nil {
 			f := reflect.New(field.Type()).Interface()
-			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index]), f)
+			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index].(string)), f)
 			field.Set(reflect.ValueOf(f).Elem())
 		} else {
 			field.Set(reflect.Zero(field.Type()))
@@ -381,15 +518,15 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 	for k, i := range fields.refs {
 		field := value.Field(i)
 		integer := uint64(0)
-		if data[index] != "nil" {
-			integer, _ = strconv.ParseUint(data[index], 10, 64)
+		if data[index] != nil {
+			integer = data[index].(uint64)
 		}
 		refType := fields.refsTypes[k]
 		if integer > 0 {
 			n := reflect.New(refType.Elem())
 			orm := initIfNeeded(engine, n.Interface().(Entity))
-			orm.dBData["ID"] = integer
 			orm.idElem.SetUint(integer)
+			orm.inDB = true
 			field.Set(n)
 		} else {
 			field.Set(reflect.Zero(refType))
@@ -400,9 +537,9 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 		field := value.Field(i)
 		var f []uint64
 		length := 0
-		if data[index] != "nil" {
+		if data[index] != nil {
 			f = make([]uint64, 0)
-			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index]), &f)
+			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index].(string)), &f)
 			length = len(f)
 		}
 		refType := fields.refsManyTypes[k]
@@ -411,8 +548,8 @@ func fillStruct(engine *Engine, index uint16, data []string, fields *tableFields
 			for i, id := range f {
 				n := reflect.New(refType.Elem())
 				orm := initIfNeeded(engine, n.Interface().(Entity))
-				orm.dBData["ID"] = id
 				orm.idElem.SetUint(id)
+				orm.inDB = true
 				slice.Index(i).Set(n)
 			}
 			field.Set(slice)

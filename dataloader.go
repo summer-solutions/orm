@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"database/sql"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,7 +14,7 @@ const dataLoaderWait = time.Millisecond
 
 type dataLoader struct {
 	engine       *Engine
-	cache        map[string][]string
+	cache        map[string][]interface{}
 	batch        *dataLoaderBatch
 	maxBatchSize int
 	mu           sync.Mutex
@@ -23,30 +22,30 @@ type dataLoader struct {
 
 type dataLoaderBatch struct {
 	keys    []string
-	data    [][]string
+	data    [][]interface{}
 	closing bool
 	done    chan struct{}
 }
 
-func (l *dataLoader) Load(schema TableSchema, id uint64) []string {
+func (l *dataLoader) Load(schema TableSchema, id uint64) []interface{} {
 	return l.loadThunk(l.key(schema, id))()
 }
 
-func (l *dataLoader) LoadAll(schema TableSchema, ids []uint64) [][]string {
-	results := make([]func() []string, len(ids))
+func (l *dataLoader) LoadAll(schema TableSchema, ids []uint64) [][]interface{} {
+	results := make([]func() []interface{}, len(ids))
 
 	for i, id := range ids {
 		results[i] = l.loadThunk(l.key(schema, id))
 	}
 
-	data := make([][]string, len(ids))
+	data := make([][]interface{}, len(ids))
 	for i, thunk := range results {
 		data[i] = thunk()
 	}
 	return data
 }
 
-func (l *dataLoader) Prime(schema TableSchema, id uint64, value []string) {
+func (l *dataLoader) Prime(schema TableSchema, id uint64, value []interface{}) {
 	key := l.key(schema, id)
 	l.mu.Lock()
 	l.unsafeSet(key, value)
@@ -64,11 +63,11 @@ func (l *dataLoader) key(schema TableSchema, id uint64) string {
 	return schema.GetType().String() + ":" + strconv.FormatUint(id, 10)
 }
 
-func (l *dataLoader) loadThunk(key string) func() []string {
+func (l *dataLoader) loadThunk(key string) func() []interface{} {
 	l.mu.Lock()
 	if it, ok := l.cache[key]; ok {
 		l.mu.Unlock()
-		return func() []string {
+		return func() []interface{} {
 			return it
 		}
 	}
@@ -79,10 +78,10 @@ func (l *dataLoader) loadThunk(key string) func() []string {
 	pos := batch.keyIndex(l, key)
 	l.mu.Unlock()
 
-	return func() []string {
+	return func() []interface{} {
 		<-batch.done
 
-		var data []string
+		var data []interface{}
 		if pos < len(batch.data) {
 			data = batch.data[pos]
 		}
@@ -95,9 +94,9 @@ func (l *dataLoader) loadThunk(key string) func() []string {
 	}
 }
 
-func (l *dataLoader) unsafeSet(key string, value []string) {
+func (l *dataLoader) unsafeSet(key string, value []interface{}) {
 	if l.cache == nil {
-		l.cache = map[string][]string{}
+		l.cache = map[string][]interface{}{}
 	}
 	l.cache[key] = value
 }
@@ -151,12 +150,12 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 		id, _ := strconv.ParseUint(parts[1], 10, 64)
 		m[parts[0]] = append(m[parts[0]], id)
 	}
-	results := make(map[string][]string)
+	results := make(map[string][]interface{})
 	for entityName, ids := range m {
 		lenIDs := len(ids)
 		schema := l.engine.registry.GetTableSchema(entityName).(*tableSchema)
 		var redisCacheKeys []string
-		resultsKeys := make(map[string][]string, lenIDs)
+		resultsKeys := make(map[string][]interface{}, lenIDs)
 		keysMapping := make(map[string]uint64, lenIDs)
 		redisCache, hasRedis := schema.GetRedisCache(l.engine)
 		cacheKeys := make([]string, lenIDs)
@@ -203,7 +202,7 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 		}
 	}
 	i := 0
-	b.data = make([][]string, len(b.keys))
+	b.data = make([][]interface{}, len(b.keys))
 	for _, key := range b.keys {
 		b.data[i] = results[key]
 		i++
@@ -212,7 +211,7 @@ func (b *dataLoaderBatch) end(l *dataLoader) {
 }
 
 func (b *dataLoaderBatch) getKeysForNils(l *dataLoader, schema *tableSchema, rows map[string]interface{}, keyMapping map[string]uint64,
-	resultsKeys map[string][]string, results map[string][]string) []string {
+	resultsKeys map[string][]interface{}, results map[string][]interface{}) []string {
 	keys := make([]string, 0)
 	for k, v := range rows {
 		if v == nil {
@@ -221,7 +220,7 @@ func (b *dataLoaderBatch) getKeysForNils(l *dataLoader, schema *tableSchema, row
 			if v == "nil" {
 				resultsKeys[k] = nil
 			} else {
-				var decoded []string
+				var decoded []interface{}
 				_ = jsoniter.ConfigFastest.Unmarshal([]byte(v.(string)), &decoded)
 				resultsKeys[k] = decoded
 				results[l.key(schema, keyMapping[k])] = decoded
@@ -231,36 +230,22 @@ func (b *dataLoaderBatch) getKeysForNils(l *dataLoader, schema *tableSchema, row
 	return keys
 }
 
-func (b *dataLoaderBatch) search(schema *tableSchema, engine *Engine, ids []uint64) map[uint64][]string {
+func (b *dataLoaderBatch) search(schema *tableSchema, engine *Engine, ids []uint64) map[uint64][]interface{} {
 	where := NewWhere("`ID` IN ?", ids)
-	result := make(map[uint64][]string)
+	result := make(map[uint64][]interface{})
 	/* #nosec */
 	query := "SELECT " + schema.fieldsQuery + " FROM `" + schema.tableName + "` WHERE" + where.String()
 	pool := schema.GetMysql(engine)
 	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
 
-	count := len(schema.columnNames)
-
-	values := make([]sql.NullString, count)
-	valuePointers := make([]interface{}, count)
-	for i := 0; i < count; i++ {
-		valuePointers[i] = &values[i]
-	}
-
 	i := 0
 	for results.Next() {
-		results.Scan(valuePointers...)
-		finalValues := make([]string, count)
-		for i, v := range values {
-			if v.Valid {
-				finalValues[i] = v.String
-			} else {
-				finalValues[i] = "nil"
-			}
-		}
-		id, _ := strconv.ParseUint(finalValues[0], 10, 64)
-		result[id] = finalValues[1:]
+		pointers := prepareScan(schema)
+		results.Scan(pointers...)
+		convertScan(schema.fields, 0, pointers)
+		id := pointers[0].(uint64)
+		result[id] = pointers
 		i++
 	}
 	def()

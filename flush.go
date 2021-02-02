@@ -38,7 +38,7 @@ func (err *ForeignKeyError) Error() string {
 	return err.Message
 }
 
-type dataLoaderSets map[*tableSchema]map[uint64][]string
+type dataLoaderSets map[*tableSchema]map[uint64][]interface{}
 
 func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...Entity) {
 	insertKeys := make(map[reflect.Type][]string)
@@ -49,7 +49,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	deleteBinds := make(map[reflect.Type]map[uint64]map[string]interface{})
 	totalInsert := make(map[reflect.Type]int)
 	localCacheSets := make(map[string]map[string][]interface{})
-	dataLoaderSets := make(map[*tableSchema]map[uint64][]string)
+	dataLoaderSets := make(map[*tableSchema]map[uint64][]interface{})
 	localCacheDeletes := make(map[string]map[string]bool)
 	lazyMap := make(map[string]interface{})
 	redisFlusher := &redisFlusher{engine: engine}
@@ -113,8 +113,8 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			if deleteBinds[t] == nil {
 				deleteBinds[t] = make(map[uint64]map[string]interface{})
 			}
-			deleteBinds[t][currentID] = dbData
-		} else if len(dbData) == 0 {
+			deleteBinds[t][currentID] = convertDBDataToMap(schema, dbData)
+		} else if !orm.inDB {
 			onUpdate := entity.getORM().onDuplicateKeyUpdate
 			if onUpdate != nil {
 				if lazy {
@@ -364,7 +364,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		if hasLocalCache {
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
-				keys := getCacheQueriesKeys(schema, bind, bind, true)
+				keys := getCacheQueriesKeys(schema, bind, nil, true)
 				addLocalCacheDeletes(localCacheDeletes, localCache.code, keys...)
 			}
 		} else if engine.dataLoader != nil {
@@ -375,7 +375,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		if hasRedis {
 			for id, bind := range deleteBinds {
 				redisFlusher.Del(redisCache.code, schema.getCacheKey(id))
-				keys := getCacheQueriesKeys(schema, bind, bind, true)
+				keys := getCacheQueriesKeys(schema, bind, nil, true)
 				redisFlusher.Del(redisCache.code, keys...)
 			}
 		}
@@ -436,10 +436,10 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			}
 		} else {
 			if engine.afterCommitDataLoaderSets == nil {
-				engine.afterCommitDataLoaderSets = make(map[*tableSchema]map[uint64][]string)
+				engine.afterCommitDataLoaderSets = make(map[*tableSchema]map[uint64][]interface{})
 			}
 			if engine.afterCommitDataLoaderSets[schema] == nil {
-				engine.afterCommitDataLoaderSets[schema] = make(map[uint64][]string)
+				engine.afterCommitDataLoaderSets[schema] = make(map[uint64][]interface{})
 			}
 			for id, value := range rows {
 				engine.afterCommitDataLoaderSets[schema][id] = value
@@ -452,13 +452,11 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	redisFlusher.Flush()
 }
 
-func updateCacheAfterUpdate(lazy bool, dbData map[string]interface{}, engine *Engine, entity Entity, bind map[string]interface{},
+func updateCacheAfterUpdate(lazy bool, dbData []interface{}, engine *Engine, entity Entity, bind map[string]interface{},
 	schema *tableSchema, localCacheSets map[string]map[string][]interface{}, localCacheDeletes map[string]map[string]bool,
 	db *DB, currentID uint64, redisFlusher RedisFlusher, dataLoaderSets dataLoaderSets) {
-	old := make(map[string]interface{}, len(dbData))
-	for k, v := range dbData {
-		old[k] = v
-	}
+	old := make([]interface{}, len(dbData))
+	copy(old, dbData)
 	injectBind(entity, bind)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	if !hasLocalCache && engine.hasRequestCache {
@@ -487,29 +485,38 @@ func updateCacheAfterUpdate(lazy bool, dbData map[string]interface{}, engine *En
 		redisFlusher.Del(redisCache.code, keys...)
 	}
 	addDirtyQueues(redisFlusher, bind, schema, currentID, "u")
-	addToLogQueue(engine, redisFlusher, schema, currentID, old, bind, entity.getORM().logMeta)
+	addToLogQueue(engine, redisFlusher, schema, currentID, convertDBDataToMap(schema, old), bind, entity.getORM().logMeta)
 }
 
-func injectBind(entity Entity, bind map[string]interface{}) map[string]interface{} {
+func convertDBDataToMap(schema *tableSchema, data []interface{}) map[string]interface{} {
+	m := make(map[string]interface{})
+	for _, name := range schema.columnNames {
+		m[name] = data[schema.columnMapping[name]]
+	}
+	return m
+}
+
+func injectBind(entity Entity, bind map[string]interface{}) {
 	orm := entity.getORM()
+	mapping := orm.tableSchema.columnMapping
 	for key, value := range bind {
-		orm.dBData[key] = value
+		orm.dBData[mapping[key]] = value
 	}
 	orm.loaded = true
-	return orm.dBData
+	orm.inDB = true
 }
 
-func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value reflect.Value,
-	oldData map[string]interface{}, prefix string) (bind map[string]interface{}) {
+func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, value reflect.Value,
+	oldData []interface{}, prefix string) (bind map[string]interface{}) {
 	bind = make(map[string]interface{})
-	var hasOld = len(oldData) > 0
+	var hasOld = orm.inDB
 	for i := 0; i < t.NumField(); i++ {
 		fieldType := t.Field(i)
 		name := prefix + fieldType.Name
 		if prefix == "" && i <= 1 {
 			continue
 		}
-		old := oldData[name]
+		old := oldData[tableSchema.columnMapping[name]]
 		field := value.Field(i)
 		attributes := tableSchema.tags[name]
 		_, has := attributes["ignore"]
@@ -522,52 +529,49 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		switch fieldTypeString {
 		case "uint", "uint8", "uint16", "uint32", "uint64":
 			val := field.Uint()
-			valString := strconv.FormatUint(val, 10)
 			if attributes["year"] == "true" {
-				valString = fmt.Sprintf("%04d", val)
-				if hasOld && old == valString {
+				if hasOld && old == val {
 					continue
 				}
-				bind[name] = valString
+				bind[name] = val
 				continue
 			}
-			if hasOld && old == valString {
+			if hasOld && old == val {
 				continue
 			}
-			bind[name] = valString
+			bind[name] = val
 		case "*uint", "*uint8", "*uint16", "*uint32", "*uint64":
 			if attributes["year"] == "true" {
 				isNil := field.IsZero()
 				if isNil {
-					if hasOld && (old == "nil" || old == nil) {
+					if hasOld && old == nil {
 						continue
 					}
 					bind[name] = nil
 					continue
 				}
 				val := field.Elem().Uint()
-				valString := fmt.Sprintf("%04d", val)
-				if hasOld && old == valString {
+				if hasOld && old == val {
 					continue
 				}
-				bind[name] = valString
+				bind[name] = val
 				continue
 			}
 			isNil := field.IsZero()
 			if isNil {
-				if hasOld && (old == "nil" || old == nil) {
+				if hasOld && old == nil {
 					continue
 				}
 				bind[name] = nil
 				continue
 			}
-			val := strconv.FormatUint(field.Elem().Uint(), 10)
+			val := field.Elem().Uint()
 			if hasOld && old == val {
 				continue
 			}
 			bind[name] = val
 		case "int", "int8", "int16", "int32", "int64":
-			val := strconv.FormatInt(field.Int(), 10)
+			val := field.Int()
 			if hasOld && old == val {
 				continue
 			}
@@ -575,20 +579,20 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		case "*int", "*int8", "*int16", "*int32", "*int64":
 			isNil := field.IsZero()
 			if isNil {
-				if hasOld && (old == "nil" || old == nil) {
+				if hasOld && old == nil {
 					continue
 				}
 				bind[name] = nil
 				continue
 			}
-			val := strconv.FormatInt(field.Elem().Int(), 10)
+			val := field.Elem().Int()
 			if hasOld && old == val {
 				continue
 			}
 			bind[name] = val
 		case "string":
 			value := field.String()
-			if hasOld && (old == value || ((old == "nil" || old == nil) && value == "")) {
+			if hasOld && (old == value || (old == nil && value == "")) {
 				continue
 			}
 			if isRequired || value != "" {
@@ -599,19 +603,19 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		case "[]uint8":
 			value := field.Bytes()
 			valueAsString := string(value)
-			if hasOld && (old == valueAsString || ((old == "nil" || old == nil) && valueAsString == "")) {
+			if hasOld && ((old != nil && string(old.([]byte)) == valueAsString) || (old == nil && valueAsString == "")) {
 				continue
 			}
 			if valueAsString == "" {
 				bind[name] = nil
 			} else {
-				bind[name] = valueAsString
+				bind[name] = value
 			}
 		case "bool":
 			if name == "FakeDelete" {
-				value := "0"
+				value := uint64(0)
 				if field.Bool() {
-					value = strconv.FormatUint(id, 10)
+					value = id
 				}
 				if hasOld && old == value {
 					continue
@@ -619,26 +623,20 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				bind[name] = value
 				continue
 			}
-			value := "0"
-			if field.Bool() {
-				value = "1"
-			}
+			value := field.Bool()
 			if hasOld && old == value {
 				continue
 			}
 			bind[name] = value
 		case "*bool":
 			if field.IsZero() {
-				if hasOld && (old == "nil" || old == nil) {
+				if hasOld && old == nil {
 					continue
 				}
 				bind[name] = nil
 				continue
 			}
-			value := "0"
-			if field.Elem().Bool() {
-				value = "1"
-			}
+			value := field.Elem().Bool()
 			if hasOld && old == value {
 				continue
 			}
@@ -646,9 +644,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		case "float32", "float64":
 			val := field.Float()
 			precision := 8
-			bitSize := 32
 			if field.Type().String() == "float64" {
-				bitSize = 64
 				precision = 16
 			}
 			fieldAttributes := tableSchema.tags[name]
@@ -657,19 +653,29 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				userPrecision, _ := strconv.Atoi(precisionAttribute)
 				precision = userPrecision
 			}
-			valString := strconv.FormatFloat(val, 'g', precision, bitSize)
 			decimal, has := attributes["decimal"]
 			if has {
 				decimalArgs := strings.Split(decimal, ",")
 				size, _ := strconv.ParseFloat(decimalArgs[1], 64)
 				sizeNumber := math.Pow(10, size)
-				val2 := math.Round(val*sizeNumber) / sizeNumber
-				valString = fmt.Sprintf("%."+decimalArgs[1]+"f", val2)
+				val = math.Round(val*sizeNumber) / sizeNumber
+				if hasOld {
+					valOld := math.Round(old.(float64)*sizeNumber) / sizeNumber
+					if val == valOld {
+						continue
+					}
+				}
+			} else {
+				sizeNumber := math.Pow(10, float64(precision))
+				val = math.Round(val*sizeNumber) / sizeNumber
+				if hasOld {
+					valOld := math.Round(old.(float64)*sizeNumber) / sizeNumber
+					if valOld == val {
+						continue
+					}
+				}
 			}
-			if hasOld && old == valString {
-				continue
-			}
-			bind[name] = valString
+			bind[name] = val
 		case "*float32", "*float64":
 			var val float64
 			isZero := field.IsZero()
@@ -677,9 +683,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				val = field.Elem().Float()
 			}
 			precision := 8
-			bitSize := 32
 			if field.Type().String() == "*float64" {
-				bitSize = 64
 				precision = 16
 			}
 			fieldAttributes := tableSchema.tags[name]
@@ -688,28 +692,43 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 				userPrecision, _ := strconv.Atoi(precisionAttribute)
 				precision = userPrecision
 			}
-			valString := strconv.FormatFloat(val, 'g', precision, bitSize)
 			decimal, has := attributes["decimal"]
 			if has {
+				if isZero {
+					if hasOld && old == nil {
+						continue
+					}
+					bind[name] = nil
+					continue
+				}
 				decimalArgs := strings.Split(decimal, ",")
 				size, _ := strconv.ParseFloat(decimalArgs[1], 64)
 				sizeNumber := math.Pow(10, size)
-				val2 := math.Round(val*sizeNumber) / sizeNumber
-				valString = fmt.Sprintf("%."+decimalArgs[1]+"f", val2)
-			}
-			if hasOld {
-				if isZero {
-					if old == "nil" || old == nil {
+				val = math.Round(val*sizeNumber) / sizeNumber
+				if hasOld && old != nil {
+					valOld := math.Round(old.(float64)*sizeNumber) / sizeNumber
+					if val == valOld {
 						continue
 					}
-				} else if old == valString {
+				}
+				bind[name] = val
+			} else {
+				if isZero {
+					if hasOld && old == nil {
+						continue
+					}
+					bind[name] = nil
 					continue
 				}
-			}
-			if isZero {
-				bind[name] = nil
-			} else {
-				bind[name] = valString
+				sizeNumber := math.Pow(10, float64(precision))
+				val = math.Round(val*sizeNumber) / sizeNumber
+				if hasOld && old != nil {
+					valOld := math.Round(old.(float64)*sizeNumber) / sizeNumber
+					if valOld == val {
+						continue
+					}
+				}
+				bind[name] = val
 			}
 		case "*orm.CachedQuery":
 			continue
@@ -760,7 +779,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 			if value != nil {
 				valueAsString = strings.Join(value, ",")
 			}
-			if hasOld && (old == valueAsString || (valueAsString == "" && (old == nil || old == "nil"))) {
+			if hasOld && (old == valueAsString || (valueAsString == "" && old == nil)) {
 				continue
 			}
 			if isRequired || valueAsString != "" {
@@ -771,23 +790,23 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 		default:
 			k := field.Kind().String()
 			if k == "struct" {
-				subBind := createBind(0, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
+				subBind := createBind(0, orm, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
 				for key, value := range subBind {
 					bind[key] = value
 				}
 				continue
 			} else if k == "ptr" {
-				valueAsString := ""
+				value := uint64(0)
 				if !field.IsNil() {
-					valueAsString = strconv.FormatUint(field.Elem().Field(1).Uint(), 10)
+					value = field.Elem().Field(1).Uint()
 				}
-				if hasOld && (old == valueAsString || ((old == "nil" || old == nil || old == "0") && valueAsString == "")) {
+				if hasOld && (old == value || ((old == nil || old == 0) && value == 0)) {
 					continue
 				}
-				if valueAsString == "" || valueAsString == "0" {
+				if value == 0 {
 					bind[name] = nil
 				} else {
-					bind[name] = valueAsString
+					bind[name] = value
 				}
 				continue
 			} else {
@@ -845,7 +864,7 @@ func createBind(id uint64, tableSchema *tableSchema, t reflect.Type, value refle
 	return
 }
 
-func getCacheQueriesKeys(schema *tableSchema, bind map[string]interface{}, data map[string]interface{}, addedDeleted bool) (keys []string) {
+func getCacheQueriesKeys(schema *tableSchema, bind map[string]interface{}, data []interface{}, addedDeleted bool) (keys []string) {
 	keys = make([]string, 0)
 
 	for indexName, definition := range schema.cachedIndexesAll {
@@ -860,7 +879,7 @@ func getCacheQueriesKeys(schema *tableSchema, bind map[string]interface{}, data 
 			if has {
 				attributes := make([]interface{}, 0)
 				for _, trackedFieldSub := range definition.QueryFields {
-					val := data[trackedFieldSub]
+					val := data[schema.columnMapping[trackedFieldSub]]
 					if !schema.hasFakeDelete || trackedFieldSub != "FakeDelete" {
 						attributes = append(attributes, val)
 					}
@@ -880,9 +899,9 @@ func addLocalCacheSet(localCacheSets map[string]map[string][]interface{}, dbCode
 	localCacheSets[dbCode][cacheCode] = append(localCacheSets[dbCode][cacheCode], keys...)
 }
 
-func addToDataLoader(values map[*tableSchema]map[uint64][]string, schema *tableSchema, id uint64, value []string) {
+func addToDataLoader(values map[*tableSchema]map[uint64][]interface{}, schema *tableSchema, id uint64, value []interface{}) {
 	if values[schema] == nil {
-		values[schema] = make(map[uint64][]string)
+		values[schema] = make(map[uint64][]interface{})
 	}
 	values[schema][id] = value
 }
@@ -999,14 +1018,14 @@ func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 		} else {
 			addLocalCacheDeletes(localCacheDeletes, localCache.code, schema.getCacheKey(id))
 		}
-		keys := getCacheQueriesKeys(schema, bind, bind, true)
+		keys := getCacheQueriesKeys(schema, bind, nil, true)
 		addLocalCacheDeletes(localCacheDeletes, localCache.code, keys...)
 	} else if !lazy && engine.dataLoader != nil {
 		addToDataLoader(dataLoaderSets, schema, id, buildLocalCacheValue(entity))
 	}
 	if hasRedis {
 		redisFlusher.Del(redisCache.code, schema.getCacheKey(id))
-		keys := getCacheQueriesKeys(schema, bind, bind, true)
+		keys := getCacheQueriesKeys(schema, bind, nil, true)
 		redisFlusher.Del(redisCache.code, keys...)
 	}
 	addDirtyQueues(redisFlusher, bind, schema, id, "i")

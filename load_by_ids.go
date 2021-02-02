@@ -164,13 +164,13 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 				results[k] = nil
 			} else if fromRedis {
 				entity := reflect.New(entityType).Interface().(Entity)
-				var decoded []string
+				var decoded []interface{}
 				_ = jsoniter.ConfigFastest.Unmarshal([]byte(v.(string)), &decoded)
 				fillFromDBRow(keysMapping[k], engine, decoded, entity, false)
 				results[k] = entity
 			} else {
 				entity := reflect.New(entityType).Interface().(Entity)
-				fillFromDBRow(keysMapping[k], engine, v.([]string), entity, false)
+				fillFromDBRow(keysMapping[k], engine, v.([]interface{}), entity, false)
 				results[k] = entity
 			}
 		}

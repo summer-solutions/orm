@@ -3,6 +3,7 @@ package orm
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -118,12 +119,12 @@ func TestFlush(t *testing.T) {
 	assert.True(t, entity.IsDirty())
 	assert.True(t, entity.ReferenceOne.IsDirty())
 	flusher := engine.NewFlusher().Track(entity)
+	engine.EnableQueryDebug()
 	flusher.Flush()
 	flusher.Flush()
 	assert.True(t, entity.Loaded())
 	assert.True(t, entity.ReferenceOne.Loaded())
 	assert.False(t, entity.IsDirty())
-
 	assert.False(t, entity.ReferenceOne.IsDirty())
 	assert.Equal(t, uint(1), entity.ID)
 	assert.NotEqual(t, uint(0), entity.ReferenceOne.ID)
@@ -136,6 +137,7 @@ func TestFlush(t *testing.T) {
 
 	entity = &flushEntity{}
 	found := engine.LoadByID(1, entity)
+
 	assert.True(t, found)
 	assert.Equal(t, "Tom", entity.Name)
 	assert.Equal(t, 12, entity.Age)
@@ -276,6 +278,7 @@ func TestFlush(t *testing.T) {
 	entity2.Name = "Tom"
 	entity2.SetOnDuplicateKeyUpdate(Bind{"Age": 40})
 	engine.Flush(entity2)
+	os.Exit(0)
 
 	assert.Equal(t, uint(1), entity2.ID)
 	assert.Equal(t, 40, entity2.Age)

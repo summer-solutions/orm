@@ -24,10 +24,11 @@ type Entity interface {
 }
 
 type ORM struct {
-	dBData               map[string]interface{}
+	dBData               []interface{}
 	tableSchema          *tableSchema
 	onDuplicateKeyUpdate map[string]interface{}
 	loaded               bool
+	inDB                 bool
 	delete               bool
 	fakeDelete           bool
 	value                reflect.Value
@@ -92,7 +93,7 @@ func (orm *ORM) GetDirtyBind() (bind Bind, has bool) {
 	}
 	id := orm.GetID()
 	t := orm.elem.Type()
-	bind = createBind(id, orm.tableSchema, t, orm.elem, orm.dBData, "")
+	bind = createBind(id, orm, orm.tableSchema, t, orm.elem, orm.dBData, "")
 	has = id == 0 || len(bind) > 0
 	return bind, has
 }

@@ -37,10 +37,10 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			cacheKey = schema.getCacheKey(id)
 			e, has := localCache.Get(cacheKey)
 			if has {
-				if e == "nil" {
+				if e == nil {
 					return false
 				}
-				fillFromDBRow(id, engine, e.([]string), entity, false)
+				fillFromDBRow(id, engine, e.([]interface{}), entity, false)
 				if len(references) > 0 {
 					warmUpReferences(engine, schema, orm.elem, references, false)
 				}
@@ -54,7 +54,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 				if row == "nil" {
 					return false
 				}
-				var decoded []string
+				var decoded []interface{}
 				_ = jsoniter.ConfigFastest.Unmarshal([]byte(row), &decoded)
 				fillFromDBRow(id, engine, decoded, entity, false)
 				if len(references) > 0 {
@@ -95,21 +95,11 @@ func buildRedisValue(entity Entity) string {
 	return string(encoded)
 }
 
-func buildLocalCacheValue(entity Entity) []string {
-	bind := entity.getORM().dBData
-	columns := entity.getORM().tableSchema.columnNames
-	length := len(columns)
-	value := make([]string, length-1)
-	j := 0
-	for i := 1; i < length; i++ { //skip id
-		v := bind[columns[i]]
-		if v == nil {
-			v = "nil"
-		}
-		value[j] = v.(string)
-		j++
-	}
-	return value
+func buildLocalCacheValue(entity Entity) []interface{} {
+	data := entity.getORM().dBData
+	b := make([]interface{}, len(data))
+	copy(b, data)
+	return b
 }
 
 func initIfNeeded(engine *Engine, entity Entity) *ORM {
@@ -123,7 +113,7 @@ func initIfNeeded(engine *Engine, entity Entity) *ORM {
 			panic(fmt.Errorf("entity '%s' is not registered", t.String()))
 		}
 		orm.tableSchema = tableSchema
-		orm.dBData = make(map[string]interface{}, len(tableSchema.columnNames))
+		orm.dBData = make([]interface{}, len(tableSchema.columnNames))
 		orm.value = value
 		orm.elem = elem
 		orm.idElem = elem.Field(1)
