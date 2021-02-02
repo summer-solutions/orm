@@ -71,12 +71,12 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	if hasLocalCache || hasRedis {
 		if hasLocalCache {
 			resultsLocalCache := localCache.MGet(cacheKeys...)
-			cacheKeys = getKeysForNils(engine, schema.t, resultsLocalCache, keysMapping, results, false)
+			cacheKeys = getKeysForNils(engine, schema, resultsLocalCache, keysMapping, results, false)
 			localCacheKeys = cacheKeys
 		}
 		if hasRedis && len(cacheKeys) > 0 {
 			resultsRedis := redisCache.MGet(cacheKeys...)
-			cacheKeys = getKeysForNils(engine, schema.t, resultsRedis, keysMapping, results, true)
+			cacheKeys = getKeysForNils(engine, schema, resultsRedis, keysMapping, results, true)
 			redisCacheKeys = cacheKeys
 		}
 		ids = make([]uint64, len(cacheKeys))
@@ -153,7 +153,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 	return
 }
 
-func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]interface{}, keysMapping map[string]uint64,
+func getKeysForNils(engine *Engine, schema *tableSchema, rows map[string]interface{}, keysMapping map[string]uint64,
 	results map[string]Entity, fromRedis bool) []string {
 	keys := make([]string, 0)
 	for k, v := range rows {
@@ -163,13 +163,14 @@ func getKeysForNils(engine *Engine, entityType reflect.Type, rows map[string]int
 			if v == "nil" {
 				results[k] = nil
 			} else if fromRedis {
-				entity := reflect.New(entityType).Interface().(Entity)
+				entity := reflect.New(schema.t).Interface().(Entity)
 				var decoded []interface{}
 				_ = jsoniter.ConfigFastest.Unmarshal([]byte(v.(string)), &decoded)
+				convertDataFromJSON(schema.fields, 0, decoded)
 				fillFromDBRow(keysMapping[k], engine, decoded, entity, false)
 				results[k] = entity
 			} else {
-				entity := reflect.New(entityType).Interface().(Entity)
+				entity := reflect.New(schema.t).Interface().(Entity)
 				fillFromDBRow(keysMapping[k], engine, v.([]interface{}), entity, false)
 				results[k] = entity
 			}

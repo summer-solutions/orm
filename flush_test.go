@@ -37,7 +37,7 @@ type flushEntity struct {
 	YearNullable         *uint16 `orm:"year"`
 	BoolNullable         *bool
 	FloatNullable        *float64              `orm:"precision=10"`
-	Float32Nullable      *float32              `orm:"precision=10"`
+	Float32Nullable      *float32              `orm:"precision=4"`
 	ReferenceOne         *flushEntityReference `orm:"unique=ReferenceOne"`
 	ReferenceTwo         *flushEntityReference `orm:"unique=ReferenceTwo"`
 	ReferenceMany        []*flushEntityReference
@@ -93,7 +93,23 @@ type flushEntitySmart struct {
 	Age  int
 }
 
-func TestFlush(t *testing.T) {
+func TestFlushLocalRedis(t *testing.T) {
+	testFlush(t, true, true)
+}
+
+func TestFlushLocal(t *testing.T) {
+	testFlush(t, true, false)
+}
+
+func TestFlushNoCache(t *testing.T) {
+	testFlush(t, false, false)
+}
+
+func TestFlushRedis(t *testing.T) {
+	testFlush(t, false, true)
+}
+
+func testFlush(t *testing.T, local bool, redis bool) {
 	var entity *flushEntity
 	var reference *flushEntityReference
 	var referenceCascade *flushEntityReferenceCascade
@@ -101,6 +117,16 @@ func TestFlush(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterEnumSlice("orm.TestEnum", []string{"a", "b", "c"})
 	engine := PrepareTables(t, registry, 5, entity, reference, referenceCascade, entitySmart)
+
+	schema := engine.registry.GetTableSchemaForEntity(entity).(*tableSchema)
+	if !local {
+		schema.hasLocalCache = false
+		schema.localCacheName = ""
+	}
+	if !redis {
+		schema.hasRedisCache = false
+		schema.redisCacheName = ""
+	}
 
 	now := time.Now()
 	layout := "2006-01-02 15:04:05"
@@ -498,6 +524,9 @@ func TestFlush(t *testing.T) {
 	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
+	if !local || !redis {
+		return
+	}
 	receiver.Digest(context.Background(), 100)
 	assert.True(t, validHeartBeat)
 	assert.Len(t, testLogger.Entries, 1)

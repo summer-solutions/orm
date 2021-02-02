@@ -603,13 +603,13 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 		case "[]uint8":
 			value := field.Bytes()
 			valueAsString := string(value)
-			if hasOld && ((old != nil && string(old.([]byte)) == valueAsString) || (old == nil && valueAsString == "")) {
+			if hasOld && ((old != nil && old.(string) == valueAsString) || (old == nil && valueAsString == "")) {
 				continue
 			}
 			if valueAsString == "" {
 				bind[name] = nil
 			} else {
-				bind[name] = value
+				bind[name] = valueAsString
 			}
 		case "bool":
 			if name == "FakeDelete" {
@@ -682,9 +682,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 			if !isZero {
 				val = field.Elem().Float()
 			}
-			precision := 8
+			precision := 5
 			if field.Type().String() == "*float64" {
-				precision = 16
+				precision = 10
 			}
 			fieldAttributes := tableSchema.tags[name]
 			precisionAttribute, has := fieldAttributes["precision"]
@@ -1018,14 +1018,14 @@ func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 		} else {
 			addLocalCacheDeletes(localCacheDeletes, localCache.code, schema.getCacheKey(id))
 		}
-		keys := getCacheQueriesKeys(schema, bind, nil, true)
+		keys := getCacheQueriesKeys(schema, bind, entity.getORM().dBData, true)
 		addLocalCacheDeletes(localCacheDeletes, localCache.code, keys...)
 	} else if !lazy && engine.dataLoader != nil {
 		addToDataLoader(dataLoaderSets, schema, id, buildLocalCacheValue(entity))
 	}
 	if hasRedis {
 		redisFlusher.Del(redisCache.code, schema.getCacheKey(id))
-		keys := getCacheQueriesKeys(schema, bind, nil, true)
+		keys := getCacheQueriesKeys(schema, bind, entity.getORM().dBData, true)
 		redisFlusher.Del(redisCache.code, keys...)
 	}
 	addDirtyQueues(redisFlusher, bind, schema, id, "i")

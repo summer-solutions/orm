@@ -54,7 +54,7 @@ func prepareScanForFields(fields *tableFields, start int, pointers []interface{}
 		start++
 	}
 	for i := 0; i < len(fields.bytes); i++ {
-		var v []byte
+		v := sql.NullString{}
 		pointers[start] = &v
 		start++
 	}
@@ -160,7 +160,12 @@ func convertScan(fields *tableFields, start int, pointers []interface{}) int {
 		start++
 	}
 	for i := 0; i < len(fields.bytes); i++ {
-		pointers[start] = *pointers[start].(*[]byte)
+		v := pointers[start].(*sql.NullString)
+		if v.Valid {
+			pointers[start] = v.String
+		} else {
+			pointers[start] = nil
+		}
 		start++
 	}
 	if fields.fakeDelete > 0 {
@@ -469,7 +474,7 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 		bytes := data[index]
 		field := value.Field(i)
 		if bytes != nil {
-			field.SetBytes(bytes.([]byte))
+			field.SetBytes([]byte(bytes.(string)))
 		} else {
 			field.Set(reflect.Zero(field.Type()))
 		}
