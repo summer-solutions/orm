@@ -22,7 +22,7 @@ func prepareScan(schema *tableSchema) (pointers []interface{}) {
 	return pointers
 }
 
-func prepareScanForFields(fields *tableFields, start int, pointers []interface{}) {
+func prepareScanForFields(fields *tableFields, start int, pointers []interface{}) int {
 	for i := 0; i < len(fields.uintegers); i++ {
 		v := uint64(0)
 		pointers[start] = &v
@@ -98,10 +98,23 @@ func prepareScanForFields(fields *tableFields, start int, pointers []interface{}
 		pointers[start] = &v
 		start++
 	}
-
+	for i := 0; i < len(fields.refs); i++ {
+		v := sql.NullInt64{}
+		pointers[start] = &v
+		start++
+	}
+	for i := 0; i < len(fields.refsMany); i++ {
+		v := sql.NullString{}
+		pointers[start] = &v
+		start++
+	}
+	for _, subFields := range fields.structs {
+		start = prepareScanForFields(subFields, start, pointers)
+	}
+	return start
 }
 
-func convertScan(fields *tableFields, start int, pointers []interface{}) {
+func convertScan(fields *tableFields, start int, pointers []interface{}) int {
 	for i := 0; i < len(fields.uintegers); i++ {
 		pointers[start] = *pointers[start].(*uint64)
 		start++
@@ -140,7 +153,7 @@ func convertScan(fields *tableFields, start int, pointers []interface{}) {
 	for i := 0; i < len(fields.sliceStrings); i++ {
 		v := pointers[start].(*sql.NullString)
 		if v.Valid {
-			pointers[start] = strings.Split(v.String, ",")
+			pointers[start] = v.String
 		} else {
 			pointers[start] = nil
 		}
@@ -202,6 +215,28 @@ func convertScan(fields *tableFields, start int, pointers []interface{}) {
 		}
 		start++
 	}
+	for i := 0; i < len(fields.refs); i++ {
+		v := pointers[start].(*sql.NullInt64)
+		if v.Valid {
+			pointers[start] = uint64(v.Int64)
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+	for i := 0; i < len(fields.refsMany); i++ {
+		v := pointers[start].(*sql.NullString)
+		if v.Valid {
+			pointers[start] = v.String
+		} else {
+			pointers[start] = nil
+		}
+		start++
+	}
+	for _, subFields := range fields.structs {
+		start = convertScan(subFields, start, pointers)
+	}
+	return start
 }
 
 func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity, references []string) bool {

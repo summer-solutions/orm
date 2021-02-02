@@ -823,7 +823,7 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 							encoded, _ := jsoniter.ConfigFastest.Marshal(ids)
 							valString = string(encoded)
 						}
-						if hasOld && (old == valString || ((old == "nil" || old == nil || old == "0") && valString == "")) {
+						if hasOld && (old == valString || ((old == nil || old == "0") && valString == "")) {
 							continue
 						}
 						if valString == "" {
@@ -850,7 +850,7 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 						}
 						valString = string(encoded)
 					}
-				} else if hasOld && (old == "nil" || old == nil) {
+				} else if hasOld && old == nil {
 					continue
 				}
 				if isRequired || valString != "" {
