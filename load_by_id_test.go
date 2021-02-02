@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -115,24 +116,25 @@ func TestLoadById(t *testing.T) {
 }
 
 func BenchmarkLoadByIdLocalCache(b *testing.B) {
-	var entity *loadByIDLocalEntity
+	entity := &schemaEntity{}
+	ref := &schemaEntityRef{}
 	registry := &Registry{}
-	registry.RegisterMySQLPool("root:root@tcp(localhost:3312)/test")
-	registry.RegisterEntity(entity)
-	registry.RegisterLocalCache(1000)
-	validatedRegistry, err := registry.Validate()
-	if err != nil {
-		panic(err)
-	}
-	engine := validatedRegistry.CreateEngine()
-	engine.GetRegistry().GetTableSchemaForEntity(entity).UpdateSchema(engine)
-	engine.GetRegistry().GetTableSchemaForEntity(entity).TruncateTable(engine)
-	e := &loadByIDLocalEntity{}
-	engine.Flush(&loadByIDLocalEntity{})
-	engine.LoadByID(1, e)
+	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
+	registry.RegisterLocalCache(10000)
+	engine := PrepareTables(nil, registry, 5, entity, ref)
+	e := &schemaEntity{}
+	e.Name = fmt.Sprintf("Name")
+	e.Uint32 = 1
+	e.Int32 = 1
+	e.Int8 = 1
+	e.Enum = TestEnum.A
+	e.RefOne = &schemaEntityRef{}
+	engine.Flush(e)
+	_ = engine.LoadByID(1, e)
 	b.ResetTimer()
 	b.ReportAllocs()
+	// BenchmarkLoadByIdLocalCache-12    	  473372	      2471 ns/op	     592 B/op	      15 allocs/op
 	for n := 0; n < b.N; n++ {
-		engine.LoadByID(1, e)
+		_ = engine.LoadByID(1, e)
 	}
 }

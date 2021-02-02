@@ -70,7 +70,7 @@ func TestLogReceiver(t *testing.T) {
 	assert.Equal(t, 1, entityID)
 	assert.False(t, meta.Valid)
 	assert.False(t, before.Valid)
-	assert.Equal(t, "{\"Age\": \"18\", \"Name\": \"Tom\"}", changes)
+	assert.Equal(t, "{\"Age\": 18, \"Name\": \"Tom\"}", changes)
 
 	engine.SetLogMetaData("user_id", 12)
 	flusher := engine.NewFlusher()
@@ -93,7 +93,7 @@ func TestLogReceiver(t *testing.T) {
 	where2 = NewWhere("SELECT `entity_id`, `meta`, `before`, `changes` FROM `_log_default_logReceiverEntity2` WHERE `ID` = 2")
 	engine.GetMysql().QueryRow(where2, &entityID, &meta, &before, &changes)
 	assert.Equal(t, 2, entityID)
-	assert.Equal(t, "{\"Age\": \"18\", \"Name\": \"Tom2\"}", changes)
+	assert.Equal(t, "{\"Age\": 18, \"Name\": \"Tom2\"}", changes)
 	assert.False(t, before.Valid)
 	assert.Equal(t, "{\"user_id\": 12, \"admin_id\": \"10\"}", meta.String)
 

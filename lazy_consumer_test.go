@@ -78,7 +78,6 @@ func TestLazyReceiver(t *testing.T) {
 	assert.True(t, validHeartBeat)
 
 	e = &lazyReceiverEntity{}
-	//engine.GetLocalCache().Clear()
 	loaded = engine.LoadByID(1, e)
 	assert.True(t, loaded)
 	assert.Equal(t, "Tom", e.Name)

@@ -37,7 +37,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			cacheKey = schema.getCacheKey(id)
 			e, has := localCache.Get(cacheKey)
 			if has {
-				if e == nil {
+				if e == "nil" {
 					return false
 				}
 				fillFromDBRow(id, engine, e.([]interface{}), entity, false)
