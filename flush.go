@@ -46,7 +46,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	insertArguments := make(map[reflect.Type][]interface{})
 	insertBinds := make(map[reflect.Type][]map[string]interface{})
 	insertReflectValues := make(map[reflect.Type][]Entity)
-	deleteBinds := make(map[reflect.Type]map[uint64]map[string]interface{})
+	deleteBinds := make(map[reflect.Type]map[uint64][]interface{})
 	totalInsert := make(map[reflect.Type]int)
 	localCacheSets := make(map[string]map[string][]interface{})
 	dataLoaderSets := make(map[*tableSchema]map[uint64][]interface{})
@@ -111,9 +111,9 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		}
 		if orm.delete {
 			if deleteBinds[t] == nil {
-				deleteBinds[t] = make(map[uint64]map[string]interface{})
+				deleteBinds[t] = make(map[uint64][]interface{})
 			}
-			deleteBinds[t][currentID] = convertDBDataToMap(schema, dbData)
+			deleteBinds[t][currentID] = dbData
 		} else if !orm.inDB {
 			onUpdate := entity.getORM().onDuplicateKeyUpdate
 			if onUpdate != nil {
@@ -361,28 +361,22 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			hasLocalCache = true
 			localCache = engine.GetLocalCache(requestCacheKey)
 		}
-		if hasLocalCache {
-			for id, bind := range deleteBinds {
-				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
-				fmt.Printf("%v\n", bind)
-				keys := getCacheQueriesKeys(schema, bind, nil, true)
-				addLocalCacheDeletes(localCacheDeletes, localCache.code, keys...)
-			}
-		} else if engine.dataLoader != nil {
-			for id := range deleteBinds {
-				addToDataLoader(dataLoaderSets, schema, id, nil)
-			}
-		}
-		if hasRedis {
-			for id, bind := range deleteBinds {
-				redisFlusher.Del(redisCache.code, schema.getCacheKey(id))
-				keys := getCacheQueriesKeys(schema, bind, nil, true)
-				redisFlusher.Del(redisCache.code, keys...)
-			}
-		}
-		for id, bind := range deleteBinds {
+		for id, dbData := range deleteBinds {
+			bind := convertDBDataToMap(schema, dbData)
 			addDirtyQueues(redisFlusher, bind, schema, id, "d")
 			addToLogQueue(engine, redisFlusher, schema, id, bind, nil, nil)
+			if hasLocalCache {
+				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
+				keys := getCacheQueriesKeys(schema, bind, dbData, true)
+				addLocalCacheDeletes(localCacheDeletes, localCache.code, keys...)
+			} else if engine.dataLoader != nil {
+				addToDataLoader(dataLoaderSets, schema, id, nil)
+			}
+			if hasRedis {
+				redisFlusher.Del(redisCache.code, schema.getCacheKey(id))
+				keys := getCacheQueriesKeys(schema, bind, dbData, true)
+				redisFlusher.Del(redisCache.code, keys...)
+			}
 		}
 	}
 	for _, values := range localCacheSets {
