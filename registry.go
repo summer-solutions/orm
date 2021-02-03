@@ -193,14 +193,20 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.enums {
 		registry.enums[k] = v
 	}
+	cachePrefixes := make(map[string]*tableSchema)
 	for name, entityType := range r.entities {
 		tableSchema, err := initTableSchema(r, entityType)
 		if err != nil {
 			return nil, err
 		}
 		registry.tableSchemas[entityType] = tableSchema
+		duplicated, has := cachePrefixes[tableSchema.cachePrefix]
+		if has {
+			return nil, fmt.Errorf("duplicated table cache prefix %s and %s", tableSchema.tableName, duplicated.tableName)
+		}
+		cachePrefixes[tableSchema.cachePrefix] = tableSchema
 		registry.entities[name] = entityType
-		_, has := r.redisStreamPools[lazyChannelName]
+		_, has = r.redisStreamPools[lazyChannelName]
 		if !has {
 			r.RegisterRedisStream(lazyChannelName, "default", []string{asyncConsumerGroupName})
 		}

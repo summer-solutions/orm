@@ -157,7 +157,7 @@ func (r *AsyncConsumer) handleClearCache(validMap map[string]interface{}, key st
 			for i, v := range validAllKeys {
 				parts := strings.Split(v.(string), ":")
 				l := len(parts)
-				if l == 3 {
+				if l > 1 {
 					if parts[l-1] == "0" {
 						parts[l-1] = strconv.FormatUint(ids[idKey], 10)
 					}

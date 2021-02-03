@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -8,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-
-	"github.com/segmentio/fasthash/fnv1a"
 )
 
 type CachedQuery struct{}
@@ -97,7 +96,6 @@ type tableSchema struct {
 	uniqueIndicesGlobal map[string][]string
 	refOne              []string
 	refMany             []string
-	columnsStamp        string
 	localCacheName      string
 	hasLocalCache       bool
 	redisCacheName      string
@@ -456,7 +454,8 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	for _, column := range columns {
 		fieldsQuery += ",`" + column + "`"
 	}
-	columnsStamp := fmt.Sprintf("%d", fnv1a.HashString32(fieldsQuery))
+	cachePrefix = fmt.Sprintf("%x", sha256.Sum256([]byte(cachePrefix+fieldsQuery)))
+	cachePrefix = cachePrefix[0:4]
 
 	tableSchema := &tableSchema{tableName: table,
 		mysqlPoolName:       mysql,
@@ -466,7 +465,6 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		tags:                tags,
 		columnNames:         columns,
 		columnMapping:       columnMapping,
-		columnsStamp:        columnsStamp,
 		cachedIndexes:       cachedQueries,
 		cachedIndexesOne:    cachedQueriesOne,
 		cachedIndexesAll:    cachedQueriesAll,
@@ -753,7 +751,7 @@ func extractTag(registry *Registry, field reflect.StructField) map[string]map[st
 }
 
 func (tableSchema *tableSchema) getCacheKey(id uint64) string {
-	return tableSchema.cachePrefix + ":" + tableSchema.columnsStamp + ":" + strconv.FormatUint(id, 10)
+	return tableSchema.cachePrefix + ":" + strconv.FormatUint(id, 10)
 }
 
 func (fields *tableFields) getColumnNames() []string {
