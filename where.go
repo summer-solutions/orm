@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -34,7 +33,7 @@ func NewWhere(query string, parameters ...interface{}) *Where {
 			length := val.Len()
 			in := strings.Repeat(",?", length)
 			in = strings.TrimLeft(in, ",")
-			query = strings.Replace(query, "IN ?", fmt.Sprintf("IN (%s)", in), 1)
+			query = strings.Replace(query, "IN ?", "IN ("+in+")", 1)
 			for i := 0; i < length; i++ {
 				finalParameters = append(finalParameters, val.Index(i).Interface())
 			}

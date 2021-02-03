@@ -249,10 +249,10 @@ func searchRow(skipFakeDelete bool, engine *Engine, where *Where, entity Entity,
 	schema := orm.tableSchema
 	whereQuery := where.String()
 	if skipFakeDelete && schema.hasFakeDelete {
-		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
+		whereQuery = "`FakeDelete` = 0 AND " + whereQuery
 	}
 	/* #nosec */
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s LIMIT 1", schema.fieldsQuery, schema.tableName, whereQuery)
+	query := "SELECT " + schema.fieldsQuery + " FROM `" + schema.tableName + "` WHERE " + whereQuery + " LIMIT 1"
 
 	pool := schema.GetMysql(engine)
 	results, def := pool.Query(query, where.GetParameters()...)
@@ -284,11 +284,12 @@ func search(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, wit
 	schema := getTableSchema(engine.registry, entityType)
 	whereQuery := where.String()
 	if skipFakeDelete && schema.hasFakeDelete {
-		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
+		whereQuery = "`FakeDelete` = 0 AND " + whereQuery
 	}
 	/* #nosec */
-	query := fmt.Sprintf("SELECT %s FROM `%s` WHERE %s %s", schema.fieldsQuery, schema.tableName, whereQuery,
-		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
+	pageStart := strconv.Itoa((pager.CurrentPage - 1) * pager.PageSize)
+	pageEnd := strconv.Itoa(pager.PageSize)
+	query := "SELECT " + schema.fieldsQuery + " FROM `" + schema.tableName + "` WHERE " + whereQuery + " LIMIT " + pageStart + "," + pageEnd
 	pool := schema.GetMysql(engine)
 	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
@@ -327,11 +328,12 @@ func searchIDs(skipFakeDelete bool, engine *Engine, where *Where, pager *Pager, 
 	whereQuery := where.String()
 	if skipFakeDelete && schema.hasFakeDelete {
 		/* #nosec */
-		whereQuery = fmt.Sprintf("`FakeDelete` = 0 AND %s", whereQuery)
+		whereQuery = "`FakeDelete` = 0 AND " + whereQuery
 	}
 	/* #nosec */
-	query := fmt.Sprintf("SELECT `ID` FROM `%s` WHERE %s %s", schema.tableName, whereQuery,
-		fmt.Sprintf("LIMIT %d,%d", (pager.CurrentPage-1)*pager.PageSize, pager.PageSize))
+	startPage := strconv.Itoa((pager.CurrentPage - 1) * pager.PageSize)
+	endPage := strconv.Itoa(pager.PageSize)
+	query := "SELECT `ID` FROM `" + schema.tableName + "` WHERE " + whereQuery + " LIMIT " + startPage + "," + endPage
 	pool := schema.GetMysql(engine)
 	results, def := pool.Query(query, where.GetParameters()...)
 	defer def()
@@ -352,7 +354,7 @@ func getTotalRows(engine *Engine, withCount bool, pager *Pager, where *Where, sc
 		totalRows = foundRows
 		if totalRows == pager.GetPageSize() || (foundRows == 0 && pager.CurrentPage > 1) {
 			/* #nosec */
-			query := fmt.Sprintf("SELECT count(1) FROM `%s` WHERE %s", schema.tableName, where)
+			query := "SELECT count(1) FROM `" + schema.tableName + "` WHERE " + where.String()
 			var foundTotal string
 			pool := schema.GetMysql(engine)
 			pool.QueryRow(NewWhere(query, where.GetParameters()...), &foundTotal)
