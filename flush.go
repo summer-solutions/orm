@@ -364,6 +364,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		if hasLocalCache {
 			for id, bind := range deleteBinds {
 				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
+				fmt.Printf("%v\n", bind)
 				keys := getCacheQueriesKeys(schema, bind, nil, true)
 				addLocalCacheDeletes(localCacheDeletes, localCache.code, keys...)
 			}
@@ -490,7 +491,7 @@ func updateCacheAfterUpdate(lazy bool, dbData []interface{}, engine *Engine, ent
 
 func convertDBDataToMap(schema *tableSchema, data []interface{}) map[string]interface{} {
 	m := make(map[string]interface{})
-	for _, name := range schema.columnNames {
+	for _, name := range schema.columnNames[1:] {
 		m[name] = data[schema.columnMapping[name]]
 	}
 	return m

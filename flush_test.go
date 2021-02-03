@@ -384,7 +384,7 @@ func testFlush(t *testing.T, local bool, redis bool) {
 	found = engine.LoadByID(12, entity4)
 	assert.True(t, found)
 	assert.Nil(t, entity4.SetNullable)
-	assert.Equal(t, []string{}, entity4.SetNotNull)
+	assert.Nil(t, entity4.SetNotNull)
 	entity4.SetNullable = []string{"a", "c"}
 	engine.Flush(entity4)
 	entity4 = &flushEntity{}

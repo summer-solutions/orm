@@ -390,8 +390,9 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 	for _, i := range fields.uintegersNullable {
 		field := value.Field(i)
 		if data[index] == nil {
-			field := value.Field(i)
-			field.Set(reflect.Zero(field.Type()))
+			if !field.IsZero() {
+				field.Set(reflect.Zero(field.Type()))
+			}
 		} else {
 			val := data[index].(uint64)
 			switch field.Type().String() {
@@ -420,7 +421,9 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 	for _, i := range fields.integersNullable {
 		field := value.Field(i)
 		if data[index] == nil {
-			field.Set(reflect.Zero(field.Type()))
+			if !field.IsZero() {
+				field.Set(reflect.Zero(field.Type()))
+			}
 		} else {
 			val := data[index].(int64)
 			switch field.Type().String() {
@@ -455,17 +458,14 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 		field := value.Field(i)
 		if data[index] != nil {
 			if data[index] == "" {
-				field.Set(reflect.MakeSlice(field.Type(), 0, 0))
+				if !field.IsZero() {
+					field.Set(reflect.Zero(field.Type()))
+				}
 			} else {
 				var values = strings.Split(data[index].(string), ",")
-				var length = len(values)
-				slice := reflect.MakeSlice(field.Type(), length, length)
-				for key, value := range values {
-					slice.Index(key).SetString(value)
-				}
-				field.Set(slice)
+				field.Set(reflect.ValueOf(values))
 			}
-		} else {
+		} else if !field.IsZero() {
 			field.Set(reflect.Zero(field.Type()))
 		}
 		index++
@@ -475,7 +475,7 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 		field := value.Field(i)
 		if bytes != nil {
 			field.SetBytes([]byte(bytes.(string)))
-		} else {
+		} else if !field.IsZero() {
 			field.Set(reflect.Zero(field.Type()))
 		}
 		index++
@@ -491,7 +491,9 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 	for _, i := range fields.booleansNullable {
 		field := value.Field(i)
 		if data[index] == nil {
-			field.Set(reflect.Zero(field.Type()))
+			if !field.IsZero() {
+				field.Set(reflect.Zero(field.Type()))
+			}
 		} else {
 			v := data[index].(bool)
 			field.Set(reflect.ValueOf(&v))
@@ -521,7 +523,9 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 	for _, i := range fields.timesNullable {
 		field := value.Field(i)
 		if data[index] == nil {
-			field.Set(reflect.Zero(field.Type()))
+			if !field.IsZero() {
+				field.Set(reflect.Zero(field.Type()))
+			}
 		} else {
 			v := data[index].(string)
 			layout := "2006-01-02"
@@ -538,7 +542,14 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 		layout := "2006-01-02"
 		v := data[index].(string)
 		if len(v) == 19 {
+			if v == "0001-01-01 00:00:00" && field.IsZero() {
+				index++
+				continue
+			}
 			layout += " 15:04:05"
+		} else if v == "0001-01-01" && field.IsZero() {
+			index++
+			continue
 		}
 		val, _ := time.ParseInLocation(layout, v, time.Local)
 		field.Set(reflect.ValueOf(val))
@@ -550,7 +561,7 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 			f := reflect.New(field.Type()).Interface()
 			_ = jsoniter.ConfigFastest.Unmarshal([]byte(data[index].(string)), f)
 			field.Set(reflect.ValueOf(f).Elem())
-		} else {
+		} else if !field.IsZero() {
 			field.Set(reflect.Zero(field.Type()))
 		}
 		index++
@@ -568,7 +579,7 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 			orm.idElem.SetUint(integer)
 			orm.inDB = true
 			field.Set(n)
-		} else {
+		} else if !field.IsZero() {
 			field.Set(reflect.Zero(refType))
 		}
 		index++
@@ -593,7 +604,7 @@ func fillStruct(engine *Engine, index uint16, data []interface{}, fields *tableF
 				slice.Index(i).Set(n)
 			}
 			field.Set(slice)
-		} else {
+		} else if !field.IsZero() {
 			field.Set(reflect.Zero(slice.Type()))
 		}
 		index++

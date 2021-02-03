@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,12 +12,6 @@ type loadByIDEntity struct {
 	Name          string `orm:"max=100"`
 	ReferenceOne  *loadByIDReference
 	ReferenceMany []*loadByIDReference
-}
-
-type loadByIDLocalEntity struct {
-	ORM  `orm:"localCache"`
-	ID   uint
-	Name string `orm:"max=100"`
 }
 
 type loadByIDRedisEntity struct {
@@ -123,7 +116,7 @@ func BenchmarkLoadByIdLocalCache(b *testing.B) {
 	registry.RegisterLocalCache(10000)
 	engine := PrepareTables(nil, registry, 5, entity, ref)
 	e := &schemaEntity{}
-	e.Name = fmt.Sprintf("Name")
+	e.Name = "Name"
 	e.Uint32 = 1
 	e.Int32 = 1
 	e.Int8 = 1
@@ -133,7 +126,6 @@ func BenchmarkLoadByIdLocalCache(b *testing.B) {
 	_ = engine.LoadByID(1, e)
 	b.ResetTimer()
 	b.ReportAllocs()
-	// BenchmarkLoadByIdLocalCache-12    	  473372	      2471 ns/op	     592 B/op	      15 allocs/op
 	for n := 0; n < b.N; n++ {
 		_ = engine.LoadByID(1, e)
 	}

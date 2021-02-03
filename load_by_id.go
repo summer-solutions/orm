@@ -12,7 +12,6 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 	schema := orm.tableSchema
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
-
 	if !hasLocalCache && engine.dataLoader != nil {
 		e := engine.dataLoader.Load(schema, id)
 		if e == nil {
@@ -26,7 +25,6 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 	}
 
 	var cacheKey string
-
 	if useCache {
 		if !hasLocalCache && engine.hasRequestCache {
 			hasLocalCache = true
