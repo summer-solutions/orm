@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"fmt"
 	"math"
 	"reflect"
 	"regexp"
@@ -129,13 +128,13 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				bindRow := make([]interface{}, bindLength)
 				i := 0
 				for key, val := range bind {
-					columns[i] = fmt.Sprintf("`%s`", key)
+					columns[i] = "`" + key + "`"
 					values[i] = "?"
 					bindRow[i] = val
 					i++
 				}
 				/* #nosec */
-				sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES (%s)", schema.tableName, strings.Join(columns, ","), strings.Join(values, ","))
+				sql := "INSERT INTO " + schema.tableName + "(" + strings.Join(columns, ",") + ") VALUES (" + strings.Join(values, ",") + ")"
 				sql += " ON DUPLICATE KEY UPDATE "
 				first := true
 				for k, v := range onUpdate {
@@ -178,7 +177,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 							if bind[column] == nil {
 								continue OUTER
 							}
-							fields = append(fields, fmt.Sprintf("`%s` = ?", column))
+							fields = append(fields, "`"+column+"` = ?")
 							binds = append(binds, bind[column])
 						}
 						findWhere := NewWhere(strings.Join(fields, " AND "), binds)
@@ -214,7 +213,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				insertArguments[t] = make([]interface{}, 0)
 				insertReflectValues[t] = make([]Entity, 0)
 				insertBinds[t] = make([]map[string]interface{}, 0)
-				insertValues[t] = fmt.Sprintf("(%s)", strings.Join(valuesKeys, ","))
+				insertValues[t] = "(" + strings.Join(valuesKeys, ",") + ")"
 			}
 			insertArguments[t] = append(insertArguments[t], values...)
 			insertReflectValues[t] = append(insertReflectValues[t], entity)
@@ -228,12 +227,12 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			fields := make([]string, bindLength)
 			i := 0
 			for key, value := range bind {
-				fields[i] = fmt.Sprintf("`%s` = ?", key)
+				fields[i] = "`" + key + "` = ?"
 				values[i] = value
 				i++
 			}
 			/* #nosec */
-			sql := fmt.Sprintf("UPDATE %s SET %s WHERE `ID` = ?", schema.GetTableName(), strings.Join(fields, ","))
+			sql := "UPDATE " + schema.GetTableName() + " SET " + strings.Join(fields, ",") + " WHERE `ID` = ?"
 			db := schema.GetMysql(engine)
 			values[i] = currentID
 			if lazy {
@@ -280,10 +279,10 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		schema := getTableSchema(engine.registry, typeOf)
 		finalValues := make([]string, len(values))
 		for key, val := range values {
-			finalValues[key] = fmt.Sprintf("`%s`", val)
+			finalValues[key] = "`" + val + "`"
 		}
 		/* #nosec */
-		sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES %s", schema.tableName, strings.Join(finalValues, ","), insertValues[typeOf])
+		sql := "INSERT INTO " + schema.tableName + "(" + strings.Join(finalValues, ",") + ") VALUES " + insertValues[typeOf]
 		for i := 1; i < totalInsert[typeOf]; i++ {
 			sql += "," + insertValues[typeOf]
 		}
@@ -317,7 +316,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			i++
 		}
 		/* #nosec */
-		sql := fmt.Sprintf("DELETE FROM `%s` WHERE %s", schema.tableName, NewWhere("`ID` IN ?", ids))
+		sql := "DELETE FROM `" + schema.tableName + "` WHERE " + NewWhere("`ID` IN ?", ids).String()
 		db := schema.GetMysql(engine)
 		if lazy {
 			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, ids)
@@ -333,7 +332,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 							subElem := subValue.Elem()
 							sub := subValue.Interface()
 							pager := NewPager(1, 1000)
-							where := NewWhere(fmt.Sprintf("`%s` IN ?", refColumn), ids)
+							where := NewWhere("`"+refColumn+"` IN ?", ids)
 							for {
 								engine.Search(where, pager, sub)
 								total := subElem.Len()
@@ -990,7 +989,7 @@ func convertToError(err error) error {
 			var abortLabelReg, _ = regexp.Compile(" CONSTRAINT `(.*?)`")
 			labels := abortLabelReg.FindStringSubmatch(sqlErr.Message)
 			if len(labels) > 0 {
-				return &ForeignKeyError{Message: fmt.Sprintf("foreign key error in key `%s`", labels[1]), Constraint: labels[1]}
+				return &ForeignKeyError{Message: "foreign key error in key `" + labels[1] + "`", Constraint: labels[1]}
 			}
 		}
 	}
