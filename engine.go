@@ -349,6 +349,10 @@ func (e *Engine) NewFlusher() Flusher {
 	return &flusher{engine: e}
 }
 
+func (e *Engine) NewFastEngine() FastEngine {
+	return &fastEngine{engine: e}
+}
+
 func (e *Engine) NewRedisFlusher() RedisFlusher {
 	return &redisFlusher{engine: e}
 }
@@ -437,7 +441,8 @@ func (e *Engine) SearchIDs(where *Where, pager *Pager, entity Entity) []uint64 {
 }
 
 func (e *Engine) SearchOne(where *Where, entity Entity, references ...string) (found bool) {
-	return searchOne(true, e, where, entity, references)
+	found, _ = searchOne(true, true, e, where, entity, references)
+	return found
 }
 
 func (e *Engine) CachedSearchOne(entity Entity, indexName string, arguments ...interface{}) (found bool) {
@@ -473,7 +478,8 @@ func (e *Engine) ClearByIDs(entity Entity, ids ...uint64) {
 }
 
 func (e *Engine) LoadByID(id uint64, entity Entity, references ...string) (found bool) {
-	return loadByID(e, id, entity, true, references...)
+	found, _, _ = loadByID(e, id, entity, true, true, references...)
+	return found
 }
 
 func (e *Engine) Load(entity Entity, references ...string) {
@@ -487,7 +493,7 @@ func (e *Engine) Load(entity Entity, references ...string) {
 	orm := initIfNeeded(e, entity)
 	id := orm.GetID()
 	if id > 0 {
-		loadByID(e, id, entity, true, references...)
+		loadByID(e, id, entity, true, true, references...)
 	}
 }
 

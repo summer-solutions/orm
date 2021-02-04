@@ -7,21 +7,30 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, references ...string) (found bool) {
-	orm := initIfNeeded(engine, entity)
-	schema := orm.tableSchema
+func loadByID(engine *Engine, id uint64, entity Entity, fillStruct bool, useCache bool, references ...string) (found bool, data []interface{}, schema *tableSchema) {
+	var orm *ORM
+	if fillStruct {
+		orm = initIfNeeded(engine, entity)
+		schema = orm.tableSchema
+	} else {
+		schema = engine.registry.GetTableSchemaForEntity(entity).(*tableSchema)
+	}
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && engine.dataLoader != nil {
 		e := engine.dataLoader.Load(schema, id)
 		if e == nil {
-			return false
+			return false, nil, schema
 		}
-		fillFromDBRow(id, engine, e, entity, false)
+		if fillStruct {
+			fillFromDBRow(id, engine, e, entity, false)
+		} else {
+			e[0] = id
+		}
 		if len(references) > 0 {
 			warmUpReferences(engine, schema, orm.elem, references, false)
 		}
-		return true
+		return true, e, schema
 	}
 
 	var cacheKey string
@@ -36,13 +45,18 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			e, has := localCache.Get(cacheKey)
 			if has {
 				if e == "nil" {
-					return false
+					return false, nil, schema
 				}
-				fillFromDBRow(id, engine, e.([]interface{}), entity, false)
+				data := e.([]interface{})
+				if fillStruct {
+					fillFromDBRow(id, engine, data, entity, false)
+				} else {
+					data[0] = id
+				}
 				if len(references) > 0 {
 					warmUpReferences(engine, schema, orm.elem, references, false)
 				}
-				return true
+				return true, data, schema
 			}
 		}
 		if hasRedis {
@@ -50,21 +64,25 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 			row, has := redisCache.Get(cacheKey)
 			if has {
 				if row == "nil" {
-					return false
+					return false, nil, schema
 				}
 				decoded := make([]interface{}, len(schema.columnNames))
 				_ = jsoniter.ConfigFastest.Unmarshal([]byte(row), &decoded)
 				convertDataFromJSON(schema.fields, 0, decoded)
-				fillFromDBRow(id, engine, decoded, entity, false)
+				if fillStruct {
+					fillFromDBRow(id, engine, decoded, entity, false)
+				} else {
+					decoded[0] = id
+				}
 				if len(references) > 0 {
 					warmUpReferences(engine, schema, orm.elem, references, false)
 				}
-				return true
+				return true, decoded, schema
 			}
 		}
 	}
 
-	found = searchRow(false, engine, NewWhere("`ID` = ?", id), entity, nil)
+	found, data = searchRow(false, fillStruct, engine, NewWhere("`ID` = ?", id), entity, nil)
 	if !found {
 		if localCache != nil {
 			localCache.Set(cacheKey, "nil")
@@ -72,7 +90,7 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 		if redisCache != nil {
 			redisCache.Set(cacheKey, "nil", 60)
 		}
-		return false
+		return false, nil, schema
 	}
 	if useCache {
 		if localCache != nil {
@@ -85,8 +103,10 @@ func loadByID(engine *Engine, id uint64, entity Entity, useCache bool, reference
 
 	if len(references) > 0 {
 		warmUpReferences(engine, schema, orm.elem, references, false)
+	} else {
+		data[0] = id
 	}
-	return true
+	return true, data, schema
 }
 
 func buildRedisValue(entity Entity) string {

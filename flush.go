@@ -164,7 +164,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 							checkError(err)
 						}
 						bind, _ := orm.GetDirtyBind()
-						_ = loadByID(engine, lastID, entity, false)
+						_, _, _ = loadByID(engine, lastID, entity, true, false)
 						updateCacheAfterUpdate(lazy, dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
 							redisFlusher, dataLoaderSets)
 					}
