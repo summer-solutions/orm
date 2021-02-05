@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 )
 
-func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references []string) (missing []uint64) {
+func tryByIDs(engine *Engine, ids []uint64, fillStruct bool, entities reflect.Value, references []string) (missing []uint64, schema *tableSchema) {
 	missing = make([]uint64, 0)
 	valOrigin := entities
 	valOrigin.SetLen(0)
@@ -25,7 +25,7 @@ func tryByIDs(engine *Engine, ids []uint64, entities reflect.Value, references [
 		panic(fmt.Errorf("entity '%s' is not registered", name))
 	}
 
-	schema := getTableSchema(engine.registry, t)
+	schema = getTableSchema(engine.registry, t)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 
@@ -258,7 +258,7 @@ func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Val
 	}
 	for t, ids := range warmUpRowsIDs {
 		sub := reflect.New(reflect.SliceOf(reflect.PtrTo(t))).Elem()
-		_ = tryByIDs(engine, ids, sub, warmUpSubRefs[t])
+		_, _ = tryByIDs(engine, ids, true, sub, warmUpSubRefs[t])
 		subLen := sub.Len()
 		for i := 0; i < subLen; i++ {
 			v := sub.Index(i).Interface().(Entity)

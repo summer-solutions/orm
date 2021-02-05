@@ -498,7 +498,8 @@ func (e *Engine) Load(entity Entity, references ...string) {
 }
 
 func (e *Engine) LoadByIDs(ids []uint64, entities interface{}, references ...string) (missing []uint64) {
-	return tryByIDs(e, ids, reflect.ValueOf(entities).Elem(), references)
+	missing, _ = tryByIDs(e, ids, true, reflect.ValueOf(entities).Elem(), references)
+	return missing
 }
 
 func (e *Engine) GetAlters() (alters []Alter) {

@@ -2,10 +2,12 @@ package orm
 
 import (
 	"fmt"
+	"reflect"
 )
 
 type FastEngine interface {
 	LoadByID(id uint64, entity Entity, references ...string) (found bool, fastEntity FastEntity)
+	LoadByIDs(ids []uint64, entity Entity, references ...string) (result []FastEntity, missing []uint64)
 }
 
 type FastEntity interface {
@@ -25,6 +27,11 @@ func (fe *fastEngine) LoadByID(id uint64, entity Entity, references ...string) (
 		return false, nil
 	}
 	return found, &fastEntity{data: data, engine: fe.engine, schema: schema}
+}
+
+func (fe *fastEngine) LoadByIDs(ids []uint64, entity Entity, references ...string) (result []FastEntity, missing []uint64) {
+	missing, _ = tryByIDs(fe.engine, ids, false, reflect.ValueOf(entity), references)
+	return nil, missing
 }
 
 type fastEntity struct {
