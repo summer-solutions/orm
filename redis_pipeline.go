@@ -9,12 +9,13 @@ import (
 )
 
 type RedisPipeLine struct {
-	engine   *Engine
-	pool     string
-	pipeLine redis.Pipeliner
-	ctx      context.Context
-	executed bool
-	commands int
+	engine       *Engine
+	pool         string
+	pipeLine     redis.Pipeliner
+	ctx          context.Context
+	executed     bool
+	commands     int
+	xaddCommands int
 }
 
 func (rp *RedisPipeLine) Del(key ...string) *PipeLineInt {
@@ -33,7 +34,7 @@ func (rp *RedisPipeLine) Set(key string, value interface{}, expiration time.Dura
 }
 
 func (rp *RedisPipeLine) XAdd(stream string, values interface{}) *PipeLineString {
-	rp.commands++
+	rp.xaddCommands++
 	return &PipeLineString{p: rp, cmd: rp.pipeLine.XAdd(rp.ctx, &redis.XAddArgs{Stream: stream, Values: values})}
 }
 
@@ -103,21 +104,41 @@ func (c *PipeLineStatus) Result() error {
 }
 
 func (rp *RedisPipeLine) fillLogFields(start time.Time, err error) {
-	message := "[ORM][REDIS][EXEC]"
-	now := time.Now()
-	stop := time.Since(start).Microseconds()
-	e := rp.engine.queryLoggers[QueryLoggerSourceRedis].log.
-		WithField("microseconds", stop).
-		WithField("operation", "exec").
-		WithField("commands", rp.commands).
-		WithField("pool", rp.pool).
-		WithField("target", "redis").
-		WithField("started", start.UnixNano()).
-		WithField("finished", now.UnixNano())
-	if err != nil {
-		injectLogError(err, e).Error(message)
-	} else {
-		e.Info(message)
+	if rp.engine.queryLoggers[QueryLoggerSourceStreams] != nil && rp.xaddCommands > 0 {
+		message := "[ORM][STREAMS][XADD]"
+		now := time.Now()
+		stop := time.Since(start).Microseconds()
+		e := rp.engine.queryLoggers[QueryLoggerSourceRedis].log.
+			WithField("microseconds", stop).
+			WithField("operation", "xadd").
+			WithField("events", rp.xaddCommands).
+			WithField("pool", rp.pool).
+			WithField("target", "streams").
+			WithField("started", start.UnixNano()).
+			WithField("finished", now.UnixNano())
+		if err != nil {
+			injectLogError(err, e).Error(message)
+		} else {
+			e.Info(message)
+		}
+	}
+	if rp.engine.queryLoggers[QueryLoggerSourceRedis] != nil && rp.commands > 0 {
+		message := "[ORM][REDIS][EXEC]"
+		now := time.Now()
+		stop := time.Since(start).Microseconds()
+		e := rp.engine.queryLoggers[QueryLoggerSourceRedis].log.
+			WithField("microseconds", stop).
+			WithField("operation", "exec").
+			WithField("commands", rp.commands).
+			WithField("pool", rp.pool).
+			WithField("target", "redis").
+			WithField("started", start.UnixNano()).
+			WithField("finished", now.UnixNano())
+		if err != nil {
+			injectLogError(err, e).Error(message)
+		} else {
+			e.Info(message)
+		}
 	}
 }
 

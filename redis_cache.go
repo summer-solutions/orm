@@ -459,52 +459,52 @@ func (r *RedisCache) Del(keys ...string) {
 	checkError(err)
 }
 
-func (r *RedisCache) XTrim(key string, maxLen int64, approx bool) (deleted int64) {
+func (r *RedisCache) XTrim(stream string, maxLen int64, approx bool) (deleted int64) {
 	start := time.Now()
 	var err error
 	if approx {
-		deleted, err = r.client.XTrimApprox(r.ctx, key, maxLen).Result()
+		deleted, err = r.client.XTrimApprox(r.ctx, stream, maxLen).Result()
 	} else {
-		deleted, err = r.client.XTrim(r.ctx, key, maxLen).Result()
+		deleted, err = r.client.XTrim(r.ctx, stream, maxLen).Result()
+	}
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XTRIM]", start, "xtrim",
+			map[string]interface{}{"stream": stream, "max_len": maxLen, "approx": approx}, err)
 	}
 	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XTRIM]", start, "xtrim", 0, 1,
-			map[string]interface{}{"key": key, "max_len": maxLen, "approx": approx}, nil)
-	}
 	return deleted
 }
 
 func (r *RedisCache) XRange(stream, start, stop string, count int64) []redis.XMessage {
 	s := time.Now()
 	deleted, err := r.client.XRangeN(r.ctx, stream, start, stop, count).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XRANGE]", s, "xrange", 0, 1,
-			map[string]interface{}{"stream": stream, "start": start, "stop": stop, "count": count}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XRANGE]", s, "xrange",
+			map[string]interface{}{"stream": stream, "start": start, "stop": stop, "count": count}, err)
 	}
+	checkError(err)
 	return deleted
 }
 
 func (r *RedisCache) XRevRange(stream, start, stop string, count int64) []redis.XMessage {
 	s := time.Now()
 	deleted, err := r.client.XRevRangeN(r.ctx, stream, start, stop, count).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XREVRANGE]", s, "xrevrange", 0, 1,
-			map[string]interface{}{"stream": stream, "start": start, "stop": stop, "count": count}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XREVRANGE]", s, "xrevrange",
+			map[string]interface{}{"stream": stream, "start": start, "stop": stop, "count": count}, err)
 	}
+	checkError(err)
 	return deleted
 }
 
 func (r *RedisCache) XInfoStream(stream string) *redis.XInfoStream {
 	start := time.Now()
 	info, err := r.client.XInfoStream(r.ctx, stream).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XINFO]", start, "xinfo", 0, 1,
-			map[string]interface{}{"stream": stream}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XINFO]", start, "xinfo",
+			map[string]interface{}{"stream": stream}, err)
 	}
+	checkError(err)
 	return info
 }
 
@@ -512,13 +512,17 @@ func (r *RedisCache) XInfoGroups(stream string) []redis.XInfoGroup {
 	start := time.Now()
 	info, err := r.client.XInfoGroups(r.ctx, stream).Result()
 	if err != nil && err.Error() == "ERR no such key" {
+		if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+			r.fillStreamsLogFields("[ORM][STREAMS][XINFO]", start, "xinfo",
+				map[string]interface{}{"stream": stream}, nil)
+		}
 		return make([]redis.XInfoGroup, 0)
 	}
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XINFO]", start, "xinfo", 0, 1,
-			map[string]interface{}{"group": stream}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XINFO]", start, "xinfo",
+			map[string]interface{}{"stream": stream}, err)
 	}
+	checkError(err)
 	return info
 }
 
@@ -526,13 +530,17 @@ func (r *RedisCache) XGroupCreate(stream, group, start string) (key string, exis
 	s := time.Now()
 	res, err := r.client.XGroupCreate(r.ctx, stream, group, start).Result()
 	if err != nil && strings.HasPrefix(err.Error(), "BUSYGROUP") {
+		if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+			r.fillStreamsLogFields("[ORM][STREAMS][XGROUP]", s, "xgroup",
+				map[string]interface{}{"arg": "create", "stream": stream, "group": group, "start": start}, nil)
+		}
 		return "OK", true
 	}
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XGROUP]", s, "xgroup", 0, 1,
-			map[string]interface{}{"arg": "create", "stream": stream, "group": group, "start": start}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XGROUP]", s, "xgroup",
+			map[string]interface{}{"arg": "create", "stream": stream, "group": group, "start": start}, err)
 	}
+	checkError(err)
 	return res, false
 }
 
@@ -545,93 +553,96 @@ func (r *RedisCache) XGroupCreateMkStream(stream, group, start string) (key stri
 		err = nil
 		res = "OK"
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XGROUP]", s, "xgroup", 0, 1,
-			map[string]interface{}{"arg": "create mkstream", "stream": stream, "group": group, "start": start}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XGROUP]", s, "xgroup",
+			map[string]interface{}{"arg": "create mkstream", "stream": stream, "group": group, "start": start}, err)
 	}
+	checkError(err)
 	return res, created
 }
 
 func (r *RedisCache) XGroupDestroy(stream, group string) int64 {
 	start := time.Now()
 	res, err := r.client.XGroupDestroy(r.ctx, stream, group).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XGROUP]", start, "xgroup", 0, 1,
-			map[string]interface{}{"arg": "destroy", "stream": stream, "group": group}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XGROUP]", start, "xgroup",
+			map[string]interface{}{"arg": "destroy", "stream": stream, "group": group}, err)
 	}
+	checkError(err)
 	return res
 }
 
 func (r *RedisCache) XRead(a *redis.XReadArgs) []redis.XStream {
 	start := time.Now()
 	info, err := r.client.XRead(r.ctx, a).Result()
-	if err != redis.Nil {
-		checkError(err)
+	if err == redis.Nil {
+		err = nil
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XREAD]", start, "xread", 0, 1,
-			map[string]interface{}{"arg": a}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XREAD]", start, "xread",
+			map[string]interface{}{"arg": a}, err)
 	}
+	checkError(err)
 	return info
 }
 
 func (r *RedisCache) XDel(stream string, ids ...string) int64 {
 	s := time.Now()
 	deleted, err := r.client.XDel(r.ctx, stream, ids...).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XDEL]", s, "xdel", 0, len(ids),
-			map[string]interface{}{"stream": stream, "ids": ids}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XDEL]", s, "xdel",
+			map[string]interface{}{"stream": stream, "ids": ids}, err)
 	}
+	checkError(err)
 	return deleted
 }
 
 func (r *RedisCache) XGroupDelConsumer(stream, group, consumer string) int64 {
 	start := time.Now()
 	deleted, err := r.client.XGroupDelConsumer(r.ctx, stream, group, consumer).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XDEL]", start, "XGROUP", 0, 1,
-			map[string]interface{}{"stream": stream, "group": group, "consumer": "consumer", "action": "delete consumer"}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XDEL]", start, "XGROUP",
+			map[string]interface{}{"stream": stream, "group": group, "consumer": "consumer", "action": "delete consumer"}, err)
 	}
+	checkError(err)
 	return deleted
 }
 
 func (r *RedisCache) XReadGroup(a *redis.XReadGroupArgs) (streams []redis.XStream) {
 	start := time.Now()
 	streams, err := r.client.XReadGroup(r.ctx, a).Result()
-	if err != redis.Nil {
-		checkError(err)
+	if err == redis.Nil {
+		err = nil
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XREADGROUP]", start, "xreadgroup", 0, 1,
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XREADGROUP]", start, "xreadgroup",
 			map[string]interface{}{"consumer": a.Consumer, "group": a.Group, "count": a.Count, "block": a.Block,
-				"noack": a.NoAck, "streams": a.Streams}, nil)
+				"noack": a.NoAck, "streams": a.Streams}, err)
 	}
+	checkError(err)
 	return streams
 }
 
 func (r *RedisCache) XPending(stream, group string) *redis.XPending {
 	start := time.Now()
 	res, err := r.client.XPending(r.ctx, stream, group).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XPENDING]", start, "xpending", 0, 1,
-			map[string]interface{}{"stream": stream, "group": group}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XPENDING]", start, "xpending",
+			map[string]interface{}{"stream": stream, "group": group}, err)
 	}
+	checkError(err)
 	return res
 }
 
 func (r *RedisCache) XPendingExt(a *redis.XPendingExtArgs) []redis.XPendingExt {
 	start := time.Now()
 	res, err := r.client.XPendingExt(r.ctx, a).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XPENDING]", start, "xpending", 0, 1,
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XPENDING]", start, "xpending",
 			map[string]interface{}{"group": a.Group, "stream": a.Stream, "consumer": a.Consumer, "count": a.Count,
-				"start": a.Start, "end": a.End}, nil)
+				"start": a.Start, "end": a.End}, err)
 	}
+	checkError(err)
 	return res
 }
 
@@ -639,55 +650,55 @@ func (r *RedisCache) xAdd(stream string, values interface{}) (id string) {
 	a := &redis.XAddArgs{Stream: stream, ID: "*", Values: values}
 	start := time.Now()
 	id, err := r.client.XAdd(r.ctx, a).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XADD]", start, "xtrim", 0, 1,
-			map[string]interface{}{"stream": stream, "id": a.ID, "values": a.Values, "max_len_app": a.MaxLenApprox}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XADD]", start, "xtrim",
+			map[string]interface{}{"stream": stream, "id": a.ID, "events": 1}, err)
 	}
+	checkError(err)
 	return id
 }
 
 func (r *RedisCache) XLen(stream string) int64 {
 	start := time.Now()
 	l, err := r.client.XLen(r.ctx, stream).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XLEN]", start, "xlen", 0, 1,
-			map[string]interface{}{"stream": stream}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XLEN]", start, "xlen",
+			map[string]interface{}{"stream": stream}, err)
 	}
+	checkError(err)
 	return l
 }
 
 func (r *RedisCache) XClaim(a *redis.XClaimArgs) []redis.XMessage {
 	start := time.Now()
 	res, err := r.client.XClaim(r.ctx, a).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XCLAIM]", start, "xclaim", 0, len(a.Messages),
-			map[string]interface{}{"arg": a}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XCLAIM]", start, "xclaim",
+			map[string]interface{}{"arg": a}, err)
 	}
+	checkError(err)
 	return res
 }
 
 func (r *RedisCache) XClaimJustID(a *redis.XClaimArgs) []string {
 	start := time.Now()
 	res, err := r.client.XClaimJustID(r.ctx, a).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XCLAIM]", start, "xclaim", 0, len(a.Messages),
-			map[string]interface{}{"arg": a, "justid": true}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XCLAIM]", start, "xclaim",
+			map[string]interface{}{"arg": a, "justid": true}, err)
 	}
+	checkError(err)
 	return res
 }
 
 func (r *RedisCache) XAck(stream, group string, ids ...string) int64 {
 	start := time.Now()
 	res, err := r.client.XAck(r.ctx, stream, group, ids...).Result()
-	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
-		r.fillLogFields("[ORM][REDIS][XACK]", start, "xack", 0, len(ids),
-			map[string]interface{}{"stream": stream, group: group, "ids": ids}, nil)
+	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		r.fillStreamsLogFields("[ORM][STREAMS][XACK]", start, "xack",
+			map[string]interface{}{"stream": stream, "group": group, "ids": ids}, err)
 	}
+	checkError(err)
 	return res
 }
 
@@ -715,6 +726,27 @@ func (r *RedisCache) fillLogFields(message string, start time.Time, operation st
 	if misses >= 0 {
 		e = e.WithField("misses", misses)
 	}
+	for k, v := range fields {
+		e = e.WithField(k, v)
+	}
+	if err != nil {
+		injectLogError(err, e).Error(message)
+	} else {
+		e.Info(message)
+	}
+}
+
+func (r *RedisCache) fillStreamsLogFields(message string, start time.Time, operation string,
+	fields map[string]interface{}, err error) {
+	now := time.Now()
+	stop := time.Since(start).Microseconds()
+	e := r.engine.queryLoggers[QueryLoggerSourceRedis].log.
+		WithField("microseconds", stop).
+		WithField("operation", operation).
+		WithField("pool", r.code).
+		WithField("target", "redis").
+		WithField("started", start.UnixNano()).
+		WithField("finished", now.UnixNano())
 	for k, v := range fields {
 		e = e.WithField(k, v)
 	}

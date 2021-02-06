@@ -194,7 +194,7 @@ func (dd *dataDog) StartWorkSpan(name string) WorkSpan {
 func (dd *dataDog) EnableORMAPMLog(level apexLog.Level, withAnalytics bool, source ...QueryLoggerSource) {
 	if len(source) == 0 {
 		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic,
-			QueryLoggerSourceClickHouse}
+			QueryLoggerSourceClickHouse, QueryLoggerSourceStreams}
 	}
 	for _, s := range source {
 		if s == QueryLoggerSourceDB {
@@ -207,6 +207,8 @@ func (dd *dataDog) EnableORMAPMLog(level apexLog.Level, withAnalytics bool, sour
 			dd.engine.AddQueryLogger(newElasticDataDogHandler(withAnalytics, dd.engine), level, s)
 		} else if s == QueryLoggerSourceClickHouse {
 			dd.engine.AddQueryLogger(newClickHouseDataDogHandler(withAnalytics, dd.engine), level, s)
+		} else if s == QueryLoggerSourceStreams {
+			dd.engine.AddQueryLogger(newStreamsDataDogHandler(withAnalytics, dd.engine), level, s)
 		}
 	}
 }

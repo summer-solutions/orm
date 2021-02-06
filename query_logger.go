@@ -26,6 +26,7 @@ const (
 	QueryLoggerSourceElastic
 	QueryLoggerSourceClickHouse
 	QueryLoggerSourceLocalCache
+	QueryLoggerSourceStreams
 )
 
 type logger struct {
@@ -144,6 +145,38 @@ func (h *redisDataDogHandler) HandleLog(e *apexLox.Entry) error {
 	if keys != nil {
 		span.SetTag("redis.keys", keys)
 	}
+	if h.withAnalytics {
+		span.SetTag(ext.AnalyticsEvent, true)
+	}
+	injectError(e, span)
+	finished := time.Unix(0, e.Fields.Get("finished").(int64))
+	span.Finish(tracer.FinishTime(finished))
+	return nil
+}
+
+type streamsDataDogHandler struct {
+	withAnalytics bool
+	engine        *Engine
+}
+
+func newStreamsDataDogHandler(withAnalytics bool, engine *Engine) *streamsDataDogHandler {
+	return &streamsDataDogHandler{withAnalytics, engine}
+}
+
+func (h *streamsDataDogHandler) HandleLog(e *apexLox.Entry) error {
+	if h.engine.dataDog == nil {
+		return nil
+	}
+	l := len(h.engine.dataDog.ctx)
+	if l == 0 {
+		return nil
+	}
+	started := time.Unix(0, e.Fields.Get("started").(int64))
+	operation := e.Fields.Get("operation").(string)
+	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[l-1], operation, tracer.StartTime(started))
+	span.SetTag(ext.SpanType, "streams")
+	span.SetTag(ext.ServiceName, "streams."+e.Fields.Get("pool").(string))
+	span.SetTag(ext.ResourceName, operation)
 	if h.withAnalytics {
 		span.SetTag(ext.AnalyticsEvent, true)
 	}

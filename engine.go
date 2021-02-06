@@ -101,7 +101,8 @@ func (e *Engine) EnableDebug() {
 
 func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, source ...QueryLoggerSource) {
 	if len(source) == 0 {
-		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic, QueryLoggerSourceClickHouse}
+		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic,
+			QueryLoggerSourceClickHouse, QueryLoggerSourceStreams}
 	}
 	e.logMutex.Lock()
 	defer e.logMutex.Unlock()
