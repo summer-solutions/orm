@@ -472,7 +472,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 				if r.deadConsumers > 0 && time.Since(pendingCheckedTime) >= r.claimDuration {
 					break
 				}
-				if normalCheck && hasInvalid && totalMessages < count && time.Since(started) > time.Minute*2 {
+				if normalCheck && hasInvalid && totalMessages < count && time.Since(started) > time.Minute*10 {
 					break
 				}
 			}
