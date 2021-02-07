@@ -1,6 +1,8 @@
 package orm
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +27,27 @@ func TestRedis(t *testing.T) {
 	assert.Nil(t, err)
 	engine := validatedRegistry.CreateEngine()
 	engine.DataDog().EnableORMAPMLog(apexLog.DebugLevel, true, QueryLoggerSourceRedis)
+
+	for i := 0; i < 10; i++ {
+		go func() {
+			lines := strings.Split(engine.GetRedis().Info("Clients"), "\r\n")
+			for _, line := range lines {
+				if strings.HasPrefix(line, "connected_clients") {
+					fmt.Println(line)
+					break
+				}
+			}
+		}()
+	}
+	time.Sleep(time.Second * 5)
+	lines := strings.Split(engine.GetRedis().Info("Clients"), "\r\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "connected_clients") {
+			fmt.Println("FINAL")
+			fmt.Println(line)
+			break
+		}
+	}
 	testRedis(t, engine)
 
 	registry = &Registry{}
