@@ -740,7 +740,7 @@ func (r *RedisCache) fillStreamsLogFields(message string, start time.Time, opera
 	fields map[string]interface{}, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	e := r.engine.queryLoggers[QueryLoggerSourceRedis].log.
+	e := r.engine.queryLoggers[QueryLoggerSourceStreams].log.
 		WithField("microseconds", stop).
 		WithField("operation", operation).
 		WithField("pool", r.code).
