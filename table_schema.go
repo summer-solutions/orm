@@ -455,7 +455,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		fieldsQuery += ",`" + column + "`"
 	}
 	cachePrefix = fmt.Sprintf("%x", sha256.Sum256([]byte(cachePrefix+fieldsQuery)))
-	cachePrefix = cachePrefix[0:4]
+	cachePrefix = cachePrefix[0:5]
 
 	tableSchema := &tableSchema{tableName: table,
 		mysqlPoolName:       mysql,
