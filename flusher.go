@@ -41,7 +41,7 @@ func (f *flusher) Track(entity ...Entity) Flusher {
 			f.trackedEntities = append(f.trackedEntities, entity)
 		}
 		f.trackedEntitiesCounter++
-		if f.trackedEntitiesCounter == 10000 {
+		if f.trackedEntitiesCounter == 10001 {
 			panic(errors.Errorf("track limit 10000 exceeded"))
 		}
 	}
