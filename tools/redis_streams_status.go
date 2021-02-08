@@ -66,10 +66,10 @@ func GetRedisStreamsStatistics(engine *orm.Engine) []*RedisStreamStatistics {
 						if has {
 							speedEventsAsInt, _ := strconv.Atoi(speedEvents)
 							if speedEventsAsInt > 0 {
-								speedTime, _ := speedStats[speedKey+"t"]
+								speedTime := speedStats[speedKey+"t"]
 								speedTimeAsInt, _ := strconv.Atoi(speedTime)
 								speed = float32(speedTimeAsInt / speedEventsAsInt)
-								speedUnix, _ := speedStats[speedKey+"u"]
+								speedUnix := speedStats[speedKey+"u"]
 								speedUnixAsInt, _ := strconv.Atoi(speedUnix)
 								t := time.Unix(int64(speedUnixAsInt), 0)
 								speedLastTime = &t

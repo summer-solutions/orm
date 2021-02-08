@@ -219,7 +219,6 @@ type eventsConsumer struct {
 	deadConsumers        int
 	speedEvents          int
 	speedTimeNanoseconds int64
-	speedSent            time.Time
 	speedLimit           int
 	nrString             string
 	streams              []string

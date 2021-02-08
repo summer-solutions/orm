@@ -21,7 +21,7 @@ func TestEngine(t *testing.T) {
 	assert.True(t, is)
 	assert.Equal(t, log2.WarnLevel, handler.Level)
 	engine.AddQueryLogger(memory.New(), log2.InfoLevel)
-	assert.Len(t, engine.queryLoggers, 5)
+	assert.Len(t, engine.queryLoggers, 6)
 
 	assert.PanicsWithError(t, "unregistered mysql pool 'test'", func() {
 		engine.GetMysql("test")
@@ -55,7 +55,7 @@ func TestEngine(t *testing.T) {
 	assert.Equal(t, log2.DebugLevel, handler.Level)
 
 	engine.EnableQueryDebug()
-	assert.Len(t, engine.queryLoggers, 5)
+	assert.Len(t, engine.queryLoggers, 6)
 	assert.Len(t, engine.queryLoggers[QueryLoggerSourceDB].handler.Handlers, 2)
 }
 

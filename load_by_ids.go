@@ -179,95 +179,254 @@ func getKeysForNils(engine *Engine, schema *tableSchema, rows map[string]interfa
 	return keys
 }
 
-func warmUpReferences(engine *Engine, tableSchema *tableSchema, rows reflect.Value, references []string, many bool) {
-	warmUpRows := make(map[reflect.Type]map[uint64]bool)
-	warmUpRefs := make(map[reflect.Type]map[uint64][]reflect.Value)
-	warmUpRowsIDs := make(map[reflect.Type][]uint64)
-	warmUpSubRefs := make(map[reflect.Type][]string)
+func warmUpReferences(engine *Engine, schema *tableSchema, rows reflect.Value, references []string, many bool) {
+	dbMap := make(map[string]map[*tableSchema]map[string][]reflect.Value)
+	var localMap map[string]map[string][]reflect.Value
+	var redisMap map[string]map[string][]reflect.Value
 	l := 1
 	if many {
 		l = rows.Len()
 	}
 	if references[0] == "*" {
-		references = tableSchema.refOne
+		references = schema.refOne
 	}
+	var referencesNextLevel map[string]map[string][]Entity
 	for _, ref := range references {
-		parts := strings.Split(ref, "/")
-		_, has := tableSchema.tags[parts[0]]
-		if !has {
-			panic(errors.NotValidf("reference %s in %s", ref, tableSchema.tableName))
+		refName := ref
+		pos := strings.Index(refName, "/")
+		if pos > 0 {
+			if referencesNextLevel == nil {
+				referencesNextLevel = make(map[string]map[string][]Entity)
+			}
+			nextRef := refName[pos+1:]
+			refName = refName[0:pos]
+			if referencesNextLevel[refName] == nil {
+				referencesNextLevel[refName] = make(map[string][]Entity)
+			}
+			referencesNextLevel[refName][nextRef] = nil
 		}
-		parentRef, has := tableSchema.tags[parts[0]]["ref"]
+		_, has := schema.tags[refName]
+		if !has {
+			panic(errors.NotValidf("reference %s in %s", ref, schema.tableName))
+		}
+		parentRef, has := schema.tags[refName]["ref"]
 		manyRef := false
 		if !has {
-			parentRef, has = tableSchema.tags[parts[0]]["refs"]
+			parentRef, has = schema.tags[refName]["refs"]
 			manyRef = true
 			if !has {
 				panic(errors.NotValidf("reference tag %s", ref))
 			}
 		}
-		parentType := engine.registry.entities[parentRef]
-		newSub := parts[1:]
-		if len(newSub) > 0 {
-			warmUpSubRefs[parentType] = append(warmUpSubRefs[parentType], strings.Join(newSub, "/"))
+		parentSchema := engine.registry.tableSchemas[engine.registry.entities[parentRef]]
+		hasLocalCache := parentSchema.hasLocalCache
+		if !hasLocalCache && engine.hasRequestCache {
+			hasLocalCache = true
+		}
+		if hasLocalCache && localMap == nil {
+			localMap = make(map[string]map[string][]reflect.Value)
+		}
+		if parentSchema.hasRedisCache && redisMap == nil {
+			redisMap = make(map[string]map[string][]reflect.Value)
 		}
 
 		for i := 0; i < l; i++ {
 			var ref reflect.Value
 			if many {
-				ref = rows.Index(i).Elem().FieldByName(parts[0])
+				ref = reflect.Indirect(rows.Index(i).Elem()).FieldByName(refName)
 			} else {
-				ref = rows.FieldByName(parts[0])
+				ref = rows.FieldByName(refName)
 			}
 			if !ref.IsValid() || ref.IsZero() {
 				continue
 			}
-			if warmUpRefs[parentType] == nil {
-				warmUpRefs[parentType] = make(map[uint64][]reflect.Value)
-			}
-			if warmUpRows[parentType] == nil {
-				warmUpRows[parentType] = make(map[uint64]bool)
-				warmUpRowsIDs[parentType] = make([]uint64, 0)
-			}
 			if manyRef {
 				length := ref.Len()
 				for i := 0; i < length; i++ {
-					refID := ref.Index(i).Interface().(Entity).GetID()
-					if warmUpRefs[parentType][refID] == nil {
-						warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
-					}
-					warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref.Index(i))
-					_, has := warmUpRows[parentType][refID]
-					if !has {
-						warmUpRowsIDs[parentType] = append(warmUpRowsIDs[parentType], refID)
-					}
+					fillRefMap(engine, referencesNextLevel, refName, ref.Index(i), parentSchema, dbMap, localMap, redisMap)
 				}
 			} else {
-				refEntity := ref.Interface().(Entity)
-				refID := refEntity.GetID()
-				if warmUpRefs[parentType][refID] == nil {
-					warmUpRefs[parentType][refID] = make([]reflect.Value, 0)
+				fillRefMap(engine, referencesNextLevel, refName, ref, parentSchema, dbMap, localMap, redisMap)
+			}
+		}
+	}
+	for k, v := range localMap {
+		if len(v) == 1 {
+			var key string
+			for k := range v {
+				key = k
+				break
+			}
+			fromCache, has := engine.GetLocalCache(k).Get(key)
+			if has && fromCache != "nil" {
+				data := fromCache.([]interface{})
+				for _, r := range v[key] {
+					fillFromDBRow(data[0].(uint64), engine, data, r.Interface().(Entity), false)
 				}
-				warmUpRefs[parentType][refID] = append(warmUpRefs[parentType][refID], ref)
-				_, has := warmUpRows[parentType][refID]
-				if !has {
-					warmUpRowsIDs[parentType] = append(warmUpRowsIDs[parentType], refID)
+				fillRef(key, localMap, redisMap, dbMap)
+			}
+		} else {
+			keys := make([]string, len(v))
+			i := 0
+			for k := range v {
+				keys[i] = k
+				i++
+			}
+			for key, fromCache := range engine.GetLocalCache(k).MGet(keys...) {
+				if fromCache != nil {
+					data := fromCache.([]interface{})
+					for _, r := range v[key] {
+						fillFromDBRow(data[0].(uint64), engine, data, r.Interface().(Entity), false)
+					}
+					fillRef(key, localMap, redisMap, dbMap)
 				}
 			}
 		}
 	}
-	for t, ids := range warmUpRowsIDs {
-		sub := reflect.New(reflect.SliceOf(reflect.PtrTo(t))).Elem()
-		_, _ = tryByIDs(engine, ids, true, sub, warmUpSubRefs[t])
-		subLen := sub.Len()
-		for i := 0; i < subLen; i++ {
-			v := sub.Index(i).Interface().(Entity)
-			id := v.GetID()
-			refs, has := warmUpRefs[t][id]
-			if has {
-				for _, ref := range refs {
-					ref.Set(v.getORM().value)
+	for k, v := range redisMap {
+		keys := make([]string, len(v))
+		i := 0
+		for k := range v {
+			keys[i] = k
+			i++
+		}
+		for key, fromCache := range engine.GetRedis(k).MGet(keys...) {
+			if fromCache != nil {
+				schema := v[key][0].Interface().(Entity).getORM().tableSchema
+				decoded := make([]interface{}, len(schema.columnNames))
+				_ = jsoniter.ConfigFastest.Unmarshal([]byte(fromCache.(string)), &decoded)
+				convertDataFromJSON(schema.fields, 0, decoded)
+				for _, r := range v[key] {
+					fillFromDBRow(decoded[0].(uint64), engine, decoded, r.Interface().(Entity), false)
 				}
+				fillRef(key, nil, redisMap, dbMap)
+			}
+		}
+	}
+	for k, v := range dbMap {
+		db := engine.GetMysql(k)
+		for schema, v2 := range v {
+			if len(v2) == 0 {
+				continue
+			}
+			keys := make([]string, len(v2))
+			q := make([]string, len(v2))
+			i := 0
+			for k2 := range v2 {
+				keys[i] = k2[strings.Index(k2, ":")+1:]
+				q[i] = keys[i]
+				i++
+			}
+			query := "SELECT " + schema.fieldsQuery + " FROM `" + schema.tableName + "` WHERE `ID` IN (" + strings.Join(q, ",") + ")"
+			results, def := db.Query(query)
+			for results.Next() {
+				pointers := prepareScan(schema)
+				results.Scan(pointers...)
+				convertScan(schema.fields, 0, pointers)
+				id := pointers[0].(uint64)
+				for _, r := range v2[schema.getCacheKey(id)] {
+					fillFromDBRow(id, engine, pointers, r.Interface().(Entity), false)
+				}
+			}
+			def()
+		}
+	}
+	for pool, v := range redisMap {
+		if len(v) == 0 {
+			continue
+		}
+		values := make([]interface{}, 0)
+		for cacheKey, refs := range v {
+			e := refs[0].Interface().(Entity)
+			if e.Loaded() {
+				values = append(values, cacheKey, buildRedisValue(e))
+			} else {
+				values = append(values, cacheKey, "nil")
+			}
+		}
+		engine.GetRedis(pool).MSet(values)
+	}
+	for pool, v := range localMap {
+		if len(v) == 0 {
+			continue
+		}
+		values := make([]interface{}, 0)
+		for cacheKey, refs := range v {
+			e := refs[0].Interface().(Entity)
+			if e.Loaded() {
+				values = append(values, cacheKey, buildLocalCacheValue(e))
+			} else {
+				values = append(values, cacheKey, "nil")
+			}
+		}
+		engine.GetLocalCache(pool).MSet(values)
+	}
+
+	for _, v := range referencesNextLevel {
+		for k, v2 := range v {
+			l := len(v2)
+			if l == 1 {
+				warmUpReferences(engine, v2[0].getORM().tableSchema, reflect.ValueOf(v2[0]).Elem(), []string{k}, false)
+			} else if l > 1 {
+				warmUpReferences(engine, v2[0].getORM().tableSchema, reflect.ValueOf(v2), []string{k}, true)
+			}
+		}
+	}
+}
+
+func fillRef(key string, localMap map[string]map[string][]reflect.Value,
+	redisMap map[string]map[string][]reflect.Value, dbMap map[string]map[*tableSchema]map[string][]reflect.Value) {
+	for _, p := range localMap {
+		delete(p, key)
+	}
+	for _, p := range redisMap {
+		delete(p, key)
+	}
+	for _, p := range dbMap {
+		for _, p2 := range p {
+			delete(p2, key)
+		}
+	}
+}
+
+func fillRefMap(engine *Engine, referencesNextLevel map[string]map[string][]Entity, refName string, v reflect.Value, parentSchema *tableSchema,
+	dbMap map[string]map[*tableSchema]map[string][]reflect.Value,
+	localMap map[string]map[string][]reflect.Value, redisMap map[string]map[string][]reflect.Value) {
+	e := v.Interface().(Entity)
+	if !e.Loaded() {
+		id := e.GetID()
+		if id > 0 {
+			refSlice, has := referencesNextLevel[refName]
+			if has {
+				for k := range refSlice {
+					refSlice[k] = append(refSlice[k], e)
+				}
+			}
+			cacheKey := parentSchema.getCacheKey(id)
+			if dbMap[parentSchema.mysqlPoolName] == nil {
+				dbMap[parentSchema.mysqlPoolName] = make(map[*tableSchema]map[string][]reflect.Value)
+			}
+			if dbMap[parentSchema.mysqlPoolName][parentSchema] == nil {
+				dbMap[parentSchema.mysqlPoolName][parentSchema] = make(map[string][]reflect.Value)
+			}
+			dbMap[parentSchema.mysqlPoolName][parentSchema][cacheKey] = append(dbMap[parentSchema.mysqlPoolName][parentSchema][cacheKey], v)
+			hasLocalCache := parentSchema.hasLocalCache
+			localCacheName := parentSchema.localCacheName
+			if !hasLocalCache && engine.hasRequestCache {
+				hasLocalCache = true
+				localCacheName = requestCacheKey
+			}
+			if hasLocalCache {
+				if localMap[localCacheName] == nil {
+					localMap[localCacheName] = make(map[string][]reflect.Value)
+				}
+				localMap[localCacheName][cacheKey] = append(localMap[localCacheName][cacheKey], v)
+			}
+			if parentSchema.hasRedisCache {
+				if redisMap[parentSchema.redisCacheName] == nil {
+					redisMap[parentSchema.redisCacheName] = make(map[string][]reflect.Value)
+				}
+				redisMap[parentSchema.redisCacheName][cacheKey] = append(redisMap[parentSchema.redisCacheName][cacheKey], v)
 			}
 		}
 	}

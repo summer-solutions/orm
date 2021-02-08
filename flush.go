@@ -154,7 +154,9 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				if affected > 0 {
 					lastID := result.LastInsertId()
 					injectBind(entity, bind)
-					entity.getORM().idElem.SetUint(lastID)
+					orm := entity.getORM()
+					orm.idElem.SetUint(lastID)
+					orm.dBData[0] = lastID
 					if affected == 1 {
 						updateCacheForInserted(engine, entity, lazy, lastID, bind, localCacheSets, localCacheDeletes,
 							redisFlusher, dataLoaderSets)
@@ -299,7 +301,9 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			injectBind(entity, bind)
 			insertedID := entity.GetID()
 			if insertedID == 0 {
-				entity.getORM().idElem.SetUint(id)
+				orm := entity.getORM()
+				orm.idElem.SetUint(id)
+				orm.dBData[0] = id
 				insertedID = id
 				id = id + db.autoincrement
 			}
