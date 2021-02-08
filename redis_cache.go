@@ -397,6 +397,7 @@ func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
 		r.fillLogFields("[ORM][REDIS][MGET]", start, "mget", misses, len(keys),
 			map[string]interface{}{"Keys": keys}, err)
 	}
+	checkError(err)
 	return results
 }
 

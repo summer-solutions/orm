@@ -190,20 +190,22 @@ func warmUpReferences(engine *Engine, schema *tableSchema, rows reflect.Value, r
 	if references[0] == "*" {
 		references = schema.refOne
 	}
-	var referencesNextLevel map[string]map[string][]Entity
+	var referencesNextNames map[string][]string
+	var referencesNextEntities map[string][]Entity
 	for _, ref := range references {
 		refName := ref
 		pos := strings.Index(refName, "/")
 		if pos > 0 {
-			if referencesNextLevel == nil {
-				referencesNextLevel = make(map[string]map[string][]Entity)
+			if referencesNextNames == nil {
+				referencesNextNames = make(map[string][]string)
+			}
+			if referencesNextEntities == nil {
+				referencesNextEntities = make(map[string][]Entity)
 			}
 			nextRef := refName[pos+1:]
 			refName = refName[0:pos]
-			if referencesNextLevel[refName] == nil {
-				referencesNextLevel[refName] = make(map[string][]Entity)
-			}
-			referencesNextLevel[refName][nextRef] = nil
+			referencesNextNames[refName] = append(referencesNextNames[refName], nextRef)
+			referencesNextEntities[refName] = nil
 		}
 		_, has := schema.tags[refName]
 		if !has {
@@ -243,15 +245,16 @@ func warmUpReferences(engine *Engine, schema *tableSchema, rows reflect.Value, r
 			if manyRef {
 				length := ref.Len()
 				for i := 0; i < length; i++ {
-					fillRefMap(engine, referencesNextLevel, refName, ref.Index(i), parentSchema, dbMap, localMap, redisMap)
+					fillRefMap(engine, referencesNextEntities, refName, ref.Index(i), parentSchema, dbMap, localMap, redisMap)
 				}
 			} else {
-				fillRefMap(engine, referencesNextLevel, refName, ref, parentSchema, dbMap, localMap, redisMap)
+				fillRefMap(engine, referencesNextEntities, refName, ref, parentSchema, dbMap, localMap, redisMap)
 			}
 		}
 	}
 	for k, v := range localMap {
-		if len(v) == 1 {
+		l := len(v)
+		if l == 1 {
 			var key string
 			for k := range v {
 				key = k
@@ -265,7 +268,7 @@ func warmUpReferences(engine *Engine, schema *tableSchema, rows reflect.Value, r
 				}
 				fillRef(key, localMap, redisMap, dbMap)
 			}
-		} else {
+		} else if l > 1 {
 			keys := make([]string, len(v))
 			i := 0
 			for k := range v {
@@ -284,7 +287,11 @@ func warmUpReferences(engine *Engine, schema *tableSchema, rows reflect.Value, r
 		}
 	}
 	for k, v := range redisMap {
-		keys := make([]string, len(v))
+		l := len(v)
+		if l == 0 {
+			continue
+		}
+		keys := make([]string, l)
 		i := 0
 		for k := range v {
 			keys[i] = k
@@ -344,7 +351,7 @@ func warmUpReferences(engine *Engine, schema *tableSchema, rows reflect.Value, r
 				values = append(values, cacheKey, "nil")
 			}
 		}
-		engine.GetRedis(pool).MSet(values)
+		engine.GetRedis(pool).MSet(values...)
 	}
 	for pool, v := range localMap {
 		if len(v) == 0 {
@@ -359,17 +366,17 @@ func warmUpReferences(engine *Engine, schema *tableSchema, rows reflect.Value, r
 				values = append(values, cacheKey, "nil")
 			}
 		}
-		engine.GetLocalCache(pool).MSet(values)
+		engine.GetLocalCache(pool).MSet(values...)
 	}
 
-	for _, v := range referencesNextLevel {
-		for k, v2 := range v {
-			l := len(v2)
-			if l == 1 {
-				warmUpReferences(engine, v2[0].getORM().tableSchema, reflect.ValueOf(v2[0]).Elem(), []string{k}, false)
-			} else if l > 1 {
-				warmUpReferences(engine, v2[0].getORM().tableSchema, reflect.ValueOf(v2), []string{k}, true)
-			}
+	for refName, entities := range referencesNextEntities {
+		l := len(entities)
+		if l == 1 {
+			warmUpReferences(engine, entities[0].getORM().tableSchema, reflect.ValueOf(entities[0]).Elem(),
+				referencesNextNames[refName], false)
+		} else if l > 1 {
+			warmUpReferences(engine, entities[0].getORM().tableSchema, reflect.ValueOf(entities),
+				referencesNextNames[refName], true)
 		}
 	}
 }
@@ -389,18 +396,16 @@ func fillRef(key string, localMap map[string]map[string][]reflect.Value,
 	}
 }
 
-func fillRefMap(engine *Engine, referencesNextLevel map[string]map[string][]Entity, refName string, v reflect.Value, parentSchema *tableSchema,
+func fillRefMap(engine *Engine, referencesNextEntities map[string][]Entity, refName string, v reflect.Value, parentSchema *tableSchema,
 	dbMap map[string]map[*tableSchema]map[string][]reflect.Value,
 	localMap map[string]map[string][]reflect.Value, redisMap map[string]map[string][]reflect.Value) {
 	e := v.Interface().(Entity)
 	if !e.Loaded() {
 		id := e.GetID()
 		if id > 0 {
-			refSlice, has := referencesNextLevel[refName]
+			_, has := referencesNextEntities[refName]
 			if has {
-				for k := range refSlice {
-					refSlice[k] = append(refSlice[k], e)
-				}
+				referencesNextEntities[refName] = append(referencesNextEntities[refName], e)
 			}
 			cacheKey := parentSchema.getCacheKey(id)
 			if dbMap[parentSchema.mysqlPoolName] == nil {

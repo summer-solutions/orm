@@ -3,15 +3,19 @@ package orm
 import (
 	"testing"
 
+	apexLog "github.com/apex/log"
+	"github.com/apex/log/handlers/memory"
+
 	"github.com/stretchr/testify/assert"
 )
 
 type loadByIDEntity struct {
-	ORM           `orm:"localCache;redisCache"`
-	ID            uint
-	Name          string `orm:"max=100"`
-	ReferenceOne  *loadByIDReference
-	ReferenceMany []*loadByIDReference
+	ORM             `orm:"localCache;redisCache"`
+	ID              uint
+	Name            string `orm:"max=100"`
+	ReferenceOne    *loadByIDReference
+	ReferenceSecond *loadByIDReference
+	ReferenceMany   []*loadByIDReference
 }
 
 type loadByIDRedisEntity struct {
@@ -26,10 +30,11 @@ type loadByIDNoCacheEntity struct {
 }
 
 type loadByIDReference struct {
-	ORM          `orm:"localCache;redisCache"`
-	ID           uint
-	Name         string
-	ReferenceTwo *loadByIDSubReference
+	ORM            `orm:"localCache;redisCache"`
+	ID             uint
+	Name           string
+	ReferenceTwo   *loadByIDSubReference
+	ReferenceThree *loadByIDSubReference2
 }
 
 type loadByIDSubReference struct {
@@ -38,20 +43,45 @@ type loadByIDSubReference struct {
 	Name string
 }
 
+type loadByIDSubReference2 struct {
+	ORM          `orm:"localCache"`
+	ID           uint
+	Name         string
+	ReferenceTwo *loadByIDSubReference
+}
+
 func TestLoadById(t *testing.T) {
 	var entity *loadByIDEntity
 	var entityRedis *loadByIDRedisEntity
 	var entityNoCache *loadByIDNoCacheEntity
 	var reference *loadByIDReference
 	var subReference *loadByIDSubReference
-	engine := PrepareTables(t, &Registry{}, 5, entity, entityRedis, entityNoCache, reference, subReference)
+	var subReference2 *loadByIDSubReference2
+	engine := PrepareTables(t, &Registry{}, 5, entity, entityRedis, entityNoCache, reference, subReference, subReference2)
 
-	engine.FlushMany(&loadByIDEntity{Name: "a", ReferenceOne: &loadByIDReference{Name: "r1", ReferenceTwo: &loadByIDSubReference{Name: "s1"}}},
+	e := &loadByIDEntity{Name: "a", ReferenceOne: &loadByIDReference{Name: "r1", ReferenceTwo: &loadByIDSubReference{Name: "s1"}}}
+	e.ReferenceSecond = &loadByIDReference{Name: "r11", ReferenceTwo: &loadByIDSubReference{Name: "s1"},
+		ReferenceThree: &loadByIDSubReference2{Name: "s11", ReferenceTwo: &loadByIDSubReference{Name: "hello"}}}
+	engine.FlushMany(e,
 		&loadByIDEntity{Name: "b", ReferenceOne: &loadByIDReference{Name: "r2", ReferenceTwo: &loadByIDSubReference{Name: "s2"}}},
 		&loadByIDEntity{Name: "c"}, &loadByIDNoCacheEntity{Name: "a"})
 
 	engine.FlushMany(&loadByIDReference{Name: "rm1", ID: 100}, &loadByIDReference{Name: "rm2", ID: 101}, &loadByIDReference{Name: "rm3", ID: 102})
 	engine.FlushMany(&loadByIDEntity{Name: "eMany", ID: 200, ReferenceMany: []*loadByIDReference{{ID: 100}, {ID: 101}, {ID: 102}}})
+
+	entity = &loadByIDEntity{}
+	localLogger := memory.New()
+	engine.AddQueryLogger(localLogger, apexLog.InfoLevel, QueryLoggerSourceLocalCache)
+	engine.LoadByID(1, entity, "ReferenceOne/ReferenceTwo",
+		"ReferenceSecond/ReferenceTwo", "ReferenceSecond/ReferenceThree/ReferenceTwo")
+	assert.Len(t, localLogger.Entries, 5)
+	assert.True(t, e.Loaded())
+	assert.True(t, e.ReferenceOne.Loaded())
+	assert.True(t, e.ReferenceOne.ReferenceTwo.Loaded())
+	assert.True(t, e.ReferenceSecond.Loaded())
+	assert.True(t, e.ReferenceSecond.ReferenceTwo.Loaded())
+	assert.True(t, e.ReferenceSecond.ReferenceThree.Loaded())
+	assert.True(t, e.ReferenceSecond.ReferenceThree.ReferenceTwo.Loaded())
 
 	entity = &loadByIDEntity{}
 	found := engine.LoadByID(1, entity, "ReferenceOne/ReferenceTwo")
