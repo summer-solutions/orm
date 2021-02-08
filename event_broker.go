@@ -16,6 +16,7 @@ const countPending = 100
 const garbageCollectorCount = 100
 const maxConsumers = 100
 const pendingClaimCheckDuration = time.Minute * 2
+const speedHSetKey = "_orm_ss"
 
 type EventAsMap map[string]interface{}
 
@@ -203,30 +204,37 @@ func (eb *eventBroker) Consumer(name, group string) EventsConsumer {
 			panic(fmt.Errorf("reading from different redis pool not allowed"))
 		}
 	}
+	speedPrefixKey := group + "_" + redisPool + "_" + name
 	return &eventsConsumer{redis: eb.engine.GetRedis(redisPool), name: name, streams: streams, group: group,
 		loop: true, block: time.Second * 30, lockTTL: time.Minute, lockTick: time.Second * 50,
-		garbageTick: time.Minute * 5, garbageLock: time.Minute * 7, minIdle: pendingClaimCheckDuration, claimDuration: pendingClaimCheckDuration}
+		garbageTick: time.Minute * 5, garbageLock: time.Minute * 7, minIdle: pendingClaimCheckDuration,
+		claimDuration: pendingClaimCheckDuration, speedLimit: 10000, speedPrefixKey: speedPrefixKey}
 }
 
 type eventsConsumer struct {
-	redis             *RedisCache
-	name              string
-	nr                int
-	deadConsumers     int
-	nrString          string
-	streams           []string
-	group             string
-	loop              bool
-	block             time.Duration
-	heartBeatTime     time.Time
-	heartBeat         func()
-	heartBeatDuration time.Duration
-	lockTTL           time.Duration
-	lockTick          time.Duration
-	garbageTick       time.Duration
-	garbageLock       time.Duration
-	minIdle           time.Duration
-	claimDuration     time.Duration
+	redis                *RedisCache
+	name                 string
+	nr                   int
+	speedPrefixKey       string
+	deadConsumers        int
+	speedEvents          int
+	speedTimeNanoseconds int64
+	speedSent            time.Time
+	speedLimit           int
+	nrString             string
+	streams              []string
+	group                string
+	loop                 bool
+	block                time.Duration
+	heartBeatTime        time.Time
+	heartBeat            func()
+	heartBeatDuration    time.Duration
+	lockTTL              time.Duration
+	lockTick             time.Duration
+	garbageTick          time.Duration
+	garbageLock          time.Duration
+	minIdle              time.Duration
+	claimDuration        time.Duration
 }
 
 func (r *eventsConsumer) DisableLoop() {
@@ -266,6 +274,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 		r.nr = nr
 		r.nrString = strconv.Itoa(nr)
 		r.redis.HSet(runningKey, r.nrString, strconv.FormatInt(time.Now().Unix(), 10))
+		r.speedPrefixKey += "-" + r.nrString
 		break
 	}
 	ticker := time.NewTicker(r.lockTick)
@@ -446,6 +455,8 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 						i++
 					}
 				}
+				r.speedEvents += totalMessages
+				start := time.Now()
 				handler(events)
 				totalACK := 0
 				var toAck map[string][]string
@@ -466,6 +477,15 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 				for stream, ids := range toAck {
 					r.redis.XAck(stream, r.group, ids...)
 				}
+				r.speedTimeNanoseconds += time.Since(start).Nanoseconds()
+				if r.speedEvents >= r.speedLimit {
+					v := map[string]interface{}{r.speedPrefixKey + "e": r.speedEvents, r.speedPrefixKey + "t": r.speedTimeNanoseconds,
+						r.speedPrefixKey + "u": time.Now().Unix()}
+					r.redis.HMset(speedHSetKey, v)
+					r.speedEvents = 0
+					r.speedTimeNanoseconds = 0
+				}
+
 				if totalACK < totalMessages {
 					hasInvalid = true
 				}
@@ -501,6 +521,7 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 				r.redis.engine.reportError(rec)
 			}
 		}()
+
 		locker := r.redis.engine.GetLocker()
 		def := r.redis.engine.registry.redisStreamGroups[r.redis.code]
 		for _, stream := range r.streams {
