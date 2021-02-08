@@ -353,7 +353,7 @@ func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 		Addr: address,
 		DB:   db,
 		//PoolSize:   1, // TODO use settings
-		MaxConnAge: time.Second * 5,
+		MaxConnAge: time.Minute * 2,
 	})
 	r.registerRedis(client, code, address)
 }
@@ -364,7 +364,7 @@ func (r *Registry) RegisterRedisSentinel(masterName string, db int, sentinels []
 		SentinelAddrs: sentinels,
 		DB:            db,
 		//PoolSize:      1, // TODO use settings
-		MaxConnAge: time.Second * 5,
+		MaxConnAge: time.Minute * 2,
 	})
 	r.registerRedis(client, code, fmt.Sprintf("%v", sentinels))
 }
