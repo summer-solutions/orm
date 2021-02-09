@@ -92,6 +92,7 @@ func (l *Lock) Release() {
 	if !l.has {
 		return
 	}
+	l.has = false
 	start := time.Now()
 	err := l.lock.Release(l.engine.context)
 	if err == redislock.ErrLockNotHeld {
@@ -100,7 +101,6 @@ func (l *Lock) Release() {
 	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
 		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release lock", err, nil)
 	}
-	l.has = false
 	close(l.done)
 }
 
@@ -115,6 +115,9 @@ func (l *Lock) TTL() time.Duration {
 }
 
 func (l *Lock) Refresh(ctx context.Context, ttl time.Duration) bool {
+	if !l.has {
+		return false
+	}
 	start := time.Now()
 	err := l.lock.Refresh(ctx, ttl, nil)
 	has := true
