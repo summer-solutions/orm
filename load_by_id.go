@@ -123,7 +123,8 @@ func buildLocalCacheValue(entity Entity) []interface{} {
 
 func initIfNeeded(engine *Engine, entity Entity) *ORM {
 	orm := entity.getORM()
-	if orm.dBData == nil {
+	if !orm.initialised {
+		orm.initialised = true
 		value := reflect.ValueOf(entity)
 		elem := value.Elem()
 		t := elem.Type()
@@ -132,7 +133,6 @@ func initIfNeeded(engine *Engine, entity Entity) *ORM {
 			panic(fmt.Errorf("entity '%s' is not registered", t.String()))
 		}
 		orm.tableSchema = tableSchema
-		orm.dBData = make([]interface{}, len(tableSchema.columnNames))
 		orm.value = value
 		orm.elem = elem
 		orm.idElem = elem.Field(1)

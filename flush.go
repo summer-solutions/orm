@@ -57,7 +57,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	var referencesToFlash map[Entity]Entity
 
 	for _, entity := range entities {
-		initIfNeeded(engine, entity)
+		initIfNeeded(engine, entity).initDBData()
 		schema := entity.getORM().tableSchema
 		if !isInTransaction && schema.GetMysql(engine).inTransaction {
 			isInTransaction = true
@@ -66,7 +66,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			refValue := entity.getORM().elem.FieldByName(refName)
 			if refValue.IsValid() && !refValue.IsNil() {
 				refEntity := refValue.Interface().(Entity)
-				initIfNeeded(engine, refEntity)
+				initIfNeeded(engine, refEntity).initDBData()
 				if refEntity.GetID() == 0 {
 					if referencesToFlash == nil {
 						referencesToFlash = make(map[Entity]Entity)
@@ -497,6 +497,7 @@ func convertDBDataToMap(schema *tableSchema, data []interface{}) map[string]inte
 func injectBind(entity Entity, bind map[string]interface{}) {
 	orm := entity.getORM()
 	mapping := orm.tableSchema.columnMapping
+	orm.initDBData()
 	for key, value := range bind {
 		orm.dBData[mapping[key]] = value
 	}
@@ -514,7 +515,10 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 		if prefix == "" && i <= 1 {
 			continue
 		}
-		old := oldData[tableSchema.columnMapping[name]]
+		var old interface{}
+		if hasOld {
+			old = oldData[tableSchema.columnMapping[name]]
+		}
 		field := value.Field(i)
 		attributes := tableSchema.tags[name]
 		_, has := attributes["ignore"]

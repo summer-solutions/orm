@@ -27,6 +27,7 @@ type ORM struct {
 	dBData               []interface{}
 	tableSchema          *tableSchema
 	onDuplicateKeyUpdate map[string]interface{}
+	initialised          bool
 	loaded               bool
 	inDB                 bool
 	delete               bool
@@ -46,6 +47,12 @@ func (orm *ORM) GetID() uint64 {
 		return 0
 	}
 	return orm.idElem.Uint()
+}
+
+func (orm *ORM) initDBData() {
+	if orm.dBData == nil {
+		orm.dBData = make([]interface{}, len(orm.tableSchema.columnNames))
+	}
 }
 
 func (orm *ORM) markToDelete() {
@@ -93,6 +100,7 @@ func (orm *ORM) GetDirtyBind() (bind Bind, has bool) {
 	}
 	id := orm.GetID()
 	t := orm.elem.Type()
+	orm.initDBData()
 	bind = createBind(id, orm, orm.tableSchema, t, orm.elem, orm.dBData, "")
 	has = id == 0 || len(bind) > 0
 	return bind, has
