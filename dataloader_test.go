@@ -136,7 +136,7 @@ func TestDataLoader(t *testing.T) {
 	assert.True(t, found)
 	assert.True(t, entity.Ref.Loaded())
 	assert.Equal(t, "r1", entity.Ref.Name)
-	assert.Len(t, DBLogger.Entries, 1)
+	assert.Len(t, DBLogger.Entries, 2)
 	assert.Len(t, redisLogger.Entries, 1)
 
 	entities[0].Name = "c2"
