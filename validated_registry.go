@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 )
 
 type ValidatedRegistry interface {
@@ -66,16 +67,13 @@ func (r *validatedRegistry) GetRedisStreams() map[string]map[string][]string {
 
 func (r *validatedRegistry) GetRedisPools() []string {
 	pools := make([]string, 0)
-	grouped := make(map[string]string)
+	groupedByAddress := make(map[string][]string)
 	for code, v := range r.redisServers {
-		_, has := grouped[v.address]
-		if has {
-			continue
-		}
-		grouped[v.address] = code
+		groupedByAddress[v.address] = append(groupedByAddress[v.address], code)
 	}
-	for _, code := range grouped {
-		pools = append(pools, code)
+	for _, codes := range groupedByAddress {
+		sort.Strings(codes)
+		pools = append(pools, codes[0])
 	}
 	return pools
 }
