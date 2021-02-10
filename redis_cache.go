@@ -82,6 +82,16 @@ func (r *RedisCache) Get(key string) (value string, has bool) {
 	return val, true
 }
 
+func (r *RedisCache) Eval(script string, keys []string, args ...interface{}) interface{} {
+	start := time.Now()
+	res, err := r.client.Eval(r.ctx, script, keys, args...).Result()
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][EVAL]", start, "eval", -1, 1, nil, err)
+	}
+	checkError(err)
+	return res
+}
+
 func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) {
 	start := time.Now()
 	_, err := r.client.Set(r.ctx, key, value, time.Duration(ttlSeconds)*time.Second).Result()

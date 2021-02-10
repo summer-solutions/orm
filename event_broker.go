@@ -571,7 +571,6 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 				continue
 			}
 			// TODO check of redis 6.2 and use trim with minid
-			start := "-"
 			var end string
 			if inPending {
 				if minID[1] > 0 {
@@ -583,7 +582,7 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 				end = strconv.FormatInt(minID[0], 10) + "-" + strconv.FormatInt(minID[1], 10)
 			}
 			for {
-				messages := r.redis.XRange(stream, start, end, garbageCollectorCount)
+				messages := r.redis.XRange(stream, "-", end, garbageCollectorCount)
 				l := len(messages)
 				if l > 0 {
 					keys := make([]string, l)
@@ -591,7 +590,6 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 						keys[i] = message.ID
 					}
 					r.redis.XDel(stream, keys...)
-					start = r.incrementID(keys[l-1])
 				}
 				if l < garbageCollectorCount {
 					break

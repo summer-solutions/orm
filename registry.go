@@ -350,9 +350,8 @@ func (r *Registry) RegisterLocalCache(size int, code ...string) {
 
 func (r *Registry) RegisterRedis(address string, db int, code ...string) {
 	client := redis.NewClient(&redis.Options{
-		Addr: address,
-		DB:   db,
-		//PoolSize:   1, // TODO use settings
+		Addr:       address,
+		DB:         db,
 		MaxConnAge: time.Minute * 2,
 	})
 	r.registerRedis(client, code, address)
@@ -363,8 +362,7 @@ func (r *Registry) RegisterRedisSentinel(masterName string, db int, sentinels []
 		MasterName:    masterName,
 		SentinelAddrs: sentinels,
 		DB:            db,
-		//PoolSize:      1, // TODO use settings
-		MaxConnAge: time.Minute * 2,
+		MaxConnAge:    time.Minute * 2,
 	})
 	r.registerRedis(client, code, fmt.Sprintf("%v", sentinels))
 }
