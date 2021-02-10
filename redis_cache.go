@@ -325,6 +325,17 @@ func (r *RedisCache) HIncrBy(key, field string, incr int64) int64 {
 	return val
 }
 
+func (r *RedisCache) Expire(key string, expiration time.Duration) bool {
+	start := time.Now()
+	val, err := r.client.Expire(r.ctx, key, expiration).Result()
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][EXPIRE]", start, "expire", -1, 1,
+			map[string]interface{}{"Key": key, "expiration": expiration}, err)
+	}
+	checkError(err)
+	return val
+}
+
 func (r *RedisCache) ZAdd(key string, members ...*redis.Z) int64 {
 	start := time.Now()
 	val, err := r.client.ZAdd(r.ctx, key, members...).Result()

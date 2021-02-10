@@ -33,6 +33,16 @@ func (rp *RedisPipeLine) Set(key string, value interface{}, expiration time.Dura
 	return &PipeLineStatus{p: rp, cmd: rp.pipeLine.Set(rp.ctx, key, value, expiration)}
 }
 
+func (rp *RedisPipeLine) Expire(key string, expiration time.Duration) *PipeLineBool {
+	rp.commands++
+	return &PipeLineBool{p: rp, cmd: rp.pipeLine.Expire(rp.ctx, key, expiration)}
+}
+
+func (rp *RedisPipeLine) HIncrBy(key, field string, incr int64) *PipeLineInt {
+	rp.commands++
+	return &PipeLineInt{p: rp, cmd: rp.pipeLine.HIncrBy(rp.ctx, key, field, incr)}
+}
+
 func (rp *RedisPipeLine) XAdd(stream string, values interface{}) *PipeLineString {
 	rp.xaddCommands++
 	return &PipeLineString{p: rp, cmd: rp.pipeLine.XAdd(rp.ctx, &redis.XAddArgs{Stream: stream, Values: values})}
@@ -88,6 +98,16 @@ type PipeLineInt struct {
 }
 
 func (c *PipeLineInt) Result() (int64, error) {
+	checkExecuted(c.p)
+	return c.cmd.Result()
+}
+
+type PipeLineBool struct {
+	p   *RedisPipeLine
+	cmd *redis.BoolCmd
+}
+
+func (c *PipeLineBool) Result() (bool, error) {
 	checkExecuted(c.p)
 	return c.cmd.Result()
 }

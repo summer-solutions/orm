@@ -485,8 +485,12 @@ func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, 
 				r.speedTimeMicroseconds += time.Since(start).Microseconds()
 				if r.speedEvents >= r.speedLimit {
 					today := time.Now().Format("01-02-06")
-					r.redis.HIncrBy(speedHSetKey+today, r.speedPrefixKey+"e", int64(r.speedEvents))
-					r.redis.HIncrBy(speedHSetKey+today, r.speedPrefixKey+"t", r.speedTimeMicroseconds)
+					key := speedHSetKey + today
+					pipeline := r.redis.PipeLine()
+					pipeline.Expire(key, time.Hour*168)
+					pipeline.HIncrBy(key, r.speedPrefixKey+"e", int64(r.speedEvents))
+					pipeline.HIncrBy(key, r.speedPrefixKey+"t", r.speedTimeMicroseconds)
+					pipeline.Exec()
 					r.speedEvents = 0
 					r.speedTimeMicroseconds = 0
 				}
