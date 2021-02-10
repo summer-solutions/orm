@@ -13,7 +13,6 @@ import (
 )
 
 const countPending = 100
-const garbageCollectorCount = 100
 const maxConsumers = 100
 const pendingClaimCheckDuration = time.Minute * 2
 const speedHSetKey = "_orm_ss"
@@ -207,7 +206,7 @@ func (eb *eventBroker) Consumer(name, group string) EventsConsumer {
 	speedPrefixKey := group + "_" + redisPool + "_" + name
 	return &eventsConsumer{redis: eb.engine.GetRedis(redisPool), name: name, streams: streams, group: group,
 		loop: true, block: time.Second * 30, lockTTL: time.Second * 90, lockTick: time.Minute,
-		garbageTick: time.Minute * 1, garbageLock: time.Second * 70, minIdle: pendingClaimCheckDuration,
+		garbageTick: time.Minute, minIdle: pendingClaimCheckDuration,
 		claimDuration: pendingClaimCheckDuration, speedLimit: 10000, speedPrefixKey: speedPrefixKey}
 }
 
@@ -231,9 +230,11 @@ type eventsConsumer struct {
 	lockTTL              time.Duration
 	lockTick             time.Duration
 	garbageTick          time.Duration
-	garbageLock          time.Duration
 	minIdle              time.Duration
 	claimDuration        time.Duration
+	garbageCollectorSha1 string
+	consumed             int
+	consumedMutex        sync.Mutex
 }
 
 func (r *eventsConsumer) DisableLoop() {
@@ -305,20 +306,22 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 			}
 		}
 	}()
-	garbageTicker := time.NewTicker(r.garbageTick)
-	go func() {
-		r.garbageCollector(ctx)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-done:
-				return
-			case <-garbageTicker.C:
-				r.garbageCollector(ctx)
+	if r.nr == 1 {
+		garbageTicker := time.NewTicker(r.garbageTick)
+		go func() {
+			r.garbageCollector(true)
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-done:
+					return
+				case <-garbageTicker.C:
+					r.garbageCollector(false)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	lastIDs := make(map[string]string)
 	for _, stream := range r.streams {
@@ -445,6 +448,9 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 					}
 				}
 				r.speedEvents += totalMessages
+				r.consumedMutex.Lock()
+				r.consumed += totalMessages
+				r.consumedMutex.Unlock()
 				start := time.Now()
 				handler(events)
 				totalACK := 0
@@ -499,21 +505,25 @@ func (r *eventsConsumer) incrementID(id string) string {
 	return s[0] + "-" + strconv.Itoa(counter+1)
 }
 
-func (r *eventsConsumer) garbageCollector(ctx context.Context) {
+func (r *eventsConsumer) garbageCollector(force bool) {
 	func() {
+		if !force {
+			r.consumedMutex.Lock()
+			if r.consumed == 0 {
+				r.consumedMutex.Unlock()
+				return
+			}
+			r.consumed = 0
+			r.consumedMutex.Unlock()
+		}
 		defer func() {
 			if rec := recover(); rec != nil {
 				r.redis.engine.reportError(rec)
 			}
 		}()
 
-		locker := r.redis.engine.GetLocker()
 		def := r.redis.engine.registry.redisStreamGroups[r.redis.code]
 		for _, stream := range r.streams {
-			_, has := locker.Obtain(ctx, "garbage_"+stream+"_"+r.redis.code, r.garbageLock, 0)
-			if !has {
-				continue
-			}
 			info := r.redis.XInfoGroups(stream)
 			ids := make(map[string][]int64)
 			for name := range def[stream] {
@@ -523,8 +533,6 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 			for _, group := range info {
 				_, has := ids[group.Name]
 				if !has {
-					// TODO remove only if has old events
-					//r.redis.XGroupDestroy(stream, group.Name)
 					r.redis.engine.log.Warn("not registered stream group "+group.Name+" in stream"+stream, nil)
 					continue
 				}
@@ -567,17 +575,44 @@ func (r *eventsConsumer) garbageCollector(ctx context.Context) {
 			} else {
 				end = strconv.FormatInt(minID[0], 10) + "-" + strconv.FormatInt(minID[1], 10)
 			}
-			for {
-				messages := r.redis.XRange(stream, "-", end, garbageCollectorCount)
-				l := len(messages)
-				if l > 0 {
-					keys := make([]string, l)
-					for i, message := range messages {
-						keys[i] = message.ID
-					}
-					r.redis.XDel(stream, keys...)
+
+			if r.garbageCollectorSha1 == "" {
+				sha1, has := r.redis.Get("_orm_gc_sha1")
+				if !has {
+					script := `
+						local count = 0
+						local all = 0
+						while(true)
+						do
+							local T = redis.call('XRANGE', KEYS[1], "-", ARGV[1], "COUNT", 1000)
+							local ids = {}
+							for _, v in pairs(T) do
+								table.insert(ids, v[1])
+								count = count + 1
+							end
+							if table.getn(ids) > 0 then
+								redis.call('XDEL', KEYS[1], unpack(ids))
+							end
+							if table.getn(ids) < 1000 then
+								all = 1
+								break
+							end
+							if count >= 100000 then
+								break
+							end
+						end
+						return all
+						`
+					r.garbageCollectorSha1 = r.redis.ScriptLoad(script)
+					r.redis.Set("_orm_gc_sha1", r.garbageCollectorSha1, 604800)
+				} else {
+					r.garbageCollectorSha1 = sha1
 				}
-				if l < garbageCollectorCount {
+			}
+
+			for {
+				res := r.redis.EvalSha(r.garbageCollectorSha1, []string{stream}, end)
+				if res == int64(1) {
 					break
 				}
 			}

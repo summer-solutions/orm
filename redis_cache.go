@@ -92,6 +92,26 @@ func (r *RedisCache) Eval(script string, keys []string, args ...interface{}) int
 	return res
 }
 
+func (r *RedisCache) EvalSha(sha1 string, keys []string, args ...interface{}) interface{} {
+	start := time.Now()
+	res, err := r.client.EvalSha(r.ctx, sha1, keys, args...).Result()
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][EVALSHA]", start, "evalsha", -1, 1, nil, err)
+	}
+	checkError(err)
+	return res
+}
+
+func (r *RedisCache) ScriptLoad(script string) string {
+	start := time.Now()
+	res, err := r.client.ScriptLoad(r.ctx, script).Result()
+	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		r.fillLogFields("[ORM][REDIS][SCRIPLOAD]", start, "scriptload", -1, 1, nil, err)
+	}
+	checkError(err)
+	return res
+}
+
 func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) {
 	start := time.Now()
 	_, err := r.client.Set(r.ctx, key, value, time.Duration(ttlSeconds)*time.Second).Result()
