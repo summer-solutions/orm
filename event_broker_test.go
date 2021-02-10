@@ -346,26 +346,6 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, 2, iterations)
 	assert.Equal(t, 10, messages)
 
-	for i := 1; i <= 10; i++ {
-		engine.GetEventBroker().PublishMap("test-stream", EventAsMap{"name": fmt.Sprintf("a%d", i)})
-	}
-	valid = false
-	consumer = broker.Consumer("test-consumer-unique", "test-group")
-	consumer.(*eventsConsumer).lockTTL = time.Millisecond * 100
-	consumer.(*eventsConsumer).lockTick = time.Millisecond * 100
-	consumer.(*eventsConsumer).block = time.Millisecond * 100
-	consumer.DisableLoop()
-	assert.PanicsWithError(t, "consumer test-consumer-unique-1 for group test-group lost lock", func() {
-		consumer.Consume(ctx, 1, true, func(events []Event) {
-			valid = true
-			time.Sleep(time.Millisecond * 500)
-			for _, event := range events {
-				event.Skip()
-			}
-		})
-	})
-	assert.True(t, valid)
-
 	engine.GetRedis().FlushDB()
 	consumer = broker.Consumer("test-consumer-unique", "test-group")
 	consumer.(*eventsConsumer).block = time.Millisecond * 400

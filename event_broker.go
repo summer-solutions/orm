@@ -254,6 +254,16 @@ func (r *eventsConsumer) HeartBeat(force bool) {
 }
 
 func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, handler EventConsumerHandler) {
+	for {
+		valid := r.consume(ctx, count, blocking, handler)
+		if valid || !r.loop {
+			break
+		}
+		time.Sleep(time.Second * 10)
+	}
+}
+
+func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, handler EventConsumerHandler) bool {
 	uniqueLockKey := r.group + "_" + r.name + "_" + r.redis.code
 	runningKey := uniqueLockKey + "_running"
 	locker := r.redis.engine.GetLocker()
@@ -399,10 +409,11 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 			}
 			for {
 				if canceled {
-					return
+					return true
 				}
 				if !hasLock || time.Since(lockAcquired) > r.lockTTL {
-					panic(fmt.Errorf("consumer %s for group %s lost lock", r.getName(), r.group))
+					r.redis.engine.Log().Warn("consumer %s for group %s lost lock", nil)
+					return false
 				}
 				i := 0
 				for _, stream := range r.streams {
@@ -420,7 +431,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 				a := &redis.XReadGroupArgs{Consumer: r.getName(), Group: r.group, Streams: streams, Count: int64(count), Block: b}
 				results := r.redis.XReadGroup(a)
 				if canceled {
-					return
+					return true
 				}
 				totalMessages := 0
 				for _, row := range results {
@@ -493,6 +504,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 			break
 		}
 	}
+	return true
 }
 
 func (r *eventsConsumer) getName() string {
