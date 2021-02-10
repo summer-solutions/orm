@@ -25,15 +25,42 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 		eventFlusher.PublishMap("test-stream", EventAsMap{"name": fmt.Sprintf("a%d", i)})
 	}
 	eventFlusher.Flush()
+
+	//script := `
+	//local count = 0
+	//local all = 0
+	//while(true)
+	//do
+	//  	local T = redis.call('XRANGE', KEYS[1], "-", ARGV[1], "COUNT", 1000)
+	//	local ids = {}
+	//	for _, v in pairs(T) do
+	//		table.insert(ids, v[1])
+	//		count = count + 1
+	//	end
+	//	if table.getn(ids) > 0 then
+	//		redis.call('XDEL', KEYS[1], unpack(ids))
+	//	end
+	//	if table.getn(ids) < 1000 then
+	//		all = 1
+	//		break
+	//	end
+	//	if count >= ARGV[2] then
+	//		break
+	//	end
+	//end
+	//return all
+	//`
+	//sha1 := engine.GetRedis().ScriptLoad(script)
+	//res := engine.GetRedis().EvalSha(sha1, []string{"test-stream"}, "+", 10000)
+	//os.Exit(0)
+
 	consumer1 := broker.Consumer("test-consumer", "test-group-1")
 	consumer1.(*eventsConsumer).block = time.Millisecond
 	consumer1.(*eventsConsumer).garbageTick = time.Millisecond * 15
-	consumer1.(*eventsConsumer).garbageLock = time.Millisecond * 15
 	consumer1.DisableLoop()
 	consumer2 := broker.Consumer("test-consumer", "test-group-2")
 	consumer2.(*eventsConsumer).block = time.Millisecond
 	consumer2.(*eventsConsumer).garbageTick = time.Millisecond * 15
-	consumer2.(*eventsConsumer).garbageLock = time.Millisecond * 15
 	consumer2.DisableLoop()
 
 	consumer1.Consume(context.Background(), 1, true, func(events []Event) {})
@@ -42,7 +69,7 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 
 	consumer2.Consume(context.Background(), 1, true, func(events []Event) {})
 	time.Sleep(time.Millisecond * 20)
-	consumer2.(*eventsConsumer).garbageCollector(context.Background())
+	consumer2.(*eventsConsumer).garbageCollector(true)
 	assert.Equal(t, int64(0), engine.GetRedis().XLen("test-stream"))
 }
 
@@ -146,7 +173,6 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	consumer := broker.Consumer("test-consumer", "test-group")
 
 	consumer.(*eventsConsumer).block = time.Millisecond * 10
-	consumer.(*eventsConsumer).garbageLock = time.Millisecond * 10
 	consumer.DisableLoop()
 	heartBeats := 0
 	consumer.SetHeartBeat(time.Second, func() {
@@ -187,7 +213,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, 2, iterations)
 	assert.Equal(t, 2, heartBeats)
 	time.Sleep(time.Millisecond * 20)
-	consumer.(*eventsConsumer).garbageCollector(ctx)
+	consumer.(*eventsConsumer).garbageCollector(true)
 	time.Sleep(time.Second)
 	assert.Equal(t, int64(10), engine.GetRedis().XLen("test-stream"))
 	assert.Equal(t, int64(10), engine.GetRedis().XInfoGroups("test-stream")[0].Pending)
@@ -200,7 +226,6 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 		}
 	})
 	assert.Equal(t, 1, iterations)
-	consumer.(*eventsConsumer).garbageLock = time.Minute
 
 	engine.GetRedis().XTrim("test-stream", 0, false)
 	for i := 11; i <= 20; i++ {
