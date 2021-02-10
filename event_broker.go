@@ -203,7 +203,7 @@ func (eb *eventBroker) Consumer(name, group string) EventsConsumer {
 			panic(fmt.Errorf("reading from different redis pool not allowed"))
 		}
 	}
-	speedPrefixKey := group + "_" + redisPool + "_" + name
+	speedPrefixKey := group + "_" + redisPool
 	return &eventsConsumer{redis: eb.engine.GetRedis(redisPool), name: name, streams: streams, group: group,
 		loop: true, block: time.Second * 30, lockTTL: time.Second * 90, lockTick: time.Minute,
 		garbageTick: time.Second * 30, minIdle: pendingClaimCheckDuration,
@@ -211,30 +211,30 @@ func (eb *eventBroker) Consumer(name, group string) EventsConsumer {
 }
 
 type eventsConsumer struct {
-	redis                *RedisCache
-	name                 string
-	nr                   int
-	speedPrefixKey       string
-	deadConsumers        int
-	speedEvents          int
-	speedTimeNanoseconds int64
-	speedLimit           int
-	nrString             string
-	streams              []string
-	group                string
-	loop                 bool
-	block                time.Duration
-	heartBeatTime        time.Time
-	heartBeat            func()
-	heartBeatDuration    time.Duration
-	lockTTL              time.Duration
-	lockTick             time.Duration
-	garbageTick          time.Duration
-	minIdle              time.Duration
-	claimDuration        time.Duration
-	garbageCollectorSha1 string
-	consumed             int
-	consumedMutex        sync.Mutex
+	redis                 *RedisCache
+	name                  string
+	nr                    int
+	speedPrefixKey        string
+	deadConsumers         int
+	speedEvents           int
+	speedTimeMicroseconds int64
+	speedLimit            int
+	nrString              string
+	streams               []string
+	group                 string
+	loop                  bool
+	block                 time.Duration
+	heartBeatTime         time.Time
+	heartBeat             func()
+	heartBeatDuration     time.Duration
+	lockTTL               time.Duration
+	lockTick              time.Duration
+	garbageTick           time.Duration
+	minIdle               time.Duration
+	claimDuration         time.Duration
+	garbageCollectorSha1  string
+	consumed              int
+	consumedMutex         sync.Mutex
 }
 
 func (r *eventsConsumer) DisableLoop() {
@@ -284,7 +284,6 @@ func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, 
 		r.nr = nr
 		r.nrString = strconv.Itoa(nr)
 		r.redis.HSet(runningKey, r.nrString, strconv.FormatInt(time.Now().Unix(), 10))
-		r.speedPrefixKey += "-" + r.nrString
 		break
 	}
 	ticker := time.NewTicker(r.lockTick)
@@ -483,13 +482,13 @@ func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, 
 				for stream, ids := range toAck {
 					r.redis.XAck(stream, r.group, ids...)
 				}
-				r.speedTimeNanoseconds += time.Since(start).Nanoseconds()
+				r.speedTimeMicroseconds += time.Since(start).Microseconds()
 				if r.speedEvents >= r.speedLimit {
-					v := map[string]interface{}{r.speedPrefixKey + "e": r.speedEvents, r.speedPrefixKey + "t": r.speedTimeNanoseconds,
-						r.speedPrefixKey + "u": time.Now().Unix()}
-					r.redis.HMset(speedHSetKey, v)
+					today := time.Now().Format("01-02-06")
+					r.redis.HIncrBy(speedHSetKey+today, r.speedPrefixKey+"e", int64(r.speedEvents))
+					r.redis.HIncrBy(speedHSetKey+today, r.speedPrefixKey+"t", r.speedTimeMicroseconds)
 					r.speedEvents = 0
-					r.speedTimeNanoseconds = 0
+					r.speedTimeMicroseconds = 0
 				}
 				if r.deadConsumers > 0 && time.Since(pendingCheckedTime) >= r.claimDuration {
 					break
