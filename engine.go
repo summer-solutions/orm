@@ -47,7 +47,7 @@ type Engine struct {
 	logMutex                  sync.Mutex
 	logDebugOnce              sync.Once
 	afterCommitLocalCacheSets map[string][]interface{}
-	afterCommitRedisFlusher   RedisFlusher
+	afterCommitRedisFlusher   *redisFlusher
 	afterCommitDataLoaderSets dataLoaderSets
 	dataDog                   *dataDog
 	eventBroker               *eventBroker

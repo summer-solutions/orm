@@ -51,7 +51,10 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	dataLoaderSets := make(map[*tableSchema]map[uint64][]interface{})
 	localCacheDeletes := make(map[string]map[string]bool)
 	lazyMap := make(map[string]interface{})
-	redisFlusher := &redisFlusher{engine: engine}
+	rFlusher := engine.afterCommitRedisFlusher
+	if rFlusher == nil {
+		rFlusher = &redisFlusher{engine: engine}
+	}
 	isInTransaction := transaction
 
 	var referencesToFlash map[Entity]Entity
@@ -159,7 +162,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 					orm.dBData[0] = lastID
 					if affected == 1 {
 						updateCacheForInserted(engine, entity, lazy, lastID, bind, localCacheSets, localCacheDeletes,
-							redisFlusher, dataLoaderSets)
+							rFlusher, dataLoaderSets)
 					} else {
 						for k, v := range onUpdate {
 							err := entity.SetField(k, v)
@@ -168,7 +171,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 						bind, _ := orm.GetDirtyBind()
 						_, _, _ = loadByID(engine, lastID, entity, true, false)
 						updateCacheAfterUpdate(lazy, dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, lastID,
-							redisFlusher, dataLoaderSets)
+							rFlusher, dataLoaderSets)
 					}
 				} else {
 				OUTER:
@@ -252,7 +255,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				}
 			}
 			updateCacheAfterUpdate(lazy, dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, currentID,
-				redisFlusher, dataLoaderSets)
+				rFlusher, dataLoaderSets)
 		}
 	}
 
@@ -308,7 +311,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				id = id + db.autoincrement
 			}
 			updateCacheForInserted(engine, entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,
-				redisFlusher, dataLoaderSets)
+				rFlusher, dataLoaderSets)
 		}
 	}
 	for typeOf, deleteBinds := range deleteBinds {
@@ -366,8 +369,8 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		}
 		for id, dbData := range deleteBinds {
 			bind := convertDBDataToMap(schema, dbData)
-			addDirtyQueues(redisFlusher, bind, schema, id, "d")
-			addToLogQueue(engine, redisFlusher, schema, id, bind, nil, nil)
+			addDirtyQueues(rFlusher, bind, schema, id, "d")
+			addToLogQueue(engine, rFlusher, schema, id, bind, nil, nil)
 			if hasLocalCache {
 				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
 				keys := getCacheQueriesKeys(schema, bind, dbData, true)
@@ -376,9 +379,9 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				addToDataLoader(dataLoaderSets, schema, id, nil)
 			}
 			if hasRedis {
-				redisFlusher.Del(redisCache.code, schema.getCacheKey(id))
+				rFlusher.Del(redisCache.code, schema.getCacheKey(id))
 				keys := getCacheQueriesKeys(schema, bind, dbData, true)
-				redisFlusher.Del(redisCache.code, keys...)
+				rFlusher.Del(redisCache.code, keys...)
 			}
 		}
 	}
@@ -419,13 +422,13 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			deletesRedisCache = make(map[string][]string)
 			lazyMap["cr"] = deletesRedisCache
 		}
-		for cacheCode, commands := range redisFlusher.pipelines {
+		for cacheCode, commands := range rFlusher.pipelines {
 			if commands.deletes != nil {
 				deletesRedisCache[cacheCode] = commands.deletes
 			}
 		}
 	} else if isInTransaction {
-		engine.afterCommitRedisFlusher = redisFlusher
+		engine.afterCommitRedisFlusher = rFlusher
 	}
 	for schema, rows := range dataLoaderSets {
 		if !isInTransaction {
@@ -445,10 +448,10 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		}
 	}
 	if len(lazyMap) > 0 {
-		redisFlusher.Publish(lazyChannelName, lazyMap)
+		rFlusher.Publish(lazyChannelName, lazyMap)
 	}
 	if !isInTransaction {
-		redisFlusher.Flush()
+		rFlusher.Flush()
 	}
 }
 
