@@ -12,6 +12,9 @@ type RedisStreamStatistics struct {
 	Stream    string
 	RedisPool string
 	Len       uint64
+	Hours     int
+	Minutes   int
+	Seconds   int
 	Groups    []*RedisStreamGroupStatistics
 }
 
@@ -45,18 +48,29 @@ func GetRedisStreamsStatistics(engine *orm.Engine) []*RedisStreamStatistics {
 			results = append(results, stat)
 			stat.Groups = make([]*RedisStreamGroupStatistics, 0)
 			stat.Len = uint64(r.XLen(stream))
+			minPending := -1
 			for _, group := range r.XInfoGroups(stream) {
 				groupStats := &RedisStreamGroupStatistics{Group: group.Name, Pending: uint64(group.Pending)}
 				groupStats.LastDeliveredID = group.LastDeliveredID
-				groupStats.LastDeliveredDuration = idToSince(group.LastDeliveredID, now)
+				groupStats.LastDeliveredDuration, _ = idToSince(group.LastDeliveredID, now)
 				groupStats.Consumers = make([]*RedisStreamConsumerStatistics, 0)
 
 				pending := r.XPending(stream, group.Name)
 				if pending.Count > 0 {
 					groupStats.Lower = pending.Lower
-					groupStats.LowerDuration = idToSince(pending.Lower, now)
+					lower, t := idToSince(pending.Lower, now)
+					groupStats.LowerDuration = lower
+					if lower != "0" {
+						since := time.Since(t)
+						if minPending == -1 || int(since.Seconds()) > minPending {
+							stat.Hours = int(since.Hours())
+							stat.Minutes = int(since.Minutes()) - stat.Hours*60
+							stat.Seconds = int(since.Seconds()) - stat.Hours*3600 - stat.Minutes*60
+							minPending = int(since.Seconds())
+						}
+					}
 					groupStats.Higher = pending.Higher
-					groupStats.HigherDuration = idToSince(pending.Higher, now)
+					groupStats.HigherDuration, _ = idToSince(pending.Higher, now)
 
 					for name, pending := range pending.Consumers {
 						speed := float32(0)
@@ -87,15 +101,15 @@ func GetRedisStreamsStatistics(engine *orm.Engine) []*RedisStreamStatistics {
 	return results
 }
 
-func idToSince(id string, now time.Time) string {
+func idToSince(id string, now time.Time) (string, time.Time) {
 	if id == "" || id == "0-0" {
-		return "0"
+		return "0", time.Now()
 	}
 	unixInt, _ := strconv.ParseInt(strings.Split(id, "-")[0], 10, 64)
 	unix := time.Unix(0, unixInt*1000000)
 	s := now.Sub(unix)
 	if s < 0 {
-		return "0"
+		return "0", time.Now()
 	}
-	return s.String()
+	return s.String(), unix
 }
