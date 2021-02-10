@@ -326,7 +326,6 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 	}
 	keys := []string{"pending", "0", ">"}
 	streams := make([]string, len(r.streams)*2)
-	hasInvalid := true
 	if r.heartBeat != nil {
 		r.heartBeatTime = time.Now()
 	}
@@ -391,9 +390,6 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 				continue
 			}
 			if invalidCheck {
-				if !hasInvalid {
-					continue
-				}
 				for _, stream := range r.streams {
 					lastIDs[stream] = "0"
 				}
@@ -406,7 +402,6 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 					panic(fmt.Errorf("consumer %s for group %s lost lock", r.getName(), r.group))
 				}
 				i := 0
-				zeroCount := 0
 				for _, stream := range r.streams {
 					streams[i] = stream
 					i++
@@ -414,9 +409,6 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 				for _, stream := range r.streams {
 					if invalidCheck {
 						streams[i] = lastIDs[stream]
-						if lastIDs[stream] == "0" {
-							zeroCount++
-						}
 					} else {
 						streams[i] = ">"
 					}
@@ -439,9 +431,7 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 				}
 				r.HeartBeat(false)
 				if totalMessages == 0 {
-					if invalidCheck && zeroCount == len(r.streams) {
-						hasInvalid = false
-					} else if !blocking && normalCheck {
+					if !blocking && normalCheck {
 						time.Sleep(time.Second * 30)
 					}
 					continue KEYS
@@ -484,14 +474,10 @@ func (r *eventsConsumer) Consume(ctx context.Context, count int, blocking bool, 
 					r.speedEvents = 0
 					r.speedTimeNanoseconds = 0
 				}
-
-				if totalACK < totalMessages {
-					hasInvalid = true
-				}
 				if r.deadConsumers > 0 && time.Since(pendingCheckedTime) >= r.claimDuration {
 					break
 				}
-				if normalCheck && hasInvalid && totalMessages < count && time.Since(started) > time.Minute*10 {
+				if normalCheck && totalMessages < count && time.Since(started) > time.Minute*10 {
 					break
 				}
 			}
