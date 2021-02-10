@@ -447,7 +447,9 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	if len(lazyMap) > 0 {
 		redisFlusher.Publish(lazyChannelName, lazyMap)
 	}
-	redisFlusher.Flush()
+	if !isInTransaction {
+		redisFlusher.Flush()
+	}
 }
 
 func updateCacheAfterUpdate(lazy bool, dbData []interface{}, engine *Engine, entity Entity, bind map[string]interface{},
