@@ -206,7 +206,7 @@ func (eb *eventBroker) Consumer(name, group string) EventsConsumer {
 	speedPrefixKey := group + "_" + redisPool + "_" + name
 	return &eventsConsumer{redis: eb.engine.GetRedis(redisPool), name: name, streams: streams, group: group,
 		loop: true, block: time.Second * 30, lockTTL: time.Second * 90, lockTick: time.Minute,
-		garbageTick: time.Minute, minIdle: pendingClaimCheckDuration,
+		garbageTick: time.Second * 30, minIdle: pendingClaimCheckDuration,
 		claimDuration: pendingClaimCheckDuration, speedLimit: 10000, speedPrefixKey: speedPrefixKey}
 }
 

@@ -26,34 +26,6 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 	}
 	eventFlusher.Flush()
 
-	//script := `
-	//local count = 0
-	//local all = 0
-	//while(true)
-	//do
-	//  	local T = redis.call('XRANGE', KEYS[1], "-", ARGV[1], "COUNT", 1000)
-	//	local ids = {}
-	//	for _, v in pairs(T) do
-	//		table.insert(ids, v[1])
-	//		count = count + 1
-	//	end
-	//	if table.getn(ids) > 0 then
-	//		redis.call('XDEL', KEYS[1], unpack(ids))
-	//	end
-	//	if table.getn(ids) < 1000 then
-	//		all = 1
-	//		break
-	//	end
-	//	if count >= ARGV[2] then
-	//		break
-	//	end
-	//end
-	//return all
-	//`
-	//sha1 := engine.GetRedis().ScriptLoad(script)
-	//res := engine.GetRedis().EvalSha(sha1, []string{"test-stream"}, "+", 10000)
-	//os.Exit(0)
-
 	consumer1 := broker.Consumer("test-consumer", "test-group-1")
 	consumer1.(*eventsConsumer).block = time.Millisecond
 	consumer1.(*eventsConsumer).garbageTick = time.Millisecond * 15
