@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/pkg/errors"
+
 	// driver
 	_ "github.com/ClickHouse/clickhouse-go"
-	"github.com/juju/errors"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -56,7 +57,7 @@ func (c *ClickHouse) Queryx(query string, args ...interface{}) (rows *sqlx.Rows,
 
 func (c *ClickHouse) Begin() {
 	if c.tx != nil {
-		panic(errors.Errorf("transaction already started"))
+		panic(errors.New("transaction already started"))
 	}
 	start := time.Now()
 	tx, err := c.client.Begin()
@@ -69,7 +70,7 @@ func (c *ClickHouse) Begin() {
 
 func (c *ClickHouse) Commit() {
 	if c.tx == nil {
-		panic(errors.Errorf("transaction not started"))
+		panic(errors.New("transaction not started"))
 	}
 	start := time.Now()
 	err := c.tx.Commit()

@@ -8,8 +8,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/juju/errors"
 )
 
 type Alter struct {
@@ -616,7 +614,7 @@ func checkColumn(engine *Engine, schema *tableSchema, field *reflect.StructField
 				if len(indexColumn) > 1 {
 					userLocation, err := strconv.Atoi(indexColumn[1])
 					if err != nil {
-						return nil, errors.Errorf("invalid index position '%s' in index '%s'", indexColumn[1], indexColumn[0])
+						return nil, fmt.Errorf("invalid index position '%s' in index '%s'", indexColumn[1], indexColumn[0])
 					}
 					location = userLocation
 				}
@@ -809,7 +807,7 @@ func handleString(version int, registry *validatedRegistry, attributes map[strin
 	} else {
 		i, err := strconv.Atoi(length)
 		if err != nil || i > 65535 {
-			return "", false, false, "", errors.Errorf("invalid max string: %s", length)
+			return "", false, false, "", fmt.Errorf("invalid max string: %s", length)
 		}
 		if version == 5 {
 			definition = fmt.Sprintf("varchar(%s)", strconv.Itoa(i))
@@ -828,7 +826,7 @@ func handleString(version int, registry *validatedRegistry, attributes map[strin
 
 func handleSetEnum(version int, registry *validatedRegistry, fieldType string, attribute string, nullable bool) (string, bool, bool, string, error) {
 	if registry.enums == nil || registry.enums[attribute] == nil {
-		return "", false, false, "", errors.Errorf("unregistered enum %s", attribute)
+		return "", false, false, "", fmt.Errorf("unregistered enum %s", attribute)
 	}
 	enum := registry.enums[attribute]
 	var definition = fieldType + "("
@@ -952,7 +950,7 @@ func checkStruct(tableSchema *tableSchema, engine *Engine, t reflect.Type, index
 		}
 		fieldColumns, err := checkColumn(engine, tableSchema, &field, indexes, foreignKeys, prefix)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 		if fieldColumns != nil {
 			columns = append(columns, fieldColumns...)

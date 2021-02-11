@@ -1,10 +1,11 @@
 package orm
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/juju/errors"
+	"github.com/pkg/errors"
 )
 
 type Flusher interface {
@@ -42,7 +43,7 @@ func (f *flusher) Track(entity ...Entity) Flusher {
 		}
 		f.trackedEntitiesCounter++
 		if f.trackedEntitiesCounter == 10001 {
-			panic(errors.Errorf("track limit 10000 exceeded"))
+			panic(fmt.Errorf("track limit 10000 exceeded"))
 		}
 	}
 	return f
@@ -160,13 +161,12 @@ func (f *flusher) flushWithCheck(transaction bool) error {
 			if r := recover(); r != nil {
 				f.Clear()
 				asErr := r.(error)
-				source := errors.Cause(asErr)
-				assErr1, is := source.(*ForeignKeyError)
+				assErr1, is := asErr.(*ForeignKeyError)
 				if is {
 					err = assErr1
 					return
 				}
-				assErr2, is := source.(*DuplicatedKeyError)
+				assErr2, is := asErr.(*DuplicatedKeyError)
 				if is {
 					err = assErr2
 					return
@@ -183,7 +183,7 @@ func (f *flusher) flushWithLock(transaction bool, lockerPool string, lockName st
 	locker := f.engine.GetLocker(lockerPool)
 	lock, has := locker.Obtain(f.engine.context, lockName, ttl, waitTimeout)
 	if !has {
-		panic(errors.Timeoutf("lock wait"))
+		panic(errors.New("lock wait timeout"))
 	}
 	defer lock.Release()
 	f.flushTrackedEntities(false, transaction, false)

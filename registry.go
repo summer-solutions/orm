@@ -12,11 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql" // force this mysql driver
 	"github.com/golang/groupcache/lru"
 	"github.com/jmoiron/sqlx"
-	"github.com/juju/errors"
 	"github.com/olivere/elastic/v7"
 )
 
@@ -53,13 +54,13 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.sqlClients {
 		db, err := sql.Open("mysql", v.dataSourceName)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 
 		var version string
 		err = db.QueryRow("SELECT VERSION()").Scan(&version)
 		if err != nil {
-			return nil, errors.Annotatef(err, "can't connect to mysql '%s'", v.code)
+			return nil, err
 		}
 		v.version, _ = strconv.Atoi(strings.Split(version, ".")[0])
 
@@ -68,18 +69,18 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		var skip string
 		err = db.QueryRow("SHOW VARIABLES LIKE 'auto_increment_increment'").Scan(&skip, &autoincrement)
 		if err != nil {
-			return nil, errors.Annotatef(err, "can't connect to mysql '%s'", v.code)
+			return nil, err
 		}
 		v.autoincrement = autoincrement
 
 		err = db.QueryRow("SHOW VARIABLES LIKE 'max_connections'").Scan(&skip, &maxConnections)
 		if err != nil {
-			return nil, errors.Annotatef(err, "can't connect to mysql '%s'", v.code)
+			return nil, err
 		}
 		var waitTimeout int
 		err = db.QueryRow("SHOW VARIABLES LIKE 'wait_timeout'").Scan(&skip, &waitTimeout)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 		maxConnections = int(math.Floor(float64(maxConnections) * 0.9))
 		if maxConnections == 0 {
@@ -108,7 +109,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.clickHouseClients {
 		db, err := sqlx.Open("clickhouse", v.url)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 		v.db = db
 		registry.clickHouseClients[k] = v
@@ -153,12 +154,12 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for connectionCode, routers := range r.rabbitMQRouters {
 		_, has := registry.rabbitMQServers[connectionCode]
 		if !has {
-			return nil, errors.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
+			return nil, fmt.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
 		}
 		for _, def := range routers {
 			_, has := registry.rabbitMQRouterConfigs[def.Name]
 			if has {
-				return nil, errors.Errorf("rabbitMQ router name '%s' already exists", def.Name)
+				return nil, fmt.Errorf("rabbitMQ router name '%s' already exists", def.Name)
 			}
 			registry.rabbitMQRouterConfigs[def.Name] = def
 		}
@@ -170,17 +171,17 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for connectionCode, queues := range r.rabbitMQQueues {
 		connection, has := registry.rabbitMQServers[connectionCode]
 		if !has {
-			return nil, errors.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
+			return nil, fmt.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
 		}
 		for _, def := range queues {
 			_, has := registry.rabbitMQChannelsToQueue[def.Name]
 			if has {
-				return nil, errors.Errorf("rabbitMQ channel name '%s' already exists", def.Name)
+				return nil, fmt.Errorf("rabbitMQ channel name '%s' already exists", def.Name)
 			}
 			if def.Router != "" {
 				_, has := registry.rabbitMQRouterConfigs[def.Router]
 				if !has {
-					return nil, errors.Errorf("rabbitMQ router name '%s' is not registered", def.Router)
+					return nil, fmt.Errorf("rabbitMQ router name '%s' is not registered", def.Router)
 				}
 			}
 			channel := &rabbitMQChannelToQueue{connection: connection, config: def}
@@ -221,7 +222,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for _, schema := range registry.tableSchemas {
 		_, err := checkStruct(schema, engine, schema.t, make(map[string]*index), make(map[string]*foreignIndex), "")
 		if err != nil {
-			return nil, errors.Annotatef(err, "invalid entity struct '%s'", schema.t.String())
+			return nil, errors.Wrapf(err, "invalid entity struct '%s'", schema.t.String())
 		}
 	}
 	var err error
@@ -235,7 +236,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 					if ok {
 						err = asErr
 					} else {
-						err = errors.New(fmt.Sprintf("%v", r))
+						err = fmt.Errorf("%v", r)
 					}
 				}
 			}()

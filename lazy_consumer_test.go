@@ -100,12 +100,12 @@ func TestLazyReceiver(t *testing.T) {
 	})
 	e = &lazyReceiverEntity{Name: "Tom"}
 	e.SetOnDuplicateKeyUpdate(map[string]interface{}{"Age": 38})
-	assert.PanicsWithError(t, "lazy flush on duplicate key not supported", func() {
+	assert.PanicsWithError(t, "lazy flush on duplicate key is not supported", func() {
 		engine.FlushLazy(e)
 	})
 
 	e = &lazyReceiverEntity{Name: "Adam", RefOne: &lazyReceiverReference{Name: "Test"}}
-	assert.PanicsWithError(t, "lazy flush for unsaved references not supported", func() {
+	assert.PanicsWithError(t, "lazy flush for unsaved references is not supported", func() {
 		engine.FlushLazy(e)
 	})
 

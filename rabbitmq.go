@@ -6,8 +6,6 @@ import (
 
 	log2 "github.com/apex/log"
 
-	"github.com/juju/errors"
-
 	"github.com/streadway/amqp"
 )
 
@@ -193,11 +191,11 @@ func (r *rabbitMQChannel) registerQueue(channel *amqp.Channel, name string) (*am
 	}
 	q, err := channel.QueueDeclare(name, config.Durable, config.AutoDelete, false, false, args)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	err = channel.Qos(config.PrefetchCount, 0, false)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	return &q, nil
 }

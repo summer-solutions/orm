@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/juju/errors"
 )
 
 type CachedQuery struct{}
@@ -234,7 +232,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	}
 	_, has = registry.sqlClients[mysql]
 	if !has {
-		return nil, errors.NotFoundf("mysql pool '%s'", mysql)
+		return nil, fmt.Errorf("mysql pool '%s' not found", mysql)
 	}
 	table, has := tags["ORM"]["table"]
 	if !has {
@@ -252,7 +250,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	if localCache != "" {
 		_, has = registry.localCacheContainers[localCache]
 		if !has {
-			return nil, errors.NotFoundf("local cache pool '%s'", localCache)
+			return nil, fmt.Errorf("local cache pool '%s' not found", localCache)
 		}
 	}
 	userValue, has = tags["ORM"]["redisCache"]
@@ -265,7 +263,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	if redisCache != "" {
 		_, has = registry.redisServers[redisCache]
 		if !has {
-			return nil, errors.NotFoundf("redis pool '%s'", redisCache)
+			return nil, fmt.Errorf("redis pool '%s' not found", redisCache)
 		}
 	}
 	cachePrefix := ""
@@ -505,7 +503,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 				break
 			}
 			if same == len(v) {
-				return nil, errors.Errorf("duplicated index %s with %s in %s", k, k2, entityType.String())
+				return nil, fmt.Errorf("duplicated index %s with %s in %s", k, k2, entityType.String())
 			}
 		}
 	}
@@ -528,7 +526,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 			}
 		}
 		if !ok {
-			return nil, errors.Errorf("missing unique index for cached query '%s' in %s", k, entityType.String())
+			return nil, fmt.Errorf("missing unique index for cached query '%s' in %s", k, entityType.String())
 		}
 	}
 	for k, v := range tableSchema.cachedIndexes {
@@ -570,7 +568,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 			}
 		}
 		if !ok {
-			return nil, errors.Errorf("missing index for cached query '%s' in %s", k, entityType.String())
+			return nil, fmt.Errorf("missing index for cached query '%s' in %s", k, entityType.String())
 		}
 	}
 	return tableSchema, nil

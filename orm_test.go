@@ -180,7 +180,7 @@ func TestORM(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, float32(23.12), entity.Float)
 	err = entity.SetField("Float", "hello")
-	assert.EqualError(t, err, "Float value hello not valid")
+	assert.EqualError(t, err, "Float value hello is not valid")
 
 	err = entity.SetField("FloatNullable", 24.11)
 	assert.NoError(t, err)
@@ -190,7 +190,7 @@ func TestORM(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, entity.FloatNullable)
 	err = entity.SetField("FloatNullable", "hello")
-	assert.EqualError(t, err, "FloatNullable value hello not valid")
+	assert.EqualError(t, err, "FloatNullable value hello is not valid")
 
 	timeNullable := time.Now()
 	err = entity.SetField("TimeNullable", &timeNullable)
@@ -200,23 +200,23 @@ func TestORM(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, entity.TimeNullable)
 	err = entity.SetField("TimeNullable", "hello")
-	assert.EqualError(t, err, "TimeNullable value hello not valid")
+	assert.EqualError(t, err, "TimeNullable value hello is not valid")
 
 	timeNotNull := time.Now()
 	err = entity.SetField("Time", timeNotNull)
 	assert.NoError(t, err)
 	assert.Equal(t, timeNotNull, entity.Time)
 	err = entity.SetField("Time", "hello")
-	assert.EqualError(t, err, "Time value hello not valid")
+	assert.EqualError(t, err, "Time value hello is not valid")
 
 	err = entity.SetField("NotSupported", "hello")
-	assert.EqualError(t, err, "field NotSupported not supported")
+	assert.EqualError(t, err, "field NotSupported is not supported")
 
 	err = entity.SetField("Struct", ormEntityStruct{})
 	assert.NoError(t, err)
 
 	err = entity.SetField("StructPtr", "hello")
-	assert.EqualError(t, err, "field StructPtr not supported")
+	assert.EqualError(t, err, "field StructPtr is not supported")
 
 	err = entity.SetField("Slice", []ormEntityStruct{{Name: "Hello"}, {Name: "John"}})
 	assert.NoError(t, err)
@@ -230,7 +230,7 @@ func TestORM(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ref, entity.Ref)
 	err = entity.SetField("Ref", "hello")
-	assert.EqualError(t, err, "Ref value hello not valid")
+	assert.EqualError(t, err, "Ref value hello is not valid")
 	err = entity.SetField("Ref", nil)
 	assert.NoError(t, err)
 	assert.Nil(t, entity.Ref)

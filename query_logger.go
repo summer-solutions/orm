@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
-
 	apexLox "github.com/apex/log"
 
 	"github.com/apex/log/handlers/multi"
@@ -268,11 +266,8 @@ func injectError(e *apexLox.Entry, span tracer.Span) {
 }
 
 func injectLogError(err error, e *apexLox.Entry) *apexLox.Entry {
-	stackParts := strings.Split(errors.ErrorStack(err), "\n")
-	stack := strings.Join(stackParts[1:], "\\n")
-	fullStack := strings.Join(clearStack(strings.Split(string(debug.Stack()), "\n")[4:]), "\\n")
+	stack := strings.Join(clearStack(strings.Split(string(debug.Stack()), "\n")[4:]), "\\n")
 	return e.WithError(err).
 		WithField("stack", stack).
-		WithField("stack_full", fullStack).
-		WithField("error_type", reflect.TypeOf(errors.Cause(err)).String())
+		WithField("error_type", reflect.TypeOf(err).String())
 }

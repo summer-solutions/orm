@@ -61,11 +61,11 @@ func TestLoadByIds(t *testing.T) {
 	missing = engine.LoadByIDs([]uint64{3}, &rows, "ReferenceOne/ReferenceTwo")
 	assert.Len(t, missing, 0)
 
-	assert.PanicsWithError(t, "reference invalid in loadByIdsEntity not valid", func() {
+	assert.PanicsWithError(t, "reference invalid in loadByIdsEntity is not valid", func() {
 		engine.LoadByIDs([]uint64{1}, &rows, "invalid")
 	})
 
-	assert.PanicsWithError(t, "reference tag Name not valid", func() {
+	assert.PanicsWithError(t, "reference tag Name is not valid", func() {
 		engine.LoadByIDs([]uint64{1}, &rows, "Name")
 	})
 

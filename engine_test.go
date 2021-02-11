@@ -41,7 +41,7 @@ func TestEngine(t *testing.T) {
 	assert.PanicsWithError(t, "unregistered rabbitMQ queue 'test'", func() {
 		engine.GetRabbitMQQueue("test")
 	})
-	assert.PanicsWithError(t, "unregistered rabbitMQ router 'test'. Use queue name, not router name.", func() {
+	assert.PanicsWithError(t, "unregistered rabbitmq router 'test'", func() {
 		engine.GetRabbitMQRouter("test")
 	})
 	assert.PanicsWithError(t, "unregistered locker pool 'test'", func() {

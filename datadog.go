@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
-
 	"github.com/segmentio/fasthash/fnv1a"
 
 	apexLog "github.com/apex/log"
@@ -264,16 +262,13 @@ func StartDataDogProfiler(service string, apiKey string, environment string, dur
 
 func (dd *dataDog) registerAPMError(err error) {
 	if dd.span != nil {
-		stackParts := strings.Split(errors.ErrorStack(err), "\n")
-		details := strings.Join(stackParts[1:], "\n")
 		lines := clearStack(strings.Split(string(debug.Stack()), "\n")[2:])
-		fullStack := strings.Join(lines, "\n")
-		hash := fnv1a.HashString32(fullStack)
+		stack := strings.Join(lines, "\n")
+		hash := fnv1a.HashString32(stack)
 		dd.span.SetTag(ext.Error, true)
 		dd.span.SetTag(ext.ErrorMsg, err.Error())
-		dd.span.SetTag(ext.ErrorDetails, details)
-		dd.span.SetTag(ext.ErrorStack, fullStack)
-		dd.span.SetTag(ext.ErrorType, reflect.TypeOf(errors.Cause(err)).String())
+		dd.span.SetTag(ext.ErrorStack, stack)
+		dd.span.SetTag(ext.ErrorType, reflect.TypeOf(err).String())
 		dd.span.SetTag("error.group", hash)
 		dd.hasError = true
 		dd.span.SetTag(ext.ManualKeep, true)

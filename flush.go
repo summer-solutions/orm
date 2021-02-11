@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"regexp"
@@ -9,8 +10,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
-	"github.com/juju/errors"
 
 	jsoniter "github.com/json-iterator/go"
 
@@ -120,7 +119,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			onUpdate := entity.getORM().onDuplicateKeyUpdate
 			if onUpdate != nil {
 				if lazy {
-					panic(errors.NotSupportedf("lazy flush on duplicate key"))
+					panic(fmt.Errorf("lazy flush on duplicate key is not supported"))
 				}
 				if currentID > 0 {
 					bind["ID"] = currentID
@@ -227,7 +226,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 		} else {
 			values := make([]interface{}, bindLength+1)
 			if !entity.Loaded() {
-				panic(errors.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().elem.Type().String(), currentID))
+				panic(fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().elem.Type().String(), currentID))
 			}
 			fields := make([]string, bindLength)
 			i := 0
@@ -261,7 +260,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 
 	if referencesToFlash != nil {
 		if lazy {
-			panic(errors.NotSupportedf("lazy flush for unsaved references"))
+			panic(fmt.Errorf("lazy flush for unsaved references is not supported"))
 		}
 		toFlush := make([]Entity, len(referencesToFlash))
 		i := 0
@@ -990,7 +989,7 @@ func fillLazyQuery(lazyMap map[string]interface{}, dbCode string, sql string, va
 }
 
 func convertToError(err error) error {
-	sqlErr, yes := errors.Cause(err).(*mysql.MySQLError)
+	sqlErr, yes := err.(*mysql.MySQLError)
 	if yes {
 		if sqlErr.Number == 1062 {
 			var abortLabelReg, _ = regexp.Compile(` for key '(.*?)'`)

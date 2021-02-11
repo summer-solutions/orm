@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
-
-	"github.com/juju/errors"
 )
 
 func tryByIDs(engine *Engine, ids []uint64, fillStruct bool, entities reflect.Value, references []string) (missing []uint64, schema *tableSchema) {
@@ -209,7 +207,7 @@ func warmUpReferences(engine *Engine, schema *tableSchema, rows reflect.Value, r
 		}
 		_, has := schema.tags[refName]
 		if !has {
-			panic(errors.NotValidf("reference %s in %s", ref, schema.tableName))
+			panic(fmt.Errorf("reference %s in %s is not valid", ref, schema.tableName))
 		}
 		parentRef, has := schema.tags[refName]["ref"]
 		manyRef := false
@@ -217,7 +215,7 @@ func warmUpReferences(engine *Engine, schema *tableSchema, rows reflect.Value, r
 			parentRef, has = schema.tags[refName]["refs"]
 			manyRef = true
 			if !has {
-				panic(errors.NotValidf("reference tag %s", ref))
+				panic(fmt.Errorf("reference tag %s is not valid", ref))
 			}
 		}
 		parentSchema := engine.registry.tableSchemas[engine.registry.entities[parentRef]]

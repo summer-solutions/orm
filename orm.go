@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
+	"github.com/pkg/errors"
 )
 
 type Entity interface {
@@ -119,7 +119,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 	}
 	f := orm.elem.FieldByName(field)
 	if !f.IsValid() {
-		return errors.NotFoundf("field %s", field)
+		return fmt.Errorf("field %s not found", field)
 	}
 	if !f.CanSet() {
 		return fmt.Errorf("field %s is not public", field)
@@ -135,7 +135,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		if value != nil {
 			parsed, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
 			if err != nil {
-				return errors.NotValidf("%s value %v", field, value)
+				return fmt.Errorf("%s value %v not valid", field, value)
 			}
 			val = parsed
 		}
@@ -149,7 +149,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			val := uint64(0)
 			parsed, err := strconv.ParseUint(fmt.Sprintf("%v", reflect.Indirect(reflect.ValueOf(value)).Interface()), 10, 64)
 			if err != nil {
-				return errors.NotValidf("%s value %v", field, value)
+				return fmt.Errorf("%s value %v not valid", field, value)
 			}
 			val = parsed
 			switch typeName {
@@ -180,7 +180,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		if value != nil {
 			parsed, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
 			if err != nil {
-				return errors.NotValidf("%s value %v", field, value)
+				return fmt.Errorf("%s value %v not valid", field, value)
 			}
 			val = parsed
 		}
@@ -194,7 +194,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			val := int64(0)
 			parsed, err := strconv.ParseInt(fmt.Sprintf("%v", reflect.Indirect(reflect.ValueOf(value)).Interface()), 10, 64)
 			if err != nil {
-				return errors.NotValidf("%s value %v", field, value)
+				return fmt.Errorf("%s value %v not valid", field, value)
 			}
 			val = parsed
 			switch typeName {
@@ -225,13 +225,13 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 	case "[]string":
 		_, ok := value.([]string)
 		if !ok {
-			return errors.NotValidf("%s value %v", field, value)
+			return fmt.Errorf("%s value %v not valid", field, value)
 		}
 		f.Set(reflect.ValueOf(value))
 	case "[]uint8":
 		_, ok := value.([]uint8)
 		if !ok {
-			return errors.NotValidf("%s value %v", field, value)
+			return fmt.Errorf("%s value %v not valid", field, value)
 		}
 		f.Set(reflect.ValueOf(value))
 	case "bool":
@@ -260,7 +260,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			valueString = strings.ReplaceAll(valueString, ",", ".")
 			parsed, err := strconv.ParseFloat(valueString, 64)
 			if err != nil {
-				return errors.NotValidf("%s value %v", field, value)
+				return fmt.Errorf("%s value %v is not valid", field, value)
 			}
 			val = parsed
 		}
@@ -275,7 +275,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 			valueString = strings.ReplaceAll(valueString, ",", ".")
 			parsed, err := strconv.ParseFloat(valueString, 64)
 			if err != nil {
-				return errors.NotValidf("%s value %v", field, value)
+				return fmt.Errorf("%s value %v is not valid", field, value)
 			}
 			val = parsed
 			f.Set(reflect.ValueOf(&val))
@@ -286,14 +286,14 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 		} else {
 			_, ok := value.(*time.Time)
 			if !ok {
-				return errors.NotValidf("%s value %v", field, value)
+				return fmt.Errorf("%s value %v is not valid", field, value)
 			}
 			f.Set(reflect.ValueOf(value))
 		}
 	case "time.Time":
 		_, ok := value.(time.Time)
 		if !ok {
-			return errors.NotValidf("%s value %v", field, value)
+			return fmt.Errorf("%s value %v is not valid", field, value)
 		}
 		f.Set(reflect.ValueOf(value))
 	default:
@@ -312,7 +312,7 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 					} else {
 						id, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
 						if err != nil {
-							return errors.NotValidf("%s value %v", field, value)
+							return fmt.Errorf("%s value %v is not valid", field, value)
 						}
 						if id == 0 {
 							f.Set(reflect.Zero(f.Type()))
@@ -324,10 +324,10 @@ func (orm *ORM) SetField(field string, value interface{}) error {
 					}
 				}
 			} else {
-				return errors.NotSupportedf("field %s", field)
+				return fmt.Errorf("field %s is not supported", field)
 			}
 		} else {
-			return errors.NotSupportedf("field %s", field)
+			return fmt.Errorf("field %s is not supported", field)
 		}
 	}
 	return nil

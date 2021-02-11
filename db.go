@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/juju/errors"
+	"github.com/pkg/errors"
 )
 
 type DBConfig struct {
@@ -71,11 +71,11 @@ type standardSQLClient struct {
 
 func (db *standardSQLClient) Begin() error {
 	if db.tx != nil {
-		return errors.Errorf("transaction already started")
+		return errors.New("transaction already started")
 	}
 	tx, err := db.db.Begin()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	db.tx = tx
 	return nil
@@ -83,11 +83,11 @@ func (db *standardSQLClient) Begin() error {
 
 func (db *standardSQLClient) Commit() error {
 	if db.tx == nil {
-		return errors.Errorf("transaction not started")
+		return errors.New("transaction not started")
 	}
 	err := db.tx.Commit()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	db.tx = nil
 	return nil
@@ -99,7 +99,7 @@ func (db *standardSQLClient) Rollback() (bool, error) {
 	}
 	err := db.tx.Rollback()
 	if err != nil {
-		return true, errors.Trace(err)
+		return true, err
 	}
 	db.tx = nil
 	return true, nil
@@ -109,13 +109,13 @@ func (db *standardSQLClient) Exec(query string, args ...interface{}) (sql.Result
 	if db.tx != nil {
 		res, err := db.tx.Exec(query, args...)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 		return res, nil
 	}
 	res, err := db.db.Exec(query, args...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	return res, nil
 }
@@ -131,13 +131,13 @@ func (db *standardSQLClient) Query(query string, args ...interface{}) (SQLRows, 
 	if db.tx != nil {
 		rows, err := db.tx.Query(query, args...)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 		return rows, nil
 	}
 	rows, err := db.db.Query(query, args...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	return rows, nil
 }

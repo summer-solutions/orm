@@ -2,6 +2,7 @@ package orm
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -12,8 +13,6 @@ import (
 	logApex "github.com/apex/log"
 
 	levelHandler "github.com/apex/log/handlers/level"
-	"github.com/juju/errors"
-
 	"github.com/apex/log/handlers/text"
 )
 
@@ -144,7 +143,7 @@ func (e *Engine) GetMysql(code ...string) *DB {
 	if !has {
 		val, has := e.registry.sqlClients[dbCode]
 		if !has {
-			panic(errors.Errorf("unregistered mysql pool '%s'", dbCode))
+			panic(fmt.Errorf("unregistered mysql pool '%s'", dbCode))
 		}
 		db = &DB{engine: e, code: val.code, databaseName: val.databaseName,
 			client: &standardSQLClient{db: val.db}, autoincrement: val.autoincrement, version: val.version}
@@ -177,7 +176,7 @@ func (e *Engine) GetLocalCache(code ...string) *LocalCache {
 				}
 				return cache
 			}
-			panic(errors.Errorf("unregistered local cache pool '%s'", dbCode))
+			panic(fmt.Errorf("unregistered local cache pool '%s'", dbCode))
 		}
 		cache = &LocalCache{engine: e, code: val.code, lru: val.lru, m: &val.m}
 		if e.localCache == nil {
@@ -200,7 +199,7 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	if !has {
 		val, has := e.registry.redisServers[dbCode]
 		if !has {
-			panic(errors.Errorf("unregistered redis cache pool '%s'", dbCode))
+			panic(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
 		}
 		client := val.client
 		if client != nil {
@@ -227,7 +226,7 @@ func (e *Engine) GetClickHouse(code ...string) *ClickHouse {
 	if !has {
 		val, has := e.registry.clickHouseClients[dbCode]
 		if !has {
-			panic(errors.Errorf("unregistered clickhouse pool '%s'", dbCode))
+			panic(fmt.Errorf("unregistered clickhouse pool '%s'", dbCode))
 		}
 		ch = &ClickHouse{engine: e, code: val.code, client: val.db}
 		if e.clickHouseDbs == nil {
@@ -250,7 +249,7 @@ func (e *Engine) GetElastic(code ...string) *Elastic {
 	if !has {
 		val, has := e.registry.elasticServers[dbCode]
 		if !has {
-			panic(errors.Errorf("unregistered elastic pool '%s'", dbCode))
+			panic(fmt.Errorf("unregistered elastic pool '%s'", dbCode))
 		}
 		elastic = &Elastic{engine: e, code: val.code, client: val.client}
 		if e.elastic == nil {
@@ -273,7 +272,7 @@ func (e *Engine) GetLocker(code ...string) *Locker {
 	if !has {
 		val, has := e.registry.lockServers[dbCode]
 		if !has {
-			panic(errors.Errorf("unregistered locker pool '%s'", dbCode))
+			panic(fmt.Errorf("unregistered locker pool '%s'", dbCode))
 		}
 		lockerClient := &standardLockerClient{client: redislock.New(e.registry.redisServers[val].client)}
 		locker = &Locker{locker: lockerClient, code: val, engine: e}
@@ -297,7 +296,7 @@ func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {
 	if !has {
 		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
 		if !has {
-			panic(errors.Errorf("unregistered rabbitMQ queue '%s'", queueName))
+			panic(fmt.Errorf("unregistered rabbitMQ queue '%s'", queueName))
 		}
 		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
 		if e.rabbitMQChannels == nil {
@@ -307,7 +306,7 @@ func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {
 		}
 	}
 	if channel.config.Router != "" {
-		panic(errors.Errorf("rabbitMQ queue '%s' is declared as router", queueName))
+		panic(fmt.Errorf("rabbitMQ queue '%s' is declared as router", queueName))
 	}
 	if e.rabbitMQQueues == nil {
 		e.rabbitMQQueues = make(map[string]*RabbitMQQueue)
@@ -327,7 +326,7 @@ func (e *Engine) GetRabbitMQRouter(queueName string) *RabbitMQRouter {
 	if !has {
 		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
 		if !has {
-			panic(errors.Errorf("unregistered rabbitMQ router '%s'. Use queue name, not router name.", queueName))
+			panic(fmt.Errorf("unregistered rabbitmq router '%s'", queueName))
 		}
 		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
 		if e.rabbitMQChannels == nil {
@@ -337,7 +336,7 @@ func (e *Engine) GetRabbitMQRouter(queueName string) *RabbitMQRouter {
 		}
 	}
 	if channel.config.Router == "" {
-		panic(errors.Errorf("rabbitMQ queue '%s' is not declared as router", queueName))
+		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as router", queueName))
 	}
 	if e.rabbitMQRouters == nil {
 		e.rabbitMQRouters = make(map[string]*RabbitMQRouter)
@@ -384,13 +383,12 @@ func (e *Engine) FlushWithCheckMany(entities ...Entity) error {
 		defer func() {
 			if r := recover(); r != nil {
 				asErr := r.(error)
-				source := errors.Cause(asErr)
-				assErr1, is := source.(*ForeignKeyError)
+				assErr1, is := asErr.(*ForeignKeyError)
 				if is {
 					err = assErr1
 					return
 				}
-				assErr2, is := source.(*DuplicatedKeyError)
+				assErr2, is := asErr.(*DuplicatedKeyError)
 				if is {
 					err = assErr2
 					return

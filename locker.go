@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	log2 "github.com/apex/log"
+	"github.com/pkg/errors"
 
-	"github.com/juju/errors"
+	log2 "github.com/apex/log"
 
 	"github.com/bsm/redislock"
 )
@@ -31,7 +31,7 @@ type Locker struct {
 
 func (l *Locker) Obtain(ctx context.Context, key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool) {
 	if ttl == 0 {
-		panic(errors.NotValidf("ttl"))
+		panic(errors.New("ttl must be higher than zero"))
 	}
 	var options *redislock.Options
 	if waitTimeout > 0 {

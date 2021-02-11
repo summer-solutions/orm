@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/segmentio/fasthash/fnv1a"
-
-	"github.com/juju/errors"
 )
 
 const idsOnCachePage = 100
@@ -24,14 +22,14 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	schema := getTableSchema(engine.registry, entityType)
 	definition, has := schema.cachedIndexes[indexName]
 	if !has {
-		panic(errors.NotFoundf("index %s", indexName))
+		panic(fmt.Errorf("index %s not found", indexName))
 	}
 	if pager == nil {
 		pager = NewPager(1, definition.Max)
 	}
 	start := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	if start+pager.GetPageSize() > definition.Max {
-		panic(errors.Errorf("max cache index page size (%d) exceeded %s", definition.Max, indexName))
+		panic(fmt.Errorf("max cache index page size (%d) exceeded %s", definition.Max, indexName))
 	}
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
 	if !hasLocalCache && engine.hasRequestCache {
@@ -40,7 +38,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	}
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && !hasRedis {
-		panic(errors.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String()))
+		panic(fmt.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String()))
 	}
 	where := NewWhere(definition.Query, arguments...)
 	cacheKey := getCacheKeySearch(schema, indexName, where.GetParameters()...)
@@ -184,7 +182,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	}
 	definition, has := schema.cachedIndexesOne[indexName]
 	if !has {
-		panic(errors.NotFoundf("index %s", indexName))
+		panic(fmt.Errorf("index %s not found", indexName))
 	}
 	Where := NewWhere(definition.Query, arguments...)
 	localCache, hasLocalCache := schema.GetLocalCache(engine)
@@ -194,7 +192,7 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 	}
 	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if !hasLocalCache && !hasRedis {
-		panic(errors.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String()))
+		panic(fmt.Errorf("cache search not allowed for entity without cache: '%s'", entityType.String()))
 	}
 	cacheKey := getCacheKeySearch(schema, indexName, Where.GetParameters()...)
 	var fromCache map[string]interface{}

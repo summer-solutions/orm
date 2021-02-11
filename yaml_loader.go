@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/juju/errors"
 )
 
 func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
@@ -48,7 +46,7 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 func validateOrmMysqlURI(registry *Registry, value interface{}, key string) {
 	asString, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("mysql uri '%v'", value))
+		panic(fmt.Errorf("mysql uri '%v' is not valid", value))
 	}
 	registry.RegisterMySQLPool(asString, key)
 }
@@ -56,7 +54,7 @@ func validateOrmMysqlURI(registry *Registry, value interface{}, key string) {
 func validateElasticURI(registry *Registry, value interface{}, key string, withTrace bool) {
 	asString, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("elastic uri '%v'", value))
+		panic(fmt.Errorf("elastic uri '%v' is not valid", value))
 	}
 	if withTrace {
 		registry.RegisterElasticWithTraceLog(asString, key)
@@ -68,7 +66,7 @@ func validateElasticURI(registry *Registry, value interface{}, key string, withT
 func validateClickHouseURI(registry *Registry, value interface{}, key string) {
 	asString, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("click house uri '%v'", value))
+		panic(fmt.Errorf("click house uri '%v' is not valid", value))
 	}
 	registry.RegisterClickHouse(asString, key)
 }
@@ -78,7 +76,7 @@ func validateStreams(registry *Registry, value interface{}, key string) {
 	for name, groups := range def {
 		asSlice, ok := groups.([]interface{})
 		if !ok {
-			panic(errors.NotValidf("streams '%v'", groups))
+			panic(fmt.Errorf("streams '%v' is not valid", groups))
 		}
 		asString := make([]string, len(asSlice))
 		for i, val := range asSlice {
@@ -91,15 +89,15 @@ func validateStreams(registry *Registry, value interface{}, key string) {
 func validateRedisURI(registry *Registry, value interface{}, key string) {
 	asString, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("redis uri '%v'", value))
+		panic(fmt.Errorf("redis uri '%v' is not valid", value))
 	}
 	elements := strings.Split(asString, ":")
 	if len(elements) != 3 {
-		panic(errors.NotValidf("redis uri '%v'", value))
+		panic(fmt.Errorf("redis uri '%v' is not valid", value))
 	}
 	db, err := strconv.ParseUint(elements[2], 10, 64)
 	if err != nil {
-		panic(errors.NotValidf("redis uri '%v'", value))
+		panic(fmt.Errorf("redis uri '%v' is not valid", value))
 	}
 	uri := fmt.Sprintf("%s:%s", elements[0], elements[1])
 	registry.RegisterRedis(uri, int(db), key)
@@ -110,7 +108,7 @@ func validateSentinel(registry *Registry, value interface{}, key string) {
 	for master, values := range def {
 		asSlice, ok := values.([]interface{})
 		if !ok {
-			panic(errors.NotValidf("sentinel '%v'", value))
+			panic(fmt.Errorf("sentinel '%v' is not valid", value))
 		}
 		asStrings := make([]string, len(asSlice))
 		for i, v := range asSlice {
@@ -122,7 +120,7 @@ func validateSentinel(registry *Registry, value interface{}, key string) {
 			master = elements[0]
 			nr, err := strconv.ParseUint(elements[1], 10, 64)
 			if err != nil {
-				panic(errors.NotValidf("sentinel db '%v'", value))
+				panic(fmt.Errorf("sentinel db '%v' is not valid", value))
 			}
 			db = int(nr)
 		}
@@ -152,7 +150,7 @@ func fixYamlMap(value interface{}, key string) map[string]interface{} {
 	if !ok {
 		def2, ok := value.(map[interface{}]interface{})
 		if !ok {
-			panic(errors.NotValidf("orm yaml key %s", key))
+			panic(fmt.Errorf("orm yaml key %s is not valid", key))
 		}
 		def = make(map[string]interface{})
 		for k, v := range def2 {
@@ -166,28 +164,28 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 	def := fixYamlMap(value, key)
 	value, has := def["server"]
 	if !has {
-		panic(errors.NotFoundf("rabbitMQ server definition '%s'", key))
+		panic(fmt.Errorf("rabbitMQ server definition '%s' not found", key))
 	}
 	poolName, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("rabbitMQ server definition '%s'", key))
+		panic(fmt.Errorf("rabbitMQ server definition '%s' is not valid", key))
 	}
 	registry.RegisterRabbitMQServer(poolName, key)
 	value, has = def["queues"]
 	if has {
 		asSlice, ok := value.([]interface{})
 		if !ok {
-			panic(errors.NotValidf("rabbitMQ queues definition '%s'", key))
+			panic(fmt.Errorf("rabbitMQ queues definition '%s' is not valid", key))
 		}
 		for _, channel := range asSlice {
 			asMap := fixYamlMap(channel, key)
 			name, has := asMap["name"]
 			if !has {
-				panic(errors.NotFoundf("rabbitMQ channel name '%s'", key))
+				panic(fmt.Errorf("rabbitMQ channel name '%s' not found", key))
 			}
 			asString, ok := name.(string)
 			if !ok {
-				panic(errors.NotValidf("rabbitMQ channel name '%s'", key))
+				panic(fmt.Errorf("rabbitMQ channel name '%s' is not valid", key))
 			}
 			durable := getBoolOptional(asMap, "durable", true)
 			autoDeleted := getBoolOptional(asMap, "autodelete", false)
@@ -197,7 +195,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			if has {
 				asString, ok := routerVal.(string)
 				if !ok {
-					panic(errors.NotValidf("rabbitMQ router name '%s'", key))
+					panic(fmt.Errorf("rabbitMQ router name '%s' is not valid", key))
 				}
 				router = asString
 			}
@@ -206,12 +204,12 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 			if has {
 				asSlice, ok := routerVal.([]interface{})
 				if !ok {
-					panic(errors.NotValidf("rabbitMQ router keys '%s'", key))
+					panic(fmt.Errorf("rabbitMQ router keys '%s' is not valid", key))
 				}
 				for _, val := range asSlice {
 					asString, ok := val.(string)
 					if !ok {
-						panic(errors.NotValidf("rabbitMQ router key '%s'", key))
+						panic(fmt.Errorf("rabbitMQ router key '%s' is not valid", key))
 					}
 					routerKeys = append(routerKeys, asString)
 				}
@@ -226,25 +224,25 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 	if has {
 		asSlice, ok := value.([]interface{})
 		if !ok {
-			panic(errors.NotValidf("rabbitMQ routers definition `%s`", key))
+			panic(fmt.Errorf("rabbitMQ routers definition `%s` is not valid", key))
 		}
 		for _, router := range asSlice {
 			asMap := fixYamlMap(router, key)
 			value, has := asMap["name"]
 			if !has {
-				panic(errors.NotFoundf("rabbitMQ router name '%s'", key))
+				panic(fmt.Errorf("rabbitMQ router name '%s' not found", key))
 			}
 			nameAsString, ok := value.(string)
 			if !ok {
-				panic(errors.NotValidf("rabbitMQ router name '%s'", key))
+				panic(fmt.Errorf("rabbitMQ router name '%s' is not valid", key))
 			}
 			value, has = asMap["type"]
 			if !has {
-				panic(errors.NotFoundf("rabbitMQ router type '%s'", key))
+				panic(fmt.Errorf("rabbitMQ router type '%s' not found", key))
 			}
 			typeAsString, ok := value.(string)
 			if !ok {
-				panic(errors.NotValidf("rabbitMQ router type '%s'", key))
+				panic(fmt.Errorf("rabbitMQ router type '%s' is not valid", key))
 			}
 			durable := getBoolOptional(asMap, "durable", true)
 			config := &RabbitMQRouterConfig{nameAsString, typeAsString, durable}
@@ -256,7 +254,7 @@ func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
 func validateOrmInt(value interface{}, key string) int {
 	asInt, ok := value.(int)
 	if !ok {
-		panic(errors.NotValidf("orm value for %s: %v", key, value))
+		panic(fmt.Errorf("orm value for %s: %v is not valid", key, value))
 	}
 	return asInt
 }
@@ -264,7 +262,7 @@ func validateOrmInt(value interface{}, key string) int {
 func validateOrmString(value interface{}, key string) string {
 	asString, ok := value.(string)
 	if !ok {
-		panic(errors.NotValidf("orm value for %s: %v", key, value))
+		panic(fmt.Errorf("orm value for %s: %v is not valid", key, value))
 	}
 	return asString
 }

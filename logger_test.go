@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -8,8 +9,6 @@ import (
 
 	log2 "github.com/apex/log"
 	"github.com/apex/log/handlers/memory"
-	"github.com/juju/errors"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,7 +44,7 @@ func TestLogger(t *testing.T) {
 	assert.Len(t, logger.Entries, 2)
 
 	err := func() error {
-		return errors.Trace(errors.Trace(errors.New("test error")))
+		return fmt.Errorf("test error")
 	}()
 
 	engine.Log().SetHTTPResponseCode(500)
@@ -57,7 +56,7 @@ func TestLogger(t *testing.T) {
 	assert.Equal(t, "test", logger.Entries[2].Fields["a"])
 	assert.Equal(t, "test2", logger.Entries[2].Fields["b"])
 	assert.Equal(t, "test4", logger.Entries[2].Fields["c"])
-	assert.Equal(t, "*errors.Err", logger.Entries[2].Fields["error.kind"])
+	assert.Equal(t, "*errors.errorString", logger.Entries[2].Fields["error.kind"])
 	assert.Equal(t, "test error", logger.Entries[2].Fields["error.message"])
 	assert.Equal(t, "test_domain", logger.Entries[2].Fields["http.host"])
 	assert.Equal(t, "POST", logger.Entries[2].Fields["http.method"])
