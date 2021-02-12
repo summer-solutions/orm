@@ -29,7 +29,7 @@ type RedisStreamGroupStatistics struct {
 	HigherDuration        string
 	Consumers             []*RedisStreamConsumerStatistics
 	SpeedEvents           int64
-	SpeedMilliseconds     float32
+	SpeedMilliseconds     float64
 }
 
 type RedisStreamConsumerStatistics struct {
@@ -51,7 +51,7 @@ func GetRedisStreamsStatistics(engine *orm.Engine) []*RedisStreamStatistics {
 			stat.Len = uint64(r.XLen(stream))
 			minPending := -1
 			for _, group := range r.XInfoGroups(stream) {
-				speed := float32(0)
+				speed := float64(0)
 				speedEvents := int64(0)
 				speedKey := group.Name + "_" + redisPool
 				events, has := speedStats[speedKey+"e"]
@@ -61,7 +61,7 @@ func GetRedisStreamsStatistics(engine *orm.Engine) []*RedisStreamStatistics {
 						speedEvents = int64(speedEventsAsInt)
 						speedTime := speedStats[speedKey+"t"]
 						speedTimeAsInt, _ := strconv.Atoi(speedTime)
-						speed = float32((speedTimeAsInt / 1000) / int(speedEvents))
+						speed = float64(speedTimeAsInt) / 1000 / float64(speedEvents)
 					}
 				}
 

@@ -1,9 +1,10 @@
 package tools
 
 import (
+	"context"
 	"testing"
+	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/summer-solutions/orm"
 )
@@ -27,17 +28,38 @@ func TestRedisStreamsStatus(t *testing.T) {
 	assert.Len(t, stats[0].Groups, 0)
 
 	r.XGroupCreateMkStream("test-stream", "test-group", "0")
-	id := engine.GetEventBroker().PublishMap("test-stream", orm.EventAsMap{"a": "b"})
-	r.XReadGroup(&redis.XReadGroupArgs{Group: "test-group", Consumer: "test-consumer", Count: 1, Streams: []string{"test-stream", ">"}})
+	flusher := engine.GetEventBroker().NewFlusher()
+	for i := 1; i <= 10001; i++ {
+		flusher.PublishMap("test-stream", orm.EventAsMap{"a": "b"})
+	}
+	flusher.Flush()
+	time.Sleep(time.Millisecond * 300)
 
 	stats = GetRedisStreamsStatistics(engine)
-	assert.Equal(t, uint64(1), stats[0].Len)
+	assert.Equal(t, uint64(10001), stats[0].Len)
 	assert.Len(t, stats[0].Groups, 1)
 	assert.Equal(t, "test-group", stats[0].Groups[0].Group)
-	assert.Equal(t, id, stats[0].Groups[0].Higher)
-	assert.Equal(t, id, stats[0].Groups[0].Lower)
-	assert.Equal(t, uint64(1), stats[0].Groups[0].Pending)
+	assert.Equal(t, uint64(0), stats[0].Groups[0].Pending)
+	assert.Len(t, stats[0].Groups[0].Consumers, 0)
+
+	consumer := engine.GetEventBroker().Consumer("test-consumer", "test-group")
+	consumer.DisableLoop()
+	consumer.Consume(context.Background(), 11000, false, func(events []orm.Event) {
+		for _, event := range events {
+			event.Skip()
+		}
+		time.Sleep(time.Millisecond * 100)
+	})
+
+	stats = GetRedisStreamsStatistics(engine)
+	assert.Equal(t, uint64(10001), stats[0].Len)
+	assert.Len(t, stats[0].Groups, 1)
+	assert.Equal(t, "test-group", stats[0].Groups[0].Group)
+	assert.Equal(t, uint64(10001), stats[0].Groups[0].Pending)
 	assert.Len(t, stats[0].Groups[0].Consumers, 1)
-	assert.Equal(t, "test-consumer", stats[0].Groups[0].Consumers[0].Name)
-	assert.Equal(t, uint64(1), stats[0].Groups[0].Consumers[0].Pending)
+	assert.Equal(t, "test-consumer-1", stats[0].Groups[0].Consumers[0].Name)
+	assert.Equal(t, uint64(10001), stats[0].Groups[0].Consumers[0].Pending)
+	assert.Equal(t, int64(10001), stats[0].Groups[0].SpeedEvents)
+	assert.GreaterOrEqual(t, stats[0].Groups[0].SpeedMilliseconds, 0.01)
+	assert.LessOrEqual(t, stats[0].Groups[0].SpeedMilliseconds, 0.011)
 }

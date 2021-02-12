@@ -444,7 +444,7 @@ func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, 
 				}
 				r.HeartBeat(false)
 				if totalMessages == 0 {
-					if !blocking && normalCheck {
+					if r.loop && !blocking && normalCheck {
 						time.Sleep(time.Second * 30)
 					}
 					continue KEYS
