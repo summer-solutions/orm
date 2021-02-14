@@ -20,21 +20,19 @@ type ValidatedRegistry interface {
 }
 
 type validatedRegistry struct {
-	registry                *Registry
-	tableSchemas            map[reflect.Type]*tableSchema
-	entities                map[string]reflect.Type
-	sqlClients              map[string]*DBConfig
-	clickHouseClients       map[string]*ClickHouseConfig
-	localCacheContainers    map[string]*LocalCacheConfig
-	redisServers            map[string]*RedisCacheConfig
-	redisStreamGroups       map[string]map[string]map[string]bool
-	redisStreamPools        map[string]string
-	elasticServers          map[string]*ElasticConfig
-	rabbitMQServers         map[string]*rabbitMQConnection
-	rabbitMQChannelsToQueue map[string]*rabbitMQChannelToQueue
-	rabbitMQRouterConfigs   map[string]*RabbitMQRouterConfig
-	lockServers             map[string]string
-	enums                   map[string]Enum
+	registry             *Registry
+	tableSchemas         map[reflect.Type]*tableSchema
+	entities             map[string]reflect.Type
+	redisSearchIndexes   map[string]*RedisSearchIndex
+	sqlClients           map[string]*DBConfig
+	clickHouseClients    map[string]*ClickHouseConfig
+	localCacheContainers map[string]*LocalCacheConfig
+	redisServers         map[string]*RedisCacheConfig
+	redisStreamGroups    map[string]map[string]map[string]bool
+	redisStreamPools     map[string]string
+	elasticServers       map[string]*ElasticConfig
+	lockServers          map[string]string
+	enums                map[string]Enum
 }
 
 func (r *validatedRegistry) GetSourceRegistry() *Registry {

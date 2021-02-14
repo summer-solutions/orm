@@ -20,7 +20,6 @@ type QueryLoggerSource int
 const (
 	QueryLoggerSourceDB = iota
 	QueryLoggerSourceRedis
-	QueryLoggerSourceRabbitMQ
 	QueryLoggerSourceElastic
 	QueryLoggerSourceClickHouse
 	QueryLoggerSourceLocalCache
@@ -63,46 +62,6 @@ func (h *dbDataDogHandler) HandleLog(e *apexLox.Entry) error {
 	span.SetTag(ext.ServiceName, "mysql.db."+e.Fields.Get("pool").(string))
 	span.SetTag(ext.ResourceName, e.Fields.Get("Query"))
 	span.SetTag(ext.SQLType, queryType)
-	if h.withAnalytics {
-		span.SetTag(ext.AnalyticsEvent, true)
-	}
-	injectError(e, span)
-	finished := time.Unix(0, e.Fields.Get("finished").(int64))
-	span.Finish(tracer.FinishTime(finished))
-	return nil
-}
-
-type rabbitMQDataDogHandler struct {
-	withAnalytics bool
-	engine        *Engine
-}
-
-func newRabbitMQDataDogHandler(withAnalytics bool, engine *Engine) *rabbitMQDataDogHandler {
-	return &rabbitMQDataDogHandler{withAnalytics, engine}
-}
-
-func (h *rabbitMQDataDogHandler) HandleLog(e *apexLox.Entry) error {
-	if h.engine.dataDog == nil {
-		return nil
-	}
-	l := len(h.engine.dataDog.ctx)
-	if l == 0 {
-		return nil
-	}
-	started := time.Unix(0, e.Fields.Get("started").(int64))
-	operationName := e.Fields.Get("operation").(string)
-	span, _ := tracer.StartSpanFromContext(h.engine.dataDog.ctx[l-1], operationName, tracer.StartTime(started))
-	span.SetTag(ext.SpanType, ext.AppTypeDB)
-	span.SetTag(ext.ServiceName, "rabbitMQ.default")
-	queue := e.Fields.Get("Queue")
-	if queue == nil {
-		queue = e.Fields.Get("Router")
-	}
-	operation := operationName
-	if queue != nil {
-		operation = operation + " " + queue.(string)
-	}
-	span.SetTag(ext.ResourceName, operation)
 	if h.withAnalytics {
 		span.SetTag(ext.AnalyticsEvent, true)
 	}

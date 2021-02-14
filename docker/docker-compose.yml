@@ -27,18 +27,6 @@ services:
     image: redislabs/redisearch
     ports:
       - ${LOCAL_IP}:${REDIS_SEARCH_PORT}:6379
-  rabbitmq_orm:
-    image: rabbitmq:management
-    hostname: 'rabbitmq'
-    volumes:
-      - orm_data_rabbitmq:/var/lib/rabbitmq
-    ports:
-      - ${LOCAL_IP}:${RABBITMQ_PORT}:5672
-      - ${LOCAL_IP}:${RABBITMQ_MANAGEMENT_WEB_PORT}:15672
-    environment:
-      - RABBITMQ_DEFAULT_USER=rabbitmq_user
-      - RABBITMQ_DEFAULT_PASS=rabbitmq_password
-      - RABBITMQ_DEFAULT_VHOST=test
   elasticsearch_orm:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.6.1
     environment:
@@ -82,6 +70,5 @@ volumes:
   orm_logs_mysql: {}
   orm_data_mysql8: {}
   orm_data_redis: {}
-  orm_data_rabbitmq: {}
   orm_elasticsearch: {}
   orm_data_clickhouse: {}

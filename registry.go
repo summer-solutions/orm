@@ -27,10 +27,8 @@ type Registry struct {
 	localCacheContainers map[string]*LocalCacheConfig
 	redisServers         map[string]*RedisCacheConfig
 	elasticServers       map[string]*ElasticConfig
-	rabbitMQServers      map[string]*rabbitMQConfig
-	rabbitMQQueues       map[string][]*RabbitMQQueueConfig
-	rabbitMQRouters      map[string][]*RabbitMQRouterConfig
 	entities             map[string]reflect.Type
+	redisSearchIndices   map[string]*RedisSearchIndex
 	elasticIndices       map[string]map[string]ElasticIndexDefinition
 	enums                map[string]Enum
 	locks                map[string]string
@@ -140,59 +138,15 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.elasticServers {
 		registry.elasticServers[k] = v
 	}
-
-	if registry.rabbitMQServers == nil {
-		registry.rabbitMQServers = make(map[string]*rabbitMQConnection)
-	}
-	for k, v := range r.rabbitMQServers {
-		rConn := &rabbitMQConnection{config: v}
-		registry.rabbitMQServers[k] = rConn
-	}
-	if registry.rabbitMQRouterConfigs == nil {
-		registry.rabbitMQRouterConfigs = make(map[string]*RabbitMQRouterConfig)
-	}
-	for connectionCode, routers := range r.rabbitMQRouters {
-		_, has := registry.rabbitMQServers[connectionCode]
-		if !has {
-			return nil, fmt.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
-		}
-		for _, def := range routers {
-			_, has := registry.rabbitMQRouterConfigs[def.Name]
-			if has {
-				return nil, fmt.Errorf("rabbitMQ router name '%s' already exists", def.Name)
-			}
-			registry.rabbitMQRouterConfigs[def.Name] = def
-		}
-	}
-
-	if registry.rabbitMQChannelsToQueue == nil {
-		registry.rabbitMQChannelsToQueue = make(map[string]*rabbitMQChannelToQueue)
-	}
-	for connectionCode, queues := range r.rabbitMQQueues {
-		connection, has := registry.rabbitMQServers[connectionCode]
-		if !has {
-			return nil, fmt.Errorf("rabbitMQ server '%s' is not registered", connectionCode)
-		}
-		for _, def := range queues {
-			_, has := registry.rabbitMQChannelsToQueue[def.Name]
-			if has {
-				return nil, fmt.Errorf("rabbitMQ channel name '%s' already exists", def.Name)
-			}
-			if def.Router != "" {
-				_, has := registry.rabbitMQRouterConfigs[def.Router]
-				if !has {
-					return nil, fmt.Errorf("rabbitMQ router name '%s' is not registered", def.Router)
-				}
-			}
-			channel := &rabbitMQChannelToQueue{connection: connection, config: def}
-			registry.rabbitMQChannelsToQueue[def.Name] = channel
-		}
-	}
 	if registry.enums == nil {
 		registry.enums = make(map[string]Enum)
 	}
 	for k, v := range r.enums {
 		registry.enums[k] = v
+	}
+	registry.redisSearchIndexes = make(map[string]*RedisSearchIndex)
+	for k, v := range r.redisSearchIndices {
+		registry.redisSearchIndexes[k] = v
 	}
 	cachePrefixes := make(map[string]*tableSchema)
 	for name, entityType := range r.entities {
@@ -225,36 +179,7 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 			return nil, errors.Wrapf(err, "invalid entity struct '%s'", schema.t.String())
 		}
 	}
-	var err error
-	if len(registry.rabbitMQChannelsToQueue) > 0 {
-		//init rabbitMQ channels
-		engine = registry.CreateEngine()
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					asErr, ok := r.(error)
-					if ok {
-						err = asErr
-					} else {
-						err = fmt.Errorf("%v", r)
-					}
-				}
-			}()
-			for code, config := range registry.rabbitMQChannelsToQueue {
-				if config.config.Router == "" {
-					r := engine.GetRabbitMQQueue(code)
-					receiver := r.initChannel(config.config.Name, false)
-					err := receiver.Close()
-					checkError(err)
-				} else {
-					r := engine.GetRabbitMQRouter(code)
-					receiver := r.initChannel(config.config.Name, false)
-					checkError(receiver.Close())
-				}
-			}
-		}()
-	}
-	return registry, err
+	return registry, nil
 }
 
 func (r *Registry) SetDefaultEncoding(encoding string) {
@@ -271,6 +196,15 @@ func (r *Registry) RegisterEntity(entity ...Entity) {
 			t = t.Elem()
 		}
 		r.entities[t.String()] = t
+	}
+}
+
+func (r *Registry) RegisterRedisSearchIndex(index ...*RedisSearchIndex) {
+	if r.redisSearchIndices == nil {
+		r.redisSearchIndices = make(map[string]*RedisSearchIndex)
+	}
+	for _, i := range index {
+		r.redisSearchIndices[i.Name] = i
 	}
 }
 
@@ -386,46 +320,6 @@ func (r *Registry) RegisterRedisStream(name string, redisPool string, groups []s
 		groupsMap[group] = true
 	}
 	r.redisStreamGroups[redisPool][name] = groupsMap
-}
-
-func (r *Registry) RegisterRabbitMQServer(address string, code ...string) {
-	dbCode := "default"
-	if len(code) > 0 {
-		dbCode = code[0]
-	}
-	rabbitMQ := &rabbitMQConfig{code: dbCode, address: address}
-	if r.rabbitMQServers == nil {
-		r.rabbitMQServers = make(map[string]*rabbitMQConfig)
-	}
-	r.rabbitMQServers[dbCode] = rabbitMQ
-}
-
-func (r *Registry) RegisterRabbitMQQueue(config *RabbitMQQueueConfig, serverPool ...string) {
-	dbCode := "default"
-	if len(serverPool) > 0 {
-		dbCode = serverPool[0]
-	}
-	if r.rabbitMQQueues == nil {
-		r.rabbitMQQueues = make(map[string][]*RabbitMQQueueConfig)
-	}
-	if r.rabbitMQQueues[dbCode] == nil {
-		r.rabbitMQQueues[dbCode] = make([]*RabbitMQQueueConfig, 0)
-	}
-	r.rabbitMQQueues[dbCode] = append(r.rabbitMQQueues[dbCode], config)
-}
-
-func (r *Registry) RegisterRabbitMQRouter(config *RabbitMQRouterConfig, serverPool ...string) {
-	dbCode := "default"
-	if len(serverPool) > 0 {
-		dbCode = serverPool[0]
-	}
-	if r.rabbitMQRouters == nil {
-		r.rabbitMQRouters = make(map[string][]*RabbitMQRouterConfig)
-	}
-	if r.rabbitMQRouters[dbCode] == nil {
-		r.rabbitMQRouters[dbCode] = make([]*RabbitMQRouterConfig, 0)
-	}
-	r.rabbitMQRouters[dbCode] = append(r.rabbitMQRouters[dbCode], config)
 }
 
 func (r *Registry) RegisterLocker(code string, redisCode string) {

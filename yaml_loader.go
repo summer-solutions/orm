@@ -26,8 +26,6 @@ func InitByYaml(yaml map[string]interface{}) (registry *Registry) {
 				validateSentinel(registry, value, key)
 			case "streams":
 				validateStreams(registry, value, key)
-			case "rabbitmq":
-				validateOrmRabbitMQ(registry, value, key)
 			case "locker":
 				valAsString := validateOrmString(value, key)
 				registry.RegisterLocker(key, valAsString)
@@ -128,23 +126,6 @@ func validateSentinel(registry *Registry, value interface{}, key string) {
 	}
 }
 
-func getBoolOptional(data map[string]interface{}, key string, defaultValue bool) bool {
-	val, has := data[key]
-	if !has {
-		return defaultValue
-	}
-	return val == true || val == "true"
-}
-
-func getIntOptional(data map[string]interface{}, key string, defaultValue int) int {
-	val, has := data[key]
-	if !has {
-		return defaultValue
-	}
-	valInt, _ := strconv.Atoi(fmt.Sprintf("%v", val))
-	return valInt
-}
-
 func fixYamlMap(value interface{}, key string) map[string]interface{} {
 	def, ok := value.(map[string]interface{})
 	if !ok {
@@ -158,97 +139,6 @@ func fixYamlMap(value interface{}, key string) map[string]interface{} {
 		}
 	}
 	return def
-}
-
-func validateOrmRabbitMQ(registry *Registry, value interface{}, key string) {
-	def := fixYamlMap(value, key)
-	value, has := def["server"]
-	if !has {
-		panic(fmt.Errorf("rabbitMQ server definition '%s' not found", key))
-	}
-	poolName, ok := value.(string)
-	if !ok {
-		panic(fmt.Errorf("rabbitMQ server definition '%s' is not valid", key))
-	}
-	registry.RegisterRabbitMQServer(poolName, key)
-	value, has = def["queues"]
-	if has {
-		asSlice, ok := value.([]interface{})
-		if !ok {
-			panic(fmt.Errorf("rabbitMQ queues definition '%s' is not valid", key))
-		}
-		for _, channel := range asSlice {
-			asMap := fixYamlMap(channel, key)
-			name, has := asMap["name"]
-			if !has {
-				panic(fmt.Errorf("rabbitMQ channel name '%s' not found", key))
-			}
-			asString, ok := name.(string)
-			if !ok {
-				panic(fmt.Errorf("rabbitMQ channel name '%s' is not valid", key))
-			}
-			durable := getBoolOptional(asMap, "durable", true)
-			autoDeleted := getBoolOptional(asMap, "autodelete", false)
-			ttl := getIntOptional(asMap, "ttl", 0)
-			router := ""
-			routerVal, has := asMap["router"]
-			if has {
-				asString, ok := routerVal.(string)
-				if !ok {
-					panic(fmt.Errorf("rabbitMQ router name '%s' is not valid", key))
-				}
-				router = asString
-			}
-			routerKeys := make([]string, 0)
-			routerVal, has = asMap["router_keys"]
-			if has {
-				asSlice, ok := routerVal.([]interface{})
-				if !ok {
-					panic(fmt.Errorf("rabbitMQ router keys '%s' is not valid", key))
-				}
-				for _, val := range asSlice {
-					asString, ok := val.(string)
-					if !ok {
-						panic(fmt.Errorf("rabbitMQ router key '%s' is not valid", key))
-					}
-					routerKeys = append(routerKeys, asString)
-				}
-			}
-			prefetchCount, _ := strconv.ParseInt(fmt.Sprintf("%v", asMap["prefetchCount"]), 10, 64)
-			config := &RabbitMQQueueConfig{asString, int(prefetchCount), router, durable,
-				routerKeys, autoDeleted, ttl}
-			registry.RegisterRabbitMQQueue(config, key)
-		}
-	}
-	value, has = def["routers"]
-	if has {
-		asSlice, ok := value.([]interface{})
-		if !ok {
-			panic(fmt.Errorf("rabbitMQ routers definition `%s` is not valid", key))
-		}
-		for _, router := range asSlice {
-			asMap := fixYamlMap(router, key)
-			value, has := asMap["name"]
-			if !has {
-				panic(fmt.Errorf("rabbitMQ router name '%s' not found", key))
-			}
-			nameAsString, ok := value.(string)
-			if !ok {
-				panic(fmt.Errorf("rabbitMQ router name '%s' is not valid", key))
-			}
-			value, has = asMap["type"]
-			if !has {
-				panic(fmt.Errorf("rabbitMQ router type '%s' not found", key))
-			}
-			typeAsString, ok := value.(string)
-			if !ok {
-				panic(fmt.Errorf("rabbitMQ router type '%s' is not valid", key))
-			}
-			durable := getBoolOptional(asMap, "durable", true)
-			config := &RabbitMQRouterConfig{nameAsString, typeAsString, durable}
-			registry.RegisterRabbitMQRouter(config, key)
-		}
-	}
 }
 
 func validateOrmInt(value interface{}, key string) int {

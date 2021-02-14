@@ -101,7 +101,7 @@ type tableSchema struct {
 	cachePrefix         string
 	hasFakeDelete       bool
 	hasLog              bool
-	logPoolName         string //name of redis or rabbitMQ
+	logPoolName         string //name of redis
 	logTableName        string
 	skipLogs            []string
 }

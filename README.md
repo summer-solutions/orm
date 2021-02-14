@@ -14,7 +14,6 @@ ORM that delivers support for full stack data access:
  * Elastic Search - for full text search
  * Local Cache - in memory local (not shared) cache
  * ClickHouse - time series database
- * RabbitMQ - message broker
  * DataDog - monitoring
  
 Menu:
@@ -41,7 +40,6 @@ Menu:
  * [Working with elastic search](https://github.com/summer-solutions/orm#working-with-elastic-search)  
  * [Working with ClickHouse](https://github.com/summer-solutions/orm#working-with-clickhouse)  
  * [Working with Locker](https://github.com/summer-solutions/orm#working-with-locker) 
- * [Working with RabbitMQ](https://github.com/summer-solutions/orm#working-with-rabbitmq) 
  * [Query logging](https://github.com/summer-solutions/orm#query-logging) 
  * [Logger](https://github.com/summer-solutions/orm#logger) 
  * [DataDog Profiler](https://github.com/summer-solutions/orm#datadog-profiler) 
@@ -51,7 +49,7 @@ Menu:
 
 ## Configuration
 
-First you need to define Registry object and register all connection pools to MySQL, Redis, RabbitMQ and local cache.
+First you need to define Registry object and register all connection pools to MySQL, Redis and local cache.
 Use this object to register queues, and entities. You should create this object once when application
 starts.
 
@@ -79,11 +77,6 @@ func main() {
     registry.RegisterRedisSentinel("mymaster", 0, []string{":26379", "192.23.12.33:26379", "192.23.12.35:26379"})
     // redis database number set to 2
     registry.RegisterRedisSentinel("mymaster", 2, []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}, "second_pool") 
-
-    /* RabbitMQ */
-    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue"})
-    registry.RegisterRabbitMQRouter(&RabbitMQRouterConfig{Name, "test_router"})
 
     /* Local cache (in memory) */
     registry.RegisterLocalCache(1000) //you need to define cache size
@@ -125,23 +118,6 @@ default:
     clickhouse: http://127.0.0.1:9000
     locker: default
     local_cache: 1000
-    rabbitmq:
-        server: amqp://rabbitmq_user:rabbitmq_password@localhost:5672/
-        queues:
-            - name: test
-            - name: test2
-              durrable: false // optional, default true
-              autodelete: false // optional, default false
-              prefetchCount: 1 // optional, default 1
-              router: test_router // optional, default ""
-              ttl: 60 //optional, as seconds, defalut 0 - no TTL  
-              router_keys: // optional, default []string
-                - aa
-                - bb
-        routers:
-            - name: test_router
-              type: direct  
-              durable: false // optional, default true
 second_pool:
     mysql: root:root@tcp(localhost:3311)/db2
       sentinel:
@@ -1089,72 +1065,12 @@ func main() {
 }
 
 ```
-
-## Working with RabbitMQ
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-
-    // register rabbitMQ servers, queues and routers
-    registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5672/")
-    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue", TTL: 60}) //ttl set to 60 seconds
-    registry.RegisterRabbitMQQueue(&RabbitMQQueueConfig{Name: "test_queue_router", 
-        Router: "test_router", RouteKeys: []string{"aa", "bb"}})
-    registry.RegisterRabbitMQRoutere("default", &RabbitMQRouteConfig{Name: "test_router", Type: "fanout"})
-    
-    //create engine:
-    validatedRegistry, err := registry.Validate()
-    engine := validatedRegistry.CreateEngine()
-    defer engine.Defer() //it will close all opened channels
-
-    //Simple queue
-    channel := engine.GetRabbitMQQueue("test_queue") //provide Queue name
-    defer channel.Close()
-    channel.GetEventBroker().PublishMap([]byte("hello"))
-
-    //start consumer (you can add as many you want)
-    consumer, err := channel.NewConsumer("test consumer")
-    defer consumer.Close()
-    consumer.Consume(func(items [][]byte) {
-    	//do staff
-    })
-
-    //start consumer (you can add as many you want)
-    consumer := channel.NewConsumer("test consumer")
-    defer consumer.Close()
-    consumer.Consume(func(items [][]byte) {
-        //do staff
-    })
-    
-    // publish to router
-
-    channel = engine.GetRabbitMQRouter("test_queue_router") 
-    defer channel.Close()
-    channel.GetEventBroker().PublishMap("router.key", []byte("hello"))
-
-    //start consumer
-   consumer := channel.NewConsumer("test consumer")
-   defer consumer.Close()
-   consumer.Consume(func(items [][]byte) {
-        //do staff
-        return nil
-   })
-}
-
-```
-
-
 ## Query logging
 
 You can log all queries:
  
  * queries to MySQL database (insert, select, update)
  * requests to Redis
- * requests to rabbitMQ 
  * requests to Elastic Search 
  * queries to CickHouse 
 
@@ -1166,12 +1082,12 @@ import "github.com/summer-solutions/orm"
 func main() {
 	
     //enable human friendly console log
-    engine.EnableQueryDebug() //MySQL, redis, rabbitMQ, Elastic Search, ClickHouse queries (local cache in excluded bt default)
+    engine.EnableQueryDebug() //MySQL, redis, Elastic Search, ClickHouse queries (local cache in excluded bt default)
     engine.EnableQueryDebug(orm.QueryLoggerSourceRedis, orm.QueryLoggerSourceLocalCache)
 
     //adding custom logger example:
-    engine.AddQueryLogger(json.New(os.Stdout), log.LevelWarn) //MySQL, redis, rabbitMQ warnings and above
-    engine.AddQueryLogger(es.New(os.Stdout), log.LevelError, orm.QueryLoggerSourceRedis, orm. QueryLoggerSourceRabbitMQ)
+    engine.AddQueryLogger(json.New(os.Stdout), log.LevelWarn) //MySQL, redis warnings and above
+    engine.AddQueryLogger(es.New(os.Stdout), log.LevelError, orm.QueryLoggerSourceRedis)
 }    
 ```
 
@@ -1265,7 +1181,7 @@ func main() {
         defer apm.Finish()
     
         //optionally enable ORM APM services
-        engine.DataDog().EnableORMAPMLog(log.InfoLevel, true) //log ORM requests (MySQl, RabbitMQ, Redis queries) as services
+        engine.DataDog().EnableORMAPMLog(log.InfoLevel, true) //log ORM requests (MySQl, Redis queries) as services
 
         c.Next()
         apm.SetResponseStatus(c.Writer.Status())

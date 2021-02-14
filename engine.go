@@ -28,14 +28,12 @@ type Engine struct {
 	localCacheMutex           sync.Mutex
 	redis                     map[string]*RedisCache
 	redisMutex                sync.Mutex
+	redisSearch               map[string]*RedisSearch
+	redisSearchMutex          sync.Mutex
 	elastic                   map[string]*Elastic
 	elasticMutex              sync.Mutex
 	locks                     map[string]*Locker
 	locksMutex                sync.Mutex
-	rabbitMQChannels          map[string]*rabbitMQChannel
-	rabbitMQQueues            map[string]*RabbitMQQueue
-	rabbitMQRouters           map[string]*RabbitMQRouter
-	rabbitMQMutex             sync.Mutex
 	logMetaData               map[string]interface{}
 	logMetaDataMutex          sync.RWMutex
 	dataLoader                *dataLoader
@@ -100,7 +98,7 @@ func (e *Engine) EnableDebug() {
 
 func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, source ...QueryLoggerSource) {
 	if len(source) == 0 {
-		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceRabbitMQ, QueryLoggerSourceElastic,
+		source = []QueryLoggerSource{QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceElastic,
 			QueryLoggerSourceClickHouse, QueryLoggerSourceStreams}
 	}
 	e.logMutex.Lock()
@@ -215,6 +213,33 @@ func (e *Engine) GetRedis(code ...string) *RedisCache {
 	return cache
 }
 
+func (e *Engine) GetRedisSearch(code ...string) *RedisSearch {
+	dbCode := "default"
+	if len(code) > 0 {
+		dbCode = code[0]
+	}
+	e.redisSearchMutex.Lock()
+	defer e.redisSearchMutex.Unlock()
+	cache, has := e.redisSearch[dbCode]
+	if !has {
+		val, has := e.registry.redisServers[dbCode]
+		if !has {
+			panic(fmt.Errorf("unregistered redis cache pool '%s'", dbCode))
+		}
+		client := val.client
+		if client != nil {
+			client = client.WithContext(e.context)
+		}
+		cache = &RedisSearch{engine: e, code: val.code, client: client, ctx: context.Background()}
+		if e.redisSearch == nil {
+			e.redisSearch = map[string]*RedisSearch{dbCode: cache}
+		} else {
+			e.redisSearch[dbCode] = cache
+		}
+	}
+	return cache
+}
+
 func (e *Engine) GetClickHouse(code ...string) *ClickHouse {
 	dbCode := "default"
 	if len(code) > 0 {
@@ -283,66 +308,6 @@ func (e *Engine) GetLocker(code ...string) *Locker {
 		}
 	}
 	return locker
-}
-
-func (e *Engine) GetRabbitMQQueue(queueName string) *RabbitMQQueue {
-	e.rabbitMQMutex.Lock()
-	defer e.rabbitMQMutex.Unlock()
-	queue, has := e.rabbitMQQueues[queueName]
-	if has {
-		return queue
-	}
-	channel, has := e.rabbitMQChannels[queueName]
-	if !has {
-		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
-		if !has {
-			panic(fmt.Errorf("unregistered rabbitMQ queue '%s'", queueName))
-		}
-		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
-		if e.rabbitMQChannels == nil {
-			e.rabbitMQChannels = map[string]*rabbitMQChannel{queueName: channel}
-		} else {
-			e.rabbitMQChannels[queueName] = channel
-		}
-	}
-	if channel.config.Router != "" {
-		panic(fmt.Errorf("rabbitMQ queue '%s' is declared as router", queueName))
-	}
-	if e.rabbitMQQueues == nil {
-		e.rabbitMQQueues = make(map[string]*RabbitMQQueue)
-	}
-	e.rabbitMQQueues[queueName] = &RabbitMQQueue{channel}
-	return e.rabbitMQQueues[queueName]
-}
-
-func (e *Engine) GetRabbitMQRouter(queueName string) *RabbitMQRouter {
-	e.rabbitMQMutex.Lock()
-	defer e.rabbitMQMutex.Unlock()
-	queue, has := e.rabbitMQRouters[queueName]
-	if has {
-		return queue
-	}
-	channel, has := e.rabbitMQChannels[queueName]
-	if !has {
-		val, has := e.registry.rabbitMQChannelsToQueue[queueName]
-		if !has {
-			panic(fmt.Errorf("unregistered rabbitmq router '%s'", queueName))
-		}
-		channel = &rabbitMQChannel{engine: e, connection: val.connection, config: val.config}
-		if e.rabbitMQChannels == nil {
-			e.rabbitMQChannels = map[string]*rabbitMQChannel{queueName: channel}
-		} else {
-			e.rabbitMQChannels[queueName] = channel
-		}
-	}
-	if channel.config.Router == "" {
-		panic(fmt.Errorf("rabbitMQ queue '%s' is not declared as router", queueName))
-	}
-	if e.rabbitMQRouters == nil {
-		e.rabbitMQRouters = make(map[string]*RabbitMQRouter)
-	}
-	e.rabbitMQRouters[queueName] = &RabbitMQRouter{channel}
-	return e.rabbitMQRouters[queueName]
 }
 
 func (e *Engine) NewFlusher() Flusher {
@@ -503,6 +468,10 @@ func (e *Engine) LoadByIDs(ids []uint64, entities interface{}, references ...str
 
 func (e *Engine) GetAlters() (alters []Alter) {
 	return getAlters(e)
+}
+
+func (e *Engine) GetRedisSearchIndexAlters() (alters []RedisSearchIndexAlter) {
+	return getRedisSearchAlters(e)
 }
 
 func (e *Engine) GetElasticIndexAlters() (alters []ElasticIndexAlter) {

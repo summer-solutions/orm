@@ -11,7 +11,7 @@ import (
 
 func TestRedisStreamsStatus(t *testing.T) {
 	registry := &orm.Registry{}
-	registry.RegisterRedis("localhost:6381", 15)
+	registry.RegisterRedis("localhost:6381", 11)
 	registry.RegisterLocker("default", "default")
 	registry.RegisterRedisStream("test-stream", "default", []string{"test-group"})
 	validatedRegistry, err := registry.Validate()
@@ -33,7 +33,7 @@ func TestRedisStreamsStatus(t *testing.T) {
 		flusher.PublishMap("test-stream", orm.EventAsMap{"a": "b"})
 	}
 	flusher.Flush()
-	time.Sleep(time.Millisecond * 300)
+	time.Sleep(time.Millisecond * 500)
 
 	stats = GetRedisStreamsStatistics(engine)
 	assert.Equal(t, uint64(10001), stats[0].Len)

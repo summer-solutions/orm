@@ -11,24 +11,6 @@ default:
   elastic: http://localhost:9209
   elastic_trace: http://localhost:9209
   clickhouse: http://localhost:9002?debug=false
-  rabbitmq:
-    server: amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test
-    queues:
-      - name: test
-        prefetchCount: 1
-      - name: test2
-        prefetchCount: 1
-        router: test
-        autodelete: false
-        durable: false
-        ttl: 60
-        router_keys:
-          - aa
-          - bb
-    routers:
-      - name: test
-        type: fanout
-        durable: false
   local_cache: 1000
   locker: default
 another:

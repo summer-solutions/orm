@@ -17,7 +17,6 @@ import (
 func TestRedis(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRedis("localhost:6381", 15)
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test")
 	registry.RegisterRedisStream("test-stream", "default", []string{"test-group"})
 	registry.RegisterRedisStream("test-stream-a", "default", []string{"test-group"})
 	registry.RegisterRedisStream("test-stream-b", "default", []string{"test-group"})
@@ -29,7 +28,6 @@ func TestRedis(t *testing.T) {
 
 	registry = &Registry{}
 	registry.RegisterRedis("localhost:6389", 15)
-	registry.RegisterRabbitMQServer("amqp://rabbitmq_user:rabbitmq_password@localhost:5678/test")
 	validatedRegistry, err = registry.Validate()
 	assert.NoError(t, err)
 	engine = validatedRegistry.CreateEngine()
