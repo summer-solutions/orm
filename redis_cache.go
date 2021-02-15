@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	apexLog "github.com/apex/log"
+
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/go-redis/redis/v8"
@@ -27,7 +29,7 @@ func (r *RedisCache) RateLimit(key string, limit redis_rate.Limit) bool {
 	}
 	start := time.Now()
 	res, err := r.limiter.Allow(r.client.Context(), key, limit)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][RATE_LIMIT]", start,
 			"rate_limit", 0, 1, map[string]interface{}{"Key": key}, err)
 	}
@@ -56,7 +58,7 @@ func (r *RedisCache) Info(section ...string) string {
 	start := time.Now()
 	val, err := r.client.Info(r.ctx, section...).Result()
 	checkError(err)
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][INFO]", start, "info", 0, 1,
 			map[string]interface{}{"section": section}, nil)
 	}
@@ -70,13 +72,13 @@ func (r *RedisCache) Get(key string) (value string, has bool) {
 		if err == redis.Nil {
 			err = nil
 		}
-		if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		if r.engine.hasRedisLogger {
 			r.fillLogFields("[ORM][REDIS][GET]", start, "get", 1, 1, map[string]interface{}{"Key": key}, err)
 		}
 		checkError(err)
 		return "", false
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][GET]", start, "get", 0, 1, map[string]interface{}{"Key": key}, nil)
 	}
 	return val, true
@@ -85,7 +87,7 @@ func (r *RedisCache) Get(key string) (value string, has bool) {
 func (r *RedisCache) Eval(script string, keys []string, args ...interface{}) interface{} {
 	start := time.Now()
 	res, err := r.client.Eval(r.ctx, script, keys, args...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][EVAL]", start, "eval", -1, 1, nil, err)
 	}
 	checkError(err)
@@ -95,7 +97,7 @@ func (r *RedisCache) Eval(script string, keys []string, args ...interface{}) int
 func (r *RedisCache) EvalSha(sha1 string, keys []string, args ...interface{}) interface{} {
 	start := time.Now()
 	res, err := r.client.EvalSha(r.ctx, sha1, keys, args...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][EVALSHA]", start, "evalsha", -1, 1, nil, err)
 	}
 	checkError(err)
@@ -105,7 +107,7 @@ func (r *RedisCache) EvalSha(sha1 string, keys []string, args ...interface{}) in
 func (r *RedisCache) ScriptLoad(script string) string {
 	start := time.Now()
 	res, err := r.client.ScriptLoad(r.ctx, script).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][SCRIPLOAD]", start, "scriptload", -1, 1, nil, err)
 	}
 	checkError(err)
@@ -115,7 +117,7 @@ func (r *RedisCache) ScriptLoad(script string) string {
 func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) {
 	start := time.Now()
 	_, err := r.client.Set(r.ctx, key, value, time.Duration(ttlSeconds)*time.Second).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][SET]", start, "set", -1, 1,
 			map[string]interface{}{"Key": key, "value": value, "ttl": ttlSeconds}, err)
 	}
@@ -125,7 +127,7 @@ func (r *RedisCache) Set(key string, value interface{}, ttlSeconds int) {
 func (r *RedisCache) LPush(key string, values ...interface{}) int64 {
 	start := time.Now()
 	val, err := r.client.LPush(r.ctx, key, values...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][LPUSH]", start, "lpush", -1, len(values),
 			map[string]interface{}{"Key": key, "values": values}, err)
 	}
@@ -136,7 +138,7 @@ func (r *RedisCache) LPush(key string, values ...interface{}) int64 {
 func (r *RedisCache) RPush(key string, values ...interface{}) int64 {
 	start := time.Now()
 	val, err := r.client.RPush(r.ctx, key, values...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][RPUSH]", start, "rpush", -1, len(values),
 			map[string]interface{}{"Key": key, "values": values}, err)
 	}
@@ -147,7 +149,7 @@ func (r *RedisCache) RPush(key string, values ...interface{}) int64 {
 func (r *RedisCache) LLen(key string) int64 {
 	start := time.Now()
 	val, err := r.client.LLen(r.ctx, key).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][LLEN]", start, "llen", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
@@ -158,7 +160,7 @@ func (r *RedisCache) LLen(key string) int64 {
 func (r *RedisCache) Exists(keys ...string) int64 {
 	start := time.Now()
 	val, err := r.client.Exists(r.ctx, keys...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][EXISTS]", start, "exists", -1, 1,
 			map[string]interface{}{"Keys": keys}, err)
 	}
@@ -169,7 +171,7 @@ func (r *RedisCache) Exists(keys ...string) int64 {
 func (r *RedisCache) Type(key string) string {
 	start := time.Now()
 	val, err := r.client.Type(r.ctx, key).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][TYPE]", start, "type", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
@@ -180,7 +182,7 @@ func (r *RedisCache) Type(key string) string {
 func (r *RedisCache) LRange(key string, start, stop int64) []string {
 	s := time.Now()
 	val, err := r.client.LRange(r.ctx, key, start, stop).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][LRANGE]", s, "lrange", -1, len(val),
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
@@ -191,7 +193,7 @@ func (r *RedisCache) LRange(key string, start, stop int64) []string {
 func (r *RedisCache) LSet(key string, index int64, value interface{}) {
 	start := time.Now()
 	_, err := r.client.LSet(r.ctx, key, index, value).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][LSET]", start, "lset", -1, 1,
 			map[string]interface{}{"Key": key, "index": index, "value": value}, err)
 	}
@@ -205,14 +207,14 @@ func (r *RedisCache) RPop(key string) (value string, found bool) {
 		if err == redis.Nil {
 			err = nil
 		}
-		if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+		if r.engine.hasRedisLogger {
 			r.fillLogFields("[ORM][REDIS][RPOP]", start, "rpop", 1, 1,
 				map[string]interface{}{"Key": key}, err)
 		}
 		checkError(err)
 		return "", false
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][RPOP]", start, "rpop", 0, 1,
 			map[string]interface{}{"Key": key}, nil)
 	}
@@ -222,7 +224,7 @@ func (r *RedisCache) RPop(key string) (value string, found bool) {
 func (r *RedisCache) LRem(key string, count int64, value interface{}) {
 	start := time.Now()
 	_, err := r.client.LRem(r.ctx, key, count, value).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][LREM]", start, "lrem", -1, 1,
 			map[string]interface{}{"Key": key, "count": count, "value": value}, err)
 	}
@@ -232,7 +234,7 @@ func (r *RedisCache) LRem(key string, count int64, value interface{}) {
 func (r *RedisCache) Ltrim(key string, start, stop int64) {
 	s := time.Now()
 	_, err := r.client.LTrim(r.ctx, key, start, stop).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][LTRIM]", s, "ltrim", -1, 1,
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
@@ -242,7 +244,7 @@ func (r *RedisCache) Ltrim(key string, start, stop int64) {
 func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 	start := time.Now()
 	_, err := r.client.HMSet(r.ctx, key, fields).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][HMSET]", start, "hmset", -1, len(fields),
 			map[string]interface{}{"Key": key, "fields": fields}, err)
 	}
@@ -252,7 +254,7 @@ func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
 func (r *RedisCache) HSet(key string, field string, value interface{}) {
 	start := time.Now()
 	_, err := r.client.HSet(r.ctx, key, field, value).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][HSET]", start, "hset", -1, 1,
 			map[string]interface{}{"Key": key, "field": field, "value": value}, err)
 	}
@@ -262,7 +264,7 @@ func (r *RedisCache) HSet(key string, field string, value interface{}) {
 func (r *RedisCache) HDel(key string, fields ...string) {
 	start := time.Now()
 	_, err := r.client.HDel(r.ctx, key, fields...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][HDEL]", start, "hdel", -1, len(fields),
 			map[string]interface{}{"Key": key, "fields": fields}, err)
 	}
@@ -280,7 +282,7 @@ func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} 
 		}
 		results[fields[index]] = v
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][HMGET]", start, "hmget", misses, len(fields),
 			map[string]interface{}{"Key": key, "fields": fields}, err)
 	}
@@ -290,7 +292,7 @@ func (r *RedisCache) HMget(key string, fields ...string) map[string]interface{} 
 func (r *RedisCache) HGetAll(key string) map[string]string {
 	start := time.Now()
 	val, err := r.client.HGetAll(r.ctx, key).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][HGETALL]", start, "hgetall", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
@@ -306,7 +308,7 @@ func (r *RedisCache) HGet(key, field string) (value string, has bool) {
 		err = nil
 		misses = 1
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][HGET]", start, "hget", misses, 1,
 			map[string]interface{}{"Key": key, "field": field}, err)
 	}
@@ -314,10 +316,21 @@ func (r *RedisCache) HGet(key, field string) (value string, has bool) {
 	return val, misses == 0
 }
 
+func (r *RedisCache) HLen(key string) int64 {
+	start := time.Now()
+	val, err := r.client.HLen(r.ctx, key).Result()
+	if r.engine.hasRedisLogger {
+		r.fillLogFields("[ORM][REDIS][HLEN]", start, "hlen", 0, 1,
+			map[string]interface{}{"Key": key}, err)
+	}
+	checkError(err)
+	return val
+}
+
 func (r *RedisCache) HIncrBy(key, field string, incr int64) int64 {
 	start := time.Now()
 	val, err := r.client.HIncrBy(r.ctx, key, field, incr).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][HINCRBY]", start, "hincrby", -1, 1,
 			map[string]interface{}{"Key": key, "incr": incr}, err)
 	}
@@ -328,7 +341,7 @@ func (r *RedisCache) HIncrBy(key, field string, incr int64) int64 {
 func (r *RedisCache) Expire(key string, expiration time.Duration) bool {
 	start := time.Now()
 	val, err := r.client.Expire(r.ctx, key, expiration).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][EXPIRE]", start, "expire", -1, 1,
 			map[string]interface{}{"Key": key, "expiration": expiration}, err)
 	}
@@ -339,7 +352,7 @@ func (r *RedisCache) Expire(key string, expiration time.Duration) bool {
 func (r *RedisCache) ZAdd(key string, members ...*redis.Z) int64 {
 	start := time.Now()
 	val, err := r.client.ZAdd(r.ctx, key, members...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][ZADD]", start, "zadd", -1, len(members),
 			map[string]interface{}{"Key": key, "members": len(members)}, err)
 	}
@@ -350,7 +363,7 @@ func (r *RedisCache) ZAdd(key string, members ...*redis.Z) int64 {
 func (r *RedisCache) ZRevRange(key string, start, stop int64) []string {
 	startTime := time.Now()
 	val, err := r.client.ZRevRange(r.ctx, key, start, stop).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][ZREVRANGE]", startTime, "zrevrange", -1, 1,
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
@@ -361,7 +374,7 @@ func (r *RedisCache) ZRevRange(key string, start, stop int64) []string {
 func (r *RedisCache) ZRevRangeWithScores(key string, start, stop int64) []redis.Z {
 	startTime := time.Now()
 	val, err := r.client.ZRevRangeWithScores(r.ctx, key, start, stop).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][ZREVRANGEWITHSCORES]", startTime, "zrevrangewithscores", -1, 1,
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
@@ -372,7 +385,7 @@ func (r *RedisCache) ZRevRangeWithScores(key string, start, stop int64) []redis.
 func (r *RedisCache) ZRangeWithScores(key string, start, stop int64) []redis.Z {
 	startTime := time.Now()
 	val, err := r.client.ZRangeWithScores(r.ctx, key, start, stop).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][ZRANGEWITHSCORES]", startTime, "zrangewithscores", -1, 1,
 			map[string]interface{}{"Key": key, "start": start, "stop": stop}, err)
 	}
@@ -383,7 +396,7 @@ func (r *RedisCache) ZRangeWithScores(key string, start, stop int64) []redis.Z {
 func (r *RedisCache) ZCard(key string) int64 {
 	start := time.Now()
 	val, err := r.client.ZCard(r.ctx, key).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][ZCARD]", start, "zcard", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
@@ -394,7 +407,7 @@ func (r *RedisCache) ZCard(key string) int64 {
 func (r *RedisCache) ZCount(key string, min, max string) int64 {
 	start := time.Now()
 	val, err := r.client.ZCount(r.ctx, key, min, max).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][ZCOUNT]", start, "zcount", -1, 1,
 			map[string]interface{}{"Key": key, "min": min, "max": max}, err)
 	}
@@ -405,7 +418,7 @@ func (r *RedisCache) ZCount(key string, min, max string) int64 {
 func (r *RedisCache) ZScore(key, member string) float64 {
 	start := time.Now()
 	val, err := r.client.ZScore(r.ctx, key, member).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][ZSCORE]", start, "zscore", -1, 1,
 			map[string]interface{}{"Key": key, "member": member}, err)
 	}
@@ -416,7 +429,7 @@ func (r *RedisCache) ZScore(key, member string) float64 {
 func (r *RedisCache) MSet(pairs ...interface{}) {
 	start := time.Now()
 	_, err := r.client.MSet(r.ctx, pairs...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][MSET]", start, "mset", -1, len(pairs),
 			map[string]interface{}{"Pairs": pairs}, err)
 	}
@@ -434,7 +447,7 @@ func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
 			misses++
 		}
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][MGET]", start, "mget", misses, len(keys),
 			map[string]interface{}{"Keys": keys}, err)
 	}
@@ -445,7 +458,7 @@ func (r *RedisCache) MGet(keys ...string) map[string]interface{} {
 func (r *RedisCache) SAdd(key string, members ...interface{}) int64 {
 	start := time.Now()
 	val, err := r.client.SAdd(r.ctx, key, members...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][SADD]", start, "sadd", -1, len(members),
 			map[string]interface{}{"Key": key, "members": len(members)}, err)
 	}
@@ -456,7 +469,7 @@ func (r *RedisCache) SAdd(key string, members ...interface{}) int64 {
 func (r *RedisCache) SCard(key string) int64 {
 	start := time.Now()
 	val, err := r.client.SCard(r.ctx, key).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][SCARD]", start, "scard", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
@@ -472,7 +485,7 @@ func (r *RedisCache) SPop(key string) (string, bool) {
 		err = nil
 		found = false
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][SPOP]", start, "spop", -1, 1,
 			map[string]interface{}{"Key": key}, err)
 	}
@@ -483,7 +496,7 @@ func (r *RedisCache) SPop(key string) (string, bool) {
 func (r *RedisCache) SPopN(key string, max int64) []string {
 	start := time.Now()
 	val, err := r.client.SPopN(r.ctx, key, max).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][SPOPN]", start, "spopn", -1, 1,
 			map[string]interface{}{"Key": key, "max": max}, err)
 	}
@@ -494,7 +507,7 @@ func (r *RedisCache) SPopN(key string, max int64) []string {
 func (r *RedisCache) Del(keys ...string) {
 	start := time.Now()
 	_, err := r.client.Del(r.ctx, keys...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][DEL]", start, "del", -1, len(keys),
 			map[string]interface{}{"Keys": keys}, err)
 	}
@@ -509,7 +522,7 @@ func (r *RedisCache) XTrim(stream string, maxLen int64, approx bool) (deleted in
 	} else {
 		deleted, err = r.client.XTrim(r.ctx, stream, maxLen).Result()
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XTRIM]", start, "xtrim",
 			map[string]interface{}{"stream": stream, "max_len": maxLen, "approx": approx}, err)
 	}
@@ -520,7 +533,7 @@ func (r *RedisCache) XTrim(stream string, maxLen int64, approx bool) (deleted in
 func (r *RedisCache) XRange(stream, start, stop string, count int64) []redis.XMessage {
 	s := time.Now()
 	deleted, err := r.client.XRangeN(r.ctx, stream, start, stop, count).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XRANGE]", s, "xrange",
 			map[string]interface{}{"stream": stream, "start": start, "stop": stop, "count": count}, err)
 	}
@@ -531,7 +544,7 @@ func (r *RedisCache) XRange(stream, start, stop string, count int64) []redis.XMe
 func (r *RedisCache) XRevRange(stream, start, stop string, count int64) []redis.XMessage {
 	s := time.Now()
 	deleted, err := r.client.XRevRangeN(r.ctx, stream, start, stop, count).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XREVRANGE]", s, "xrevrange",
 			map[string]interface{}{"stream": stream, "start": start, "stop": stop, "count": count}, err)
 	}
@@ -542,7 +555,7 @@ func (r *RedisCache) XRevRange(stream, start, stop string, count int64) []redis.
 func (r *RedisCache) XInfoStream(stream string) *redis.XInfoStream {
 	start := time.Now()
 	info, err := r.client.XInfoStream(r.ctx, stream).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XINFO]", start, "xinfo",
 			map[string]interface{}{"stream": stream}, err)
 	}
@@ -554,13 +567,13 @@ func (r *RedisCache) XInfoGroups(stream string) []redis.XInfoGroup {
 	start := time.Now()
 	info, err := r.client.XInfoGroups(r.ctx, stream).Result()
 	if err != nil && err.Error() == "ERR no such key" {
-		if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		if r.engine.hasStreamsLogger {
 			r.fillStreamsLogFields("[ORM][STREAMS][XINFO]", start, "xinfo",
 				map[string]interface{}{"stream": stream}, nil)
 		}
 		return make([]redis.XInfoGroup, 0)
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XINFO]", start, "xinfo",
 			map[string]interface{}{"stream": stream}, err)
 	}
@@ -572,13 +585,13 @@ func (r *RedisCache) XGroupCreate(stream, group, start string) (key string, exis
 	s := time.Now()
 	res, err := r.client.XGroupCreate(r.ctx, stream, group, start).Result()
 	if err != nil && strings.HasPrefix(err.Error(), "BUSYGROUP") {
-		if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+		if r.engine.hasStreamsLogger {
 			r.fillStreamsLogFields("[ORM][STREAMS][XGROUP]", s, "xgroup",
 				map[string]interface{}{"arg": "create", "stream": stream, "group": group, "start": start}, nil)
 		}
 		return "OK", true
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XGROUP]", s, "xgroup",
 			map[string]interface{}{"arg": "create", "stream": stream, "group": group, "start": start}, err)
 	}
@@ -595,7 +608,7 @@ func (r *RedisCache) XGroupCreateMkStream(stream, group, start string) (key stri
 		err = nil
 		res = "OK"
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XGROUP]", s, "xgroup",
 			map[string]interface{}{"arg": "create mkstream", "stream": stream, "group": group, "start": start}, err)
 	}
@@ -606,7 +619,7 @@ func (r *RedisCache) XGroupCreateMkStream(stream, group, start string) (key stri
 func (r *RedisCache) XGroupDestroy(stream, group string) int64 {
 	start := time.Now()
 	res, err := r.client.XGroupDestroy(r.ctx, stream, group).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XGROUP]", start, "xgroup",
 			map[string]interface{}{"arg": "destroy", "stream": stream, "group": group}, err)
 	}
@@ -620,7 +633,7 @@ func (r *RedisCache) XRead(a *redis.XReadArgs) []redis.XStream {
 	if err == redis.Nil {
 		err = nil
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XREAD]", start, "xread",
 			map[string]interface{}{"arg": a}, err)
 	}
@@ -631,7 +644,7 @@ func (r *RedisCache) XRead(a *redis.XReadArgs) []redis.XStream {
 func (r *RedisCache) XDel(stream string, ids ...string) int64 {
 	s := time.Now()
 	deleted, err := r.client.XDel(r.ctx, stream, ids...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XDEL]", s, "xdel",
 			map[string]interface{}{"stream": stream, "ids": ids}, err)
 	}
@@ -642,7 +655,7 @@ func (r *RedisCache) XDel(stream string, ids ...string) int64 {
 func (r *RedisCache) XGroupDelConsumer(stream, group, consumer string) int64 {
 	start := time.Now()
 	deleted, err := r.client.XGroupDelConsumer(r.ctx, stream, group, consumer).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XDEL]", start, "XGROUP",
 			map[string]interface{}{"stream": stream, "group": group, "consumer": "consumer", "action": "delete consumer"}, err)
 	}
@@ -656,7 +669,7 @@ func (r *RedisCache) XReadGroup(a *redis.XReadGroupArgs) (streams []redis.XStrea
 	if err == redis.Nil {
 		err = nil
 	}
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XREADGROUP]", start, "xreadgroup",
 			map[string]interface{}{"consumer": a.Consumer, "group": a.Group, "count": a.Count, "block": a.Block,
 				"noack": a.NoAck, "streams": a.Streams}, err)
@@ -668,7 +681,7 @@ func (r *RedisCache) XReadGroup(a *redis.XReadGroupArgs) (streams []redis.XStrea
 func (r *RedisCache) XPending(stream, group string) *redis.XPending {
 	start := time.Now()
 	res, err := r.client.XPending(r.ctx, stream, group).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XPENDING]", start, "xpending",
 			map[string]interface{}{"stream": stream, "group": group}, err)
 	}
@@ -679,7 +692,7 @@ func (r *RedisCache) XPending(stream, group string) *redis.XPending {
 func (r *RedisCache) XPendingExt(a *redis.XPendingExtArgs) []redis.XPendingExt {
 	start := time.Now()
 	res, err := r.client.XPendingExt(r.ctx, a).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XPENDING]", start, "xpending",
 			map[string]interface{}{"group": a.Group, "stream": a.Stream, "consumer": a.Consumer, "count": a.Count,
 				"start": a.Start, "end": a.End}, err)
@@ -692,7 +705,7 @@ func (r *RedisCache) xAdd(stream string, values interface{}) (id string) {
 	a := &redis.XAddArgs{Stream: stream, ID: "*", Values: values}
 	start := time.Now()
 	id, err := r.client.XAdd(r.ctx, a).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XADD]", start, "xtrim",
 			map[string]interface{}{"stream": stream, "id": a.ID, "events": 1}, err)
 	}
@@ -703,7 +716,7 @@ func (r *RedisCache) xAdd(stream string, values interface{}) (id string) {
 func (r *RedisCache) XLen(stream string) int64 {
 	start := time.Now()
 	l, err := r.client.XLen(r.ctx, stream).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XLEN]", start, "xlen",
 			map[string]interface{}{"stream": stream}, err)
 	}
@@ -714,7 +727,7 @@ func (r *RedisCache) XLen(stream string) int64 {
 func (r *RedisCache) XClaim(a *redis.XClaimArgs) []redis.XMessage {
 	start := time.Now()
 	res, err := r.client.XClaim(r.ctx, a).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XCLAIM]", start, "xclaim",
 			map[string]interface{}{"arg": a}, err)
 	}
@@ -725,7 +738,7 @@ func (r *RedisCache) XClaim(a *redis.XClaimArgs) []redis.XMessage {
 func (r *RedisCache) XClaimJustID(a *redis.XClaimArgs) []string {
 	start := time.Now()
 	res, err := r.client.XClaimJustID(r.ctx, a).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XCLAIM]", start, "xclaim",
 			map[string]interface{}{"arg": a, "justid": true}, err)
 	}
@@ -736,7 +749,7 @@ func (r *RedisCache) XClaimJustID(a *redis.XClaimArgs) []string {
 func (r *RedisCache) XAck(stream, group string, ids ...string) int64 {
 	start := time.Now()
 	res, err := r.client.XAck(r.ctx, stream, group, ids...).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceStreams] != nil {
+	if r.engine.hasStreamsLogger {
 		r.fillStreamsLogFields("[ORM][STREAMS][XACK]", start, "xack",
 			map[string]interface{}{"stream": stream, "group": group, "ids": ids}, err)
 	}
@@ -747,29 +760,29 @@ func (r *RedisCache) XAck(stream, group string, ids ...string) int64 {
 func (r *RedisCache) FlushDB() {
 	start := time.Now()
 	_, err := r.client.FlushDB(r.ctx).Result()
-	if r.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][FLUSHDB]", start, "flushdb", -1, 1, nil, err)
 	}
 	checkError(err)
 }
 
-func (r *RedisCache) fillLogFields(message string, start time.Time, operation string, misses int, keys int,
-	fields map[string]interface{}, err error) {
+func (r *RedisCache) fillLogFields(message string, start time.Time, operation string, misses int, keys int, fields apexLog.Fields, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	e := r.engine.queryLoggers[QueryLoggerSourceRedis].log.
-		WithField("microseconds", stop).
-		WithField("operation", operation).
-		WithField("pool", r.code).
-		WithField("keys", keys).
-		WithField("target", "redis").
-		WithField("started", start.UnixNano()).
-		WithField("finished", now.UnixNano())
+	e := r.engine.queryLoggers[QueryLoggerSourceRedis].log.WithFields(apexLog.Fields{
+		"microseconds": stop,
+		"operation":    operation,
+		"pool":         r.code,
+		"keys":         keys,
+		"target":       "redis",
+		"started":      start.UnixNano(),
+		"finished":     now.UnixNano(),
+	})
 	if misses >= 0 {
 		e = e.WithField("misses", misses)
 	}
-	for k, v := range fields {
-		e = e.WithField(k, v)
+	if fields != nil {
+		e = e.WithFields(fields)
 	}
 	if err != nil {
 		injectLogError(err, e).Error(message)
@@ -778,19 +791,19 @@ func (r *RedisCache) fillLogFields(message string, start time.Time, operation st
 	}
 }
 
-func (r *RedisCache) fillStreamsLogFields(message string, start time.Time, operation string,
-	fields map[string]interface{}, err error) {
+func (r *RedisCache) fillStreamsLogFields(message string, start time.Time, operation string, fields apexLog.Fields, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	e := r.engine.queryLoggers[QueryLoggerSourceStreams].log.
-		WithField("microseconds", stop).
-		WithField("operation", operation).
-		WithField("pool", r.code).
-		WithField("target", "redis").
-		WithField("started", start.UnixNano()).
-		WithField("finished", now.UnixNano())
-	for k, v := range fields {
-		e = e.WithField(k, v)
+	e := r.engine.queryLoggers[QueryLoggerSourceStreams].log.WithFields(apexLog.Fields{
+		"microseconds": stop,
+		"operation":    operation,
+		"pool":         r.code,
+		"target":       "redis",
+		"started":      start.UnixNano(),
+		"finished":     now.UnixNano(),
+	})
+	if fields != nil {
+		e = e.WithFields(fields)
 	}
 	if err != nil {
 		injectLogError(err, e).Error(message)

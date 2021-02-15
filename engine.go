@@ -39,6 +39,8 @@ type Engine struct {
 	dataLoader                *dataLoader
 	hasRequestCache           bool
 	queryLoggers              map[QueryLoggerSource]*logger
+	hasRedisLogger            bool
+	hasStreamsLogger          bool
 	log                       *log
 	logOnce                   sync.Once
 	logMutex                  sync.Mutex
@@ -113,6 +115,11 @@ func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, so
 			l.handler.Handlers = append(l.handler.Handlers, newHandler)
 		} else {
 			e.queryLoggers[source] = e.newLogger(newHandler, level)
+			if source == QueryLoggerSourceRedis {
+				e.hasRedisLogger = true
+			} else if source == QueryLoggerSourceStreams {
+				e.hasStreamsLogger = true
+			}
 		}
 	}
 }
