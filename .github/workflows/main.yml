@@ -57,7 +57,7 @@ jobs:
       redis_search_orm:
         image: redislabs/redisearch
         ports:
-          - 6379:6379
+          - 6383:6379
 
     steps:
 
