@@ -53,7 +53,7 @@ jobs:
         ports:
           - 9002:9000
           - 8125:8123
-          -
+
       redis_search_orm:
         image: redislabs/redisearch
         ports:
