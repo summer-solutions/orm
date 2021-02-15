@@ -41,6 +41,10 @@ type Engine struct {
 	queryLoggers              map[QueryLoggerSource]*logger
 	hasRedisLogger            bool
 	hasStreamsLogger          bool
+	hasDBLogger               bool
+	hasClickHouseLogger       bool
+	hasElasticLogger          bool
+	hasLocalCacheLogger       bool
 	log                       *log
 	logOnce                   sync.Once
 	logMutex                  sync.Mutex
@@ -115,10 +119,19 @@ func (e *Engine) AddQueryLogger(handler logApex.Handler, level logApex.Level, so
 			l.handler.Handlers = append(l.handler.Handlers, newHandler)
 		} else {
 			e.queryLoggers[source] = e.newLogger(newHandler, level)
-			if source == QueryLoggerSourceRedis {
+			switch source {
+			case QueryLoggerSourceRedis:
 				e.hasRedisLogger = true
-			} else if source == QueryLoggerSourceStreams {
+			case QueryLoggerSourceStreams:
 				e.hasStreamsLogger = true
+			case QueryLoggerSourceDB:
+				e.hasDBLogger = true
+			case QueryLoggerSourceClickHouse:
+				e.hasClickHouseLogger = true
+			case QueryLoggerSourceElastic:
+				e.hasElasticLogger = true
+			case QueryLoggerSourceLocalCache:
+				e.hasLocalCacheLogger = true
 			}
 		}
 	}

@@ -47,14 +47,14 @@ func (l *Locker) Obtain(ctx context.Context, key string, ttl time.Duration, wait
 	redisLock, err := l.locker.Obtain(ctx, key, ttl, options)
 	if err != nil {
 		if err == redislock.ErrNotObtained {
-			if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+			if l.engine.hasRedisLogger {
 				l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", nil,
 					log2.Fields{"ttl": ttl.String(), "waitTimeout": waitTimeout.String()})
 			}
 			return nil, false
 		}
 	}
-	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if l.engine.hasRedisLogger {
 		l.fillLogFields("[ORM][LOCKER][OBTAIN]", start, key, "obtain lock", err,
 			log2.Fields{"ttl": ttl.String(), "waitTimeout": waitTimeout.String()})
 	}
@@ -98,7 +98,7 @@ func (l *Lock) Release() {
 	if err == redislock.ErrLockNotHeld {
 		err = nil
 	}
-	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if l.engine.hasRedisLogger {
 		l.locker.fillLogFields("[ORM][LOCKER][RELEASE]", start, l.key, "release lock", err, nil)
 	}
 	close(l.done)
@@ -107,7 +107,7 @@ func (l *Lock) Release() {
 func (l *Lock) TTL() time.Duration {
 	start := time.Now()
 	d, err := l.lock.TTL(l.engine.context)
-	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if l.engine.hasRedisLogger {
 		l.locker.fillLogFields("[ORM][LOCKER][TTL]", start, l.key, "ttl lock", err, nil)
 	}
 	checkError(err)
@@ -127,7 +127,7 @@ func (l *Lock) Refresh(ctx context.Context, ttl time.Duration) bool {
 		l.has = false
 	}
 	l.timer.Reset(ttl)
-	if l.engine.queryLoggers[QueryLoggerSourceRedis] != nil {
+	if l.engine.hasRedisLogger {
 		l.locker.fillLogFields("[ORM][LOCKER][REFRESH]", start,
 			l.key, "refresh lock", err, log2.Fields{"ttl": ttl.String()})
 	}
@@ -138,14 +138,15 @@ func (l *Lock) Refresh(ctx context.Context, ttl time.Duration) bool {
 func (l *Locker) fillLogFields(message string, start time.Time, key string, operation string, err error, extra log2.Fields) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	e := l.engine.queryLoggers[QueryLoggerSourceRedis].log.
-		WithField("Key", key).
-		WithField("microseconds", stop).
-		WithField("operation", operation).
-		WithField("pool", l.code).
-		WithField("target", "locker").
-		WithField("started", start.UnixNano()).
-		WithField("finished", now.UnixNano())
+	e := l.engine.queryLoggers[QueryLoggerSourceRedis].log.WithFields(log2.Fields{
+		"Key":          key,
+		"microseconds": stop,
+		"operation":    operation,
+		"pool":         l.code,
+		"target":       "locker",
+		"started":      start.UnixNano(),
+		"finished":     now.UnixNano(),
+	})
 	if extra != nil {
 		e = e.WithFields(extra)
 	}

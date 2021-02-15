@@ -777,10 +777,8 @@ func (r *RedisCache) fillLogFields(message string, start time.Time, operation st
 		"target":       "redis",
 		"started":      start.UnixNano(),
 		"finished":     now.UnixNano(),
+		"misses":       misses,
 	})
-	if misses >= 0 {
-		e = e.WithField("misses", misses)
-	}
 	if fields != nil {
 		e = e.WithFields(fields)
 	}

@@ -90,7 +90,7 @@ func (e *Elastic) Search(index string, query elastic.Query, pager *Pager, option
 		}
 	}
 	result, err := searchService.Do(context.Background())
-	if e.engine.queryLoggers[QueryLoggerSourceElastic] != nil {
+	if e.engine.hasElasticLogger {
 		s, _ := query.Source()
 		queryType := strings.Split(reflect.TypeOf(query).Elem().String(), ".")
 		fields := log2.Fields{"Index": index, "post": s, "type": queryType[len(queryType)-1], "from": from, "size": pager.PageSize}
@@ -149,13 +149,14 @@ func (e *Elastic) CreateIndex(index ElasticIndexDefinition) {
 func (e *Elastic) fillLogFields(message string, start time.Time, operation string, fields log2.Fielder, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	entry := e.engine.queryLoggers[QueryLoggerSourceElastic].log.
-		WithField("microseconds", stop).
-		WithField("operation", operation).
-		WithField("pool", e.code).
-		WithField("target", "elastic").
-		WithField("started", start.UnixNano()).
-		WithField("finished", now.UnixNano())
+	entry := e.engine.queryLoggers[QueryLoggerSourceElastic].log.WithFields(log2.Fields{
+		"microseconds": stop,
+		"operation":    operation,
+		"pool":         e.code,
+		"target":       "elastic",
+		"started":      start.UnixNano(),
+		"finished":     now.UnixNano(),
+	})
 	if fields != nil {
 		entry = entry.WithFields(fields)
 	}

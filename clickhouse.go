@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"time"
 
+	log2 "github.com/apex/log"
+
 	"github.com/pkg/errors"
 
 	// driver
@@ -34,7 +36,7 @@ func (c *ClickHouse) Exec(query string, args ...interface{}) sql.Result {
 	} else {
 		rows, err = c.client.Exec(query, args...)
 	}
-	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+	if c.engine.hasClickHouseLogger {
 		c.fillLogFields("[ORM][CLICKHOUSE][EXEC]", start, "exec", query, args, err)
 	}
 	checkError(err)
@@ -44,7 +46,7 @@ func (c *ClickHouse) Exec(query string, args ...interface{}) sql.Result {
 func (c *ClickHouse) Queryx(query string, args ...interface{}) (rows *sqlx.Rows, deferF func()) {
 	start := time.Now()
 	rows, err := c.client.Queryx(query, args...)
-	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+	if c.engine.hasClickHouseLogger {
 		c.fillLogFields("[ORM][CLICKHOUSE][SELECT]", start, "select", query, args, err)
 	}
 	checkError(err)
@@ -61,7 +63,7 @@ func (c *ClickHouse) Begin() {
 	}
 	start := time.Now()
 	tx, err := c.client.Begin()
-	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+	if c.engine.hasClickHouseLogger {
 		c.fillLogFields("[ORM][CLICKHOUSE][BEGIN]", start, "transaction", "START TRANSACTION", nil, err)
 	}
 	checkError(err)
@@ -74,7 +76,7 @@ func (c *ClickHouse) Commit() {
 	}
 	start := time.Now()
 	err := c.tx.Commit()
-	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+	if c.engine.hasClickHouseLogger {
 		c.fillLogFields("[ORM][CLICKHOUSE][COMMIT]", start, "transaction", "COMMIT TRANSACTION", nil, err)
 	}
 	checkError(err)
@@ -87,7 +89,7 @@ func (c *ClickHouse) Rollback() {
 	}
 	start := time.Now()
 	err := c.tx.Rollback()
-	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+	if c.engine.hasClickHouseLogger {
 		c.fillLogFields("[ORM][CLICKHOUSE][ROLLBACK]", start, "transaction", "ROLLBACK TRANSACTION", nil, err)
 	}
 	checkError(err)
@@ -103,7 +105,7 @@ type PreparedStatement struct {
 func (p *PreparedStatement) Exec(args ...interface{}) sql.Result {
 	start := time.Now()
 	results, err := p.statement.Exec(args...)
-	if p.c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+	if p.c.engine.hasClickHouseLogger {
 		p.c.fillLogFields("[ORM][CLICKHOUSE][EXEC]", start, "exec", p.query, args, err)
 	}
 	checkError(err)
@@ -115,7 +117,7 @@ func (c *ClickHouse) Prepare(query string) (preparedStatement *PreparedStatement
 	var statement *sql.Stmt
 	start := time.Now()
 	statement, err = c.tx.Prepare(query)
-	if c.engine.queryLoggers[QueryLoggerSourceClickHouse] != nil {
+	if c.engine.hasClickHouseLogger {
 		c.fillLogFields("[ORM][CLICKHOUSE][PREPARE]", start, "exec", query, nil, err)
 	}
 	checkError(err)
@@ -128,14 +130,15 @@ func (c *ClickHouse) Prepare(query string) (preparedStatement *PreparedStatement
 func (c *ClickHouse) fillLogFields(message string, start time.Time, typeCode string, query string, args []interface{}, err error) {
 	now := time.Now()
 	stop := time.Since(start).Microseconds()
-	e := c.engine.queryLoggers[QueryLoggerSourceClickHouse].log.
-		WithField("pool", c.code).
-		WithField("Query", query).
-		WithField("microseconds", stop).
-		WithField("target", "clickhouse").
-		WithField("type", typeCode).
-		WithField("started", start.UnixNano()).
-		WithField("finished", now.UnixNano())
+	e := c.engine.queryLoggers[QueryLoggerSourceClickHouse].log.WithFields(log2.Fields{
+		"pool":         c.code,
+		"Query":        query,
+		"microseconds": stop,
+		"target":       "clickhouse",
+		"type":         typeCode,
+		"started":      start.UnixNano(),
+		"finished":     now.UnixNano(),
+	})
 	if args != nil {
 		e = e.WithField("args", args)
 	}
