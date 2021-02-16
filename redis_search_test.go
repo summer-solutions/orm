@@ -26,7 +26,13 @@ func TestRedisSearch(t *testing.T) {
 	assert.Len(t, alters, 0)
 
 	testIndex := RedisSearchIndex{Name: "test", RedisPool: "default"}
+	testIndex.Prefixes = []string{"doc:"}
+	testIndex.AddTextField("title", 1, true, false, false)
+	testIndex.AddNumericField("age", true, false)
+	testIndex.AddGeoField("location", true, false)
+	testIndex.AddTagField("tags", true, false, "")
 	search.createIndex(testIndex)
+
 	alters = engine.GetRedisSearchIndexAlters()
 	assert.Len(t, alters, 1)
 	assert.Equal(t, "default", alters[0].Pool)

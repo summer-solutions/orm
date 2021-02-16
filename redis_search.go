@@ -11,6 +11,11 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+const redisSearchIndexFieldText = "TEXT"
+const redisSearchIndexFieldNumeric = "NUMERIC"
+const redisSearchIndexFieldGeo = "GEO"
+const redisSearchIndexFieldTAG = "TAG"
+
 type RedisSearch struct {
 	engine *Engine
 	ctx    context.Context
@@ -19,8 +24,73 @@ type RedisSearch struct {
 }
 
 type RedisSearchIndex struct {
-	Name      string
-	RedisPool string
+	Name            string
+	RedisPool       string
+	Prefixes        []string
+	Filter          string
+	DefaultLanguage string
+	LanguageField   string
+	DefaultScore    float32
+	ScoreField      string
+	PayloadField    string
+	MaxTextFields   bool
+	Temporary       int
+	NoOffsets       bool
+	NoNHL           bool
+	NoFields        bool
+	NoFreqs         bool
+	SkipInitialScan bool
+	StopWords       []string
+	Fields          []RedisSearchIndexField
+}
+
+func (rs RedisSearchIndex) AddTextField(name string, weight int, sortable, noindex, nostem bool) {
+	rs.Fields = append(rs.Fields, RedisSearchIndexField{
+		Type:     redisSearchIndexFieldText,
+		Name:     name,
+		Sortable: sortable,
+		NoIndex:  noindex,
+		NoStem:   nostem,
+		Weight:   weight,
+	})
+}
+
+func (rs RedisSearchIndex) AddNumericField(name string, sortable, noindex bool) {
+	rs.Fields = append(rs.Fields, RedisSearchIndexField{
+		Type:     redisSearchIndexFieldNumeric,
+		Name:     name,
+		Sortable: sortable,
+		NoIndex:  noindex,
+	})
+}
+
+func (rs RedisSearchIndex) AddGeoField(name string, sortable, noindex bool) {
+	rs.Fields = append(rs.Fields, RedisSearchIndexField{
+		Type:     redisSearchIndexFieldGeo,
+		Name:     name,
+		Sortable: sortable,
+		NoIndex:  noindex,
+	})
+}
+
+func (rs RedisSearchIndex) AddTagField(name string, sortable, noindex bool, separator string) {
+	rs.Fields = append(rs.Fields, RedisSearchIndexField{
+		Type:         redisSearchIndexFieldTAG,
+		Name:         name,
+		Sortable:     sortable,
+		NoIndex:      noindex,
+		TagSeparator: separator,
+	})
+}
+
+type RedisSearchIndexField struct {
+	Type         string
+	Name         string
+	Sortable     bool
+	NoIndex      bool
+	NoStem       bool
+	Weight       int
+	TagSeparator string
 }
 
 type RedisSearchIndexAlter struct {
@@ -71,9 +141,80 @@ type RedisSearchIndexInfoField struct {
 }
 
 func (r *RedisSearch) createIndex(index RedisSearchIndex) string {
-	cmd := redis.NewStringCmd(r.ctx, "FT.CREATE", index.Name, "ON", "HASH",
-		"PREFIX", "1", "doc:", "SCHEMA", "title", "TEXT", "WEIGHT", "5.0", "body",
-		"TEXT", "url", "TEXT")
+	args := []interface{}{"FT.CREATE", index.Name, "ON", "HASH", "PREFIX", len(index.Prefixes)}
+	for _, prefix := range index.Prefixes {
+		args = append(args, prefix)
+	}
+	if index.Filter != "" {
+		args = append(args, "FILTER", index.Filter)
+	}
+	if index.DefaultLanguage != "" {
+		args = append(args, "LANGUAGE", index.DefaultLanguage)
+	}
+	if index.LanguageField != "" {
+		args = append(args, "LANGUAGE_FIELD", index.LanguageField)
+	}
+	if index.DefaultScore > 0 {
+		args = append(args, "SCORE", index.DefaultScore)
+	}
+	if index.ScoreField != "" {
+		args = append(args, "SCORE_FIELD", index.ScoreField)
+	}
+	if index.PayloadField != "" {
+		args = append(args, "PAYLOAD_FIELD", index.PayloadField)
+	}
+	if index.MaxTextFields {
+		args = append(args, "MAXTEXTFIELDS")
+	}
+	if index.Temporary > 0 {
+		args = append(args, "TEMPORARY", index.Temporary)
+	}
+	if index.NoOffsets {
+		args = append(args, "NOOFFSETS")
+	}
+	if index.NoNHL {
+		args = append(args, "NOHL")
+	}
+	if index.NoFields {
+		args = append(args, "NOFIELDS")
+	}
+	if index.NoFreqs {
+		args = append(args, "NOFREQS")
+	}
+	if index.SkipInitialScan {
+		args = append(args, "SKIPINITIALSCAN")
+	}
+	if len(index.StopWords) > 0 {
+		args = append(args, "STOPWORDS", len(index.StopWords))
+		for _, word := range index.StopWords {
+			args = append(args, word)
+		}
+	}
+	args = append(args, "SCHEMA")
+	for _, field := range index.Fields {
+		fieldArgs := []interface{}{field.Name, field.Type}
+		if field.Type == redisSearchIndexFieldText {
+			if field.NoStem {
+				fieldArgs = append(fieldArgs, "NOSTEM")
+			}
+			if field.Weight != 1 {
+				fieldArgs = append(fieldArgs, "WEIGHT", field.Weight)
+			}
+		} else if field.Type == redisSearchIndexFieldTAG {
+			if field.TagSeparator != "" && field.TagSeparator != ", " {
+				fieldArgs = append(fieldArgs, "SEPARATOR", field.TagSeparator)
+			}
+		}
+		if field.Sortable {
+			fieldArgs = append(fieldArgs, "SORTABLE")
+		}
+		if field.NoIndex {
+			fieldArgs = append(fieldArgs, "NOINDEX")
+		}
+		args = append(args, fieldArgs...)
+	}
+	cmd := redis.NewStringCmd(r.ctx, args...)
+
 	start := time.Now()
 	err := r.client.Process(r.ctx, cmd)
 	if r.engine.hasRedisLogger {
