@@ -41,7 +41,7 @@ func TestRedisStreamGroupConsumerClean(t *testing.T) {
 
 	consumer2.Consume(context.Background(), 1, true, func(events []Event) {})
 	time.Sleep(time.Millisecond * 20)
-	consumer2.(*eventsConsumer).garbageCollector(true)
+	consumer2.(*eventsConsumer).garbageCollector(engine, true)
 	assert.Equal(t, int64(0), engine.GetRedis().XLen("test-stream"))
 }
 
@@ -185,7 +185,7 @@ func TestRedisStreamGroupConsumer(t *testing.T) {
 	assert.Equal(t, 2, iterations)
 	assert.Equal(t, 2, heartBeats)
 	time.Sleep(time.Millisecond * 20)
-	consumer.(*eventsConsumer).garbageCollector(true)
+	consumer.(*eventsConsumer).garbageCollector(engine, true)
 	time.Sleep(time.Second)
 	assert.Equal(t, int64(10), engine.GetRedis().XLen("test-stream"))
 	assert.Equal(t, int64(10), engine.GetRedis().XInfoGroups("test-stream")[0].Pending)

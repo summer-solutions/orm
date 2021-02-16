@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	logApex "github.com/apex/log"
+
 	"github.com/go-redis/redis/v8"
 	jsoniter "github.com/json-iterator/go"
 )
@@ -181,6 +183,31 @@ type EventsConsumer interface {
 	SetHeartBeat(duration time.Duration, beat func())
 }
 
+type speedHandler struct {
+	DBQueries         int
+	DBMicroseconds    int64
+	RedisQueries      int
+	RedisMicroseconds int64
+}
+
+func (s *speedHandler) HandleLog(e *logApex.Entry) error {
+	if e.Fields["target"] == "mysql" {
+		s.DBQueries++
+		s.DBMicroseconds += e.Fields["microseconds"].(int64)
+	} else {
+		s.RedisQueries++
+		s.RedisMicroseconds += e.Fields["microseconds"].(int64)
+	}
+	return nil
+}
+
+func (s *speedHandler) Clear() {
+	s.DBQueries = 0
+	s.RedisQueries = 0
+	s.DBMicroseconds = 0
+	s.RedisMicroseconds = 0
+}
+
 func (eb *eventBroker) Consumer(name, group string) EventsConsumer {
 	streams := make([]string, 0)
 	for _, row := range eb.engine.registry.redisStreamGroups {
@@ -204,37 +231,45 @@ func (eb *eventBroker) Consumer(name, group string) EventsConsumer {
 		}
 	}
 	speedPrefixKey := group + "_" + redisPool
+	speedLogger := &speedHandler{}
+	eb.engine.AddQueryLogger(speedLogger, logApex.InfoLevel, QueryLoggerSourceDB, QueryLoggerSourceRedis, QueryLoggerSourceStreams)
 	return &eventsConsumer{redis: eb.engine.GetRedis(redisPool), name: name, streams: streams, group: group,
 		loop: true, block: time.Second * 30, lockTTL: time.Second * 90, lockTick: time.Minute,
 		garbageTick: time.Second * 30, minIdle: pendingClaimCheckDuration,
-		claimDuration: pendingClaimCheckDuration, speedLimit: 10000, speedPrefixKey: speedPrefixKey}
+		claimDuration: pendingClaimCheckDuration, speedLimit: 10000, speedPrefixKey: speedPrefixKey,
+		speedLogger: speedLogger}
 }
 
 type eventsConsumer struct {
-	redis                 *RedisCache
-	name                  string
-	nr                    int
-	speedPrefixKey        string
-	deadConsumers         int
-	speedEvents           int
-	speedTimeMicroseconds int64
-	speedLimit            int
-	nrString              string
-	streams               []string
-	group                 string
-	loop                  bool
-	block                 time.Duration
-	heartBeatTime         time.Time
-	heartBeat             func()
-	heartBeatDuration     time.Duration
-	lockTTL               time.Duration
-	lockTick              time.Duration
-	garbageTick           time.Duration
-	minIdle               time.Duration
-	claimDuration         time.Duration
-	garbageCollectorSha1  string
-	consumed              int
-	consumedMutex         sync.Mutex
+	redis                  *RedisCache
+	name                   string
+	nr                     int
+	speedPrefixKey         string
+	deadConsumers          int
+	speedEvents            int
+	speedDBQueries         int
+	speedDBMicroseconds    int64
+	speedRedisQueries      int
+	speedRedisMicroseconds int64
+	speedLogger            *speedHandler
+	speedTimeMicroseconds  int64
+	speedLimit             int
+	nrString               string
+	streams                []string
+	group                  string
+	loop                   bool
+	block                  time.Duration
+	heartBeatTime          time.Time
+	heartBeat              func()
+	heartBeatDuration      time.Duration
+	lockTTL                time.Duration
+	lockTick               time.Duration
+	garbageTick            time.Duration
+	minIdle                time.Duration
+	claimDuration          time.Duration
+	garbageCollectorSha1   string
+	consumed               int
+	consumedMutex          sync.Mutex
 }
 
 func (r *eventsConsumer) DisableLoop() {
@@ -317,8 +352,9 @@ func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, 
 	}()
 	if r.nr == 1 {
 		garbageTicker := time.NewTicker(r.garbageTick)
+		engine := r.redis.engine.registry.CreateEngine()
 		go func() {
-			r.garbageCollector(true)
+			r.garbageCollector(engine, true)
 			for {
 				select {
 				case <-ctx.Done():
@@ -326,7 +362,7 @@ func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, 
 				case <-done:
 					return
 				case <-garbageTicker.C:
-					r.garbageCollector(false)
+					r.garbageCollector(engine, false)
 				}
 			}
 		}()
@@ -461,8 +497,14 @@ func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, 
 				r.consumedMutex.Lock()
 				r.consumed += totalMessages
 				r.consumedMutex.Unlock()
+				r.speedLogger.Clear()
 				start := time.Now()
 				handler(events)
+				r.speedTimeMicroseconds += time.Since(start).Microseconds()
+				r.speedDBQueries += r.speedLogger.DBQueries
+				r.speedRedisQueries += r.speedLogger.RedisQueries
+				r.speedDBMicroseconds += r.speedLogger.DBMicroseconds
+				r.speedRedisMicroseconds += r.speedLogger.RedisMicroseconds
 				totalACK := 0
 				var toAck map[string][]string
 				for _, ev := range events {
@@ -482,7 +524,6 @@ func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, 
 				for stream, ids := range toAck {
 					r.redis.XAck(stream, r.group, ids...)
 				}
-				r.speedTimeMicroseconds += time.Since(start).Microseconds()
 				if r.speedEvents >= r.speedLimit {
 					today := time.Now().Format("01-02-06")
 					key := speedHSetKey + today
@@ -490,9 +531,17 @@ func (r *eventsConsumer) consume(ctx context.Context, count int, blocking bool, 
 					pipeline.Expire(key, time.Hour*168)
 					pipeline.HIncrBy(key, r.speedPrefixKey+"e", int64(r.speedEvents))
 					pipeline.HIncrBy(key, r.speedPrefixKey+"t", r.speedTimeMicroseconds)
+					pipeline.HIncrBy(key, r.speedPrefixKey+"d", int64(r.speedDBQueries))
+					pipeline.HIncrBy(key, r.speedPrefixKey+"dt", r.speedDBMicroseconds)
+					pipeline.HIncrBy(key, r.speedPrefixKey+"r", int64(r.speedRedisQueries))
+					pipeline.HIncrBy(key, r.speedPrefixKey+"rt", r.speedRedisMicroseconds)
 					pipeline.Exec()
 					r.speedEvents = 0
+					r.speedDBQueries = 0
+					r.speedRedisQueries = 0
 					r.speedTimeMicroseconds = 0
+					r.speedDBMicroseconds = 0
+					r.speedRedisMicroseconds = 0
 				}
 				if r.deadConsumers > 0 && time.Since(pendingCheckedTime) >= r.claimDuration {
 					break
@@ -520,7 +569,8 @@ func (r *eventsConsumer) incrementID(id string) string {
 	return s[0] + "-" + strconv.Itoa(counter+1)
 }
 
-func (r *eventsConsumer) garbageCollector(force bool) {
+func (r *eventsConsumer) garbageCollector(engine *Engine, force bool) {
+	redisGarbage := engine.GetRedis(r.redis.code)
 	func() {
 		if !force {
 			r.consumedMutex.Lock()
@@ -533,13 +583,13 @@ func (r *eventsConsumer) garbageCollector(force bool) {
 		}
 		defer func() {
 			if rec := recover(); rec != nil {
-				r.redis.engine.reportError(rec)
+				engine.reportError(rec)
 			}
 		}()
 
-		def := r.redis.engine.registry.redisStreamGroups[r.redis.code]
+		def := engine.registry.redisStreamGroups[redisGarbage.code]
 		for _, stream := range r.streams {
-			info := r.redis.XInfoGroups(stream)
+			info := redisGarbage.XInfoGroups(stream)
 			ids := make(map[string][]int64)
 			for name := range def[stream] {
 				ids[name] = []int64{0, 0}
@@ -548,14 +598,14 @@ func (r *eventsConsumer) garbageCollector(force bool) {
 			for _, group := range info {
 				_, has := ids[group.Name]
 				if !has {
-					r.redis.engine.log.Warn("not registered stream group "+group.Name+" in stream"+stream, nil)
+					engine.log.Warn("not registered stream group "+group.Name+" in stream"+stream, nil)
 					continue
 				}
 				if group.LastDeliveredID == "" {
 					continue
 				}
 				lastDelivered := group.LastDeliveredID
-				pending := r.redis.XPending(stream, group.Name)
+				pending := redisGarbage.XPending(stream, group.Name)
 				if pending.Lower != "" {
 					lastDelivered = pending.Lower
 					inPending = true
@@ -592,7 +642,7 @@ func (r *eventsConsumer) garbageCollector(force bool) {
 			}
 
 			if r.garbageCollectorSha1 == "" {
-				sha1, has := r.redis.Get("_orm_gc_sha1")
+				sha1, has := redisGarbage.Get("_orm_gc_sha1")
 				if !has {
 					script := `
 						local count = 0
@@ -618,15 +668,15 @@ func (r *eventsConsumer) garbageCollector(force bool) {
 						end
 						return all
 						`
-					r.garbageCollectorSha1 = r.redis.ScriptLoad(script)
-					r.redis.Set("_orm_gc_sha1", r.garbageCollectorSha1, 604800)
+					r.garbageCollectorSha1 = redisGarbage.ScriptLoad(script)
+					redisGarbage.Set("_orm_gc_sha1", r.garbageCollectorSha1, 604800)
 				} else {
 					r.garbageCollectorSha1 = sha1
 				}
 			}
 
 			for {
-				res := r.redis.EvalSha(r.garbageCollectorSha1, []string{stream}, end)
+				res := redisGarbage.EvalSha(r.garbageCollectorSha1, []string{stream}, end)
 				if res == int64(1) {
 					break
 				}

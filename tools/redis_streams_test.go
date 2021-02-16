@@ -12,6 +12,7 @@ import (
 func TestRedisStreamsStatus(t *testing.T) {
 	registry := &orm.Registry{}
 	registry.RegisterRedis("localhost:6381", 11)
+	registry.RegisterMySQLPool("root:root@tcp(localhost:3311)/test")
 	registry.RegisterLocker("default", "default")
 	registry.RegisterRedisStream("test-stream", "default", []string{"test-group"})
 	validatedRegistry, err := registry.Validate()
@@ -48,6 +49,9 @@ func TestRedisStreamsStatus(t *testing.T) {
 		for _, event := range events {
 			event.Skip()
 		}
+		engine.GetRedis().Get("hello")
+		engine.GetRedis().Get("hello2")
+		engine.GetMysql().Query("SELECT 1")
 		time.Sleep(time.Millisecond * 100)
 	})
 
@@ -62,4 +66,12 @@ func TestRedisStreamsStatus(t *testing.T) {
 	assert.Equal(t, int64(10001), stats[0].Groups[0].SpeedEvents)
 	assert.GreaterOrEqual(t, stats[0].Groups[0].SpeedMilliseconds, 0.01)
 	assert.LessOrEqual(t, stats[0].Groups[0].SpeedMilliseconds, 0.011)
+	assert.GreaterOrEqual(t, stats[0].Groups[0].RedisQueriesPerEvent, 0.00019)
+	assert.LessOrEqual(t, stats[0].Groups[0].RedisQueriesPerEvent, 0.00021)
+	assert.GreaterOrEqual(t, stats[0].Groups[0].RedisQueriesMillisecondsPerEvent, 0.0001)
+	assert.LessOrEqual(t, stats[0].Groups[0].RedisQueriesMillisecondsPerEvent, 0.0005)
+	assert.GreaterOrEqual(t, stats[0].Groups[0].DBQueriesPerEvent, 0.00009)
+	assert.LessOrEqual(t, stats[0].Groups[0].DBQueriesPerEvent, 0.00011)
+	assert.GreaterOrEqual(t, stats[0].Groups[0].DBQueriesMillisecondsPerEvent, 0.0001)
+	assert.LessOrEqual(t, stats[0].Groups[0].DBQueriesMillisecondsPerEvent, 0.0005)
 }
