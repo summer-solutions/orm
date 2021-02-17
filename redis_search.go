@@ -30,7 +30,7 @@ type RedisSearchIndex struct {
 	Filter          string
 	DefaultLanguage string
 	LanguageField   string
-	DefaultScore    float32
+	DefaultScore    float64
 	ScoreField      string
 	PayloadField    string
 	MaxTextFields   bool
@@ -123,6 +123,7 @@ type RedisSearchIndexInfo struct {
 	HashIndexingFailures     uint64
 	Indexing                 uint64
 	PercentIndexed           float64
+	StopWords                []string
 }
 
 type RedisSearchIndexInfoDefinition struct {
@@ -131,7 +132,7 @@ type RedisSearchIndexInfoDefinition struct {
 	LanguageField string
 	ScoreField    string
 	PayloadField  string
-	DefaultScore  int
+	DefaultScore  float64
 }
 
 type RedisSearchIndexInfoField struct {
@@ -289,7 +290,7 @@ func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
 				case "language_field":
 					definition.LanguageField = def[subKey+1].(string)
 				case "default_score":
-					score, _ := strconv.Atoi(def[subKey+1].(string))
+					score, _ := strconv.ParseFloat(def[subKey+1].(string), 64)
 					definition.DefaultScore = score
 				case "score_field":
 					definition.ScoreField = def[subKey+1].(string)
@@ -376,6 +377,12 @@ func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
 		case "percent_indexed":
 			v, _ := strconv.ParseFloat(res[i+1].(string), 64)
 			info.PercentIndexed = v
+		case "stopwords_list":
+			v := res[i+1].([]interface{})
+			info.StopWords = make([]string, len(v))
+			for i, v := range v {
+				info.StopWords[i] = v.(string)
+			}
 		}
 	}
 	return info
