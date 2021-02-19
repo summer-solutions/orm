@@ -25,7 +25,7 @@ func TestRedisSearch(t *testing.T) {
 	alters := engine.GetRedisSearchIndexAlters()
 	assert.Len(t, alters, 0)
 
-	testIndex := RedisSearchIndex{Name: "test", RedisPool: "default", PayloadField: "_my_payload",
+	testIndex := &RedisSearchIndex{Name: "test", RedisPool: "default", PayloadField: "_my_payload",
 		ScoreField: "_my_score", LanguageField: "_my_language", DefaultScore: 0.8,
 		Prefixes: []string{"doc1:", "doc2:"}, StopWords: []string{"and", "in"}}
 	testIndex.MaxTextFields = true
@@ -33,10 +33,11 @@ func TestRedisSearch(t *testing.T) {
 	testIndex.NoNHL = true // TODO why not visible in info
 	testIndex.NoFields = true
 	testIndex.NoFreqs = true
-	testIndex.AddTextField("title", 1, true, false, false)
+	testIndex.AddTextField("title", 0.4, true, false, false)
+	testIndex.AddTextField("test", 1, false, true, true)
 	testIndex.AddNumericField("age", true, false)
-	testIndex.AddGeoField("location", true, false)
-	testIndex.AddTagField("tags", true, false, "")
+	testIndex.AddGeoField("location", false, false)
+	testIndex.AddTagField("tags", true, false, ".")
 	search.createIndex(testIndex)
 
 	info := search.info("test")
@@ -69,6 +70,29 @@ func TestRedisSearch(t *testing.T) {
 	assert.True(t, hasNoOffsets)
 	assert.True(t, hasNoFields)
 	assert.True(t, hasNoFreqs)
+	assert.Len(t, info.Fields, 5)
+	assert.Equal(t, "title", info.Fields[0].Name)
+	assert.Equal(t, "TEXT", info.Fields[0].Type)
+	assert.Equal(t, 0.4, info.Fields[0].Weight)
+	assert.True(t, info.Fields[0].Sortable)
+	assert.False(t, info.Fields[0].NoIndex)
+	assert.False(t, info.Fields[0].NoSteam)
+	assert.Equal(t, "test", info.Fields[1].Name)
+	assert.Equal(t, "TEXT", info.Fields[1].Type)
+	assert.Equal(t, 1.0, info.Fields[1].Weight)
+	assert.False(t, info.Fields[1].Sortable)
+	assert.True(t, info.Fields[1].NoIndex)
+	assert.True(t, info.Fields[1].NoSteam)
+	assert.Equal(t, "age", info.Fields[2].Name)
+	assert.Equal(t, "NUMERIC", info.Fields[2].Type)
+	assert.True(t, info.Fields[2].Sortable)
+	assert.Equal(t, "location", info.Fields[3].Name)
+	assert.Equal(t, "GEO", info.Fields[3].Type)
+	assert.False(t, info.Fields[3].Sortable)
+	assert.Equal(t, "tags", info.Fields[4].Name)
+	assert.Equal(t, "TAG", info.Fields[4].Type)
+	assert.True(t, info.Fields[4].Sortable)
+	assert.Equal(t, ".", info.Fields[4].TagSeparator)
 
 	alters = engine.GetRedisSearchIndexAlters()
 	assert.Len(t, alters, 1)

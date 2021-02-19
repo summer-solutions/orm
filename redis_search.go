@@ -44,7 +44,7 @@ type RedisSearchIndex struct {
 	Fields          []RedisSearchIndexField
 }
 
-func (rs RedisSearchIndex) AddTextField(name string, weight int, sortable, noindex, nostem bool) {
+func (rs *RedisSearchIndex) AddTextField(name string, weight float64, sortable, noindex, nostem bool) {
 	rs.Fields = append(rs.Fields, RedisSearchIndexField{
 		Type:     redisSearchIndexFieldText,
 		Name:     name,
@@ -55,7 +55,7 @@ func (rs RedisSearchIndex) AddTextField(name string, weight int, sortable, noind
 	})
 }
 
-func (rs RedisSearchIndex) AddNumericField(name string, sortable, noindex bool) {
+func (rs *RedisSearchIndex) AddNumericField(name string, sortable, noindex bool) {
 	rs.Fields = append(rs.Fields, RedisSearchIndexField{
 		Type:     redisSearchIndexFieldNumeric,
 		Name:     name,
@@ -64,7 +64,7 @@ func (rs RedisSearchIndex) AddNumericField(name string, sortable, noindex bool) 
 	})
 }
 
-func (rs RedisSearchIndex) AddGeoField(name string, sortable, noindex bool) {
+func (rs *RedisSearchIndex) AddGeoField(name string, sortable, noindex bool) {
 	rs.Fields = append(rs.Fields, RedisSearchIndexField{
 		Type:     redisSearchIndexFieldGeo,
 		Name:     name,
@@ -73,7 +73,7 @@ func (rs RedisSearchIndex) AddGeoField(name string, sortable, noindex bool) {
 	})
 }
 
-func (rs RedisSearchIndex) AddTagField(name string, sortable, noindex bool, separator string) {
+func (rs *RedisSearchIndex) AddTagField(name string, sortable, noindex bool, separator string) {
 	rs.Fields = append(rs.Fields, RedisSearchIndexField{
 		Type:         redisSearchIndexFieldTAG,
 		Name:         name,
@@ -89,7 +89,7 @@ type RedisSearchIndexField struct {
 	Sortable     bool
 	NoIndex      bool
 	NoStem       bool
-	Weight       int
+	Weight       float64
 	TagSeparator string
 }
 
@@ -136,12 +136,16 @@ type RedisSearchIndexInfoDefinition struct {
 }
 
 type RedisSearchIndexInfoField struct {
-	Name   string
-	Type   string
-	Weight int
+	Name         string
+	Type         string
+	Weight       float64
+	Sortable     bool
+	NoSteam      bool
+	NoIndex      bool
+	TagSeparator string
 }
 
-func (r *RedisSearch) createIndex(index RedisSearchIndex) string {
+func (r *RedisSearch) createIndex(index *RedisSearchIndex) string {
 	args := []interface{}{"FT.CREATE", index.Name, "ON", "HASH", "PREFIX", len(index.Prefixes)}
 	for _, prefix := range index.Prefixes {
 		args = append(args, prefix)
@@ -311,8 +315,16 @@ func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
 					case "type":
 						field.Type = def[subKey+1].(string)
 					case "WEIGHT":
-						weight, _ := strconv.Atoi(def[subKey+1].(string))
+						weight, _ := strconv.ParseFloat(def[subKey+1].(string), 64)
 						field.Weight = weight
+					case "SORTABLE":
+						field.Sortable = true
+					case "NOSTEM":
+						field.NoSteam = true
+					case "NOINDEX":
+						field.NoIndex = true
+					case "SEPARATOR":
+						field.TagSeparator = def[subKey+1].(string)
 					}
 				}
 				fields[i] = field
