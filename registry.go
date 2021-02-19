@@ -28,7 +28,7 @@ type Registry struct {
 	redisServers         map[string]*RedisCacheConfig
 	elasticServers       map[string]*ElasticConfig
 	entities             map[string]reflect.Type
-	redisSearchIndices   map[string]*RedisSearchIndex
+	redisSearchIndices   map[string]map[string]*RedisSearchIndex
 	elasticIndices       map[string]map[string]ElasticIndexDefinition
 	enums                map[string]Enum
 	locks                map[string]string
@@ -144,9 +144,12 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 	for k, v := range r.enums {
 		registry.enums[k] = v
 	}
-	registry.redisSearchIndexes = make(map[string]*RedisSearchIndex)
+	registry.redisSearchIndexes = make(map[string]map[string]*RedisSearchIndex)
 	for k, v := range r.redisSearchIndices {
-		registry.redisSearchIndexes[k] = v
+		registry.redisSearchIndexes[k] = make(map[string]*RedisSearchIndex)
+		for k2, v2 := range v {
+			registry.redisSearchIndexes[k][k2] = v2
+		}
 	}
 	cachePrefixes := make(map[string]*tableSchema)
 	for name, entityType := range r.entities {
@@ -201,10 +204,13 @@ func (r *Registry) RegisterEntity(entity ...Entity) {
 
 func (r *Registry) RegisterRedisSearchIndex(index ...*RedisSearchIndex) {
 	if r.redisSearchIndices == nil {
-		r.redisSearchIndices = make(map[string]*RedisSearchIndex)
+		r.redisSearchIndices = make(map[string]map[string]*RedisSearchIndex)
 	}
 	for _, i := range index {
-		r.redisSearchIndices[i.Name] = i
+		if r.redisSearchIndices[i.RedisPool] == nil {
+			r.redisSearchIndices[i.RedisPool] = make(map[string]*RedisSearchIndex)
+		}
+		r.redisSearchIndices[i.RedisPool][i.Name] = i
 	}
 }
 

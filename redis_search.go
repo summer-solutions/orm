@@ -2,6 +2,7 @@ package orm
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -145,7 +146,7 @@ type RedisSearchIndexInfoField struct {
 	TagSeparator string
 }
 
-func (r *RedisSearch) createIndex(index *RedisSearchIndex) string {
+func (r *RedisSearch) createIndexArgs(index *RedisSearchIndex) []interface{} {
 	args := []interface{}{"FT.CREATE", index.Name, "ON", "HASH", "PREFIX", len(index.Prefixes)}
 	for _, prefix := range index.Prefixes {
 		args = append(args, prefix)
@@ -218,6 +219,11 @@ func (r *RedisSearch) createIndex(index *RedisSearchIndex) string {
 		}
 		args = append(args, fieldArgs...)
 	}
+	return args
+}
+
+func (r *RedisSearch) createIndex(index *RedisSearchIndex) string {
+	args := r.createIndexArgs(index)
 	cmd := redis.NewStringCmd(r.ctx, args...)
 
 	start := time.Now()
@@ -417,18 +423,37 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 			continue
 		}
 		search := engine.GetRedisSearch(poolName)
+		inRedis := make(map[string]bool)
 		for _, name := range search.listIndices() {
-			_, has := engine.registry.redisSearchIndexes[name]
+			_, has := engine.registry.redisSearchIndexes[poolName][name]
 			if !has {
 				query := "FT.DROPINDEX " + name + " DD"
 				alter := RedisSearchIndexAlter{Pool: poolName, Query: query, search: search}
 				info := search.info(name)
 				alter.Safe = info.NumDocs == 0 && info.Indexing == 0
+				nameToRemove := name
 				alter.Execute = func() {
-					alter.search.dropIndex(name)
+					alter.search.dropIndex(nameToRemove)
 				}
 				alters = append(alters, alter)
+				continue
 			}
+			inRedis[name] = true
+			// TODO alter
+		}
+		for name, index := range engine.registry.redisSearchIndexes[poolName] {
+			_, has := inRedis[name]
+			if has {
+				continue
+			}
+			query := fmt.Sprintf("%v", search.createIndexArgs(index))[1:]
+			query = query[0 : len(query)-1]
+			alter := RedisSearchIndexAlter{Pool: poolName, Query: query, Safe: true, search: search}
+			indexToAdd := index
+			alter.Execute = func() {
+				alter.search.createIndex(indexToAdd)
+			}
+			alters = append(alters, alter)
 		}
 	}
 	return alters

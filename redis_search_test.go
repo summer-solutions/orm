@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"strings"
 	"testing"
 
 	apexLog "github.com/apex/log"
@@ -12,19 +13,6 @@ import (
 func TestRedisSearch(t *testing.T) {
 	registry := &Registry{}
 	registry.RegisterRedis("localhost:6383", 0)
-	validatedRegistry, err := registry.Validate()
-	assert.NoError(t, err)
-	engine := validatedRegistry.CreateEngine()
-	engine.GetRedis().FlushDB()
-
-	testLog := memory.New()
-	engine.AddQueryLogger(testLog, apexLog.InfoLevel, QueryLoggerSourceRedis)
-
-	search := engine.GetRedisSearch()
-	assert.NotNil(t, search)
-	alters := engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 0)
-
 	testIndex := &RedisSearchIndex{Name: "test", RedisPool: "default", PayloadField: "_my_payload",
 		ScoreField: "_my_score", LanguageField: "_my_language", DefaultScore: 0.8,
 		Prefixes: []string{"doc1:", "doc2:"}, StopWords: []string{"and", "in"}}
@@ -38,7 +26,48 @@ func TestRedisSearch(t *testing.T) {
 	testIndex.AddNumericField("age", true, false)
 	testIndex.AddGeoField("location", false, false)
 	testIndex.AddTagField("tags", true, false, ".")
-	search.createIndex(testIndex)
+	registry.RegisterRedisSearchIndex(testIndex)
+	testIndex2 := &RedisSearchIndex{Name: "test2", RedisPool: "default"}
+	testIndex2.AddNumericField("id", false, false)
+	registry.RegisterRedisSearchIndex(testIndex2)
+	validatedRegistry, err := registry.Validate()
+	assert.NoError(t, err)
+	engine := validatedRegistry.CreateEngine()
+	engine.GetRedis().FlushDB()
+
+	testLog := memory.New()
+	engine.AddQueryLogger(testLog, apexLog.InfoLevel, QueryLoggerSourceRedis)
+
+	search := engine.GetRedisSearch()
+	assert.NotNil(t, search)
+	alters := engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 2)
+
+	search.createIndex(&RedisSearchIndex{Name: "to_delete", RedisPool: "default"})
+
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 3)
+	assert.Equal(t, "default", alters[0].Pool)
+	assert.Equal(t, "FT.DROPINDEX to_delete DD", alters[0].Query)
+	assert.True(t, alters[0].Safe)
+	alters[0].Execute()
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 2)
+	for _, alter := range alters {
+		if strings.Contains(alter.Query, "test2") {
+			assert.Equal(t, "FT.CREATE test2 ON HASH PREFIX 0 SCHEMA id NUMERIC", alter.Query)
+		} else {
+			assert.Equal(t, "FT.CREATE test ON HASH PREFIX 2 doc1: doc2: LANGUAGE_FIELD _my_language SCORE 0.8 SCORE_FIELD _my_score PAYLOAD_FIELD _my_payload MAXTEXTFIELDS NOOFFSETS NOHL NOFIELDS NOFREQS STOPWORDS 2 and in SCHEMA title TEXT WEIGHT 0.4 SORTABLE test TEXT NOSTEM NOINDEX age NUMERIC SORTABLE location GEO tags TAG SEPARATOR . SORTABLE", alter.Query)
+		}
+		assert.Equal(t, "default", alter.Pool)
+		assert.True(t, alter.Safe)
+	}
+
+	alters[0].Execute()
+	alters[1].Execute()
+
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 0)
 
 	info := search.info("test")
 	assert.Equal(t, "test", info.Name)
@@ -93,13 +122,4 @@ func TestRedisSearch(t *testing.T) {
 	assert.Equal(t, "TAG", info.Fields[4].Type)
 	assert.True(t, info.Fields[4].Sortable)
 	assert.Equal(t, ".", info.Fields[4].TagSeparator)
-
-	alters = engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 1)
-	assert.Equal(t, "default", alters[0].Pool)
-	assert.Equal(t, "FT.DROPINDEX test DD", alters[0].Query)
-	assert.True(t, alters[0].Safe)
-	alters[0].Execute()
-	alters = engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 0)
 }

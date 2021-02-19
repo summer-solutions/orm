@@ -23,7 +23,7 @@ type validatedRegistry struct {
 	registry             *Registry
 	tableSchemas         map[reflect.Type]*tableSchema
 	entities             map[string]reflect.Type
-	redisSearchIndexes   map[string]*RedisSearchIndex
+	redisSearchIndexes   map[string]map[string]*RedisSearchIndex
 	sqlClients           map[string]*DBConfig
 	clickHouseClients    map[string]*ClickHouseConfig
 	localCacheContainers map[string]*LocalCacheConfig
