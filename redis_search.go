@@ -151,18 +151,27 @@ type RedisSearchQuery struct {
 	filtersInt   map[string][]int64
 	filtersFloat map[string][]float64
 	filtersGeo   map[string][]interface{}
+	inKeys       []interface{}
+	inFields     []interface{}
+	toReturn     []interface{}
+	sortDesc     bool
+	sortField    string
 	verbatim     bool
 	noStopWords  bool
 	withScores   bool
 	withPayLoads bool
-	withSortKeys bool
+	slop         int
+	inOrder      bool
+	lang         string
+	explainScore bool
 }
 
 type RedisSearchResult struct {
-	Key     string
-	Fields  []interface{}
-	Weight  float64
-	PayLoad string
+	Key          string
+	Fields       []interface{}
+	Score        float64
+	ExplainScore []interface{}
+	PayLoad      string
 }
 
 func (r *RedisSearchResult) Value(field string) interface{} {
@@ -203,6 +212,12 @@ func (q *RedisSearchQuery) FilterGeo(field string, lon, lat, radius float64, uni
 	return q
 }
 
+func (q *RedisSearchQuery) Sort(field string, desc bool) *RedisSearchQuery {
+	q.sortField = field
+	q.sortDesc = desc
+	return q
+}
+
 func (q *RedisSearchQuery) Verbatim() *RedisSearchQuery {
 	q.verbatim = true
 	return q
@@ -223,8 +238,47 @@ func (q *RedisSearchQuery) WithPayLoads() *RedisSearchQuery {
 	return q
 }
 
-func (q *RedisSearchQuery) WithSortKeys() *RedisSearchQuery {
-	q.withSortKeys = true
+func (q *RedisSearchQuery) InKeys(key ...string) *RedisSearchQuery {
+	for _, k := range key {
+		q.inKeys = append(q.inKeys, k)
+	}
+	return q
+}
+
+func (q *RedisSearchQuery) InFields(field ...string) *RedisSearchQuery {
+	for _, k := range field {
+		q.inFields = append(q.inFields, k)
+	}
+	return q
+}
+
+func (q *RedisSearchQuery) Return(field ...string) *RedisSearchQuery {
+	for _, k := range field {
+		q.toReturn = append(q.toReturn, k)
+	}
+	return q
+}
+
+func (q *RedisSearchQuery) Slop(slop int) *RedisSearchQuery {
+	q.slop = slop
+	if q.slop == 0 {
+		q.slop = -1
+	}
+	return q
+}
+
+func (q *RedisSearchQuery) InOrder() *RedisSearchQuery {
+	q.inOrder = true
+	return q
+}
+
+func (q *RedisSearchQuery) ExplainScore() *RedisSearchQuery {
+	q.explainScore = true
+	return q
+}
+
+func (q *RedisSearchQuery) Lang(lang string) *RedisSearchQuery {
+	q.lang = lang
 	return q
 }
 
@@ -242,9 +296,14 @@ func (r *RedisSearch) Search(index string, query *RedisSearchQuery, pager *Pager
 			break
 		}
 		row := &RedisSearchResult{Key: data[i].(string)}
-		if query.withScores {
+		if query.explainScore {
 			i++
-			row.Weight, _ = strconv.ParseFloat(data[i].(string), 64)
+			row.ExplainScore = data[i].([]interface{})
+			row.Score, _ = strconv.ParseFloat(row.ExplainScore[0].(string), 64)
+			row.ExplainScore = row.ExplainScore[1].([]interface{})
+		} else if query.withScores {
+			i++
+			row.Score, _ = strconv.ParseFloat(data[i].(string), 64)
 		}
 		if query.withPayLoads {
 			i++
@@ -300,6 +359,40 @@ func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager
 	}
 	if query.withPayLoads {
 		args = append(args, "WITHPAYLOADS")
+	}
+	if query.sortField != "" {
+		args = append(args, "SORTBY", query.sortField)
+		if query.sortDesc {
+			args = append(args, "DESC")
+		}
+	}
+	if len(query.inKeys) > 0 {
+		args = append(args, "INKEYS", len(query.inKeys))
+		args = append(args, query.inKeys...)
+	}
+	if len(query.inFields) > 0 {
+		args = append(args, "INFIELDS", len(query.inFields))
+		args = append(args, query.inFields...)
+	}
+	if len(query.toReturn) > 0 {
+		args = append(args, "RETURN", len(query.toReturn))
+		args = append(args, query.toReturn...)
+	}
+	if query.slop != 0 {
+		slop := query.slop
+		if slop == -1 {
+			slop = 0
+		}
+		args = append(args, "SLOP", slop)
+	}
+	if query.inOrder {
+		args = append(args, "INORDER")
+	}
+	if query.lang != "" {
+		args = append(args, "LANGUAGE", query.lang)
+	}
+	if query.explainScore {
+		args = append(args, "EXPLAINSCORE")
 	}
 	if pager != nil {
 		args = append(args, "LIMIT")
