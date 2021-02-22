@@ -45,6 +45,11 @@ func (rp *RedisPipeLine) HIncrBy(key, field string, incr int64) *PipeLineInt {
 	return &PipeLineInt{p: rp, cmd: rp.pipeLine.HIncrBy(rp.ctx, key, field, incr)}
 }
 
+func (rp *RedisPipeLine) HSet(key string, values ...interface{}) *PipeLineInt {
+	rp.commands++
+	return &PipeLineInt{p: rp, cmd: rp.pipeLine.HSet(rp.ctx, key, values...)}
+}
+
 func (rp *RedisPipeLine) XAdd(stream string, values interface{}) *PipeLineString {
 	rp.xaddCommands++
 	return &PipeLineString{p: rp, cmd: rp.pipeLine.XAdd(rp.ctx, &redis.XAddArgs{Stream: stream, Values: values})}

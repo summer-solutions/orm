@@ -117,12 +117,12 @@ type RedisSearchIndexInfo struct {
 	DocTableSizeMB           float64
 	SortableValuesSizeMB     float64
 	KeyTableSizeMB           float64
-	RecordsPerDocAvg         float64
-	BytesPerRecordAvg        float64
+	RecordsPerDocAvg         int
+	BytesPerRecordAvg        int
 	OffsetsPerTermAvg        float64
 	OffsetBitsPerRecordAvg   float64
 	HashIndexingFailures     uint64
-	Indexing                 uint64
+	Indexing                 bool
 	PercentIndexed           float64
 	StopWords                []string
 }
@@ -144,6 +144,180 @@ type RedisSearchIndexInfoField struct {
 	NoSteam      bool
 	NoIndex      bool
 	TagSeparator string
+}
+
+type RedisSearchQuery struct {
+	query        string
+	filtersInt   map[string][]int64
+	filtersFloat map[string][]float64
+	filtersGeo   map[string][]interface{}
+	verbatim     bool
+	noStopWords  bool
+	withScores   bool
+	withPayLoads bool
+	withSortKeys bool
+}
+
+type RedisSearchResult struct {
+	Key     string
+	Fields  []interface{}
+	Weight  float64
+	PayLoad string
+}
+
+func (r *RedisSearchResult) Value(field string) interface{} {
+	for i := 0; i < len(r.Fields); i += 2 {
+		if r.Fields[i] == field {
+			return r.Fields[i+1]
+		}
+	}
+	return nil
+}
+
+func (q *RedisSearchQuery) Query(query string) *RedisSearchQuery {
+	q.query = query
+	return q
+}
+
+func (q *RedisSearchQuery) FilterInt(field string, min, max int64) *RedisSearchQuery {
+	if q.filtersInt == nil {
+		q.filtersInt = make(map[string][]int64)
+	}
+	q.filtersInt[field] = []int64{min, max}
+	return q
+}
+
+func (q *RedisSearchQuery) FilterFloat(field string, min, max float64) *RedisSearchQuery {
+	if q.filtersFloat == nil {
+		q.filtersFloat = make(map[string][]float64)
+	}
+	q.filtersFloat[field] = []float64{min, max}
+	return q
+}
+
+func (q *RedisSearchQuery) FilterGeo(field string, lon, lat, radius float64, unit string) *RedisSearchQuery {
+	if q.filtersGeo == nil {
+		q.filtersGeo = make(map[string][]interface{})
+	}
+	q.filtersGeo[field] = []interface{}{lon, lat, radius, unit}
+	return q
+}
+
+func (q *RedisSearchQuery) Verbatim() *RedisSearchQuery {
+	q.verbatim = true
+	return q
+}
+
+func (q *RedisSearchQuery) NoStopWords() *RedisSearchQuery {
+	q.noStopWords = true
+	return q
+}
+
+func (q *RedisSearchQuery) WithScores() *RedisSearchQuery {
+	q.withScores = true
+	return q
+}
+
+func (q *RedisSearchQuery) WithPayLoads() *RedisSearchQuery {
+	q.withPayLoads = true
+	return q
+}
+
+func (q *RedisSearchQuery) WithSortKeys() *RedisSearchQuery {
+	q.withSortKeys = true
+	return q
+}
+
+func (r *RedisSearch) SearchRaw(index string, query *RedisSearchQuery, pager *Pager) (total int64, rows []interface{}) {
+	return r.search(index, query, pager, false)
+}
+
+func (r *RedisSearch) Search(index string, query *RedisSearchQuery, pager *Pager) (total int64, rows []*RedisSearchResult) {
+	total, data := r.search(index, query, pager, false)
+	rows = make([]*RedisSearchResult, 0)
+	max := len(data) - 1
+	i := 0
+	for {
+		if i > max {
+			break
+		}
+		row := &RedisSearchResult{Key: data[i].(string)}
+		if query.withScores {
+			i++
+			row.Weight, _ = strconv.ParseFloat(data[i].(string), 64)
+		}
+		if query.withPayLoads {
+			i++
+			if data[i] != nil {
+				row.PayLoad = data[i].(string)
+			}
+		}
+		i++
+		row.Fields = data[i].([]interface{})
+		rows = append(rows, row)
+		i++
+	}
+
+	return total, rows
+}
+
+func (r *RedisSearch) SearchKeys(index string, query *RedisSearchQuery, pager *Pager) (total int64, keys []string) {
+	total, rows := r.search(index, query, pager, true)
+	keys = make([]string, len(rows))
+	for k, v := range rows {
+		keys[k] = v.(string)
+	}
+	return total, keys
+}
+
+func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager, noContent bool) (total int64, rows []interface{}) {
+	args := []interface{}{"FT.SEARCH", index}
+	if query.query != "" {
+		args = append(args, query.query)
+	} else {
+		args = append(args, "*")
+	}
+	for field, ranges := range query.filtersInt {
+		args = append(args, "FILTER", field, ranges[0], ranges[1])
+	}
+	for field, ranges := range query.filtersFloat {
+		args = append(args, "FILTER", field, ranges[0], ranges[1])
+	}
+	for field, data := range query.filtersGeo {
+		args = append(args, "GEOFILTER", field, data[0], data[1], data[2], data[3])
+	}
+	if noContent {
+		args = append(args, "NOCONTENT")
+	}
+	if query.verbatim {
+		args = append(args, "VERBATIM")
+	}
+	if query.noStopWords {
+		args = append(args, "NOSTOPWORDS")
+	}
+	if query.withScores {
+		args = append(args, "WITHSCORES")
+	}
+	if query.withPayLoads {
+		args = append(args, "WITHPAYLOADS")
+	}
+	if pager != nil {
+		args = append(args, "LIMIT")
+		args = append(args, (pager.CurrentPage-1)*pager.PageSize)
+		args = append(args, pager.PageSize)
+	}
+	cmd := redis.NewSliceCmd(r.ctx, args...)
+	start := time.Now()
+	err := r.client.Process(r.ctx, cmd)
+	if r.engine.hasRedisLogger {
+		r.fillLogFields("[ORM][REDIS-SEARCH][FT.SEARCH]", start, "ft_search", 1,
+			map[string]interface{}{"Index": index, "args": args[2:]}, err)
+	}
+	checkError(err)
+	res, err := cmd.Result()
+	checkError(err)
+	total = res[0].(int64)
+	return total, res[1:]
 }
 
 func (r *RedisSearch) createIndexArgs(index *RedisSearchIndex) []interface{} {
@@ -220,6 +394,12 @@ func (r *RedisSearch) createIndexArgs(index *RedisSearchIndex) []interface{} {
 		args = append(args, fieldArgs...)
 	}
 	return args
+}
+
+func (r *RedisSearch) aliasUpdate(name, index string) {
+	cmd := redis.NewStringCmd(r.ctx, "FT.ALIASUPDATE", name, index)
+	err := r.client.Process(r.ctx, cmd)
+	checkError(err)
 }
 
 func (r *RedisSearch) createIndex(index *RedisSearchIndex) string {
@@ -368,13 +548,11 @@ func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
 			info.KeyTableSizeMB = v
 		case "records_per_doc_avg":
 			if res[i+1] != "-nan" {
-				v, _ := strconv.ParseFloat(res[i+1].(string), 64)
-				info.RecordsPerDocAvg = v
+				info.RecordsPerDocAvg, _ = strconv.Atoi(res[i+1].(string))
 			}
 		case "bytes_per_record_avg":
 			if res[i+1] != "-nan" {
-				v, _ := strconv.ParseFloat(res[i+1].(string), 64)
-				info.BytesPerRecordAvg = v
+				info.BytesPerRecordAvg, _ = strconv.Atoi(res[i+1].(string))
 			}
 		case "offsets_per_term_avg":
 			if res[i+1] != "-nan" {
@@ -390,8 +568,7 @@ func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
 			v, _ := strconv.ParseUint(res[i+1].(string), 10, 64)
 			info.HashIndexingFailures = v
 		case "indexing":
-			v, _ := strconv.ParseUint(res[i+1].(string), 10, 64)
-			info.Indexing = v
+			info.Indexing = res[i+1] == "1"
 		case "percent_indexed":
 			v, _ := strconv.ParseFloat(res[i+1].(string), 64)
 			info.PercentIndexed = v
@@ -430,7 +607,7 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 				query := "FT.DROPINDEX " + name + " DD"
 				alter := RedisSearchIndexAlter{Pool: poolName, Query: query, search: search}
 				info := search.info(name)
-				alter.Safe = info.NumDocs == 0 && info.Indexing == 0
+				alter.Safe = info.NumDocs == 0 && !info.Indexing
 				nameToRemove := name
 				alter.Execute = func() {
 					alter.search.dropIndex(nameToRemove)
