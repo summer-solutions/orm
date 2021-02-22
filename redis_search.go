@@ -147,23 +147,26 @@ type RedisSearchIndexInfoField struct {
 }
 
 type RedisSearchQuery struct {
-	query        string
-	filtersInt   map[string][]int64
-	filtersFloat map[string][]float64
-	filtersGeo   map[string][]interface{}
-	inKeys       []interface{}
-	inFields     []interface{}
-	toReturn     []interface{}
-	sortDesc     bool
-	sortField    string
-	verbatim     bool
-	noStopWords  bool
-	withScores   bool
-	withPayLoads bool
-	slop         int
-	inOrder      bool
-	lang         string
-	explainScore bool
+	query             string
+	filtersInt        map[string][]int64
+	filtersFloat      map[string][]float64
+	filtersGeo        map[string][]interface{}
+	inKeys            []interface{}
+	inFields          []interface{}
+	toReturn          []interface{}
+	sortDesc          bool
+	sortField         string
+	verbatim          bool
+	noStopWords       bool
+	withScores        bool
+	withPayLoads      bool
+	slop              int
+	inOrder           bool
+	lang              string
+	explainScore      bool
+	highlight         []interface{}
+	highlightOpenTag  string
+	highlightCloseTag string
 }
 
 type RedisSearchResult struct {
@@ -282,6 +285,22 @@ func (q *RedisSearchQuery) Lang(lang string) *RedisSearchQuery {
 	return q
 }
 
+func (q *RedisSearchQuery) Highlight(field ...string) *RedisSearchQuery {
+	if q.highlight == nil {
+		q.highlight = make([]interface{}, 0)
+	}
+	for _, k := range field {
+		q.highlight = append(q.highlight, k)
+	}
+	return q
+}
+
+func (q *RedisSearchQuery) HighlightTags(openTag, closeTag string) *RedisSearchQuery {
+	q.highlightOpenTag = openTag
+	q.highlightCloseTag = closeTag
+	return q
+}
+
 func (r *RedisSearch) SearchRaw(index string, query *RedisSearchQuery, pager *Pager) (total int64, rows []interface{}) {
 	return r.search(index, query, pager, false)
 }
@@ -393,6 +412,16 @@ func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager
 	}
 	if query.explainScore {
 		args = append(args, "EXPLAINSCORE")
+	}
+	if query.highlight != nil {
+		args = append(args, "HIGHLIGHT")
+		if l := len(query.highlight); l > 0 {
+			args = append(args, "FIELDS", l)
+			args = append(args, query.highlight...)
+		}
+		if query.highlightOpenTag != "" && query.highlightCloseTag != "" {
+			args = append(args, "TAGS", query.highlightOpenTag, query.highlightCloseTag)
+		}
 	}
 	if pager != nil {
 		args = append(args, "LIMIT")
