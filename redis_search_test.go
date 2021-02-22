@@ -301,5 +301,18 @@ func TestRedisSearch(t *testing.T) {
 	assert.Equal(t, "<b>hello</b> 33", rows[0].Value("title"))
 	assert.Equal(t, "<b>hello</b> 33 friend <b>tom</b>", rows[0].Value("title2"))
 
+	query = &RedisSearchQuery{}
+	query.Query("hello tom").Summarize("title2").FilterInt("id", 33, 33)
+	total, rows = search.Search("test2_alias", query, NewPager(1, 1))
+	assert.Equal(t, int64(1), total)
+	assert.Equal(t, "hello 33", rows[0].Value("title"))
+	assert.Equal(t, "hello 33 friend tom... ", rows[0].Value("title2"))
+
+	query.Query("hello tom").SummarizeOptions("...", 1, 2)
+	total, rows = search.Search("test2_alias", query, NewPager(1, 1))
+	assert.Equal(t, int64(1), total)
+	assert.Equal(t, "hello 33", rows[0].Value("title"))
+	assert.Equal(t, "hello 33 friend tom...", rows[0].Value("title2"))
+
 	search.dropIndex("test2")
 }

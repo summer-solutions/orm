@@ -147,26 +147,30 @@ type RedisSearchIndexInfoField struct {
 }
 
 type RedisSearchQuery struct {
-	query             string
-	filtersInt        map[string][]int64
-	filtersFloat      map[string][]float64
-	filtersGeo        map[string][]interface{}
-	inKeys            []interface{}
-	inFields          []interface{}
-	toReturn          []interface{}
-	sortDesc          bool
-	sortField         string
-	verbatim          bool
-	noStopWords       bool
-	withScores        bool
-	withPayLoads      bool
-	slop              int
-	inOrder           bool
-	lang              string
-	explainScore      bool
-	highlight         []interface{}
-	highlightOpenTag  string
-	highlightCloseTag string
+	query              string
+	filtersInt         map[string][]int64
+	filtersFloat       map[string][]float64
+	filtersGeo         map[string][]interface{}
+	inKeys             []interface{}
+	inFields           []interface{}
+	toReturn           []interface{}
+	sortDesc           bool
+	sortField          string
+	verbatim           bool
+	noStopWords        bool
+	withScores         bool
+	withPayLoads       bool
+	slop               int
+	inOrder            bool
+	lang               string
+	explainScore       bool
+	highlight          []interface{}
+	highlightOpenTag   string
+	highlightCloseTag  string
+	summarize          []interface{}
+	summarizeSeparator string
+	summarizeFrags     int
+	summarizeLen       int
 }
 
 type RedisSearchResult struct {
@@ -301,6 +305,23 @@ func (q *RedisSearchQuery) HighlightTags(openTag, closeTag string) *RedisSearchQ
 	return q
 }
 
+func (q *RedisSearchQuery) Summarize(field ...string) *RedisSearchQuery {
+	if q.summarize == nil {
+		q.summarize = make([]interface{}, 0)
+	}
+	for _, k := range field {
+		q.summarize = append(q.summarize, k)
+	}
+	return q
+}
+
+func (q *RedisSearchQuery) SummarizeOptions(separator string, frags, len int) *RedisSearchQuery {
+	q.summarizeSeparator = separator
+	q.summarizeFrags = frags
+	q.summarizeLen = len
+	return q
+}
+
 func (r *RedisSearch) SearchRaw(index string, query *RedisSearchQuery, pager *Pager) (total int64, rows []interface{}) {
 	return r.search(index, query, pager, false)
 }
@@ -421,6 +442,22 @@ func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager
 		}
 		if query.highlightOpenTag != "" && query.highlightCloseTag != "" {
 			args = append(args, "TAGS", query.highlightOpenTag, query.highlightCloseTag)
+		}
+	}
+	if query.summarize != nil {
+		args = append(args, "SUMMARIZE")
+		if l := len(query.summarize); l > 0 {
+			args = append(args, "FIELDS", l)
+			args = append(args, query.summarize...)
+		}
+		if query.summarizeFrags > 0 {
+			args = append(args, "FRAGS", query.summarizeFrags)
+		}
+		if query.summarizeLen > 0 {
+			args = append(args, "LEN", query.summarizeLen)
+		}
+		if query.summarizeSeparator != "" {
+			args = append(args, "SEPARATOR", query.summarizeSeparator)
 		}
 	}
 	if pager != nil {
