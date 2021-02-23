@@ -141,6 +141,7 @@ func TestRedisSearch(t *testing.T) {
 	testIndex3.AddNumericField("number_float", true, false)
 	testIndex3.AddNumericField("sort_test", true, false)
 	testIndex3.AddGeoField("location", true, false)
+	testIndex3.AddTagField("status", true, false, ",")
 	testIndex3.LanguageField = "lang"
 	search.createIndex(testIndex3)
 	time.Sleep(time.Millisecond * 100)
@@ -149,14 +150,17 @@ func TestRedisSearch(t *testing.T) {
 	engine.GetRedis().HSet("test2:33", "location", "52.2982648,17.0103596")
 	engine.GetRedis().HSet("test2:33", "sort_test", 30)
 	engine.GetRedis().HSet("test2:33", "title2", "hello 33 friend tom")
+	engine.GetRedis().HSet("test2:33", "status", "active,temporary")
 	engine.GetRedis().HSet("test2:34", "number_signed", 10)
 	engine.GetRedis().HSet("test2:34", "number_float", 7.34)
 	engine.GetRedis().HSet("test2:34", "location", "52.5248822,17.5681129")
 	engine.GetRedis().HSet("test2:34", "sort_test", 30)
+	engine.GetRedis().HSet("test2:34", "status", "inactive,temporary")
 	engine.GetRedis().HSet("test2:35", "number_signed", 5)
 	engine.GetRedis().HSet("test2:35", "number_float", 8.12)
 	engine.GetRedis().HSet("test2:35", "location", "52.2328546,20.9207698")
 	engine.GetRedis().HSet("test2:35", "sort_test", 20)
+	engine.GetRedis().HSet("test2:35", "status", "inactive")
 
 	search.aliasUpdate("test2_alias", "test3")
 	query := &RedisSearchQuery{}
@@ -267,7 +271,7 @@ func TestRedisSearch(t *testing.T) {
 	query.Query("hello tom").WithScores().ExplainScore()
 	total, rows = search.Search("test2_alias", query, NewPager(1, 3))
 	assert.Equal(t, int64(1), total)
-	assert.Equal(t, 1.5, rows[0].Score)
+	assert.GreaterOrEqual(t, rows[0].Score, 1.33)
 	assert.NotNil(t, rows[0].ExplainScore)
 	assert.Equal(t, "test2:33", rows[0].Key)
 	query.Slop(0)
@@ -313,6 +317,13 @@ func TestRedisSearch(t *testing.T) {
 	assert.Equal(t, int64(1), total)
 	assert.Equal(t, "hello 33", rows[0].Value("title"))
 	assert.Equal(t, "hello 33 friend tom...", rows[0].Value("title2"))
+
+	query = &RedisSearchQuery{}
+	query.Query("@status: {temporary}").Sort("id", false)
+	total, rows = search.Search("test2_alias", query, NewPager(1, 10))
+	assert.Equal(t, int64(2), total)
+	assert.Equal(t, "33", rows[0].Value("id"))
+	assert.Equal(t, "34", rows[1].Value("id"))
 
 	search.dropIndex("test2")
 }
