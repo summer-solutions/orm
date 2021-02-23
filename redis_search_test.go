@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"testing"
@@ -28,6 +29,9 @@ func TestRedisSearch(t *testing.T) {
 	testIndex.AddNumericField("age", true, false)
 	testIndex.AddGeoField("location", false, false)
 	testIndex.AddTagField("tags", true, false, ".")
+	testIndex.Indexer = func(lastID uint64, pusher RedisSearchIndexPusher) (newID uint64, hasMore bool) {
+		return 0, false
+	}
 	registry.RegisterRedisSearchIndex(testIndex)
 	testIndex2 := &RedisSearchIndex{Name: "test2", RedisPool: "default", Prefixes: []string{"test2:"}}
 	testIndex2.AddTextField("title", 1, true, false, false)
@@ -44,6 +48,15 @@ func TestRedisSearch(t *testing.T) {
 	assert.NotNil(t, search)
 	alters := engine.GetRedisSearchIndexAlters()
 	assert.Len(t, alters, 2)
+
+	testLog.Entries = make([]*apexLog.Entry, 0)
+	search.ForceReindex("test")
+	indexer := NewRedisSearchIndexer(engine)
+	indexer.DisableLoop()
+	indexer.Run(context.Background())
+	assert.Len(t, testLog.Entries, 3)
+	indexer.Run(context.Background())
+	assert.Len(t, testLog.Entries, 4)
 
 	search.createIndex(&RedisSearchIndex{Name: "to_delete", RedisPool: "default"})
 

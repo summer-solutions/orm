@@ -250,7 +250,8 @@ func (e *Engine) GetRedisSearch(code ...string) *RedisSearch {
 		if client != nil {
 			client = client.WithContext(e.context)
 		}
-		cache = &RedisSearch{engine: e, code: val.code, client: client, ctx: context.Background()}
+		redisClient := &RedisCache{engine: e, code: val.code, client: client, ctx: context.Background()}
+		cache = &RedisSearch{engine: e, code: val.code, redis: redisClient, ctx: context.Background()}
 		if e.redisSearch == nil {
 			e.redisSearch = map[string]*RedisSearch{dbCode: cache}
 		} else {

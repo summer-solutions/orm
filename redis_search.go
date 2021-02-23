@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	apexLog "github.com/apex/log"
 
 	"github.com/go-redis/redis/v8"
@@ -16,12 +18,13 @@ const redisSearchIndexFieldText = "TEXT"
 const redisSearchIndexFieldNumeric = "NUMERIC"
 const redisSearchIndexFieldGeo = "GEO"
 const redisSearchIndexFieldTAG = "TAG"
+const redisSearchForceIndexKey = "_orm_force_index"
 
 type RedisSearch struct {
 	engine *Engine
 	ctx    context.Context
 	code   string
-	client *redis.Client
+	redis  *RedisCache
 }
 
 type RedisSearchIndex struct {
@@ -43,6 +46,7 @@ type RedisSearchIndex struct {
 	SkipInitialScan bool
 	StopWords       []string
 	Fields          []RedisSearchIndexField
+	Indexer         RedisSearchIndexerFunc
 }
 
 func (rs *RedisSearchIndex) AddTextField(name string, weight float64, sortable, noindex, nostem bool) {
@@ -322,6 +326,17 @@ func (q *RedisSearchQuery) SummarizeOptions(separator string, frags, len int) *R
 	return q
 }
 
+func (r *RedisSearch) ForceReindex(index string) {
+	def, has := r.engine.registry.redisSearchIndexes[r.code][index]
+	if !has {
+		panic(errors.Errorf("unknown index %s in pool %s", index, r.code))
+	}
+	if def.Indexer == nil {
+		panic(errors.Errorf("missing indexer for index %s in pool %s", index, r.code))
+	}
+	r.redis.HSet(redisSearchForceIndexKey, index, "0")
+}
+
 func (r *RedisSearch) SearchRaw(index string, query *RedisSearchQuery, pager *Pager) (total int64, rows []interface{}) {
 	return r.search(index, query, pager, false)
 }
@@ -467,7 +482,7 @@ func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager
 	}
 	cmd := redis.NewSliceCmd(r.ctx, args...)
 	start := time.Now()
-	err := r.client.Process(r.ctx, cmd)
+	err := r.redis.client.Process(r.ctx, cmd)
 	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS-SEARCH][FT.SEARCH]", start, "ft_search", 1,
 			map[string]interface{}{"Index": index, "args": args[2:]}, err)
@@ -557,7 +572,7 @@ func (r *RedisSearch) createIndexArgs(index *RedisSearchIndex) []interface{} {
 
 func (r *RedisSearch) aliasUpdate(name, index string) {
 	cmd := redis.NewStringCmd(r.ctx, "FT.ALIASUPDATE", name, index)
-	err := r.client.Process(r.ctx, cmd)
+	err := r.redis.client.Process(r.ctx, cmd)
 	checkError(err)
 }
 
@@ -566,7 +581,7 @@ func (r *RedisSearch) createIndex(index *RedisSearchIndex) string {
 	cmd := redis.NewStringCmd(r.ctx, args...)
 
 	start := time.Now()
-	err := r.client.Process(r.ctx, cmd)
+	err := r.redis.client.Process(r.ctx, cmd)
 	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS-SEARCH][FT.CREATE]", start, "ft_create", 1,
 			map[string]interface{}{"Index": index.Name}, err)
@@ -580,7 +595,7 @@ func (r *RedisSearch) createIndex(index *RedisSearchIndex) string {
 func (r *RedisSearch) listIndices() []string {
 	cmd := redis.NewStringSliceCmd(r.ctx, "FT._LIST")
 	start := time.Now()
-	err := r.client.Process(r.ctx, cmd)
+	err := r.redis.client.Process(r.ctx, cmd)
 	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS-SEARCH][FT.LIST]", start, "ft_list", 1, nil, err)
 	}
@@ -593,7 +608,7 @@ func (r *RedisSearch) listIndices() []string {
 func (r *RedisSearch) dropIndex(indexName string) string {
 	cmd := redis.NewStringCmd(r.ctx, "FT.DROPINDEX", indexName, "DD")
 	start := time.Now()
-	err := r.client.Process(r.ctx, cmd)
+	err := r.redis.client.Process(r.ctx, cmd)
 	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS-SEARCH][FT.DROPINDEX]", start, "ft_dropindex", 1,
 			apexLog.Fields{"Index": indexName}, err)
@@ -607,7 +622,7 @@ func (r *RedisSearch) dropIndex(indexName string) string {
 func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
 	cmd := redis.NewSliceCmd(r.ctx, "FT.INFO", indexName)
 	start := time.Now()
-	err := r.client.Process(r.ctx, cmd)
+	err := r.redis.client.Process(r.ctx, cmd)
 	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS-SEARCH][FT.INFO]", start, "ft_info", 1,
 			apexLog.Fields{"Index": indexName}, err)
