@@ -3,6 +3,7 @@ package orm
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -57,22 +58,45 @@ func (r *RedisSearchIndexer) consume(ctx context.Context) bool {
 					search.redis.HDel(redisSearchForceIndexKey, index)
 					continue
 				}
-				if stamp == "ok" {
+				if stamp[0:3] == "ok:" {
 					continue
 				}
-				id, _ := strconv.ParseUint(stamp, 10, 64)
+				parts := strings.Split(stamp, ":")
+				id, _ := strconv.ParseUint(parts[0], 10, 64)
+				indexID, _ := strconv.ParseUint(parts[1], 10, 64)
+				search.createIndex(def, indexID)
+				indexName := def.Name + ":" + strconv.FormatUint(indexID, 10)
+
 				pusher := &redisSearchIndexPusher{pipeline: search.redis.PipeLine()}
 				for {
 					if canceled {
 						return true
 					}
-					nextID, hasMore := def.Indexer(id, pusher)
-					if pusher.pipeline.commands > 0 {
-						pusher.pipeline.Exec()
-						pusher.pipeline = search.redis.PipeLine()
+					hasMore := false
+					nextID := uint64(0)
+					if def.Indexer != nil {
+						newID, hasNext := def.Indexer(id, pusher)
+						hasMore = hasNext
+						nextID = newID
+						if pusher.pipeline.commands > 0 {
+							pusher.pipeline.Exec()
+							pusher.pipeline = search.redis.PipeLine()
+						}
+						search.redis.HSet(redisSearchForceIndexKey, index, strconv.FormatUint(nextID, 10)+":"+parts[1])
 					}
+
 					if !hasMore {
-						search.redis.HSet(redisSearchForceIndexKey, index, "ok")
+						search.aliasUpdate(def.Name, indexName)
+						search.redis.HSet(redisSearchForceIndexKey, index, "ok:"+parts[1])
+						for _, oldName := range search.listIndices() {
+							if strings.HasPrefix(oldName, def.Name+":") {
+								parts := strings.Split(oldName, ":")
+								oldID, _ := strconv.ParseUint(parts[1], 10, 64)
+								if oldID < indexID {
+									search.dropIndex(oldName)
+								}
+							}
+						}
 						break
 					}
 					if nextID <= id {

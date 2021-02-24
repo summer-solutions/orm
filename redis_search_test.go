@@ -50,21 +50,13 @@ func TestRedisSearch(t *testing.T) {
 	assert.Len(t, alters, 2)
 
 	testLog.Entries = make([]*apexLog.Entry, 0)
-	search.ForceReindex("test")
-	indexer := NewRedisSearchIndexer(engine)
-	indexer.DisableLoop()
-	indexer.Run(context.Background())
-	assert.Len(t, testLog.Entries, 3)
-	indexer.Run(context.Background())
-	assert.Len(t, testLog.Entries, 4)
-
-	search.createIndex(&RedisSearchIndex{Name: "to_delete", RedisPool: "default"})
+	search.createIndex(&RedisSearchIndex{Name: "to_delete", RedisPool: "default"}, 100)
 
 	alters = engine.GetRedisSearchIndexAlters()
 	assert.Len(t, alters, 3)
 	assert.Equal(t, "default", alters[0].Pool)
-	assert.Equal(t, "FT.DROPINDEX to_delete DD", alters[0].Query)
-	assert.True(t, alters[0].Safe)
+	assert.Equal(t, "FT.DROPINDEX to_delete:100", alters[0].Query)
+	assert.False(t, alters[0].Executing)
 	alters[0].Execute()
 	alters = engine.GetRedisSearchIndexAlters()
 	assert.Len(t, alters, 2)
@@ -75,14 +67,17 @@ func TestRedisSearch(t *testing.T) {
 			assert.Equal(t, "FT.CREATE test ON HASH PREFIX 2 doc1: doc2: LANGUAGE_FIELD _my_language SCORE 0.8 SCORE_FIELD _my_score PAYLOAD_FIELD _my_payload MAXTEXTFIELDS NOOFFSETS NOHL NOFIELDS NOFREQS STOPWORDS 2 and in SCHEMA title TEXT WEIGHT 0.4 SORTABLE test TEXT NOSTEM NOINDEX age NUMERIC SORTABLE location GEO tags TAG SEPARATOR . SORTABLE", alter.Query)
 		}
 		assert.Equal(t, "default", alter.Pool)
-		assert.True(t, alter.Safe)
+		assert.False(t, alter.Executing)
 	}
 
 	alters[0].Execute()
 	alters[1].Execute()
 
 	alters = engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 0)
+	assert.Len(t, alters, 2)
+	assert.True(t, alters[0].Executing)
+	assert.True(t, alters[1].Executing)
+	return
 
 	info := search.info("test")
 	assert.Equal(t, "test", info.Name)
@@ -138,58 +133,79 @@ func TestRedisSearch(t *testing.T) {
 	assert.True(t, info.Fields[4].Sortable)
 	assert.Equal(t, ".", info.Fields[4].TagSeparator)
 
-	pipeline := engine.GetRedis().PipeLine()
-	for i := 1; i <= 1000; i++ {
-		pipeline.HSet("test2:"+strconv.Itoa(i), "title", "hello "+strconv.Itoa(i), "id", i)
+	testIndex2.Indexer = func(lastID uint64, pusher RedisSearchIndexPusher) (newID uint64, hasMore bool) {
+		for i := lastID + 1; i <= lastID+100; i++ {
+			id := strconv.Itoa(int(i))
+			pusher.NewDocument("test2:" + id)
+			pusher.SetField("title", "hello "+id)
+			pusher.SetField("id", i)
+			pusher.PushDocument()
+			newID = i
+		}
+		return newID, newID < 1000
 	}
-	pipeline.Exec()
+	search.ForceReindex("test2")
+	indexer := NewRedisSearchIndexer(engine)
+	indexer.Run(context.Background())
 
-	search.aliasUpdate("test2_alias", "test2")
-
-	testIndex3 := &RedisSearchIndex{Name: "test3", RedisPool: "default", Prefixes: []string{"test2:"}}
-	testIndex3.AddTextField("title", 1, true, false, false)
-	testIndex3.AddTextField("title2", 1, false, false, false)
-	testIndex3.AddNumericField("id", true, false)
-	testIndex3.AddNumericField("number_signed", false, false)
-	testIndex3.AddNumericField("number_float", true, false)
-	testIndex3.AddNumericField("sort_test", true, false)
-	testIndex3.AddGeoField("location", true, false)
-	testIndex3.AddTagField("status", true, false, ",")
-	testIndex3.LanguageField = "lang"
-	search.createIndex(testIndex3)
+	testIndex2.AddTextField("title", 1, true, false, false)
+	testIndex2.AddTextField("title2", 1, false, false, false)
+	testIndex2.AddNumericField("id", true, false)
+	testIndex2.AddNumericField("number_signed", false, false)
+	testIndex2.AddNumericField("number_float", true, false)
+	testIndex2.AddNumericField("sort_test", true, false)
+	testIndex2.AddGeoField("location", true, false)
+	testIndex2.AddTagField("status", true, false, ",")
+	testIndex2.LanguageField = "lang"
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 1)
+	alters[0].Execute()
 	time.Sleep(time.Millisecond * 100)
-	engine.GetRedis().HSet("test2:33", "number_signed", -10)
-	engine.GetRedis().HSet("test2:33", "number_float", 2.5)
-	engine.GetRedis().HSet("test2:33", "location", "52.2982648,17.0103596")
-	engine.GetRedis().HSet("test2:33", "sort_test", 30)
-	engine.GetRedis().HSet("test2:33", "title2", "hello 33 friend tom")
-	engine.GetRedis().HSet("test2:33", "status", "active,temporary")
-	engine.GetRedis().HSet("test2:34", "number_signed", 10)
-	engine.GetRedis().HSet("test2:34", "number_float", 7.34)
-	engine.GetRedis().HSet("test2:34", "location", "52.5248822,17.5681129")
-	engine.GetRedis().HSet("test2:34", "sort_test", 30)
-	engine.GetRedis().HSet("test2:34", "status", "inactive,temporary")
-	engine.GetRedis().HSet("test2:35", "number_signed", 5)
-	engine.GetRedis().HSet("test2:35", "number_float", 8.12)
-	engine.GetRedis().HSet("test2:35", "location", "52.2328546,20.9207698")
-	engine.GetRedis().HSet("test2:35", "sort_test", 20)
-	engine.GetRedis().HSet("test2:35", "status", "inactive")
 
-	search.aliasUpdate("test2_alias", "test3")
+	// TODO using indexer
+	testIndex2.Indexer = func(lastID uint64, pusher RedisSearchIndexPusher) (newID uint64, hasMore bool) {
+		pusher.NewDocument("test2:33")
+		pusher.SetField("number_signed", -10)
+		pusher.SetField("number_float", 2.5)
+		pusher.SetField("location", "52.2982648,17.0103596")
+		pusher.SetField("sort_test", 30)
+		pusher.SetField("title2", "hello 33 friend tom")
+		pusher.SetField("status", "active,temporary")
+		pusher.PushDocument()
+		pusher.NewDocument("test2:34")
+		pusher.SetField("number_signed", 10)
+		pusher.SetField("number_float", 7.34)
+		pusher.SetField("location", "52.5248822,17.5681129")
+		pusher.SetField("sort_test", 30)
+		pusher.SetField("status", "inactive,temporary")
+		pusher.PushDocument()
+		pusher.NewDocument("test2:35")
+		pusher.SetField("number_signed", 5)
+		pusher.SetField("number_float", 8.12)
+		pusher.SetField("location", "52.2328546,20.9207698")
+		pusher.SetField("sort_test", 20)
+		pusher.SetField("status", "inactive")
+		pusher.PushDocument()
+
+		return 0, false
+	}
+	search.ForceReindex("test2")
+	indexer.Run(context.Background())
+
 	query := &RedisSearchQuery{}
 	query.Query("hello").Verbatim().NoStopWords()
 
-	total, rowsRaw := search.SearchRaw("test2_alias", query, NewPager(1, 2))
+	total, rowsRaw := search.SearchRaw("test2", query, NewPager(1, 2))
 	assert.Len(t, rowsRaw, 4)
 	assert.Equal(t, int64(1000), total)
 
-	total, keys := search.SearchKeys("test2_alias", query, NewPager(1, 2))
+	total, keys := search.SearchKeys("test2", query, NewPager(1, 2))
 	assert.Len(t, keys, 2)
 	assert.Equal(t, int64(1000), total)
 	assert.Equal(t, "test2:35", keys[0])
 	assert.Equal(t, "test2:34", keys[1])
 
-	_, rows := search.Search("test2_alias", query, NewPager(1, 2))
+	_, rows := search.Search("test2", query, NewPager(1, 2))
 	assert.Len(t, rows, 2)
 	assert.Equal(t, "test2:35", rows[0].Key)
 	assert.Equal(t, "35", rows[0].Value("id"))
@@ -204,7 +220,7 @@ func TestRedisSearch(t *testing.T) {
 	assert.Equal(t, "52.5248822,17.5681129", rows[1].Value("location"))
 
 	query.WithScores().WithPayLoads()
-	_, rows = search.Search("test2_alias", query, NewPager(1, 2))
+	_, rows = search.Search("test2", query, NewPager(1, 2))
 	assert.Len(t, rows, 2)
 	assert.Equal(t, "test2:35", rows[0].Key)
 	assert.Equal(t, "test2:34", rows[1].Key)
@@ -214,14 +230,14 @@ func TestRedisSearch(t *testing.T) {
 	//engine.EnableQueryDebug()
 	query = &RedisSearchQuery{}
 	query.FilterInt("id", 34, 34)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 2))
+	total, rows = search.Search("test2", query, NewPager(1, 2))
 	assert.Equal(t, int64(1), total)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, "test2:34", rows[0].Key)
 
 	query = &RedisSearchQuery{}
 	query.FilterInt("id", 33, 35).FilterInt("number_signed", -10, 5)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 2))
+	total, rows = search.Search("test2", query, NewPager(1, 2))
 	assert.Equal(t, int64(2), total)
 	assert.Len(t, rows, 2)
 	assert.Equal(t, "test2:35", rows[0].Key)
@@ -229,14 +245,14 @@ func TestRedisSearch(t *testing.T) {
 
 	query = &RedisSearchQuery{}
 	query.FilterFloat("number_float", 7.33, 7.35)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 2))
+	total, rows = search.Search("test2", query, NewPager(1, 2))
 	assert.Equal(t, int64(1), total)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, "test2:34", rows[0].Key)
 
 	query = &RedisSearchQuery{}
 	query.FilterGeo("location", 52.2982648, 17.0103596, 75, "km")
-	total, rows = search.Search("test2_alias", query, NewPager(1, 2))
+	total, rows = search.Search("test2", query, NewPager(1, 2))
 	assert.Equal(t, int64(2), total)
 	assert.Len(t, rows, 2)
 	assert.Equal(t, "test2:34", rows[0].Key)
@@ -244,7 +260,7 @@ func TestRedisSearch(t *testing.T) {
 
 	query = &RedisSearchQuery{}
 	query.FilterInt("id", 1, 100).Sort("id", false)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 3))
+	total, rows = search.Search("test2", query, NewPager(1, 3))
 	assert.Equal(t, int64(100), total)
 	assert.Len(t, rows, 3)
 	assert.Equal(t, "test2:1", rows[0].Key)
@@ -253,7 +269,7 @@ func TestRedisSearch(t *testing.T) {
 
 	query = &RedisSearchQuery{}
 	query.FilterInt("id", 1, 100).Sort("id", true)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 3))
+	total, rows = search.Search("test2", query, NewPager(1, 3))
 	assert.Equal(t, int64(100), total)
 	assert.Len(t, rows, 3)
 	assert.Equal(t, "test2:100", rows[0].Key)
@@ -262,7 +278,7 @@ func TestRedisSearch(t *testing.T) {
 
 	query.InKeys("test2:100", "test2:98")
 	query.FilterInt("id", 1, 100).Sort("id", true)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 3))
+	total, rows = search.Search("test2", query, NewPager(1, 3))
 	assert.Equal(t, int64(2), total)
 	assert.Len(t, rows, 2)
 	assert.Equal(t, "test2:100", rows[0].Key)
@@ -270,7 +286,7 @@ func TestRedisSearch(t *testing.T) {
 
 	query = &RedisSearchQuery{}
 	query.Query("hello").InFields("title2").Return("id", "title2")
-	total, rows = search.Search("test2_alias", query, NewPager(1, 3))
+	total, rows = search.Search("test2", query, NewPager(1, 3))
 	assert.Equal(t, int64(1), total)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, "test2:33", rows[0].Key)
@@ -282,58 +298,58 @@ func TestRedisSearch(t *testing.T) {
 
 	query = &RedisSearchQuery{}
 	query.Query("hello tom").WithScores().ExplainScore()
-	total, rows = search.Search("test2_alias", query, NewPager(1, 3))
+	total, rows = search.Search("test2", query, NewPager(1, 3))
 	assert.Equal(t, int64(1), total)
 	assert.GreaterOrEqual(t, rows[0].Score, 1.33)
 	assert.NotNil(t, rows[0].ExplainScore)
 	assert.Equal(t, "test2:33", rows[0].Key)
 	query.Slop(0)
-	total, _ = search.Search("test2_alias", query, NewPager(1, 3))
+	total, _ = search.Search("test2", query, NewPager(1, 3))
 	assert.Equal(t, int64(0), total)
 
 	query = &RedisSearchQuery{}
 	query.Query("tom hello")
-	total, _ = search.Search("test2_alias", query, NewPager(1, 3))
+	total, _ = search.Search("test2", query, NewPager(1, 3))
 	assert.Equal(t, int64(1), total)
 	query.InOrder()
-	total, _ = search.Search("test2_alias", query, NewPager(1, 3))
+	total, _ = search.Search("test2", query, NewPager(1, 3))
 	assert.Equal(t, int64(0), total)
 
 	query = &RedisSearchQuery{}
 	query.Query("hello").Lang("german")
-	total, _ = search.Search("test2_alias", query, NewPager(1, 3))
+	total, _ = search.Search("test2", query, NewPager(1, 3))
 	assert.Equal(t, int64(1000), total)
 
 	query = &RedisSearchQuery{}
 	query.Query("hello").Highlight("title").HighlightTags("<strong>", "</strong>").FilterInt("id", 33, 33)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 1))
+	total, rows = search.Search("test2", query, NewPager(1, 1))
 	assert.Equal(t, int64(1), total)
 	assert.Equal(t, "<strong>hello</strong> 33", rows[0].Value("title"))
 	assert.Equal(t, "hello 33 friend tom", rows[0].Value("title2"))
 
 	query = &RedisSearchQuery{}
 	query.Query("hello tom").Highlight().FilterInt("id", 33, 33)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 1))
+	total, rows = search.Search("test2", query, NewPager(1, 1))
 	assert.Equal(t, int64(1), total)
 	assert.Equal(t, "<b>hello</b> 33", rows[0].Value("title"))
 	assert.Equal(t, "<b>hello</b> 33 friend <b>tom</b>", rows[0].Value("title2"))
 
 	query = &RedisSearchQuery{}
 	query.Query("hello tom").Summarize("title2").FilterInt("id", 33, 33)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 1))
+	total, rows = search.Search("test2", query, NewPager(1, 1))
 	assert.Equal(t, int64(1), total)
 	assert.Equal(t, "hello 33", rows[0].Value("title"))
 	assert.Equal(t, "hello 33 friend tom... ", rows[0].Value("title2"))
 
 	query.Query("hello tom").SummarizeOptions("...", 1, 2)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 1))
+	total, rows = search.Search("test2", query, NewPager(1, 1))
 	assert.Equal(t, int64(1), total)
 	assert.Equal(t, "hello 33", rows[0].Value("title"))
 	assert.Equal(t, "hello 33 friend tom...", rows[0].Value("title2"))
 
 	query = &RedisSearchQuery{}
 	query.Query("@status: {temporary}").Sort("id", false)
-	total, rows = search.Search("test2_alias", query, NewPager(1, 10))
+	total, rows = search.Search("test2", query, NewPager(1, 10))
 	assert.Equal(t, int64(2), total)
 	assert.Equal(t, "33", rows[0].Value("id"))
 	assert.Equal(t, "34", rows[1].Value("id"))

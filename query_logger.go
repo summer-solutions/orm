@@ -218,7 +218,6 @@ func injectError(e *apexLox.Entry, span tracer.Span) {
 	if err != nil {
 		span.SetTag(ext.Error, 1)
 		span.SetTag(ext.ErrorMsg, err)
-		span.SetTag(ext.ErrorDetails, strings.ReplaceAll(e.Fields.Get("stack_full").(string), "\\n", "\n"))
 		span.SetTag(ext.ErrorStack, strings.ReplaceAll(e.Fields.Get("stack").(string), "\\n", "\n"))
 		span.SetTag(ext.ErrorType, e.Fields.Get("error_type"))
 	}
