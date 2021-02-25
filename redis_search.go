@@ -104,6 +104,7 @@ type RedisSearchIndexAlter struct {
 	Query     string
 	Executing bool
 	Documents uint64
+	Changes   []string
 	Pool      string
 	Execute   func()
 }
@@ -812,11 +813,22 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 			if len(stopWords) == 0 {
 				stopWords = nil
 			}
-			different := !reflect.DeepEqual(info.StopWords, stopWords)
-			different = different || len(info.Fields) != len(def.Fields)
-			// TODO alter
-			if different {
-				alters = append(alters, search.addAlter(def, name, info.NumDocs))
+			changes := make([]string, 0)
+			if !reflect.DeepEqual(info.StopWords, stopWords) {
+				changes = append(changes, "new stop words")
+			}
+			if len(info.Fields) != len(def.Fields) {
+				changes = append(changes, "different fields")
+			}
+			languageField := def.LanguageField
+			if languageField == "" {
+				languageField = "__language"
+			}
+			if info.Definition.LanguageField != languageField {
+				changes = append(changes, "different language field")
+			}
+			if len(changes) > 0 {
+				alters = append(alters, search.addAlter(def, name, info.NumDocs, changes))
 			}
 		}
 		for name, index := range engine.registry.redisSearchIndexes[poolName] {
@@ -824,16 +836,16 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 			if has {
 				continue
 			}
-			alters = append(alters, search.addAlter(index, name, 0))
+			alters = append(alters, search.addAlter(index, name, 0, []string{"new document"}))
 		}
 	}
 	return alters
 }
 
-func (r *RedisSearch) addAlter(index *RedisSearchIndex, name string, documents uint64) RedisSearchIndexAlter {
+func (r *RedisSearch) addAlter(index *RedisSearchIndex, name string, documents uint64, changes []string) RedisSearchIndexAlter {
 	query := fmt.Sprintf("%v", r.createIndexArgs(index, index.Name))[1:]
 	query = query[0 : len(query)-1]
-	alter := RedisSearchIndexAlter{Pool: r.code, Query: query, search: r}
+	alter := RedisSearchIndexAlter{Pool: r.code, Query: query, Changes: changes, search: r}
 	_, indexing := r.redis.HGet(redisSearchForceIndexKey, name)
 	if !indexing {
 		indexToAdd := index

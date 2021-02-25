@@ -54,7 +54,7 @@ func (r *RedisSearchIndexer) consume(ctx context.Context) bool {
 					return true
 				}
 				def, has := defs[index]
-				if !has || def.Indexer == nil {
+				if !has {
 					search.redis.HDel(redisSearchForceIndexKey, index)
 					continue
 				}

@@ -36,6 +36,8 @@ func TestRedisSearch(t *testing.T) {
 	testIndex2 := &RedisSearchIndex{Name: "test2", RedisPool: "default", Prefixes: []string{"test2:"}}
 	testIndex2.AddTextField("title", 1, true, false, false)
 	registry.RegisterRedisSearchIndex(testIndex2)
+	defaultIndex := &RedisSearchIndex{Name: "default", RedisPool: "default"}
+	registry.RegisterRedisSearchIndex(defaultIndex)
 	validatedRegistry, err := registry.Validate()
 	assert.NoError(t, err)
 	engine := validatedRegistry.CreateEngine()
@@ -47,22 +49,24 @@ func TestRedisSearch(t *testing.T) {
 	search := engine.GetRedisSearch()
 	assert.NotNil(t, search)
 	alters := engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 2)
+	assert.Len(t, alters, 3)
 
 	testLog.Entries = make([]*apexLog.Entry, 0)
 	search.createIndex(&RedisSearchIndex{Name: "to_delete", RedisPool: "default"}, 100)
 
 	alters = engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 3)
+	assert.Len(t, alters, 4)
 	assert.Equal(t, "default", alters[0].Pool)
 	assert.Equal(t, "FT.DROPINDEX to_delete:100", alters[0].Query)
 	assert.False(t, alters[0].Executing)
 	alters[0].Execute()
 	alters = engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 2)
+	assert.Len(t, alters, 3)
 	for _, alter := range alters {
 		if strings.Contains(alter.Query, "test2") {
 			assert.Equal(t, "FT.CREATE test2 ON HASH PREFIX 1 test2: SCHEMA title TEXT SORTABLE", alter.Query)
+		} else if strings.Contains(alter.Query, "default") {
+			assert.Equal(t, "FT.CREATE default ON HASH PREFIX 0 SCHEMA", alter.Query)
 		} else {
 			assert.Equal(t, "FT.CREATE test ON HASH PREFIX 2 doc1: doc2: LANGUAGE_FIELD _my_language SCORE 0.8 SCORE_FIELD _my_score PAYLOAD_FIELD _my_payload MAXTEXTFIELDS NOOFFSETS NOHL NOFIELDS NOFREQS STOPWORDS 2 and in SCHEMA title TEXT WEIGHT 0.4 SORTABLE test TEXT NOSTEM NOINDEX age NUMERIC SORTABLE location GEO tags TAG SEPARATOR . SORTABLE", alter.Query)
 		}
@@ -72,11 +76,13 @@ func TestRedisSearch(t *testing.T) {
 
 	alters[0].Execute()
 	alters[1].Execute()
+	alters[2].Execute()
 
 	alters = engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 2)
+	assert.Len(t, alters, 3)
 	assert.True(t, alters[0].Executing)
 	assert.True(t, alters[1].Executing)
+	assert.True(t, alters[2].Executing)
 
 	indexer := NewRedisSearchIndexer(engine)
 	indexer.DisableLoop()
@@ -163,7 +169,6 @@ func TestRedisSearch(t *testing.T) {
 	alters[0].Execute()
 	time.Sleep(time.Millisecond * 100)
 
-	// TODO using indexer
 	testIndex2.Indexer = func(lastID uint64, pusher RedisSearchIndexPusher) (newID uint64, hasMore bool) {
 		pusher.NewDocument("test2:33")
 		pusher.SetField("number_signed", -10)
@@ -359,11 +364,22 @@ func TestRedisSearch(t *testing.T) {
 
 	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
 	testIndex2.StopWords = []string{"bb"}
-	assert.Len(t, engine.GetRedisSearchIndexAlters(), 1)
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 1)
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "new stop words", alters[0].Changes[0])
 	testIndex2.StopWords = nil
 	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
 	testIndex2.StopWords = []string{}
 	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
-
-	search.dropIndex("test2", true)
+	testIndex2.LanguageField = "_my_lang"
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 1)
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different language field", alters[0].Changes[0])
+	testIndex2.LanguageField = "lang"
+	defaultIndex.LanguageField = ""
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.LanguageField = "__language"
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
 }
