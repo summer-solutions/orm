@@ -498,10 +498,3 @@ func (e *Engine) GetRedisSearchIndexAlters() (alters []RedisSearchIndexAlter) {
 func (e *Engine) GetElasticIndexAlters() (alters []ElasticIndexAlter) {
 	return getElasticIndexAlters(e)
 }
-
-func (e *Engine) reportError(err interface{}) {
-	e.Log().Error(err, nil)
-	if e.dataDog != nil {
-		e.dataDog.RegisterAPMError(err)
-	}
-}

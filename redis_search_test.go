@@ -77,10 +77,13 @@ func TestRedisSearch(t *testing.T) {
 	assert.Len(t, alters, 2)
 	assert.True(t, alters[0].Executing)
 	assert.True(t, alters[1].Executing)
-	return
+
+	indexer := NewRedisSearchIndexer(engine)
+	indexer.DisableLoop()
+	indexer.Run(context.Background())
 
 	info := search.info("test")
-	assert.Equal(t, "test", info.Name)
+	assert.True(t, strings.HasPrefix(info.Name, "test:"))
 	assert.Equal(t, "_my_payload", info.Definition.PayloadField)
 	assert.Equal(t, "_my_score", info.Definition.ScoreField)
 	assert.Equal(t, "_my_language", info.Definition.LanguageField)
@@ -145,10 +148,8 @@ func TestRedisSearch(t *testing.T) {
 		return newID, newID < 1000
 	}
 	search.ForceReindex("test2")
-	indexer := NewRedisSearchIndexer(engine)
 	indexer.Run(context.Background())
 
-	testIndex2.AddTextField("title", 1, true, false, false)
 	testIndex2.AddTextField("title2", 1, false, false, false)
 	testIndex2.AddNumericField("id", true, false)
 	testIndex2.AddNumericField("number_signed", false, false)
@@ -191,9 +192,10 @@ func TestRedisSearch(t *testing.T) {
 	}
 	search.ForceReindex("test2")
 	indexer.Run(context.Background())
+	time.Sleep(time.Millisecond * 100)
 
 	query := &RedisSearchQuery{}
-	query.Query("hello").Verbatim().NoStopWords()
+	query.Query("hello").Verbatim().NoStopWords().Sort("id", false)
 
 	total, rowsRaw := search.SearchRaw("test2", query, NewPager(1, 2))
 	assert.Len(t, rowsRaw, 4)
@@ -202,30 +204,31 @@ func TestRedisSearch(t *testing.T) {
 	total, keys := search.SearchKeys("test2", query, NewPager(1, 2))
 	assert.Len(t, keys, 2)
 	assert.Equal(t, int64(1000), total)
-	assert.Equal(t, "test2:35", keys[0])
-	assert.Equal(t, "test2:34", keys[1])
+	assert.Equal(t, "test2:1", keys[0])
+	assert.Equal(t, "test2:2", keys[1])
 
+	query.FilterInt("id", 34, 35)
 	_, rows := search.Search("test2", query, NewPager(1, 2))
 	assert.Len(t, rows, 2)
-	assert.Equal(t, "test2:35", rows[0].Key)
-	assert.Equal(t, "35", rows[0].Value("id"))
-	assert.Equal(t, "5", rows[0].Value("number_signed"))
-	assert.Equal(t, "8.12", rows[0].Value("number_float"))
-	assert.Equal(t, "52.2328546,20.9207698", rows[0].Value("location"))
-	assert.Equal(t, "test2:34", rows[1].Key)
-	assert.Equal(t, "hello 34", rows[1].Value("title"))
-	assert.Equal(t, "34", rows[1].Value("id"))
-	assert.Equal(t, "10", rows[1].Value("number_signed"))
-	assert.Equal(t, "7.34", rows[1].Value("number_float"))
-	assert.Equal(t, "52.5248822,17.5681129", rows[1].Value("location"))
+	assert.Equal(t, "test2:34", rows[0].Key)
+	assert.Equal(t, "hello 34", rows[0].Value("title"))
+	assert.Equal(t, "34", rows[0].Value("id"))
+	assert.Equal(t, "10", rows[0].Value("number_signed"))
+	assert.Equal(t, "7.34", rows[0].Value("number_float"))
+	assert.Equal(t, "52.5248822,17.5681129", rows[0].Value("location"))
+	assert.Equal(t, "test2:35", rows[1].Key)
+	assert.Equal(t, "35", rows[1].Value("id"))
+	assert.Equal(t, "5", rows[1].Value("number_signed"))
+	assert.Equal(t, "8.12", rows[1].Value("number_float"))
+	assert.Equal(t, "52.2328546,20.9207698", rows[1].Value("location"))
 
 	query.WithScores().WithPayLoads()
 	_, rows = search.Search("test2", query, NewPager(1, 2))
 	assert.Len(t, rows, 2)
-	assert.Equal(t, "test2:35", rows[0].Key)
-	assert.Equal(t, "test2:34", rows[1].Key)
-	assert.Equal(t, "hello 35", rows[0].Value("title"))
-	assert.Equal(t, "hello 34", rows[1].Value("title"))
+	assert.Equal(t, "test2:34", rows[0].Key)
+	assert.Equal(t, "test2:35", rows[1].Key)
+	assert.Equal(t, "hello 34", rows[0].Value("title"))
+	assert.Equal(t, "hello 35", rows[1].Value("title"))
 
 	//engine.EnableQueryDebug()
 	query = &RedisSearchQuery{}
@@ -354,5 +357,13 @@ func TestRedisSearch(t *testing.T) {
 	assert.Equal(t, "33", rows[0].Value("id"))
 	assert.Equal(t, "34", rows[1].Value("id"))
 
-	search.dropIndex("test2")
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	testIndex2.StopWords = []string{"bb"}
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 1)
+	testIndex2.StopWords = nil
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	testIndex2.StopWords = []string{}
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+
+	search.dropIndex("test2", true)
 }

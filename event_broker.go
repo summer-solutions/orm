@@ -571,80 +571,73 @@ func (r *eventsConsumer) incrementID(id string) string {
 
 func (r *eventsConsumer) garbageCollector(engine *Engine, force bool) {
 	redisGarbage := engine.GetRedis(r.redis.code)
-	func() {
-		if !force {
-			r.consumedMutex.Lock()
-			if r.consumed == 0 {
-				r.consumedMutex.Unlock()
-				return
-			}
-			r.consumed = 0
+	if !force {
+		r.consumedMutex.Lock()
+		if r.consumed == 0 {
 			r.consumedMutex.Unlock()
+			return
 		}
-		defer func() {
-			if rec := recover(); rec != nil {
-				engine.reportError(rec)
-			}
-		}()
-
-		def := engine.registry.redisStreamGroups[redisGarbage.code]
-		for _, stream := range r.streams {
-			info := redisGarbage.XInfoGroups(stream)
-			ids := make(map[string][]int64)
-			for name := range def[stream] {
-				ids[name] = []int64{0, 0}
-			}
-			inPending := false
-			for _, group := range info {
-				_, has := ids[group.Name]
-				if !has {
-					engine.log.Warn("not registered stream group "+group.Name+" in stream"+stream, nil)
-					continue
-				}
-				if group.LastDeliveredID == "" {
-					continue
-				}
-				lastDelivered := group.LastDeliveredID
-				pending := redisGarbage.XPending(stream, group.Name)
-				if pending.Lower != "" {
-					lastDelivered = pending.Lower
-					inPending = true
-				}
-				s := strings.Split(lastDelivered, "-")
-				id, _ := strconv.ParseInt(s[0], 10, 64)
-				ids[group.Name][0] = id
-				counter, _ := strconv.ParseInt(s[1], 10, 64)
-				ids[group.Name][1] = counter
-			}
-			minID := []int64{-1, 0}
-			for _, id := range ids {
-				if id[0] == 0 {
-					minID[0] = 0
-					minID[1] = 0
-				} else if minID[0] == -1 || id[0] < minID[0] || (id[0] == minID[0] && id[1] < minID[1]) {
-					minID[0] = id[0]
-					minID[1] = id[1]
-				}
-			}
-			if minID[0] == 0 {
+		r.consumed = 0
+		r.consumedMutex.Unlock()
+	}
+	def := engine.registry.redisStreamGroups[redisGarbage.code]
+	for _, stream := range r.streams {
+		info := redisGarbage.XInfoGroups(stream)
+		ids := make(map[string][]int64)
+		for name := range def[stream] {
+			ids[name] = []int64{0, 0}
+		}
+		inPending := false
+		for _, group := range info {
+			_, has := ids[group.Name]
+			if !has {
+				engine.log.Warn("not registered stream group "+group.Name+" in stream"+stream, nil)
 				continue
 			}
-			// TODO check of redis 6.2 and use trim with minid
-			var end string
-			if inPending {
-				if minID[1] > 0 {
-					end = strconv.FormatInt(minID[0], 10) + "-" + strconv.FormatInt(minID[1]-1, 10)
-				} else {
-					end = strconv.FormatInt(minID[0]-1, 10)
-				}
-			} else {
-				end = strconv.FormatInt(minID[0], 10) + "-" + strconv.FormatInt(minID[1], 10)
+			if group.LastDeliveredID == "" {
+				continue
 			}
+			lastDelivered := group.LastDeliveredID
+			pending := redisGarbage.XPending(stream, group.Name)
+			if pending.Lower != "" {
+				lastDelivered = pending.Lower
+				inPending = true
+			}
+			s := strings.Split(lastDelivered, "-")
+			id, _ := strconv.ParseInt(s[0], 10, 64)
+			ids[group.Name][0] = id
+			counter, _ := strconv.ParseInt(s[1], 10, 64)
+			ids[group.Name][1] = counter
+		}
+		minID := []int64{-1, 0}
+		for _, id := range ids {
+			if id[0] == 0 {
+				minID[0] = 0
+				minID[1] = 0
+			} else if minID[0] == -1 || id[0] < minID[0] || (id[0] == minID[0] && id[1] < minID[1]) {
+				minID[0] = id[0]
+				minID[1] = id[1]
+			}
+		}
+		if minID[0] == 0 {
+			continue
+		}
+		// TODO check of redis 6.2 and use trim with minid
+		var end string
+		if inPending {
+			if minID[1] > 0 {
+				end = strconv.FormatInt(minID[0], 10) + "-" + strconv.FormatInt(minID[1]-1, 10)
+			} else {
+				end = strconv.FormatInt(minID[0]-1, 10)
+			}
+		} else {
+			end = strconv.FormatInt(minID[0], 10) + "-" + strconv.FormatInt(minID[1], 10)
+		}
 
-			if r.garbageCollectorSha1 == "" {
-				sha1, has := redisGarbage.Get("_orm_gc_sha1")
-				if !has {
-					script := `
+		if r.garbageCollectorSha1 == "" {
+			sha1, has := redisGarbage.Get("_orm_gc_sha1")
+			if !has {
+				script := `
 						local count = 0
 						local all = 0
 						while(true)
@@ -668,19 +661,18 @@ func (r *eventsConsumer) garbageCollector(engine *Engine, force bool) {
 						end
 						return all
 						`
-					r.garbageCollectorSha1 = redisGarbage.ScriptLoad(script)
-					redisGarbage.Set("_orm_gc_sha1", r.garbageCollectorSha1, 604800)
-				} else {
-					r.garbageCollectorSha1 = sha1
-				}
-			}
-
-			for {
-				res := redisGarbage.EvalSha(r.garbageCollectorSha1, []string{stream}, end)
-				if res == int64(1) {
-					break
-				}
+				r.garbageCollectorSha1 = redisGarbage.ScriptLoad(script)
+				redisGarbage.Set("_orm_gc_sha1", r.garbageCollectorSha1, 604800)
+			} else {
+				r.garbageCollectorSha1 = sha1
 			}
 		}
-	}()
+
+		for {
+			res := redisGarbage.EvalSha(r.garbageCollectorSha1, []string{stream}, end)
+			if res == int64(1) {
+				break
+			}
+		}
+	}
 }

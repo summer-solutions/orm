@@ -75,8 +75,7 @@ func (r *AsyncConsumer) handleLog(event Event) {
 	var value LogQueueValue
 	err := event.Unserialize(&value)
 	if err != nil {
-		r.engine.reportError(err)
-		return
+		panic(err)
 	}
 	poolDB := r.engine.GetMysql(value.PoolName)
 	/* #nosec */
@@ -110,8 +109,7 @@ func (r *AsyncConsumer) handleLazy(event Event) {
 	var data map[string]interface{}
 	err := event.Unserialize(&data)
 	if err != nil {
-		r.engine.reportError(err)
-		return
+		panic(err)
 	}
 	ids := r.handleQueries(r.engine, data)
 	r.handleClearCache(data, "cl", ids)
@@ -129,19 +127,12 @@ func (r *AsyncConsumer) handleQueries(engine *Engine, validMap map[string]interf
 		db := engine.GetMysql(code)
 		sql := validInsert[1].(string)
 		attributes := validInsert[2].([]interface{})
-		func() {
-			defer func() {
-				if rec := recover(); rec != nil {
-					r.engine.reportError(rec)
-				}
-			}()
-			res := db.Exec(sql, attributes...)
-			if sql[0:11] == "INSERT INTO" {
-				ids[i] = res.LastInsertId()
-			} else {
-				ids[i] = 0
-			}
-		}()
+		res := db.Exec(sql, attributes...)
+		if sql[0:11] == "INSERT INTO" {
+			ids[i] = res.LastInsertId()
+		} else {
+			ids[i] = 0
+		}
 	}
 	return ids
 }

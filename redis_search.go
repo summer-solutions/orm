@@ -3,6 +3,7 @@ package orm
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -332,7 +333,7 @@ func (r *RedisSearch) ForceReindex(index string) {
 	if !has {
 		panic(errors.Errorf("unknown index %s in pool %s", index, r.code))
 	}
-	r.redis.HSet(redisSearchForceIndexKey, index, "0:"+strconv.FormatInt(time.Now().Unix(), 10))
+	r.redis.HSet(redisSearchForceIndexKey, index, "0:"+strconv.FormatInt(time.Now().UnixNano(), 10))
 }
 
 func (r *RedisSearch) SearchRaw(index string, query *RedisSearchQuery, pager *Pager) (total int64, rows []interface{}) {
@@ -601,13 +602,17 @@ func (r *RedisSearch) listIndices() []string {
 	return res
 }
 
-func (r *RedisSearch) dropIndex(indexName string) string {
-	cmd := redis.NewStringCmd(r.ctx, "FT.DROPINDEX", indexName, "DD")
+func (r *RedisSearch) dropIndex(indexName string, withHashes bool) string {
+	args := []interface{}{"FT.DROPINDEX", indexName}
+	if withHashes {
+		args = append(args, "DD")
+	}
+	cmd := redis.NewStringCmd(r.ctx, args...)
 	start := time.Now()
 	err := r.redis.client.Process(r.ctx, cmd)
 	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS-SEARCH][FT.DROPINDEX]", start, "ft_dropindex", 1,
-			apexLog.Fields{"Index": indexName}, err)
+			apexLog.Fields{"Index": indexName, "hashes": withHashes}, err)
 	}
 	checkError(err)
 	res, err := cmd.Result()
@@ -785,8 +790,8 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 			}
 			groupedList[parts[0]] = append(groupedList[parts[0]], id)
 		}
-		for name := range grouped {
-			_, has := engine.registry.redisSearchIndexes[poolName][name]
+		for name, lastID := range grouped {
+			def, has := engine.registry.redisSearchIndexes[poolName][name]
 			if !has {
 				for _, id := range groupedList[name] {
 					indexName := name + ":" + strconv.FormatInt(id, 10)
@@ -794,7 +799,7 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 					alter := RedisSearchIndexAlter{Pool: poolName, Query: query, search: search}
 					nameToRemove := indexName
 					alter.Execute = func() {
-						alter.search.dropIndex(nameToRemove)
+						alter.search.dropIndex(nameToRemove, false)
 					}
 					alter.Documents = search.info(indexName).NumDocs
 					alters = append(alters, alter)
@@ -802,29 +807,45 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 				continue
 			}
 			inRedis[name] = true
+			info := search.info(name + ":" + strconv.FormatInt(lastID, 10))
+			stopWords := def.StopWords
+			if len(stopWords) == 0 {
+				stopWords = nil
+			}
+			different := !reflect.DeepEqual(info.StopWords, stopWords)
+			different = different || len(info.Fields) != len(def.Fields)
 			// TODO alter
+			if different {
+				alters = append(alters, search.addAlter(def, name, info.NumDocs))
+			}
 		}
 		for name, index := range engine.registry.redisSearchIndexes[poolName] {
 			_, has := inRedis[name]
 			if has {
 				continue
 			}
-			query := fmt.Sprintf("%v", search.createIndexArgs(index, index.Name))[1:]
-			query = query[0 : len(query)-1]
-			alter := RedisSearchIndexAlter{Pool: poolName, Query: query, search: search}
-			_, indexing := search.redis.HGet(redisSearchForceIndexKey, name)
-			if !indexing {
-				indexToAdd := index
-				alter.Execute = func() {
-					alter.search.ForceReindex(indexToAdd.Name)
-				}
-			} else {
-				alter.Executing = true
-			}
-			alters = append(alters, alter)
+			alters = append(alters, search.addAlter(index, name, 0))
 		}
 	}
 	return alters
+}
+
+func (r *RedisSearch) addAlter(index *RedisSearchIndex, name string, documents uint64) RedisSearchIndexAlter {
+	query := fmt.Sprintf("%v", r.createIndexArgs(index, index.Name))[1:]
+	query = query[0 : len(query)-1]
+	alter := RedisSearchIndexAlter{Pool: r.code, Query: query, search: r}
+	_, indexing := r.redis.HGet(redisSearchForceIndexKey, name)
+	if !indexing {
+		indexToAdd := index
+		alter.Execute = func() {
+			alter.search.ForceReindex(indexToAdd.Name)
+		}
+	} else {
+		alter.Executing = true
+		alter.Execute = func() {}
+	}
+	alter.Documents = documents
+	return alter
 }
 
 func (r *RedisSearch) fillLogFields(message string, start time.Time, operation string, keys int, fields apexLog.Fields, err error) {

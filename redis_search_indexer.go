@@ -93,7 +93,7 @@ func (r *RedisSearchIndexer) consume(ctx context.Context) bool {
 								parts := strings.Split(oldName, ":")
 								oldID, _ := strconv.ParseUint(parts[1], 10, 64)
 								if oldID < indexID {
-									search.dropIndex(oldName)
+									search.dropIndex(oldName, false)
 								}
 							}
 						}
