@@ -83,22 +83,6 @@ func TestLazyReceiver(t *testing.T) {
 	assert.Equal(t, "Tom", e.Name)
 
 	e = &lazyReceiverEntity{Name: "Tom"}
-	engine.FlushLazy(e)
-
-	validHeartBeat = false
-	receiver.SetHeartBeat(time.Minute, func() {
-		validHeartBeat = true
-	})
-	receiver.Digest(context.Background(), 100)
-	assert.True(t, validHeartBeat)
-
-	e = &lazyReceiverEntity{Name: "Adam", EnumNullable: "wrong"}
-	engine.FlushLazy(e)
-
-	assert.NotPanics(t, func() {
-		receiver.Digest(context.Background(), 100)
-	})
-	e = &lazyReceiverEntity{Name: "Tom"}
 	e.SetOnDuplicateKeyUpdate(map[string]interface{}{"Age": 38})
 	assert.PanicsWithError(t, "lazy flush on duplicate key is not supported", func() {
 		engine.FlushLazy(e)
