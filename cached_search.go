@@ -126,6 +126,10 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 					sliceEnd = total
 				}
 				l := len(results)
+				if l == 0 {
+					cacheFields[page] = total
+					continue
+				}
 				if sliceEnd > l {
 					sliceEnd = l
 				}
