@@ -98,26 +98,10 @@ func TestRedisSearch(t *testing.T) {
 	assert.Equal(t, "doc1:", info.Definition.Prefixes[0])
 	assert.Equal(t, "doc2:", info.Definition.Prefixes[1])
 	assert.Equal(t, []string{"and", "in"}, info.StopWords)
-	hasMaxTextFields := false
-	hasNoOffsets := false
-	hasNoFields := false
-	hasNoFreqs := false
-	for _, val := range info.Options {
-		switch val {
-		case "MAXTEXTFIELDS":
-			hasMaxTextFields = true
-		case "NOOFFSETS":
-			hasNoOffsets = true
-		case "NOFIELDS":
-			hasNoFields = true
-		case "NOFREQS":
-			hasNoFreqs = true
-		}
-	}
-	assert.True(t, hasMaxTextFields)
-	assert.True(t, hasNoOffsets)
-	assert.True(t, hasNoFields)
-	assert.True(t, hasNoFreqs)
+	assert.True(t, info.Options.MaxTextFields)
+	assert.True(t, info.Options.NoOffsets)
+	assert.True(t, info.Options.NoFields)
+	assert.True(t, info.Options.NoFreqs)
 	assert.Len(t, info.Fields, 5)
 	assert.Equal(t, "title", info.Fields[0].Name)
 	assert.Equal(t, "TEXT", info.Fields[0].Type)
@@ -363,23 +347,82 @@ func TestRedisSearch(t *testing.T) {
 	assert.Equal(t, "34", rows[1].Value("id"))
 
 	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
-	testIndex2.StopWords = []string{"bb"}
+	defaultIndex.StopWords = []string{"bb"}
 	alters = engine.GetRedisSearchIndexAlters()
 	assert.Len(t, alters, 1)
 	assert.Len(t, alters[0].Changes, 1)
-	assert.Equal(t, "new stop words", alters[0].Changes[0])
-	testIndex2.StopWords = nil
+	assert.Equal(t, "different stop words", alters[0].Changes[0])
+	defaultIndex.StopWords = nil
 	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
-	testIndex2.StopWords = []string{}
+	defaultIndex.StopWords = []string{}
 	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
-	testIndex2.LanguageField = "_my_lang"
+	defaultIndex.LanguageField = "_my_lang"
 	alters = engine.GetRedisSearchIndexAlters()
 	assert.Len(t, alters, 1)
 	assert.Len(t, alters[0].Changes, 1)
 	assert.Equal(t, "different language field", alters[0].Changes[0])
-	testIndex2.LanguageField = "lang"
 	defaultIndex.LanguageField = ""
 	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
 	defaultIndex.LanguageField = "__language"
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.ScoreField = "score"
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 1)
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different score field", alters[0].Changes[0])
+	defaultIndex.ScoreField = "__score"
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.ScoreField = ""
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.PayloadField = "payload"
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 1)
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different payload field", alters[0].Changes[0])
+	defaultIndex.PayloadField = "__payload"
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.PayloadField = ""
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.Prefixes = []string{"test1:", "test2:"}
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 1)
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different prefixes", alters[0].Changes[0])
+	defaultIndex.Prefixes = []string{}
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.Prefixes = []string{""}
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.Prefixes = nil
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.Filter = "@indexName==\"myindex\""
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters, 1)
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different filter", alters[0].Changes[0])
+	defaultIndex.Filter = ""
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.NoFreqs = true
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different option NOFREQS", alters[0].Changes[0])
+	defaultIndex.NoFreqs = false
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.NoFields = true
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different option NOFIELDS", alters[0].Changes[0])
+	defaultIndex.NoFields = false
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.NoOffsets = true
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different option NOOFFSETS", alters[0].Changes[0])
+	defaultIndex.NoOffsets = false
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.MaxTextFields = true
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different option MAXTEXTFIELDS", alters[0].Changes[0])
+	defaultIndex.MaxTextFields = false
 	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
 }

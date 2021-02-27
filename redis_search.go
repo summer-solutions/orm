@@ -109,9 +109,16 @@ type RedisSearchIndexAlter struct {
 	Execute   func()
 }
 
+type RedisSearchIndexInfoOptions struct {
+	NoFreqs       bool
+	NoOffsets     bool
+	NoFields      bool
+	MaxTextFields bool
+}
+
 type RedisSearchIndexInfo struct {
 	Name                     string
-	Options                  []interface{}
+	Options                  RedisSearchIndexInfoOptions
 	Definition               RedisSearchIndexInfoDefinition
 	Fields                   []RedisSearchIndexInfoField
 	NumDocs                  uint64
@@ -137,6 +144,7 @@ type RedisSearchIndexInfo struct {
 type RedisSearchIndexInfoDefinition struct {
 	KeyType       string
 	Prefixes      []string
+	Filter        string
 	LanguageField string
 	ScoreField    string
 	PayloadField  string
@@ -638,7 +646,21 @@ func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
 		case "index_name":
 			info.Name = res[i+1].(string)
 		case "index_options":
-			info.Options = res[i+1].([]interface{})
+			infoOptions := res[i+1].([]interface{})
+			options := RedisSearchIndexInfoOptions{}
+			for _, opt := range infoOptions {
+				switch opt {
+				case "NOFREQS":
+					options.NoFreqs = true
+				case "NOFIELDS":
+					options.NoFields = true
+				case "NOOFFSETS":
+					options.NoOffsets = true
+				case "MAXTEXTFIELDS":
+					options.MaxTextFields = true
+				}
+			}
+			info.Options = options
 		case "index_definition":
 			def := res[i+1].([]interface{})
 			definition := RedisSearchIndexInfoDefinition{}
@@ -653,6 +675,8 @@ func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
 						prefixes[k] = v.(string)
 					}
 					definition.Prefixes = prefixes
+				case "filter":
+					definition.Filter = def[subKey+1].(string)
 				case "language_field":
 					definition.LanguageField = def[subKey+1].(string)
 				case "default_score":
@@ -809,13 +833,20 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 			}
 			inRedis[name] = true
 			info := search.info(name + ":" + strconv.FormatInt(lastID, 10))
+			changes := make([]string, 0)
 			stopWords := def.StopWords
 			if len(stopWords) == 0 {
 				stopWords = nil
 			}
-			changes := make([]string, 0)
 			if !reflect.DeepEqual(info.StopWords, stopWords) {
-				changes = append(changes, "new stop words")
+				changes = append(changes, "different stop words")
+			}
+			prefixes := def.Prefixes
+			if len(prefixes) == 0 || (len(prefixes) == 1 && prefixes[0] == "") {
+				prefixes = []string{""}
+			}
+			if !reflect.DeepEqual(info.Definition.Prefixes, prefixes) {
+				changes = append(changes, "different prefixes")
 			}
 			if len(info.Fields) != len(def.Fields) {
 				changes = append(changes, "different fields")
@@ -826,6 +857,35 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 			}
 			if info.Definition.LanguageField != languageField {
 				changes = append(changes, "different language field")
+			}
+			if info.Definition.Filter != def.Filter {
+				changes = append(changes, "different filter")
+			}
+			scoreField := def.ScoreField
+			if scoreField == "" {
+				scoreField = "__score"
+			}
+			if info.Definition.ScoreField != scoreField {
+				changes = append(changes, "different score field")
+			}
+			payloadField := def.PayloadField
+			if payloadField == "" {
+				payloadField = "__payload"
+			}
+			if info.Definition.PayloadField != payloadField {
+				changes = append(changes, "different payload field")
+			}
+			if info.Options.NoFreqs != def.NoFreqs {
+				changes = append(changes, "different option NOFREQS")
+			}
+			if info.Options.NoFields != def.NoFields {
+				changes = append(changes, "different option NOFIELDS")
+			}
+			if info.Options.NoOffsets != def.NoOffsets {
+				changes = append(changes, "different option NOOFFSETS")
+			}
+			if info.Options.MaxTextFields != def.MaxTextFields {
+				changes = append(changes, "different option MAXTEXTFIELDS")
 			}
 			if len(changes) > 0 {
 				alters = append(alters, search.addAlter(def, name, info.NumDocs, changes))
