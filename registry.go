@@ -54,7 +54,6 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		var version string
 		err = db.QueryRow("SELECT VERSION()").Scan(&version)
 		if err != nil {
@@ -340,6 +339,11 @@ func (r *Registry) registerSQLPool(dataSourceName string, code ...string) {
 	if len(code) > 0 {
 		dbCode = code[0]
 	}
+	and := "?"
+	if strings.Index(dataSourceName, "?") > 0 {
+		and = "&"
+	}
+	dataSourceName += and + "multiStatements=true"
 	db := &DBConfig{code: dbCode, dataSourceName: dataSourceName}
 	if r.sqlClients == nil {
 		r.sqlClients = make(map[string]*DBConfig)
@@ -357,7 +361,6 @@ func (r *Registry) registerSQLPool(dataSourceName string, code ...string) {
 		dataSourceName = strings.Replace(dataSourceName, "?&", "?", -1)
 		db.dataSourceName = dataSourceName
 	}
-
 	db.databaseName = dbName
 	r.sqlClients[dbCode] = db
 }

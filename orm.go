@@ -87,23 +87,32 @@ func (orm *ORM) IsDirty() bool {
 }
 
 func (orm *ORM) GetDirtyBind() (bind Bind, has bool) {
+	bind, _, has = orm.getDirtyBind()
+	return bind, has
+}
+
+func (orm *ORM) getDirtyBind() (bind Bind, updateBind map[string]string, has bool) {
 	if orm.delete {
-		return nil, true
+		return nil, nil, true
 	}
 	if orm.fakeDelete {
 		if orm.tableSchema.hasFakeDelete {
 			orm.elem.FieldByName("FakeDelete").SetBool(true)
 		} else {
 			orm.delete = true
-			return nil, true
+			return nil, nil, true
 		}
 	}
 	id := orm.GetID()
 	t := orm.elem.Type()
 	orm.initDBData()
-	bind = createBind(id, orm, orm.tableSchema, t, orm.elem, orm.dBData, "")
+	bind = make(Bind)
+	if orm.inDB && !orm.delete {
+		updateBind = make(map[string]string)
+	}
+	fillBind(id, bind, updateBind, orm, orm.tableSchema, t, orm.elem, orm.dBData, "")
 	has = id == 0 || len(bind) > 0
-	return bind, has
+	return bind, updateBind, has
 }
 
 func (orm *ORM) SetField(field string, value interface{}) error {

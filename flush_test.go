@@ -329,12 +329,17 @@ func testFlush(t *testing.T, local bool, redis bool) {
 	entity2.UintNullable = &i2
 	entity2.BoolNullable = &i4
 	entity2.FloatNullable = &i5
-	entity2.City = "Warsaw"
+	entity2.City = "War'saw '; New"
 	assert.True(t, entity2.IsDirty())
 	engine.Flush(entity2)
 	assert.False(t, entity2.IsDirty())
 	engine.LoadByID(10, entity2)
 	assert.Equal(t, 21, entity2.Age)
+	assert.Equal(t, "War'saw '; New", entity2.City)
+	entity2.City = "War\\'saw"
+	engine.Flush(entity2)
+	engine.LoadByID(10, entity2)
+	assert.Equal(t, "War\\'saw", entity2.City)
 
 	entity2.UintNullable = nil
 	entity2.BoolNullable = nil
@@ -524,13 +529,29 @@ func testFlush(t *testing.T, local bool, redis bool) {
 	receiver.SetHeartBeat(time.Minute, func() {
 		validHeartBeat = true
 	})
+
+	flusher = engine.NewFlusher()
+	entity1 := &flushEntity{}
+	engine.LoadByID(10, entity1)
+	entity2 = &flushEntity{}
+	engine.LoadByID(11, entity2)
+	entity3 = &flushEntity{}
+	engine.LoadByID(12, entity3)
+	entity1.Age = 99
+	entity2.Uint = 99
+	entity3.Name = "sss"
+	flusher.Track(entity1, entity2, entity3)
+	flusher.Flush()
+
 	if !local || !redis {
 		return
 	}
 	receiver.Digest(context.Background(), 100)
 	assert.True(t, validHeartBeat)
-	assert.Len(t, testLogger.Entries, 1)
-	assert.Equal(t, "UPDATE flushEntitySmart SET `Age` = ? WHERE `ID` = ?", testLogger.Entries[0].Fields["Query"])
+	assert.Len(t, testLogger.Entries, 2)
+	assert.Equal(t, "UPDATE flushEntity SET `Age`=99 WHERE `ID` = 10;UPDATE flushEntity SET `Uint`=99 "+
+		"WHERE `ID` = 11;UPDATE flushEntity SET `Name`='sss' WHERE `ID` = 12;", testLogger.Entries[0].Fields["Query"])
+	assert.Equal(t, "UPDATE flushEntitySmart SET `Age`=20 WHERE `ID` = 1", testLogger.Entries[1].Fields["Query"])
 
 	entity = &flushEntity{Name: "Monica", EnumNotNull: "a", ReferenceMany: []*flushEntityReference{{Name: "Adam Junior"}}}
 	engine.Flush(entity)

@@ -442,6 +442,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 			}
 		}
 	}
+
 	fields := buildTableFields(entityType, 1, "", tags)
 	columns := fields.getColumnNames()
 	columnMapping := make(map[string]int)

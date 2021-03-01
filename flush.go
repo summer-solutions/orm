@@ -41,6 +41,7 @@ type dataLoaderSets map[*tableSchema]map[uint64][]interface{}
 func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...Entity) {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
+	updateSQLs := make(map[string][]string)
 	insertArguments := make(map[reflect.Type][]interface{})
 	insertBinds := make(map[reflect.Type][]map[string]interface{})
 	insertReflectValues := make(map[reflect.Type][]Entity)
@@ -99,7 +100,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 
 		orm := entity.getORM()
 		dbData := orm.dBData
-		bind, isDirty := orm.GetDirtyBind()
+		bind, updateBind, isDirty := orm.getDirtyBind()
 		if !isDirty {
 			continue
 		}
@@ -224,23 +225,20 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			insertBinds[t] = append(insertBinds[t], bind)
 			totalInsert[t]++
 		} else {
-			values := make([]interface{}, bindLength+1)
 			if !entity.Loaded() {
 				panic(fmt.Errorf("entity is not loaded and can't be updated: %v [%d]", entity.getORM().elem.Type().String(), currentID))
 			}
 			fields := make([]string, bindLength)
 			i := 0
-			for key, value := range bind {
-				fields[i] = "`" + key + "` = ?"
-				values[i] = value
+			for key, value := range updateBind {
+				fields[i] = "`" + key + "`=" + value
 				i++
 			}
 			/* #nosec */
-			sql := "UPDATE " + schema.GetTableName() + " SET " + strings.Join(fields, ",") + " WHERE `ID` = ?"
+			sql := "UPDATE " + schema.GetTableName() + " SET " + strings.Join(fields, ",") + " WHERE `ID` = " + strconv.FormatUint(currentID, 10)
 			db := schema.GetMysql(engine)
-			values[i] = currentID
 			if lazy {
-				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
+				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, nil)
 			} else {
 				smartUpdate := false
 				if smart && !db.inTransaction && schema.hasLocalCache && !schema.hasRedisCache {
@@ -248,9 +246,9 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 					smartUpdate = len(keys) == 0
 				}
 				if smartUpdate {
-					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, values)
+					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, nil)
 				} else {
-					_ = db.Exec(sql, values...)
+					updateSQLs[schema.mysqlPoolName] = append(updateSQLs[schema.mysqlPoolName], sql)
 				}
 			}
 			updateCacheAfterUpdate(lazy, dbData, engine, entity, bind, schema, localCacheSets, localCacheDeletes, db, currentID,
@@ -312,6 +310,10 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			updateCacheForInserted(engine, entity, lazy, insertedID, bind, localCacheSets, localCacheDeletes,
 				rFlusher, dataLoaderSets)
 		}
+	}
+	for pool, queries := range updateSQLs {
+		db := engine.GetMysql(pool)
+		db.Query(strings.Join(queries, ";") + ";")
 	}
 	for typeOf, deleteBinds := range deleteBinds {
 		schema := getTableSchema(engine.registry, typeOf)
@@ -509,10 +511,11 @@ func injectBind(entity Entity, bind map[string]interface{}) {
 	orm.inDB = true
 }
 
-func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, value reflect.Value,
-	oldData []interface{}, prefix string) (bind map[string]interface{}) {
-	bind = make(map[string]interface{})
+func fillBind(id uint64, bind Bind, updateBind map[string]string, orm *ORM, tableSchema *tableSchema,
+	t reflect.Type, value reflect.Value,
+	oldData []interface{}, prefix string) {
 	var hasOld = orm.inDB
+	hasUpdate := updateBind != nil
 	for i := 0; i < t.NumField(); i++ {
 		fieldType := t.Field(i)
 		name := prefix + fieldType.Name
@@ -546,6 +549,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 				continue
 			}
 			bind[name] = val
+			if hasUpdate {
+				updateBind[name] = strconv.FormatUint(val, 10)
+			}
 		case "*uint", "*uint8", "*uint16", "*uint32", "*uint64":
 			if attributes["year"] == "true" {
 				isNil := field.IsZero()
@@ -554,6 +560,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 						continue
 					}
 					bind[name] = nil
+					if hasUpdate {
+						updateBind[name] = "NULL"
+					}
 					continue
 				}
 				val := field.Elem().Uint()
@@ -561,6 +570,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 					continue
 				}
 				bind[name] = val
+				if hasUpdate {
+					updateBind[name] = strconv.FormatUint(val, 10)
+				}
 				continue
 			}
 			isNil := field.IsZero()
@@ -569,6 +581,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 					continue
 				}
 				bind[name] = nil
+				if hasUpdate {
+					updateBind[name] = "NULL"
+				}
 				continue
 			}
 			val := field.Elem().Uint()
@@ -576,12 +591,18 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 				continue
 			}
 			bind[name] = val
+			if hasUpdate {
+				updateBind[name] = strconv.FormatUint(val, 10)
+			}
 		case "int", "int8", "int16", "int32", "int64":
 			val := field.Int()
 			if hasOld && old == val {
 				continue
 			}
 			bind[name] = val
+			if hasUpdate {
+				updateBind[name] = strconv.FormatInt(val, 10)
+			}
 		case "*int", "*int8", "*int16", "*int32", "*int64":
 			isNil := field.IsZero()
 			if isNil {
@@ -589,6 +610,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 					continue
 				}
 				bind[name] = nil
+				if hasUpdate {
+					updateBind[name] = "NULL"
+				}
 				continue
 			}
 			val := field.Elem().Int()
@@ -596,6 +620,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 				continue
 			}
 			bind[name] = val
+			if hasUpdate {
+				updateBind[name] = strconv.FormatInt(val, 10)
+			}
 		case "string":
 			value := field.String()
 			if hasOld && (old == value || (old == nil && value == "")) {
@@ -603,8 +630,14 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 			}
 			if isRequired || value != "" {
 				bind[name] = value
+				if hasUpdate {
+					updateBind[name] = escapeSQLParam(value)
+				}
 			} else if value == "" {
 				bind[name] = nil
+				if hasUpdate {
+					updateBind[name] = "NULL"
+				}
 			}
 		case "[]uint8":
 			value := field.Bytes()
@@ -614,8 +647,14 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 			}
 			if valueAsString == "" {
 				bind[name] = nil
+				if hasUpdate {
+					updateBind[name] = "NULL"
+				}
 			} else {
 				bind[name] = valueAsString
+				if hasUpdate {
+					updateBind[name] = escapeSQLParam(valueAsString)
+				}
 			}
 		case "bool":
 			if name == "FakeDelete" {
@@ -627,6 +666,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 					continue
 				}
 				bind[name] = value
+				if hasUpdate {
+					updateBind[name] = strconv.FormatUint(value, 10)
+				}
 				continue
 			}
 			value := field.Bool()
@@ -634,12 +676,22 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 				continue
 			}
 			bind[name] = value
+			if hasUpdate {
+				if value {
+					updateBind[name] = "1"
+				} else {
+					updateBind[name] = "0"
+				}
+			}
 		case "*bool":
 			if field.IsZero() {
 				if hasOld && old == nil {
 					continue
 				}
 				bind[name] = nil
+				if hasUpdate {
+					updateBind[name] = "NULL"
+				}
 				continue
 			}
 			value := field.Elem().Bool()
@@ -647,6 +699,13 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 				continue
 			}
 			bind[name] = value
+			if hasUpdate {
+				if value {
+					updateBind[name] = "1"
+				} else {
+					updateBind[name] = "0"
+				}
+			}
 		case "float32", "float64":
 			val := field.Float()
 			precision := 8
@@ -682,6 +741,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 				}
 			}
 			bind[name] = val
+			if hasUpdate {
+				updateBind[name] = strconv.FormatFloat(val, 'f', -1, 64)
+			}
 		case "*float32", "*float64":
 			var val float64
 			isZero := field.IsZero()
@@ -705,6 +767,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 						continue
 					}
 					bind[name] = nil
+					if hasUpdate {
+						updateBind[name] = "NULL"
+					}
 					continue
 				}
 				decimalArgs := strings.Split(decimal, ",")
@@ -718,12 +783,18 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 					}
 				}
 				bind[name] = val
+				if hasUpdate {
+					updateBind[name] = strconv.FormatFloat(val, 'f', -1, 64)
+				}
 			} else {
 				if isZero {
 					if hasOld && old == nil {
 						continue
 					}
 					bind[name] = nil
+					if hasUpdate {
+						updateBind[name] = "NULL"
+					}
 					continue
 				}
 				sizeNumber := math.Pow(10, float64(precision))
@@ -735,6 +806,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 					}
 				}
 				bind[name] = val
+				if hasUpdate {
+					updateBind[name] = strconv.FormatFloat(val, 'f', -1, 64)
+				}
 			}
 		case "*orm.CachedQuery":
 			continue
@@ -758,6 +832,9 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 				continue
 			}
 			bind[name] = valueAsString
+			if hasUpdate {
+				updateBind[name] = valueAsString
+			}
 			continue
 		case "*time.Time":
 			value := field.Interface().(*time.Time)
@@ -776,8 +853,14 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 			}
 			if valueAsString == "" {
 				bind[name] = nil
+				if hasUpdate {
+					updateBind[name] = "NULL"
+				}
 			} else {
 				bind[name] = valueAsString
+				if hasUpdate {
+					updateBind[name] = valueAsString
+				}
 			}
 		case "[]string":
 			value := field.Interface().([]string)
@@ -790,16 +873,19 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 			}
 			if isRequired || valueAsString != "" {
 				bind[name] = valueAsString
+				if hasUpdate {
+					updateBind[name] = escapeSQLParam(valueAsString)
+				}
 			} else if valueAsString == "" {
 				bind[name] = nil
+				if hasUpdate {
+					updateBind[name] = "NULL"
+				}
 			}
 		default:
 			k := field.Kind().String()
 			if k == "struct" {
-				subBind := createBind(0, orm, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
-				for key, value := range subBind {
-					bind[key] = value
-				}
+				fillBind(0, bind, updateBind, orm, tableSchema, field.Type(), reflect.ValueOf(field.Interface()), oldData, fieldType.Name)
 				continue
 			} else if k == "ptr" {
 				value := uint64(0)
@@ -811,8 +897,14 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 				}
 				if value == 0 {
 					bind[name] = nil
+					if hasUpdate {
+						updateBind[name] = "NULL"
+					}
 				} else {
 					bind[name] = value
+					if hasUpdate {
+						updateBind[name] = strconv.FormatUint(value, 10)
+					}
 				}
 				continue
 			} else {
@@ -834,8 +926,14 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 						}
 						if valString == "" {
 							bind[name] = nil
+							if hasUpdate {
+								updateBind[name] = "NULL"
+							}
 						} else {
 							bind[name] = valString
+							if hasUpdate {
+								updateBind[name] = "'" + valString + "'"
+							}
 						}
 						continue
 					} else {
@@ -861,13 +959,49 @@ func createBind(id uint64, orm *ORM, tableSchema *tableSchema, t reflect.Type, v
 				}
 				if isRequired || valString != "" {
 					bind[name] = valString
+					if hasUpdate {
+						updateBind[name] = "'" + valString + "'"
+					}
 				} else if valString == "" {
 					bind[name] = nil
+					if hasUpdate {
+						updateBind[name] = "NULL"
+					}
 				}
 			}
 		}
 	}
-	return
+}
+
+func escapeSQLParam(val string) string {
+	dest := make([]byte, 0, 2*len(val))
+	var escape byte
+	for i := 0; i < len(val); i++ {
+		c := val[i]
+		escape = 0
+		switch c {
+		case 0:
+			escape = '0'
+		case '\n':
+			escape = 'n'
+		case '\r':
+			escape = 'r'
+		case '\\':
+			escape = '\\'
+		case '\'':
+			escape = '\''
+		case '"':
+			escape = '"'
+		case '\032':
+			escape = 'Z'
+		}
+		if escape != 0 {
+			dest = append(dest, '\\', escape)
+		} else {
+			dest = append(dest, c)
+		}
+	}
+	return "'" + string(dest) + "'"
 }
 
 func getCacheQueriesKeys(schema *tableSchema, bind map[string]interface{}, data []interface{}, addedDeleted bool) (keys []string) {
