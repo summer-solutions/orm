@@ -313,6 +313,10 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	}
 	for pool, queries := range updateSQLs {
 		db := engine.GetMysql(pool)
+		if len(queries) == 1 {
+			db.Exec(queries[0])
+			continue
+		}
 		_, def := db.Query(strings.Join(queries, ";") + ";")
 		def()
 	}
