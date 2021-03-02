@@ -340,6 +340,13 @@ func testFlush(t *testing.T, local bool, redis bool) {
 	engine.Flush(entity2)
 	engine.LoadByID(10, entity2)
 	assert.Equal(t, "War\\'saw", entity2.City)
+	entity2.Time = time.Now()
+	n := time.Now()
+	entity2.TimeNullable = &n
+	engine.Flush(entity2)
+	engine.LoadByID(10, entity2)
+	assert.NotNil(t, entity2.Time)
+	assert.NotNil(t, entity2.TimeNullable)
 
 	entity2.UintNullable = nil
 	entity2.BoolNullable = nil

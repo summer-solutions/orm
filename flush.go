@@ -833,7 +833,7 @@ func fillBind(id uint64, bind Bind, updateBind map[string]string, orm *ORM, tabl
 			}
 			bind[name] = valueAsString
 			if hasUpdate {
-				updateBind[name] = valueAsString
+				updateBind[name] = "'" + valueAsString + "'"
 			}
 			continue
 		case "*time.Time":
@@ -859,7 +859,7 @@ func fillBind(id uint64, bind Bind, updateBind map[string]string, orm *ORM, tabl
 			} else {
 				bind[name] = valueAsString
 				if hasUpdate {
-					updateBind[name] = valueAsString
+					updateBind[name] = "'" + valueAsString + "'"
 				}
 			}
 		case "[]string":
