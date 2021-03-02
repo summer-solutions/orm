@@ -313,7 +313,8 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 	}
 	for pool, queries := range updateSQLs {
 		db := engine.GetMysql(pool)
-		db.Query(strings.Join(queries, ";") + ";")
+		_, def := db.Query(strings.Join(queries, ";") + ";")
+		def()
 	}
 	for typeOf, deleteBinds := range deleteBinds {
 		schema := getTableSchema(engine.registry, typeOf)
