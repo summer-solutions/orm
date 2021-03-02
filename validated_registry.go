@@ -16,6 +16,7 @@ type ValidatedRegistry interface {
 	GetEnums() map[string]Enum
 	GetRedisStreams() map[string]map[string][]string
 	GetRedisPools() []string
+	GetRedisSearchIndices() map[string][]*RedisSearchIndex
 	GetEntities() map[string]reflect.Type
 }
 
@@ -45,6 +46,17 @@ func (r *validatedRegistry) GetEntities() map[string]reflect.Type {
 
 func (r *validatedRegistry) GetEnums() map[string]Enum {
 	return r.enums
+}
+
+func (r *validatedRegistry) GetRedisSearchIndices() map[string][]*RedisSearchIndex {
+	indices := make(map[string][]*RedisSearchIndex)
+	for pool, list := range r.redisSearchIndexes {
+		indices[pool] = make([]*RedisSearchIndex, 0)
+		for _, index := range list {
+			indices[pool] = append(indices[pool], index)
+		}
+	}
+	return indices
 }
 
 func (r *validatedRegistry) GetRedisStreams() map[string]map[string][]string {

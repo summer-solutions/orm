@@ -88,7 +88,7 @@ func (r *RedisSearchIndexer) consume(ctx context.Context) bool {
 					if !hasMore {
 						search.aliasUpdate(def.Name, indexName)
 						search.redis.HSet(redisSearchForceIndexKey, index, "ok:"+parts[1])
-						for _, oldName := range search.listIndices() {
+						for _, oldName := range search.ListIndices() {
 							if strings.HasPrefix(oldName, def.Name+":") {
 								parts := strings.Split(oldName, ":")
 								oldID, _ := strconv.ParseUint(parts[1], 10, 64)

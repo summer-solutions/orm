@@ -598,7 +598,7 @@ func (r *RedisSearch) createIndex(index *RedisSearchIndex, id uint64) {
 	checkError(err)
 }
 
-func (r *RedisSearch) listIndices() []string {
+func (r *RedisSearch) ListIndices() []string {
 	cmd := redis.NewStringSliceCmd(r.ctx, "FT._LIST")
 	start := time.Now()
 	err := r.redis.client.Process(r.ctx, cmd)
@@ -629,18 +629,26 @@ func (r *RedisSearch) dropIndex(indexName string, withHashes bool) string {
 	return res
 }
 
-func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
+func (r *RedisSearch) Info(indexName string) *RedisSearchIndexInfo {
 	cmd := redis.NewSliceCmd(r.ctx, "FT.INFO", indexName)
 	start := time.Now()
 	err := r.redis.client.Process(r.ctx, cmd)
+	has := true
+	if err != nil && err.Error() == "Unknown Index name" {
+		err = nil
+		has = false
+	}
 	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS-SEARCH][FT.INFO]", start, "ft_info", 1,
 			apexLog.Fields{"Index": indexName}, err)
 	}
+	if !has {
+		return nil
+	}
 	checkError(err)
 	res, err := cmd.Result()
 	checkError(err)
-	info := RedisSearchIndexInfo{}
+	info := &RedisSearchIndexInfo{}
 	for i, row := range res {
 		switch row {
 		case "index_name":
@@ -803,7 +811,7 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 		inRedis := make(map[string]bool)
 		grouped := make(map[string]int64)
 		groupedList := make(map[string][]int64)
-		for _, name := range search.listIndices() {
+		for _, name := range search.ListIndices() {
 			parts := strings.Split(name, ":")
 			id := int64(0)
 			if len(parts) == 2 {
@@ -826,13 +834,13 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 					alter.Execute = func() {
 						alter.search.dropIndex(nameToRemove, false)
 					}
-					alter.Documents = search.info(indexName).NumDocs
+					alter.Documents = search.Info(indexName).NumDocs
 					alters = append(alters, alter)
 				}
 				continue
 			}
 			inRedis[name] = true
-			info := search.info(name + ":" + strconv.FormatInt(lastID, 10))
+			info := search.Info(name + ":" + strconv.FormatInt(lastID, 10))
 			changes := make([]string, 0)
 			stopWords := def.StopWords
 			if len(stopWords) == 0 {

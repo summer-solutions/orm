@@ -90,7 +90,7 @@ func TestRedisSearch(t *testing.T) {
 	indexer.DisableLoop()
 	indexer.Run(context.Background())
 
-	info := search.info("test")
+	info := search.Info("test")
 	assert.True(t, strings.HasPrefix(info.Name, "test:"))
 	assert.Equal(t, "_my_payload", info.Definition.PayloadField)
 	assert.Equal(t, "_my_score", info.Definition.ScoreField)
