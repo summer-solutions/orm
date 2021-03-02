@@ -156,7 +156,7 @@ type RedisSearchIndexInfoField struct {
 	Type         string
 	Weight       float64
 	Sortable     bool
-	NoSteam      bool
+	NoStem       bool
 	NoIndex      bool
 	TagSeparator string
 }
@@ -706,7 +706,7 @@ func (r *RedisSearch) info(indexName string) RedisSearchIndexInfo {
 					case "SORTABLE":
 						field.Sortable = true
 					case "NOSTEM":
-						field.NoSteam = true
+						field.NoStem = true
 					case "NOINDEX":
 						field.NoIndex = true
 					case "SEPARATOR":
@@ -848,9 +848,6 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 			if !reflect.DeepEqual(info.Definition.Prefixes, prefixes) {
 				changes = append(changes, "different prefixes")
 			}
-			if len(info.Fields) != len(def.Fields) {
-				changes = append(changes, "different fields")
-			}
 			languageField := def.LanguageField
 			if languageField == "" {
 				languageField = "__language"
@@ -887,6 +884,54 @@ func getRedisSearchAlters(engine *Engine) (alters []RedisSearchIndexAlter) {
 			if info.Options.MaxTextFields != def.MaxTextFields {
 				changes = append(changes, "different option MAXTEXTFIELDS")
 			}
+			defaultScore := def.DefaultScore
+			if defaultScore == 0 {
+				defaultScore = 1
+			}
+			if info.Definition.DefaultScore != defaultScore {
+				changes = append(changes, "different default score")
+			}
+		MAIN:
+			for _, defField := range def.Fields {
+				for _, infoField := range info.Fields {
+					if defField.Name == infoField.Name {
+						if defField.Type != infoField.Type {
+							changes = append(changes, "different field type "+infoField.Name)
+						} else {
+							if defField.Type == redisSearchIndexFieldText {
+								if defField.NoStem != infoField.NoStem {
+									changes = append(changes, "different field nostem "+infoField.Name)
+								}
+								if defField.Weight != infoField.Weight {
+									changes = append(changes, "different field weight "+infoField.Name)
+								}
+							} else if defField.Type == redisSearchIndexFieldTAG {
+								if defField.TagSeparator != infoField.TagSeparator {
+									changes = append(changes, "different field separator "+infoField.Name)
+								}
+							}
+						}
+						if defField.Sortable != infoField.Sortable {
+							changes = append(changes, "different field sortable "+infoField.Name)
+						}
+						if defField.NoIndex != infoField.NoIndex {
+							changes = append(changes, "different field noindex "+infoField.Name)
+						}
+						continue MAIN
+					}
+				}
+				changes = append(changes, "new field "+defField.Name)
+			}
+		MAIN2:
+			for _, infoField := range info.Fields {
+				for _, defField := range def.Fields {
+					if defField.Name == infoField.Name {
+						continue MAIN2
+					}
+				}
+				changes = append(changes, "unneeded field "+infoField.Name)
+			}
+
 			if len(changes) > 0 {
 				alters = append(alters, search.addAlter(def, name, info.NumDocs, changes))
 			}

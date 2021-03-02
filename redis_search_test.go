@@ -37,6 +37,8 @@ func TestRedisSearch(t *testing.T) {
 	testIndex2.AddTextField("title", 1, true, false, false)
 	registry.RegisterRedisSearchIndex(testIndex2)
 	defaultIndex := &RedisSearchIndex{Name: "default", RedisPool: "default"}
+	defaultIndex.AddTextField("text_field", 0.12, true, false, false)
+	defaultIndex.AddTagField("tag_field", true, false, ",")
 	registry.RegisterRedisSearchIndex(defaultIndex)
 	validatedRegistry, err := registry.Validate()
 	assert.NoError(t, err)
@@ -66,7 +68,7 @@ func TestRedisSearch(t *testing.T) {
 		if strings.Contains(alter.Query, "test2") {
 			assert.Equal(t, "FT.CREATE test2 ON HASH PREFIX 1 test2: SCHEMA title TEXT SORTABLE", alter.Query)
 		} else if strings.Contains(alter.Query, "default") {
-			assert.Equal(t, "FT.CREATE default ON HASH PREFIX 0 SCHEMA", alter.Query)
+			assert.Equal(t, "FT.CREATE default ON HASH PREFIX 0 SCHEMA text_field TEXT WEIGHT 0.12 SORTABLE tag_field TAG SEPARATOR , SORTABLE", alter.Query)
 		} else {
 			assert.Equal(t, "FT.CREATE test ON HASH PREFIX 2 doc1: doc2: LANGUAGE_FIELD _my_language SCORE 0.8 SCORE_FIELD _my_score PAYLOAD_FIELD _my_payload MAXTEXTFIELDS NOOFFSETS NOHL NOFIELDS NOFREQS STOPWORDS 2 and in SCHEMA title TEXT WEIGHT 0.4 SORTABLE test TEXT NOSTEM NOINDEX age NUMERIC SORTABLE location GEO tags TAG SEPARATOR . SORTABLE", alter.Query)
 		}
@@ -108,13 +110,13 @@ func TestRedisSearch(t *testing.T) {
 	assert.Equal(t, 0.4, info.Fields[0].Weight)
 	assert.True(t, info.Fields[0].Sortable)
 	assert.False(t, info.Fields[0].NoIndex)
-	assert.False(t, info.Fields[0].NoSteam)
+	assert.False(t, info.Fields[0].NoStem)
 	assert.Equal(t, "test", info.Fields[1].Name)
 	assert.Equal(t, "TEXT", info.Fields[1].Type)
 	assert.Equal(t, 1.0, info.Fields[1].Weight)
 	assert.False(t, info.Fields[1].Sortable)
 	assert.True(t, info.Fields[1].NoIndex)
-	assert.True(t, info.Fields[1].NoSteam)
+	assert.True(t, info.Fields[1].NoStem)
 	assert.Equal(t, "age", info.Fields[2].Name)
 	assert.Equal(t, "NUMERIC", info.Fields[2].Type)
 	assert.True(t, info.Fields[2].Sortable)
@@ -425,4 +427,54 @@ func TestRedisSearch(t *testing.T) {
 	assert.Equal(t, "different option MAXTEXTFIELDS", alters[0].Changes[0])
 	defaultIndex.MaxTextFields = false
 	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.DefaultScore = 0.6
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different default score", alters[0].Changes[0])
+	defaultIndex.DefaultScore = 1
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+	defaultIndex.DefaultScore = 0
+	assert.Len(t, engine.GetRedisSearchIndexAlters(), 0)
+
+	defaultIndex.AddTextField("new_field", 0.2, false, false, false)
+	defaultIndex.AddTagField("new_tag", false, false, ",")
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 2)
+	assert.Equal(t, "new field new_field", alters[0].Changes[0])
+	assert.Equal(t, "new field new_tag", alters[0].Changes[1])
+	defaultIndex.Fields = defaultIndex.Fields[0:2]
+	defaultIndex.Fields[0].Type = redisSearchIndexFieldTAG
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different field type text_field", alters[0].Changes[0])
+	defaultIndex.Fields[0].Type = redisSearchIndexFieldText
+	defaultIndex.Fields[0].Sortable = false
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different field sortable text_field", alters[0].Changes[0])
+	defaultIndex.Fields[0].Sortable = true
+	defaultIndex.Fields[0].NoIndex = true
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different field noindex text_field", alters[0].Changes[0])
+	defaultIndex.Fields[0].NoIndex = false
+	defaultIndex.Fields[0].NoStem = true
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different field nostem text_field", alters[0].Changes[0])
+	defaultIndex.Fields[0].NoStem = false
+	defaultIndex.Fields[0].Weight = 0.11
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different field weight text_field", alters[0].Changes[0])
+	defaultIndex.Fields[0].Weight = 0.12
+	defaultIndex.Fields[1].TagSeparator = "|"
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "different field separator tag_field", alters[0].Changes[0])
+	defaultIndex.Fields[1].TagSeparator = ","
+	defaultIndex.Fields = defaultIndex.Fields[1:2]
+	alters = engine.GetRedisSearchIndexAlters()
+	assert.Len(t, alters[0].Changes, 1)
+	assert.Equal(t, "unneeded field text_field", alters[0].Changes[0])
 }
