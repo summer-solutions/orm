@@ -2,6 +2,8 @@ package orm
 
 import (
 	"context"
+	log2 "log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -75,7 +77,8 @@ func (r *AsyncConsumer) handleLog(event Event) {
 	var value LogQueueValue
 	err := event.Unserialize(&value)
 	if err != nil {
-		panic(err)
+		event.Ack()
+		return
 	}
 	poolDB := r.engine.GetMysql(value.PoolName)
 	/* #nosec */
@@ -109,7 +112,8 @@ func (r *AsyncConsumer) handleLazy(event Event) {
 	var data map[string]interface{}
 	err := event.Unserialize(&data)
 	if err != nil {
-		panic(err)
+		event.Ack()
+		return
 	}
 	ids := r.handleQueries(r.engine, data)
 	r.handleClearCache(data, "cl", ids)
@@ -127,17 +131,26 @@ func (r *AsyncConsumer) handleQueries(engine *Engine, validMap map[string]interf
 		db := engine.GetMysql(code)
 		sql := validInsert[1].(string)
 		attributes := validInsert[2]
-		var res ExecResult
-		if attributes == nil {
-			res = db.Exec(sql)
-		} else {
-			res = db.Exec(sql, attributes.([]interface{})...)
-		}
-		if sql[0:11] == "INSERT INTO" {
-			ids[i] = res.LastInsertId()
-		} else {
-			ids[i] = 0
-		}
+		func() {
+			defer func() {
+				if rec := recover(); rec != nil {
+					l := log2.New(os.Stderr, "", 0)
+					l.Printf("ERROR LAZY: %v\n", rec)
+				}
+			}()
+			var res ExecResult
+			if attributes == nil {
+				res = db.Exec(sql)
+			} else {
+				res = db.Exec(sql, attributes.([]interface{})...)
+			}
+			if sql[0:11] == "INSERT INTO" {
+				ids[i] = res.LastInsertId()
+			} else {
+				ids[i] = 0
+			}
+		}()
+
 	}
 	return ids
 }
