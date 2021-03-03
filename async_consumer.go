@@ -2,8 +2,6 @@ package orm
 
 import (
 	"context"
-	log2 "log"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +32,7 @@ type AsyncConsumer struct {
 	heartBeat         func()
 	heartBeatDuration time.Duration
 	logLogger         func(log *LogQueueValue)
+	errorHandler      func(err interface{})
 }
 
 func NewAsyncConsumer(engine *Engine, name string) *AsyncConsumer {
@@ -42,6 +41,10 @@ func NewAsyncConsumer(engine *Engine, name string) *AsyncConsumer {
 
 func (r *AsyncConsumer) DisableLoop() {
 	r.disableLoop = true
+}
+
+func (r *AsyncConsumer) RegisterErrorHandler(handler func(err interface{})) {
+	r.errorHandler = handler
 }
 
 func (r *AsyncConsumer) SetHeartBeat(duration time.Duration, beat func()) {
@@ -134,8 +137,9 @@ func (r *AsyncConsumer) handleQueries(engine *Engine, validMap map[string]interf
 		func() {
 			defer func() {
 				if rec := recover(); rec != nil {
-					l := log2.New(os.Stderr, "", 0)
-					l.Printf("ERROR LAZY: %v\n", rec)
+					if r.errorHandler != nil {
+						r.errorHandler(rec)
+					}
 				}
 			}()
 			var res ExecResult
@@ -150,7 +154,6 @@ func (r *AsyncConsumer) handleQueries(engine *Engine, validMap map[string]interf
 				ids[i] = 0
 			}
 		}()
-
 	}
 	return ids
 }
