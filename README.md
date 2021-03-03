@@ -14,7 +14,6 @@ ORM that delivers support for full stack data access:
  * Elastic Search - for full text search
  * Local Cache - in memory local (not shared) cache
  * ClickHouse - time series database
- * DataDog - monitoring
  
 Menu:
 
@@ -42,8 +41,6 @@ Menu:
  * [Working with Locker](https://github.com/summer-solutions/orm#working-with-locker) 
  * [Query logging](https://github.com/summer-solutions/orm#query-logging) 
  * [Logger](https://github.com/summer-solutions/orm#logger) 
- * [DataDog Profiler](https://github.com/summer-solutions/orm#datadog-profiler) 
- * [DataDog APM](https://github.com/summer-solutions/orm#datadog-apm)
  * [Event broker](https://github.com/summer-solutions/orm#event-broker)
  * [Tools](https://github.com/summer-solutions/orm#tools)
 
@@ -1122,151 +1119,6 @@ func main() {
 
     //filling log with data from http.Request
     engine.Log().AddFieldsFromHTTPRequest(request, "197.21.34.22")
-
-}    
-```
-
-## DataDog Profiler
-
-To enable DataDog profiler simply add two lines of code in your main function.
-Provide your service name, datadog API key, environment name (production, test, ..n) and
-interval how often system should send profiler data to Datadog 
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-	
-    def := orm.StartDataDogProfiler("my-app-name", "DATADOG-API-KEY", "production", time.Minute)
-    defer def()
-
-}    
-```
-
-## DataDog APM
-
-First you need to register it in your main function
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-    
-   //provide rate, 1 - 100% traces are reported, 0.1 - 10% traces are reported (and all with errors)
-   // if you provide zero only traces with errors will be reported
-   def := orm.StartDataDogTracer(1.0) 
-   defer def()
-
-}    
-```
-
-Start trace for HTTP request. Example in Gin framework:
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-    
-    router := gin.New()
-    //you should define it as first middleware
-    router.Use(func(c *gin.Context) {
-        engine := // create orm.Engine
-        apm := engine.DataDog().StartHTTPAPM(c.Request, "my-app-name", "production")
-        defer apm.Finish()
-    
-        //optionally enable ORM APM services
-        engine.DataDog().EnableORMAPMLog(log.InfoLevel, true) //log ORM requests (MySQl, Redis queries) as services
-
-        c.Next()
-        apm.SetResponseStatus(c.Writer.Status())
-    })
-
-}    
-```
-
-Start trace in scripts (for example in cron scripts):
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-    
-    engine.DataDog().StartAPM("my-script-name", "production")
-    defer engine.DataDog().FinishAPM()
-    //optionally enable ORM APM services
-    engine.DataDog().EnableORMAPMLog(log.InfoLevel, true)
-    //execute your code
-}    
-```
-
-Start trace in intermediate scripts:
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-    
-    engine := //
-    engine.DataDog().StartAPM("my-script-name", "production")
-    defer engine.DataDog().FinishAPM()
-    engine.DataDog().EnableORMAPMLog(log.InfoLevel, true)
-
-    heartBeat := func() {
-        engine.DataDog().FinishAPM()
-        engine.DataDog().StartAPM("my-script-name", "production")
-    }
-    consumer := orm.NewAsyncConsumer(engine, "test-consumer", 1)
-    consumer.SetHeartBeat(heartBeat) //consumer will execute this method every minute
-    consumer.Digest(ctx.Background())
-
-}    
-```
-
-You should always assign unexpected error to APM trace
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-    
-    if r := recover(); r != nil {
-        engine.DataDog().RegisterAPMError(r)
-    }
-}    
-```
-
-Extra operations:
-
-```go
-package main
-
-import "github.com/summer-solutions/orm"
-
-func main() {
-
-	engine.DataDog().DropAPM() //it will drop trace. Only traces with errors will be recorded
-    
-    engine.DataDog().SetAPMTag("user_id", 12)
-    
-    //sub tasks
-    func() {
-    	span := engine.DataDog().StartWorkSpan("logging user")
-        span.setTag("user_name", "Tom")
-        defer.span.Finish()
-        //some work
-    }()
 
 }    
 ```

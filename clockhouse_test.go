@@ -17,15 +17,10 @@ func TestClickhouse(t *testing.T) {
 
 	testLogger := memory.New()
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceClickHouse)
-	engine.DataDog().EnableORMAPMLog(apexLog.DebugLevel, true, QueryLoggerSourceClickHouse)
 
 	server := engine.GetClickHouse()
 	server.Exec("CREATE DATABASE IF NOT EXISTS test")
 	assert.NotNil(t, server.client)
-
-	engine.DataDog().StartWorkSpan("test")
-	engine.DataDog().StartAPM("test_service", "test")
-	engine.DataDog().StartWorkSpan("test")
 
 	server.Begin()
 	assert.PanicsWithError(t, "transaction already started", func() {

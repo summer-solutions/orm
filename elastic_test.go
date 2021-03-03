@@ -64,7 +64,6 @@ func TestElastic(t *testing.T) {
 
 	testLogger := memory.New()
 	engine.AddQueryLogger(testLogger, apexLog.InfoLevel, QueryLoggerSourceElastic)
-	engine.DataDog().EnableORMAPMLog(apexLog.DebugLevel, true, QueryLoggerSourceElastic)
 
 	e := engine.GetElastic()
 	assert.NotNil(t, e.Client())
@@ -74,10 +73,6 @@ func TestElastic(t *testing.T) {
 	options.AddSort("Name", true)
 	res := e.Search("test_index", query, NewPager(1, 10), &options)
 	assert.NotNil(t, res)
-
-	engine.DataDog().StartWorkSpan("test")
-	engine.DataDog().StartAPM("test_service", "test")
-	engine.DataDog().StartWorkSpan("test")
 
 	options = SearchOptions{}
 	options.AddSort("Name", false)

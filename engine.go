@@ -52,16 +52,7 @@ type Engine struct {
 	afterCommitLocalCacheSets map[string][]interface{}
 	afterCommitRedisFlusher   *redisFlusher
 	afterCommitDataLoaderSets dataLoaderSets
-	dataDog                   *dataDog
 	eventBroker               *eventBroker
-	dataDogOnce               sync.Once
-}
-
-func (e *Engine) DataDog() DataDog {
-	e.dataDogOnce.Do(func() {
-		e.dataDog = &dataDog{engine: e}
-	})
-	return e.dataDog
 }
 
 func (e *Engine) Log() Log {
