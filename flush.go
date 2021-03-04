@@ -1156,7 +1156,6 @@ func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 		hasLocalCache = true
 		localCache = engine.GetLocalCache(requestCacheKey)
 	}
-	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if hasLocalCache {
 		if !lazy {
 			addLocalCacheSet(localCacheSets, schema.GetMysql(engine).GetPoolCode(), localCache.code, schema.getCacheKey(id), buildLocalCacheValue(entity))
@@ -1168,11 +1167,25 @@ func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 	} else if !lazy && engine.dataLoader != nil {
 		addToDataLoader(dataLoaderSets, schema, id, buildLocalCacheValue(entity))
 	}
+	redisCache, hasRedis := schema.GetRedisCache(engine)
 	if hasRedis {
 		redisFlusher.Del(redisCache.code, schema.getCacheKey(id))
 		keys := getCacheQueriesKeys(schema, bind, entity.getORM().dBData, true)
 		redisFlusher.Del(redisCache.code, keys...)
 	}
+	if schema.hasSearchCache {
+		values := make([]interface{}, 0)
+		for k, f := range schema.mapBindToRedisSearch {
+			v, has := bind[k]
+			if has {
+				values = append(values, k, f(v))
+			}
+		}
+		if len(values) > 0 {
+			redisFlusher.HSet(schema.searchCacheName, "todo", values...)
+		}
+	}
+
 	addDirtyQueues(redisFlusher, bind, schema, id, "i")
 	addToLogQueue(engine, redisFlusher, schema, id, nil, bind, entity.getORM().logMeta)
 }

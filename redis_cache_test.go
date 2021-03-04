@@ -100,7 +100,7 @@ func testRedis(t *testing.T, engine *Engine) {
 	_, has = r.HGet("test_map", "name2")
 	assert.False(t, has)
 
-	r.HMset("test_map", map[string]interface{}{"last": "Summer", "age": "16"})
+	r.HSet("test_map", "last", "Summer", "age", "16")
 	assert.Equal(t, map[string]string{"age": "16", "last": "Summer", "name": "Tom"}, r.HGetAll("test_map"))
 	assert.Equal(t, map[string]interface{}{"age": "16", "missing": nil, "name": "Tom"}, r.HMget("test_map",
 		"name", "age", "missing"))

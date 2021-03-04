@@ -241,22 +241,12 @@ func (r *RedisCache) Ltrim(key string, start, stop int64) {
 	checkError(err)
 }
 
-func (r *RedisCache) HMset(key string, fields map[string]interface{}) {
+func (r *RedisCache) HSet(key string, values ...interface{}) {
 	start := time.Now()
-	_, err := r.client.HMSet(r.ctx, key, fields).Result()
-	if r.engine.hasRedisLogger {
-		r.fillLogFields("[ORM][REDIS][HMSET]", start, "hmset", -1, len(fields),
-			map[string]interface{}{"Key": key, "fields": fields}, err)
-	}
-	checkError(err)
-}
-
-func (r *RedisCache) HSet(key string, field string, value interface{}) {
-	start := time.Now()
-	_, err := r.client.HSet(r.ctx, key, field, value).Result()
+	_, err := r.client.HSet(r.ctx, key, values...).Result()
 	if r.engine.hasRedisLogger {
 		r.fillLogFields("[ORM][REDIS][HSET]", start, "hset", -1, 1,
-			map[string]interface{}{"Key": key, "field": field, "value": value}, err)
+			map[string]interface{}{"Key": key, "values": values}, err)
 	}
 	checkError(err)
 }

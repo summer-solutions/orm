@@ -111,14 +111,14 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 		searchPager := NewPager(minPage, maxPage*idsOnCachePage)
 		results, total := searchIDsWithCount(false, engine, where, searchPager, entityType)
 		totalRows = total
-		cacheFields := make(map[string]interface{})
+		cacheFields := make([]interface{}, 0)
 		for key, ids := range fromCache {
 			if ids == nil {
 				page := key
 				pageInt, _ := strconv.Atoi(page)
 				sliceStart := (pageInt - minPage) * idsOnCachePage
 				if sliceStart > total {
-					cacheFields[page] = total
+					cacheFields = append(cacheFields, page, total)
 					continue
 				}
 				sliceEnd := sliceStart + idsOnCachePage
@@ -127,7 +127,7 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 				}
 				l := len(results)
 				if l == 0 {
-					cacheFields[page] = total
+					cacheFields = append(cacheFields, page, total)
 					continue
 				}
 				if sliceEnd > l {
@@ -139,11 +139,11 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 				values = append(values, foundIDs...)
 				cacheValue := fmt.Sprintf("%v", values)
 				cacheValue = strings.Trim(cacheValue, "[]")
-				cacheFields[page] = cacheValue
+				cacheFields = append(cacheFields, page, cacheValue)
 			}
 		}
 		if hasRedis {
-			redisCache.HMset(cacheKey, cacheFields)
+			redisCache.HSet(cacheKey, cacheFields...)
 		}
 	}
 	nilKeysLen := len(nilsKeys)
@@ -215,12 +215,11 @@ func cachedSearchOne(engine *Engine, entity Entity, indexName string, arguments 
 			id = results[0]
 			value += " " + strconv.FormatUint(results[0], 10)
 		}
-		fields := map[string]interface{}{"1": value}
 		if hasLocalCache {
-			localCache.HMset(cacheKey, fields)
+			localCache.HMset(cacheKey, map[string]interface{}{"1": value})
 		}
 		if hasRedis {
-			redisCache.HMset(cacheKey, fields)
+			redisCache.HSet(cacheKey, "1", value)
 		}
 	} else {
 		ids := strings.Split(fromCache["1"].(string), " ")

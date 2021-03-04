@@ -98,6 +98,8 @@ type tableSchema struct {
 	hasLocalCache        bool
 	redisCacheName       string
 	hasRedisCache        bool
+	searchCacheName      string
+	hasSearchCache       bool
 	cachePrefix          string
 	hasFakeDelete        bool
 	hasLog               bool
@@ -192,6 +194,13 @@ func (tableSchema *tableSchema) GetRedisCache(engine *Engine) (cache *RedisCache
 		return nil, false
 	}
 	return engine.GetRedis(tableSchema.redisCacheName), true
+}
+
+func (tableSchema *tableSchema) GetRedisSearch(engine *Engine) (search *RedisSearch, has bool) {
+	if !tableSchema.hasSearchCache {
+		return nil, false
+	}
+	return engine.GetRedisSearch(tableSchema.searchCacheName), true
 }
 
 func (tableSchema *tableSchema) GetReferences() []string {
@@ -488,7 +497,9 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	}
 	cachePrefix = fmt.Sprintf("%x", sha256.Sum256([]byte(cachePrefix+fieldsQuery)))
 	cachePrefix = cachePrefix[0:5]
-
+	if redisSearchIndex == nil {
+		redisSearch = ""
+	}
 	tableSchema := &tableSchema{tableName: table,
 		mysqlPoolName:        mysql,
 		t:                    entityType,
@@ -506,6 +517,8 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		hasLocalCache:        localCache != "",
 		redisCacheName:       redisCache,
 		hasRedisCache:        redisCache != "",
+		searchCacheName:      redisSearch,
+		hasSearchCache:       redisSearchIndex != nil,
 		refOne:               oneRefs,
 		refMany:              manyRefs,
 		cachePrefix:          cachePrefix,
