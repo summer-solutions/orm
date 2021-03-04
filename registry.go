@@ -171,6 +171,13 @@ func (r *Registry) Validate() (ValidatedRegistry, error) {
 		if !has {
 			r.RegisterRedisStream(logChannelName, "default", []string{asyncConsumerGroupName})
 		}
+		if tableSchema.redisSearchIndex != nil {
+			index := tableSchema.redisSearchIndex
+			if registry.redisSearchIndexes[index.RedisPool] == nil {
+				registry.redisSearchIndexes[index.RedisPool] = make(map[string]*RedisSearchIndex)
+			}
+			registry.redisSearchIndexes[index.RedisPool][index.Name] = index
+		}
 	}
 	registry.redisStreamGroups = r.redisStreamGroups
 	registry.redisStreamPools = r.redisStreamPools

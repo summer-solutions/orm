@@ -15,8 +15,7 @@ import (
 
 func TestRedisSearch(t *testing.T) {
 	registry := &Registry{}
-	registry.RegisterRedis("localhost:6383", 0)
-	testIndex := &RedisSearchIndex{Name: "test", RedisPool: "default", PayloadField: "_my_payload",
+	testIndex := &RedisSearchIndex{Name: "test", RedisPool: "search", PayloadField: "_my_payload",
 		ScoreField: "_my_score", LanguageField: "_my_language", DefaultScore: 0.8,
 		Prefixes: []string{"doc1:", "doc2:"}, StopWords: []string{"and", "in"}}
 	testIndex.MaxTextFields = true
@@ -33,58 +32,34 @@ func TestRedisSearch(t *testing.T) {
 		return 0, false
 	}
 	registry.RegisterRedisSearchIndex(testIndex)
-	testIndex2 := &RedisSearchIndex{Name: "test2", RedisPool: "default", Prefixes: []string{"test2:"}}
+	testIndex2 := &RedisSearchIndex{Name: "test2", RedisPool: "search", Prefixes: []string{"test2:"}}
 	testIndex2.AddTextField("title", 1, true, false, false)
 	registry.RegisterRedisSearchIndex(testIndex2)
-	defaultIndex := &RedisSearchIndex{Name: "default", RedisPool: "default"}
+	defaultIndex := &RedisSearchIndex{Name: "default", RedisPool: "search"}
 	defaultIndex.AddTextField("text_field", 0.12, true, false, false)
 	defaultIndex.AddTagField("tag_field", true, false, ",")
 	registry.RegisterRedisSearchIndex(defaultIndex)
-	validatedRegistry, err := registry.Validate()
-	assert.NoError(t, err)
-	engine := validatedRegistry.CreateEngine()
-	engine.GetRedis().FlushDB()
+	engine := PrepareTables(t, registry, 5)
 
 	testLog := memory.New()
 	engine.AddQueryLogger(testLog, apexLog.InfoLevel, QueryLoggerSourceRedis)
 
-	search := engine.GetRedisSearch()
+	search := engine.GetRedisSearch("search")
 	assert.NotNil(t, search)
 	alters := engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 3)
+	assert.Len(t, alters, 0)
 
 	testLog.Entries = make([]*apexLog.Entry, 0)
-	search.createIndex(&RedisSearchIndex{Name: "to_delete", RedisPool: "default"}, 100)
+	search.createIndex(&RedisSearchIndex{Name: "to_delete", RedisPool: "search"}, 100)
 
 	alters = engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 4)
-	assert.Equal(t, "default", alters[0].Pool)
+	assert.Len(t, alters, 1)
+	assert.Equal(t, "search", alters[0].Pool)
 	assert.Equal(t, "FT.DROPINDEX to_delete:100", alters[0].Query)
 	assert.False(t, alters[0].Executing)
 	alters[0].Execute()
 	alters = engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 3)
-	for _, alter := range alters {
-		if strings.Contains(alter.Query, "test2") {
-			assert.Equal(t, "FT.CREATE test2 ON HASH PREFIX 1 test2: SCHEMA title TEXT SORTABLE", alter.Query)
-		} else if strings.Contains(alter.Query, "default") {
-			assert.Equal(t, "FT.CREATE default ON HASH PREFIX 0 SCHEMA text_field TEXT WEIGHT 0.12 SORTABLE tag_field TAG SEPARATOR , SORTABLE", alter.Query)
-		} else {
-			assert.Equal(t, "FT.CREATE test ON HASH PREFIX 2 doc1: doc2: LANGUAGE_FIELD _my_language SCORE 0.8 SCORE_FIELD _my_score PAYLOAD_FIELD _my_payload MAXTEXTFIELDS NOOFFSETS NOHL NOFIELDS NOFREQS STOPWORDS 2 and in SCHEMA title TEXT WEIGHT 0.4 SORTABLE test TEXT NOSTEM NOINDEX age NUMERIC SORTABLE location GEO tags TAG SEPARATOR . SORTABLE", alter.Query)
-		}
-		assert.Equal(t, "default", alter.Pool)
-		assert.False(t, alter.Executing)
-	}
-
-	alters[0].Execute()
-	alters[1].Execute()
-	alters[2].Execute()
-
-	alters = engine.GetRedisSearchIndexAlters()
-	assert.Len(t, alters, 3)
-	assert.True(t, alters[0].Executing)
-	assert.True(t, alters[1].Executing)
-	assert.True(t, alters[2].Executing)
+	assert.Len(t, alters, 0)
 
 	indexer := NewRedisSearchIndexer(engine)
 	indexer.DisableLoop()

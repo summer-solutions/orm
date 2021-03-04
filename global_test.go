@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"database/sql"
 	"reflect"
 	"testing"
@@ -19,6 +20,7 @@ func PrepareTables(t *testing.T, registry *Registry, version int, entities ...En
 	registry.RegisterLocker("default", "default")
 	registry.RegisterRedis("localhost:6381", 15)
 	registry.RegisterRedis("localhost:6381", 14, "default_queue")
+	registry.RegisterRedis("localhost:6383", 0, "search")
 	registry.RegisterLocalCache(1000)
 
 	registry.RegisterEntity(entities...)
@@ -35,6 +37,8 @@ func PrepareTables(t *testing.T, registry *Registry, version int, entities ...En
 	redisCache.FlushDB()
 	redisCache = engine.GetRedis("default_queue")
 	redisCache.FlushDB()
+	redisSearch := engine.GetRedis("search")
+	redisSearch.FlushDB()
 
 	alters := engine.GetAlters()
 	for _, alter := range alters {
@@ -47,6 +51,14 @@ func PrepareTables(t *testing.T, registry *Registry, version int, entities ...En
 		pool := engine.GetElastic(alter.Pool)
 		pool.CreateIndex(alter.Index)
 	}
+
+	altersSearch := engine.GetRedisSearchIndexAlters()
+	for _, alter := range altersSearch {
+		alter.Execute()
+	}
+	indexer := NewRedisSearchIndexer(engine)
+	indexer.DisableLoop()
+	indexer.Run(context.Background())
 
 	engine.GetMysql().Exec("SET FOREIGN_KEY_CHECKS = 0")
 	for _, entity := range entities {

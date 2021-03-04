@@ -79,32 +79,36 @@ type TableSchema interface {
 }
 
 type tableSchema struct {
-	tableName           string
-	mysqlPoolName       string
-	t                   reflect.Type
-	fields              *tableFields
-	fieldsQuery         string
-	tags                map[string]map[string]string
-	cachedIndexes       map[string]*cachedQueryDefinition
-	cachedIndexesOne    map[string]*cachedQueryDefinition
-	cachedIndexesAll    map[string]*cachedQueryDefinition
-	columnNames         []string
-	columnMapping       map[string]int
-	uniqueIndices       map[string][]string
-	uniqueIndicesGlobal map[string][]string
-	refOne              []string
-	refMany             []string
-	localCacheName      string
-	hasLocalCache       bool
-	redisCacheName      string
-	hasRedisCache       bool
-	cachePrefix         string
-	hasFakeDelete       bool
-	hasLog              bool
-	logPoolName         string //name of redis
-	logTableName        string
-	skipLogs            []string
+	tableName            string
+	mysqlPoolName        string
+	t                    reflect.Type
+	fields               *tableFields
+	fieldsQuery          string
+	tags                 map[string]map[string]string
+	cachedIndexes        map[string]*cachedQueryDefinition
+	cachedIndexesOne     map[string]*cachedQueryDefinition
+	cachedIndexesAll     map[string]*cachedQueryDefinition
+	columnNames          []string
+	columnMapping        map[string]int
+	uniqueIndices        map[string][]string
+	uniqueIndicesGlobal  map[string][]string
+	refOne               []string
+	refMany              []string
+	localCacheName       string
+	hasLocalCache        bool
+	redisCacheName       string
+	hasRedisCache        bool
+	cachePrefix          string
+	hasFakeDelete        bool
+	hasLog               bool
+	logPoolName          string //name of redis
+	logTableName         string
+	skipLogs             []string
+	redisSearchIndex     *RedisSearchIndex
+	mapBindToRedisSearch mapBindToRedisSearch
 }
+
+type mapBindToRedisSearch map[string]func(val interface{}) interface{}
 
 type tableFields struct {
 	t                 reflect.Type
@@ -226,6 +230,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	tags := extractTags(registry, entityType, "")
 	oneRefs := make([]string, 0)
 	manyRefs := make([]string, 0)
+	mapBindToRedisSearch := mapBindToRedisSearch{}
 	mysql, has := tags["ORM"]["mysql"]
 	if !has {
 		mysql = "default"
@@ -240,6 +245,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	}
 	localCache := ""
 	redisCache := ""
+	redisSearch := ""
 	userValue, has := tags["ORM"]["localCache"]
 	if has {
 		if userValue == "true" {
@@ -265,6 +271,21 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		if !has {
 			return nil, fmt.Errorf("redis pool '%s' not found", redisCache)
 		}
+	}
+	userValue, has = tags["ORM"]["redisSearch"]
+	if has {
+		if userValue == "true" {
+			userValue = "default"
+		}
+		redisSearch = userValue
+	}
+	if redisSearch != "" {
+		_, has = registry.redisServers[redisSearch]
+		if !has {
+			return nil, fmt.Errorf("redis pool '%s' not found", redisSearch)
+		}
+	} else {
+		redisSearch = "default"
 	}
 	cachePrefix := ""
 	if mysql != "default" {
@@ -442,8 +463,20 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 			}
 		}
 	}
-
-	fields := buildTableFields(entityType, 1, "", tags)
+	redisSearchIndex := &RedisSearchIndex{}
+	fields := buildTableFields(entityType, redisSearchIndex, mapBindToRedisSearch, 1, "", tags)
+	if len(redisSearchIndex.Fields) > 0 {
+		redisSearchIndex.Name = entityType.String()
+		redisSearchIndex.RedisPool = redisSearch
+		searchPrefix := fmt.Sprintf("%x", sha256.Sum256([]byte(entityType.String())))
+		searchPrefix = searchPrefix[0:5]
+		redisSearchIndex.Prefixes = []string{searchPrefix + ":"}
+		redisSearchIndex.NoOffsets = true
+		redisSearchIndex.NoFreqs = true
+		redisSearchIndex.NoNHL = true
+	} else {
+		redisSearchIndex = nil
+	}
 	columns := fields.getColumnNames()
 	columnMapping := make(map[string]int)
 	for i, name := range columns {
@@ -457,30 +490,32 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	cachePrefix = cachePrefix[0:5]
 
 	tableSchema := &tableSchema{tableName: table,
-		mysqlPoolName:       mysql,
-		t:                   entityType,
-		fields:              fields,
-		fieldsQuery:         fieldsQuery[1:],
-		tags:                tags,
-		columnNames:         columns,
-		columnMapping:       columnMapping,
-		cachedIndexes:       cachedQueries,
-		cachedIndexesOne:    cachedQueriesOne,
-		cachedIndexesAll:    cachedQueriesAll,
-		localCacheName:      localCache,
-		hasLocalCache:       localCache != "",
-		redisCacheName:      redisCache,
-		hasRedisCache:       redisCache != "",
-		refOne:              oneRefs,
-		refMany:             manyRefs,
-		cachePrefix:         cachePrefix,
-		uniqueIndices:       uniqueIndicesSimple,
-		uniqueIndicesGlobal: uniqueIndicesSimpleGlobal,
-		hasFakeDelete:       hasFakeDelete,
-		hasLog:              logPoolName != "",
-		logPoolName:         logPoolName,
-		logTableName:        fmt.Sprintf("_log_%s_%s", mysql, table),
-		skipLogs:            skipLogs}
+		mysqlPoolName:        mysql,
+		t:                    entityType,
+		fields:               fields,
+		fieldsQuery:          fieldsQuery[1:],
+		redisSearchIndex:     redisSearchIndex,
+		mapBindToRedisSearch: mapBindToRedisSearch,
+		tags:                 tags,
+		columnNames:          columns,
+		columnMapping:        columnMapping,
+		cachedIndexes:        cachedQueries,
+		cachedIndexesOne:     cachedQueriesOne,
+		cachedIndexesAll:     cachedQueriesAll,
+		localCacheName:       localCache,
+		hasLocalCache:        localCache != "",
+		redisCacheName:       redisCache,
+		hasRedisCache:        redisCache != "",
+		refOne:               oneRefs,
+		refMany:              manyRefs,
+		cachePrefix:          cachePrefix,
+		uniqueIndices:        uniqueIndicesSimple,
+		uniqueIndicesGlobal:  uniqueIndicesSimpleGlobal,
+		hasFakeDelete:        hasFakeDelete,
+		hasLog:               logPoolName != "",
+		logPoolName:          logPoolName,
+		logTableName:         fmt.Sprintf("_log_%s_%s", mysql, table),
+		skipLogs:             skipLogs}
 
 	all := make(map[string]map[int]string)
 	for k, v := range uniqueIndices {
@@ -575,7 +610,8 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	return tableSchema, nil
 }
 
-func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[string]map[string]string) *tableFields {
+func buildTableFields(t reflect.Type, index *RedisSearchIndex, mapBindToRedisSearch mapBindToRedisSearch,
+	start int, prefix string, schemaTags map[string]map[string]string) *tableFields {
 	fields := &tableFields{t: t, prefix: prefix, uintegers: make([]int, 0), uintegersNullable: make([]int, 0),
 		integers: make([]int, 0), integersNullable: make([]int, 0), strings: make([]int, 0), fields: make(map[int]reflect.StructField),
 		sliceStrings: make([]int, 0), bytes: make([]int, 0), booleans: make([]int, 0), booleansNullable: make([]int, 0), floats: make([]int, 0),
@@ -590,6 +626,8 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 		if has {
 			continue
 		}
+		_, hasSearchable := tags["searchable"]
+		_, hasSortable := tags["sortable"]
 		switch typeName {
 		case "uint",
 			"uint8",
@@ -597,6 +635,12 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 			"uint32",
 			"uint64":
 			fields.uintegers = append(fields.uintegers, i)
+			if hasSearchable || hasSortable {
+				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
+				mapBindToRedisSearch[prefix+f.Name] = func(val interface{}) interface{} {
+					return val
+				}
+			}
 		case "*uint",
 			"*uint8",
 			"*uint16",
@@ -642,7 +686,7 @@ func buildTableFields(t reflect.Type, start int, prefix string, schemaTags map[s
 		default:
 			k := f.Type.Kind().String()
 			if k == "struct" {
-				fields.structs[i] = buildTableFields(f.Type, 0, f.Name, schemaTags)
+				fields.structs[i] = buildTableFields(f.Type, index, mapBindToRedisSearch, 0, f.Name, schemaTags)
 			} else if k == "ptr" {
 				modelType := reflect.TypeOf((*Entity)(nil)).Elem()
 				if f.Type.Implements(modelType) {
