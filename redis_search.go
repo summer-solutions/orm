@@ -345,11 +345,11 @@ func (r *RedisSearch) ForceReindex(index string) {
 	r.redis.HSet(redisSearchForceIndexKey, index, "0:"+strconv.FormatInt(time.Now().UnixNano(), 10))
 }
 
-func (r *RedisSearch) SearchRaw(index string, query *RedisSearchQuery, pager *Pager) (total int64, rows []interface{}) {
+func (r *RedisSearch) SearchRaw(index string, query *RedisSearchQuery, pager *Pager) (total uint64, rows []interface{}) {
 	return r.search(index, query, pager, false)
 }
 
-func (r *RedisSearch) Search(index string, query *RedisSearchQuery, pager *Pager) (total int64, rows []*RedisSearchResult) {
+func (r *RedisSearch) Search(index string, query *RedisSearchQuery, pager *Pager) (total uint64, rows []*RedisSearchResult) {
 	total, data := r.search(index, query, pager, false)
 	rows = make([]*RedisSearchResult, 0)
 	max := len(data) - 1
@@ -383,7 +383,7 @@ func (r *RedisSearch) Search(index string, query *RedisSearchQuery, pager *Pager
 	return total, rows
 }
 
-func (r *RedisSearch) SearchKeys(index string, query *RedisSearchQuery, pager *Pager) (total int64, keys []string) {
+func (r *RedisSearch) SearchKeys(index string, query *RedisSearchQuery, pager *Pager) (total uint64, keys []string) {
 	total, rows := r.search(index, query, pager, true)
 	keys = make([]string, len(rows))
 	for k, v := range rows {
@@ -392,7 +392,7 @@ func (r *RedisSearch) SearchKeys(index string, query *RedisSearchQuery, pager *P
 	return total, keys
 }
 
-func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager, noContent bool) (total int64, rows []interface{}) {
+func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager, noContent bool) (total uint64, rows []interface{}) {
 	args := []interface{}{"FT.SEARCH", index}
 	if query.query != "" {
 		args = append(args, query.query)
@@ -498,7 +498,7 @@ func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager
 	checkError(err)
 	res, err := cmd.Result()
 	checkError(err)
-	total = res[0].(int64)
+	total = uint64(res[0].(int64))
 	return total, res[1:]
 }
 

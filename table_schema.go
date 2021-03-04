@@ -106,6 +106,7 @@ type tableSchema struct {
 	logPoolName          string //name of redis
 	logTableName         string
 	skipLogs             []string
+	redisSearchPrefix    string
 	redisSearchIndex     *RedisSearchIndex
 	mapBindToRedisSearch mapBindToRedisSearch
 }
@@ -474,12 +475,13 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	}
 	redisSearchIndex := &RedisSearchIndex{}
 	fields := buildTableFields(entityType, redisSearchIndex, mapBindToRedisSearch, 1, "", tags)
+	searchPrefix := ""
 	if len(redisSearchIndex.Fields) > 0 {
 		redisSearchIndex.Name = entityType.String()
 		redisSearchIndex.RedisPool = redisSearch
-		searchPrefix := fmt.Sprintf("%x", sha256.Sum256([]byte(entityType.String())))
-		searchPrefix = searchPrefix[0:5]
-		redisSearchIndex.Prefixes = []string{searchPrefix + ":"}
+		searchPrefix = fmt.Sprintf("%x", sha256.Sum256([]byte(entityType.String())))
+		searchPrefix = searchPrefix[0:5] + ":"
+		redisSearchIndex.Prefixes = []string{searchPrefix}
 		redisSearchIndex.NoOffsets = true
 		redisSearchIndex.NoFreqs = true
 		redisSearchIndex.NoNHL = true
@@ -505,6 +507,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		t:                    entityType,
 		fields:               fields,
 		fieldsQuery:          fieldsQuery[1:],
+		redisSearchPrefix:    searchPrefix,
 		redisSearchIndex:     redisSearchIndex,
 		mapBindToRedisSearch: mapBindToRedisSearch,
 		tags:                 tags,

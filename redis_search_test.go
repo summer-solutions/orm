@@ -165,11 +165,11 @@ func TestRedisSearch(t *testing.T) {
 
 	total, rowsRaw := search.SearchRaw("test2", query, NewPager(1, 2))
 	assert.Len(t, rowsRaw, 4)
-	assert.Equal(t, int64(1000), total)
+	assert.Equal(t, uint64(1000), total)
 
 	total, keys := search.SearchKeys("test2", query, NewPager(1, 2))
 	assert.Len(t, keys, 2)
-	assert.Equal(t, int64(1000), total)
+	assert.Equal(t, uint64(1000), total)
 	assert.Equal(t, "test2:1", keys[0])
 	assert.Equal(t, "test2:2", keys[1])
 
@@ -200,14 +200,14 @@ func TestRedisSearch(t *testing.T) {
 	query = &RedisSearchQuery{}
 	query.FilterInt("id", 34, 34)
 	total, rows = search.Search("test2", query, NewPager(1, 2))
-	assert.Equal(t, int64(1), total)
+	assert.Equal(t, uint64(1), total)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, "test2:34", rows[0].Key)
 
 	query = &RedisSearchQuery{}
 	query.FilterInt("id", 33, 35).FilterInt("number_signed", -10, 5)
 	total, rows = search.Search("test2", query, NewPager(1, 2))
-	assert.Equal(t, int64(2), total)
+	assert.Equal(t, uint64(2), total)
 	assert.Len(t, rows, 2)
 	assert.Equal(t, "test2:35", rows[0].Key)
 	assert.Equal(t, "test2:33", rows[1].Key)
@@ -215,14 +215,14 @@ func TestRedisSearch(t *testing.T) {
 	query = &RedisSearchQuery{}
 	query.FilterFloat("number_float", 7.33, 7.35)
 	total, rows = search.Search("test2", query, NewPager(1, 2))
-	assert.Equal(t, int64(1), total)
+	assert.Equal(t, uint64(1), total)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, "test2:34", rows[0].Key)
 
 	query = &RedisSearchQuery{}
 	query.FilterGeo("location", 52.2982648, 17.0103596, 75, "km")
 	total, rows = search.Search("test2", query, NewPager(1, 2))
-	assert.Equal(t, int64(2), total)
+	assert.Equal(t, uint64(2), total)
 	assert.Len(t, rows, 2)
 	assert.Equal(t, "test2:34", rows[0].Key)
 	assert.Equal(t, "test2:33", rows[1].Key)
@@ -230,7 +230,7 @@ func TestRedisSearch(t *testing.T) {
 	query = &RedisSearchQuery{}
 	query.FilterInt("id", 1, 100).Sort("id", false)
 	total, rows = search.Search("test2", query, NewPager(1, 3))
-	assert.Equal(t, int64(100), total)
+	assert.Equal(t, uint64(100), total)
 	assert.Len(t, rows, 3)
 	assert.Equal(t, "test2:1", rows[0].Key)
 	assert.Equal(t, "test2:2", rows[1].Key)
@@ -239,7 +239,7 @@ func TestRedisSearch(t *testing.T) {
 	query = &RedisSearchQuery{}
 	query.FilterInt("id", 1, 100).Sort("id", true)
 	total, rows = search.Search("test2", query, NewPager(1, 3))
-	assert.Equal(t, int64(100), total)
+	assert.Equal(t, uint64(100), total)
 	assert.Len(t, rows, 3)
 	assert.Equal(t, "test2:100", rows[0].Key)
 	assert.Equal(t, "test2:99", rows[1].Key)
@@ -248,7 +248,7 @@ func TestRedisSearch(t *testing.T) {
 	query.InKeys("test2:100", "test2:98")
 	query.FilterInt("id", 1, 100).Sort("id", true)
 	total, rows = search.Search("test2", query, NewPager(1, 3))
-	assert.Equal(t, int64(2), total)
+	assert.Equal(t, uint64(2), total)
 	assert.Len(t, rows, 2)
 	assert.Equal(t, "test2:100", rows[0].Key)
 	assert.Equal(t, "test2:98", rows[1].Key)
@@ -256,7 +256,7 @@ func TestRedisSearch(t *testing.T) {
 	query = &RedisSearchQuery{}
 	query.Query("hello").InFields("title2").Return("id", "title2")
 	total, rows = search.Search("test2", query, NewPager(1, 3))
-	assert.Equal(t, int64(1), total)
+	assert.Equal(t, uint64(1), total)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, "test2:33", rows[0].Key)
 	assert.Len(t, rows[0].Fields, 4)
@@ -268,58 +268,58 @@ func TestRedisSearch(t *testing.T) {
 	query = &RedisSearchQuery{}
 	query.Query("hello tom").WithScores().ExplainScore()
 	total, rows = search.Search("test2", query, NewPager(1, 3))
-	assert.Equal(t, int64(1), total)
+	assert.Equal(t, uint64(1), total)
 	assert.GreaterOrEqual(t, rows[0].Score, 1.33)
 	assert.NotNil(t, rows[0].ExplainScore)
 	assert.Equal(t, "test2:33", rows[0].Key)
 	query.Slop(0)
 	total, _ = search.Search("test2", query, NewPager(1, 3))
-	assert.Equal(t, int64(0), total)
+	assert.Equal(t, uint64(0), total)
 
 	query = &RedisSearchQuery{}
 	query.Query("tom hello")
 	total, _ = search.Search("test2", query, NewPager(1, 3))
-	assert.Equal(t, int64(1), total)
+	assert.Equal(t, uint64(1), total)
 	query.InOrder()
 	total, _ = search.Search("test2", query, NewPager(1, 3))
-	assert.Equal(t, int64(0), total)
+	assert.Equal(t, uint64(0), total)
 
 	query = &RedisSearchQuery{}
 	query.Query("hello").Lang("german")
 	total, _ = search.Search("test2", query, NewPager(1, 3))
-	assert.Equal(t, int64(1000), total)
+	assert.Equal(t, uint64(1000), total)
 
 	query = &RedisSearchQuery{}
 	query.Query("hello").Highlight("title").HighlightTags("<strong>", "</strong>").FilterInt("id", 33, 33)
 	total, rows = search.Search("test2", query, NewPager(1, 1))
-	assert.Equal(t, int64(1), total)
+	assert.Equal(t, uint64(1), total)
 	assert.Equal(t, "<strong>hello</strong> 33", rows[0].Value("title"))
 	assert.Equal(t, "hello 33 friend tom", rows[0].Value("title2"))
 
 	query = &RedisSearchQuery{}
 	query.Query("hello tom").Highlight().FilterInt("id", 33, 33)
 	total, rows = search.Search("test2", query, NewPager(1, 1))
-	assert.Equal(t, int64(1), total)
+	assert.Equal(t, uint64(1), total)
 	assert.Equal(t, "<b>hello</b> 33", rows[0].Value("title"))
 	assert.Equal(t, "<b>hello</b> 33 friend <b>tom</b>", rows[0].Value("title2"))
 
 	query = &RedisSearchQuery{}
 	query.Query("hello tom").Summarize("title2").FilterInt("id", 33, 33)
 	total, rows = search.Search("test2", query, NewPager(1, 1))
-	assert.Equal(t, int64(1), total)
+	assert.Equal(t, uint64(1), total)
 	assert.Equal(t, "hello 33", rows[0].Value("title"))
 	assert.Equal(t, "hello 33 friend tom... ", rows[0].Value("title2"))
 
 	query.Query("hello tom").SummarizeOptions("...", 1, 2)
 	total, rows = search.Search("test2", query, NewPager(1, 1))
-	assert.Equal(t, int64(1), total)
+	assert.Equal(t, uint64(1), total)
 	assert.Equal(t, "hello 33", rows[0].Value("title"))
 	assert.Equal(t, "hello 33 friend tom...", rows[0].Value("title2"))
 
 	query = &RedisSearchQuery{}
 	query.Query("@status: {temporary}").Sort("id", false)
 	total, rows = search.Search("test2", query, NewPager(1, 10))
-	assert.Equal(t, int64(2), total)
+	assert.Equal(t, uint64(2), total)
 	assert.Equal(t, "33", rows[0].Value("id"))
 	assert.Equal(t, "34", rows[1].Value("id"))
 

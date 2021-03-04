@@ -1182,7 +1182,8 @@ func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 			}
 		}
 		if len(values) > 0 {
-			redisFlusher.HSet(schema.searchCacheName, "todo", values...)
+			key := schema.redisSearchPrefix + strconv.FormatUint(id, 10)
+			redisFlusher.HSet(schema.searchCacheName, key, values...)
 		}
 	}
 

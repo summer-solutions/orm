@@ -46,9 +46,7 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.True(t, info.Fields[0].Sortable)
 	assert.False(t, info.Fields[0].NoIndex)
 
-	// TODO check info.Fields[0]
-
-	//ids, total := engine.RedisSearchIds(entity, NewPager(1, 10))
-	//assert.Equal(t, uint64(5), total)
-	//assert.Len(t, ids, 5)
+	ids, total := engine.RedisSearchIds(entity, NewPager(1, 10))
+	assert.Equal(t, uint64(5), total)
+	assert.Len(t, ids, 5)
 }
