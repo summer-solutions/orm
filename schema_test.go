@@ -86,7 +86,7 @@ type schemaEntity struct {
 	Ignored         string `orm:"ignore"`
 	NameTranslated  map[string]string
 	RefOne          *schemaEntityRef
-	RefOneCascade   *schemaEntityRef `orm:"cascade;unique=TestRefOneCascade;skip_FK"`
+	RefOneCascade   *schemaEntityRef `orm:"cascade;unique=TestRefOneCascade"`
 	RefMany         []*schemaEntityRef
 	Decimal         float32  `orm:"decimal=10,2"`
 	Enum            string   `orm:"enum=orm.TestEnum;required"`

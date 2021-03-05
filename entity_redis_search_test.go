@@ -100,12 +100,13 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Equal(t, uint64(19), ids[18])
 	assert.Equal(t, uint64(18), ids[17])
 
-	//query = &RedisSearchQuery{}
-	//query.Sort("Age", false)
-	//query.FilterIntIn("Age", 18, 38)
-	//ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
-	//assert.Equal(t, uint64(2), total)
-	//assert.Len(t, ids, 2)
-	//assert.Equal(t, uint64(18), ids[0])
-	//assert.Equal(t, uint64(38), ids[1])
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterInt("Age", 18)
+	query.FilterInt("Age", 38)
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
+	assert.Equal(t, uint64(2), total)
+	assert.Len(t, ids, 2)
+	assert.Equal(t, uint64(18), ids[0])
+	assert.Equal(t, uint64(38), ids[1])
 }

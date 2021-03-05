@@ -641,7 +641,10 @@ func checkColumn(engine *Engine, schema *tableSchema, field *reflect.StructField
 			}
 		}
 		if !hasValidIndex {
-			indexes[columnName] = &index{Unique: false, Columns: map[int]string{1: columnName}}
+			_, hasSkipFK := attributes["skip_FK"]
+			if !hasSkipFK {
+				indexes[columnName] = &index{Unique: false, Columns: map[int]string{1: columnName}}
+			}
 		}
 	}
 

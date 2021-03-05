@@ -163,10 +163,9 @@ type RedisSearchIndexInfoField struct {
 
 type RedisSearchQuery struct {
 	query              string
-	filtersInt         map[string][]string
+	filtersInt         map[string][][]string
 	filtersFloat       map[string][]float64
 	filtersGeo         map[string][]interface{}
-	filtersIn          map[string][]string
 	inKeys             []interface{}
 	inFields           []interface{}
 	toReturn           []interface{}
@@ -217,9 +216,9 @@ func (q *RedisSearchQuery) FilterIntMinMax(field string, min, max int64) *RedisS
 
 func (q *RedisSearchQuery) filterIntMinMax(field string, min, max string) *RedisSearchQuery {
 	if q.filtersInt == nil {
-		q.filtersInt = make(map[string][]string)
+		q.filtersInt = make(map[string][][]string)
 	}
-	q.filtersInt[field] = []string{min, max}
+	q.filtersInt[field] = append(q.filtersInt[field], []string{min, max})
 	return q
 }
 
@@ -241,16 +240,6 @@ func (q *RedisSearchQuery) FilterIntLessEqual(field string, value int64) *RedisS
 
 func (q *RedisSearchQuery) FilterIntLess(field string, value int64) *RedisSearchQuery {
 	return q.filterIntMinMax(field, "-inf", "("+strconv.FormatInt(value, 10))
-}
-
-func (q *RedisSearchQuery) FilterIntIn(field string, values ...int64) *RedisSearchQuery {
-	if q.filtersIn == nil {
-		q.filtersIn = make(map[string][]string)
-	}
-	for _, val := range values {
-		q.filtersIn[field] = append(q.filtersIn[field], strconv.FormatInt(val, 10))
-	}
-	return q
 }
 
 func (q *RedisSearchQuery) FilterFloatMinMax(field string, min, max float64) *RedisSearchQuery {
@@ -434,11 +423,20 @@ func (r *RedisSearch) SearchKeys(index string, query *RedisSearchQuery, pager *P
 func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager, noContent bool) (total uint64, rows []interface{}) {
 	args := []interface{}{"FT.SEARCH", index}
 	q := query.query
-	for field, in := range query.filtersIn {
+	for field, in := range query.filtersInt {
+		if len(in) == 1 {
+			continue
+		}
 		if q != "" {
 			q += " "
 		}
-		q += "@" + field + ":(" + strings.Join(in, "|") + ")"
+		for i, v := range in {
+			if i > 0 {
+				q += "|"
+			}
+			q += "@" + field + ":"
+			q += "[" + v[0] + " " + v[1] + "]"
+		}
 	}
 	if q == "" {
 		q = "*"
@@ -446,7 +444,9 @@ func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager
 	args = append(args, q)
 
 	for field, ranges := range query.filtersInt {
-		args = append(args, "FILTER", field, ranges[0], ranges[1])
+		if len(ranges) == 1 {
+			args = append(args, "FILTER", field, ranges[0][0], ranges[0][1])
+		}
 	}
 	for field, ranges := range query.filtersFloat {
 		args = append(args, "FILTER", field, ranges[0], ranges[1])
