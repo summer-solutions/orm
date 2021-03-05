@@ -593,16 +593,19 @@ func checkColumn(engine *Engine, schema *tableSchema, field *reflect.StructField
 		if key == "index" && field.Type.Kind() == reflect.Ptr {
 			refOneSchema = getTableSchema(engine.registry, field.Type.Elem())
 			if refOneSchema != nil {
-				onDelete := "RESTRICT"
-				_, hasCascade := attributes["cascade"]
-				if hasCascade {
-					onDelete = "CASCADE"
+				_, hasSkipFK := attributes["skip_FK"]
+				if !hasSkipFK {
+					onDelete := "RESTRICT"
+					_, hasCascade := attributes["cascade"]
+					if hasCascade {
+						onDelete = "CASCADE"
+					}
+					pool := refOneSchema.GetMysql(engine)
+					foreignKey := &foreignIndex{Column: prefix + field.Name, Table: refOneSchema.tableName,
+						ParentDatabase: pool.GetDatabaseName(), OnDelete: onDelete}
+					name := fmt.Sprintf("%s:%s:%s", pool.GetDatabaseName(), schema.tableName, prefix+field.Name)
+					foreignKeys[name] = foreignKey
 				}
-				pool := refOneSchema.GetMysql(engine)
-				foreignKey := &foreignIndex{Column: prefix + field.Name, Table: refOneSchema.tableName,
-					ParentDatabase: pool.GetDatabaseName(), OnDelete: onDelete}
-				name := fmt.Sprintf("%s:%s:%s", pool.GetDatabaseName(), schema.tableName, prefix+field.Name)
-				foreignKeys[name] = foreignKey
 			}
 		}
 
