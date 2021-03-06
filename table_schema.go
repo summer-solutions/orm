@@ -653,9 +653,7 @@ func buildTableFields(t reflect.Type, index *RedisSearchIndex, mapBindToRedisSea
 			fields.uintegers = append(fields.uintegers, i)
 			if hasSearchable || hasSortable {
 				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
-				mapBindToRedisSearch[prefix+f.Name] = func(val interface{}) interface{} {
-					return val
-				}
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapper
 			}
 		case "*uint",
 			"*uint8",
@@ -669,6 +667,10 @@ func buildTableFields(t reflect.Type, index *RedisSearchIndex, mapBindToRedisSea
 			"int32",
 			"int64":
 			fields.integers = append(fields.integers, i)
+			if hasSearchable || hasSortable {
+				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapper
+			}
 		case "*int",
 			"*int8",
 			"*int16",
@@ -692,6 +694,10 @@ func buildTableFields(t reflect.Type, index *RedisSearchIndex, mapBindToRedisSea
 		case "float32",
 			"float64":
 			fields.floats = append(fields.floats, i)
+			if hasSearchable || hasSortable {
+				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapper
+			}
 		case "*float32",
 			"*float64":
 			fields.floatsNullable = append(fields.floatsNullable, i)
@@ -842,4 +848,8 @@ func (fields *tableFields) getColumnNames() []string {
 		columns = append(columns, subFields.getColumnNames()...)
 	}
 	return columns
+}
+
+var defaultRedisSearchMapper = func(val interface{}) interface{} {
+	return val
 }

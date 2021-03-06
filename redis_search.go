@@ -163,8 +163,7 @@ type RedisSearchIndexInfoField struct {
 
 type RedisSearchQuery struct {
 	query              string
-	filtersInt         map[string][][]string
-	filtersFloat       map[string][]float64
+	filtersNumeric     map[string][][]string
 	filtersGeo         map[string][]interface{}
 	inKeys             []interface{}
 	inFields           []interface{}
@@ -210,16 +209,16 @@ func (q *RedisSearchQuery) Query(query string) *RedisSearchQuery {
 	return q
 }
 
-func (q *RedisSearchQuery) FilterIntMinMax(field string, min, max int64) *RedisSearchQuery {
-	return q.filterIntMinMax(field, strconv.FormatInt(min, 10), strconv.FormatInt(max, 10))
+func (q *RedisSearchQuery) filterNumericMinMax(field string, min, max string) *RedisSearchQuery {
+	if q.filtersNumeric == nil {
+		q.filtersNumeric = make(map[string][][]string)
+	}
+	q.filtersNumeric[field] = append(q.filtersNumeric[field], []string{min, max})
+	return q
 }
 
-func (q *RedisSearchQuery) filterIntMinMax(field string, min, max string) *RedisSearchQuery {
-	if q.filtersInt == nil {
-		q.filtersInt = make(map[string][][]string)
-	}
-	q.filtersInt[field] = append(q.filtersInt[field], []string{min, max})
-	return q
+func (q *RedisSearchQuery) FilterIntMinMax(field string, min, max int64) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, strconv.FormatInt(min, 10), strconv.FormatInt(max, 10))
 }
 
 func (q *RedisSearchQuery) FilterInt(field string, value int64) *RedisSearchQuery {
@@ -227,31 +226,44 @@ func (q *RedisSearchQuery) FilterInt(field string, value int64) *RedisSearchQuer
 }
 
 func (q *RedisSearchQuery) FilterIntGreaterEqual(field string, value int64) *RedisSearchQuery {
-	return q.filterIntMinMax(field, strconv.FormatInt(value, 10), "+inf")
+	return q.filterNumericMinMax(field, strconv.FormatInt(value, 10), "+inf")
 }
 
 func (q *RedisSearchQuery) FilterIntGreater(field string, value int64) *RedisSearchQuery {
-	return q.filterIntMinMax(field, "("+strconv.FormatInt(value, 10), "+inf")
+	return q.filterNumericMinMax(field, "("+strconv.FormatInt(value, 10), "+inf")
 }
 
 func (q *RedisSearchQuery) FilterIntLessEqual(field string, value int64) *RedisSearchQuery {
-	return q.filterIntMinMax(field, "-inf", strconv.FormatInt(value, 10))
+	return q.filterNumericMinMax(field, "-inf", strconv.FormatInt(value, 10))
 }
 
 func (q *RedisSearchQuery) FilterIntLess(field string, value int64) *RedisSearchQuery {
-	return q.filterIntMinMax(field, "-inf", "("+strconv.FormatInt(value, 10))
+	return q.filterNumericMinMax(field, "-inf", "("+strconv.FormatInt(value, 10))
 }
 
 func (q *RedisSearchQuery) FilterFloatMinMax(field string, min, max float64) *RedisSearchQuery {
-	if q.filtersFloat == nil {
-		q.filtersFloat = make(map[string][]float64)
-	}
-	q.filtersFloat[field] = []float64{min, max}
-	return q
+	return q.filterNumericMinMax(field, strconv.FormatFloat(min-0.00001, 'f', -1, 64),
+		strconv.FormatFloat(max+0.00001, 'f', -1, 64))
 }
 
 func (q *RedisSearchQuery) FilterFloat(field string, value float64) *RedisSearchQuery {
 	return q.FilterFloatMinMax(field, value, value)
+}
+
+func (q *RedisSearchQuery) FilterFloatGreaterEqual(field string, value float64) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, strconv.FormatFloat(value-0.00001, 'f', -1, 64), "+inf")
+}
+
+func (q *RedisSearchQuery) FilterFloatGreater(field string, value float64) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, "("+strconv.FormatFloat(value+0.00001, 'f', -1, 64), "+inf")
+}
+
+func (q *RedisSearchQuery) FilterFloatLessEqual(field string, value float64) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, "-inf", strconv.FormatFloat(value+0.00001, 'f', -1, 64))
+}
+
+func (q *RedisSearchQuery) FilterFloatLess(field string, value float64) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, "-inf", "("+strconv.FormatFloat(value-0.00001, 'f', -1, 64))
 }
 
 func (q *RedisSearchQuery) FilterGeo(field string, lon, lat, radius float64, unit string) *RedisSearchQuery {
@@ -423,7 +435,7 @@ func (r *RedisSearch) SearchKeys(index string, query *RedisSearchQuery, pager *P
 func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager, noContent bool) (total uint64, rows []interface{}) {
 	args := []interface{}{"FT.SEARCH", index}
 	q := query.query
-	for field, in := range query.filtersInt {
+	for field, in := range query.filtersNumeric {
 		if len(in) == 1 {
 			continue
 		}
@@ -443,13 +455,10 @@ func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager
 	}
 	args = append(args, q)
 
-	for field, ranges := range query.filtersInt {
+	for field, ranges := range query.filtersNumeric {
 		if len(ranges) == 1 {
 			args = append(args, "FILTER", field, ranges[0][0], ranges[0][1])
 		}
-	}
-	for field, ranges := range query.filtersFloat {
-		args = append(args, "FILTER", field, ranges[0], ranges[1])
 	}
 	for field, data := range query.filtersGeo {
 		args = append(args, "GEOFILTER", field, data[0], data[1], data[2], data[3])
