@@ -3,6 +3,7 @@ package orm
 import (
 	"crypto/sha256"
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -661,6 +662,15 @@ func buildTableFields(t reflect.Type, index *RedisSearchIndex, mapBindToRedisSea
 			"*uint32",
 			"*uint64":
 			fields.uintegersNullable = append(fields.uintegersNullable, i)
+			if hasSearchable || hasSortable {
+				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
+				mapBindToRedisSearch[prefix+f.Name] = func(val interface{}) interface{} {
+					if val == nil {
+						return -math.MaxInt64
+					}
+					return val
+				}
+			}
 		case "int",
 			"int8",
 			"int16",

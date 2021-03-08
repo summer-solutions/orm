@@ -3,6 +3,7 @@ package orm
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -223,6 +224,10 @@ func (q *RedisSearchQuery) FilterIntMinMax(field string, min, max int64) *RedisS
 
 func (q *RedisSearchQuery) FilterInt(field string, value int64) *RedisSearchQuery {
 	return q.FilterIntMinMax(field, value, value)
+}
+
+func (q *RedisSearchQuery) FilterIntNull(field string) *RedisSearchQuery {
+	return q.FilterInt(field, -math.MaxInt64)
 }
 
 func (q *RedisSearchQuery) FilterIntGreaterEqual(field string, value int64) *RedisSearchQuery {
