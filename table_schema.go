@@ -693,6 +693,10 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 				if hasEnum {
 					index.AddTagField(prefix+f.Name, hasSortable, !hasSearchable, ",")
 					mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableString
+				} else {
+					stem, hasStem := tags["stem"]
+					index.AddTextField(prefix+f.Name, 1.0, hasSortable, !hasSearchable, !hasStem || stem != "true")
+					mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapper
 				}
 			}
 		case "[]string":
@@ -872,7 +876,7 @@ var defaultRedisSearchMapper = func(val interface{}) interface{} {
 
 var defaultRedisSearchMapperNullableString = func(val interface{}) interface{} {
 	if val == nil {
-		return ""
+		return "NULL"
 	}
 	return val
 }

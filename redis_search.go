@@ -276,7 +276,14 @@ func (q *RedisSearchQuery) FilterTag(field string, tag ...string) *RedisSearchQu
 	if q.filtersTags == nil {
 		q.filtersTags = make(map[string][][]string)
 	}
-	q.filtersTags[field] = append(q.filtersTags[field], tag)
+	tagEscaped := make([]string, len(tag))
+	for i, v := range tag {
+		if v == "" {
+			v = "NULL"
+		}
+		tagEscaped[i] = v
+	}
+	q.filtersTags[field] = append(q.filtersTags[field], tagEscaped)
 	return q
 }
 
@@ -469,7 +476,7 @@ func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager
 			if q != "" {
 				q += " "
 			}
-			q += "@" + field + ":{" + strings.Join(v, "|") + "}"
+			q += "@" + field + ":{ " + strings.Join(v, " | ") + " }"
 		}
 	}
 	if q == "" {
