@@ -12,15 +12,17 @@ import (
 type redisSearchEntity struct {
 	ORM             `orm:"redisSearch=search"`
 	ID              uint
-	Age             uint64  `orm:"searchable;sortable"`
-	Balance         int64   `orm:"sortable"`
-	Weight          float64 `orm:"searchable"`
-	AgeNullable     *uint64 `orm:"searchable"`
-	BalanceNullable *int64  `orm:"searchable"`
-	Enum            string  `orm:"enum=orm.TestEnum;required;searchable"`
-	EnumNullable    string  `orm:"enum=orm.TestEnum;searchable"`
-	Name            string  `orm:"searchable"`
-	NameStem        string  `orm:"searchable;stem"`
+	Age             uint64   `orm:"searchable;sortable"`
+	Balance         int64    `orm:"sortable"`
+	Weight          float64  `orm:"searchable"`
+	AgeNullable     *uint64  `orm:"searchable"`
+	BalanceNullable *int64   `orm:"searchable"`
+	Enum            string   `orm:"enum=orm.TestEnum;required;searchable"`
+	EnumNullable    string   `orm:"enum=orm.TestEnum;searchable"`
+	Name            string   `orm:"searchable"`
+	NameStem        string   `orm:"searchable;stem"`
+	Set             []string `orm:"set=orm.TestEnum;required;searchable"`
+	SetNullable     []string `orm:"set=orm.TestEnum;searchable"`
 }
 
 func TestEntityRedisSearch(t *testing.T) {
@@ -39,6 +41,7 @@ func TestEntityRedisSearch(t *testing.T) {
 		e.Weight = 100.3 + float64(i)
 		e.Balance = 20 - int64(i)
 		e.Enum = TestEnum.A
+		e.Set = []string{"a"}
 		e.Name = "dog " + strconv.Itoa(i)
 		e.NameStem = "carrot " + strconv.Itoa(i)
 		if i > 20 {
@@ -47,6 +50,8 @@ func TestEntityRedisSearch(t *testing.T) {
 			v2 := int64(i)
 			e.BalanceNullable = &v2
 			e.Enum = TestEnum.B
+			e.Set = []string{"a", "b"}
+			e.SetNullable = []string{"a", "b"}
 			e.EnumNullable = TestEnum.B
 			e.Name = "Cat " + strconv.Itoa(i)
 			e.NameStem = "Orange " + strconv.Itoa(i)
@@ -54,6 +59,8 @@ func TestEntityRedisSearch(t *testing.T) {
 		if i > 40 {
 			e.Enum = TestEnum.C
 			e.EnumNullable = TestEnum.C
+			e.Set = []string{"a", "b", "c"}
+			e.SetNullable = []string{"a", "b", "c"}
 			e.Name = "cats " + strconv.Itoa(i)
 			e.NameStem = "oranges " + strconv.Itoa(i)
 		}
@@ -71,7 +78,7 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.True(t, info.Options.NoOffsets)
 	assert.False(t, info.Options.MaxTextFields)
 	assert.Equal(t, []string{"613b9:"}, info.Definition.Prefixes)
-	assert.Len(t, info.Fields, 9)
+	assert.Len(t, info.Fields, 11)
 	assert.Equal(t, "Age", info.Fields[0].Name)
 	assert.Equal(t, "NUMERIC", info.Fields[0].Type)
 	assert.True(t, info.Fields[0].Sortable)
@@ -112,6 +119,14 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.False(t, info.Fields[8].NoIndex)
 	assert.False(t, info.Fields[8].NoStem)
 	assert.Equal(t, 1.0, info.Fields[8].Weight)
+	assert.Equal(t, "Set", info.Fields[9].Name)
+	assert.Equal(t, "TAG", info.Fields[9].Type)
+	assert.False(t, info.Fields[9].Sortable)
+	assert.False(t, info.Fields[9].NoIndex)
+	assert.Equal(t, "SetNullable", info.Fields[10].Name)
+	assert.Equal(t, "TAG", info.Fields[10].Type)
+	assert.False(t, info.Fields[10].Sortable)
+	assert.False(t, info.Fields[10].NoIndex)
 
 	query := &RedisSearchQuery{}
 	query.Sort("Age", false)
@@ -321,5 +336,24 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Equal(t, uint64(30), total)
 	assert.Len(t, ids, 30)
 	assert.Equal(t, uint64(21), ids[0])
+	assert.Equal(t, uint64(50), ids[29])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterTag("Set", "b", "c")
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 50))
+	assert.Equal(t, uint64(30), total)
+	assert.Len(t, ids, 30)
+	assert.Equal(t, uint64(21), ids[0])
+	assert.Equal(t, uint64(50), ids[29])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterTag("SetNullable", "NULL", "c")
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 50))
+	assert.Equal(t, uint64(30), total)
+	assert.Len(t, ids, 30)
+	assert.Equal(t, uint64(1), ids[0])
+	assert.Equal(t, uint64(20), ids[19])
 	assert.Equal(t, uint64(50), ids[29])
 }

@@ -701,6 +701,10 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 			}
 		case "[]string":
 			fields.sliceStrings = append(fields.sliceStrings, i)
+			if hasSearchable || hasSortable {
+				index.AddTagField(prefix+f.Name, hasSortable, !hasSearchable, ",")
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableString
+			}
 		case "[]uint8":
 			fields.bytes = append(fields.bytes, i)
 		case "bool":
