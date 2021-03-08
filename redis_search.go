@@ -166,6 +166,7 @@ type RedisSearchQuery struct {
 	query              string
 	filtersNumeric     map[string][][]string
 	filtersGeo         map[string][]interface{}
+	filtersTags        map[string][][]string
 	inKeys             []interface{}
 	inFields           []interface{}
 	toReturn           []interface{}
@@ -269,6 +270,14 @@ func (q *RedisSearchQuery) FilterFloatLessEqual(field string, value float64) *Re
 
 func (q *RedisSearchQuery) FilterFloatLess(field string, value float64) *RedisSearchQuery {
 	return q.filterNumericMinMax(field, "-inf", "("+strconv.FormatFloat(value-0.00001, 'f', -1, 64))
+}
+
+func (q *RedisSearchQuery) FilterTag(field string, tag ...string) *RedisSearchQuery {
+	if q.filtersTags == nil {
+		q.filtersTags = make(map[string][][]string)
+	}
+	q.filtersTags[field] = append(q.filtersTags[field], tag)
+	return q
 }
 
 func (q *RedisSearchQuery) FilterGeo(field string, lon, lat, radius float64, unit string) *RedisSearchQuery {
@@ -453,6 +462,14 @@ func (r *RedisSearch) search(index string, query *RedisSearchQuery, pager *Pager
 			}
 			q += "@" + field + ":"
 			q += "[" + v[0] + " " + v[1] + "]"
+		}
+	}
+	for field, in := range query.filtersTags {
+		for _, v := range in {
+			if q != "" {
+				q += " "
+			}
+			q += "@" + field + ":{" + strings.Join(v, "|") + "}"
 		}
 	}
 	if q == "" {

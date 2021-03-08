@@ -475,7 +475,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 		}
 	}
 	redisSearchIndex := &RedisSearchIndex{}
-	fields := buildTableFields(entityType, redisSearchIndex, mapBindToRedisSearch, 1, "", tags)
+	fields := buildTableFields(entityType, registry, redisSearchIndex, mapBindToRedisSearch, 1, "", tags)
 	searchPrefix := ""
 	if len(redisSearchIndex.Fields) > 0 {
 		redisSearchIndex.Name = entityType.String()
@@ -627,7 +627,7 @@ func initTableSchema(registry *Registry, entityType reflect.Type) (*tableSchema,
 	return tableSchema, nil
 }
 
-func buildTableFields(t reflect.Type, index *RedisSearchIndex, mapBindToRedisSearch mapBindToRedisSearch,
+func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchIndex, mapBindToRedisSearch mapBindToRedisSearch,
 	start int, prefix string, schemaTags map[string]map[string]string) *tableFields {
 	fields := &tableFields{t: t, prefix: prefix, uintegers: make([]int, 0), uintegersNullable: make([]int, 0),
 		integers: make([]int, 0), integersNullable: make([]int, 0), strings: make([]int, 0), fields: make(map[int]reflect.StructField),
@@ -664,12 +664,7 @@ func buildTableFields(t reflect.Type, index *RedisSearchIndex, mapBindToRedisSea
 			fields.uintegersNullable = append(fields.uintegersNullable, i)
 			if hasSearchable || hasSortable {
 				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
-				mapBindToRedisSearch[prefix+f.Name] = func(val interface{}) interface{} {
-					if val == nil {
-						return -math.MaxInt64
-					}
-					return val
-				}
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableInt
 			}
 		case "int",
 			"int8",
@@ -687,8 +682,19 @@ func buildTableFields(t reflect.Type, index *RedisSearchIndex, mapBindToRedisSea
 			"*int32",
 			"*int64":
 			fields.integersNullable = append(fields.integersNullable, i)
+			if hasSearchable || hasSortable {
+				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableInt
+			}
 		case "string":
 			fields.strings = append(fields.strings, i)
+			if hasSearchable || hasSortable {
+				_, hasEnum := tags["enum"]
+				if hasEnum {
+					index.AddTagField(prefix+f.Name, hasSortable, !hasSearchable, ",")
+					mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableString
+				}
+			}
 		case "[]string":
 			fields.sliceStrings = append(fields.sliceStrings, i)
 		case "[]uint8":
@@ -718,7 +724,7 @@ func buildTableFields(t reflect.Type, index *RedisSearchIndex, mapBindToRedisSea
 		default:
 			k := f.Type.Kind().String()
 			if k == "struct" {
-				fields.structs[i] = buildTableFields(f.Type, index, mapBindToRedisSearch, 0, f.Name, schemaTags)
+				fields.structs[i] = buildTableFields(f.Type, registry, index, mapBindToRedisSearch, 0, f.Name, schemaTags)
 			} else if k == "ptr" {
 				modelType := reflect.TypeOf((*Entity)(nil)).Elem()
 				if f.Type.Implements(modelType) {
@@ -861,5 +867,19 @@ func (fields *tableFields) getColumnNames() []string {
 }
 
 var defaultRedisSearchMapper = func(val interface{}) interface{} {
+	return val
+}
+
+var defaultRedisSearchMapperNullableString = func(val interface{}) interface{} {
+	if val == nil {
+		return ""
+	}
+	return val
+}
+
+var defaultRedisSearchMapperNullableInt = func(val interface{}) interface{} {
+	if val == nil {
+		return -math.MaxInt64
+	}
 	return val
 }

@@ -10,18 +10,22 @@ import (
 )
 
 type redisSearchEntity struct {
-	ORM         `orm:"redisSearch=search"`
-	ID          uint
-	Name        string  `orm:"searchable"`
-	Age         uint64  `orm:"searchable;sortable"`
-	Balance     int64   `orm:"sortable"`
-	Weight      float64 `orm:"searchable"`
-	AgeNullable *uint64 `orm:"searchable"`
+	ORM             `orm:"redisSearch=search"`
+	ID              uint
+	Name            string  `orm:"searchable"`
+	Age             uint64  `orm:"searchable;sortable"`
+	Balance         int64   `orm:"sortable"`
+	Weight          float64 `orm:"searchable"`
+	AgeNullable     *uint64 `orm:"searchable"`
+	BalanceNullable *int64  `orm:"searchable"`
+	Enum            string  `orm:"enum=orm.TestEnum;required;searchable"`
 }
 
 func TestEntityRedisSearch(t *testing.T) {
 	var entity *redisSearchEntity
-	engine := PrepareTables(t, &Registry{}, 5, entity)
+	registry := &Registry{}
+	registry.RegisterEnumStruct("orm.TestEnum", TestEnum)
+	engine := PrepareTables(t, registry, 5, entity)
 
 	indexer := NewRedisSearchIndexer(engine)
 	indexer.DisableLoop()
@@ -32,9 +36,16 @@ func TestEntityRedisSearch(t *testing.T) {
 		e := &redisSearchEntity{Name: "Name " + strconv.Itoa(i), Age: uint64(i)}
 		e.Weight = 100.3 + float64(i)
 		e.Balance = 20 - int64(i)
+		e.Enum = TestEnum.A
 		if i > 20 {
 			v := uint64(i)
 			e.AgeNullable = &v
+			v2 := int64(i)
+			e.BalanceNullable = &v2
+			e.Enum = TestEnum.B
+		}
+		if i > 40 {
+			e.Enum = TestEnum.C
 		}
 		flusher.Track(e)
 	}
@@ -50,7 +61,7 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.True(t, info.Options.NoOffsets)
 	assert.False(t, info.Options.MaxTextFields)
 	assert.Equal(t, []string{"613b9:"}, info.Definition.Prefixes)
-	assert.Len(t, info.Fields, 4)
+	assert.Len(t, info.Fields, 6)
 	assert.Equal(t, "Age", info.Fields[0].Name)
 	assert.Equal(t, "NUMERIC", info.Fields[0].Type)
 	assert.True(t, info.Fields[0].Sortable)
@@ -67,6 +78,14 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Equal(t, "NUMERIC", info.Fields[3].Type)
 	assert.False(t, info.Fields[3].Sortable)
 	assert.False(t, info.Fields[3].NoIndex)
+	assert.Equal(t, "BalanceNullable", info.Fields[4].Name)
+	assert.Equal(t, "NUMERIC", info.Fields[4].Type)
+	assert.False(t, info.Fields[4].Sortable)
+	assert.False(t, info.Fields[4].NoIndex)
+	assert.Equal(t, "Enum", info.Fields[5].Name)
+	assert.Equal(t, "TAG", info.Fields[5].Type)
+	assert.False(t, info.Fields[5].Sortable)
+	assert.False(t, info.Fields[5].NoIndex)
 
 	query := &RedisSearchQuery{}
 	query.Sort("Age", false)
@@ -213,4 +232,23 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Len(t, ids, 10)
 	assert.Equal(t, uint64(1), ids[0])
 	assert.Equal(t, uint64(2), ids[1])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterIntGreaterEqual("BalanceNullable", 0)
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 10))
+	assert.Equal(t, uint64(30), total)
+	assert.Len(t, ids, 10)
+	assert.Equal(t, uint64(21), ids[0])
+	assert.Equal(t, uint64(22), ids[1])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterTag("Enum", "a", "c")
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 50))
+	assert.Equal(t, uint64(30), total)
+	assert.Len(t, ids, 30)
+	assert.Equal(t, uint64(1), ids[0])
+	assert.Equal(t, uint64(41), ids[20])
+	assert.Equal(t, uint64(50), ids[29])
 }
