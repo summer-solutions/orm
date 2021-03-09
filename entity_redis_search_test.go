@@ -2,6 +2,7 @@ package orm
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -60,6 +61,8 @@ func TestEntityRedisSearch(t *testing.T) {
 			e.NameStem = "Orange " + strconv.Itoa(i)
 			b := false
 			e.BoolNullable = &b
+			f := 10.2
+			e.WeightNullable = &f
 		}
 		if i > 40 {
 			e.Enum = TestEnum.C
@@ -71,6 +74,8 @@ func TestEntityRedisSearch(t *testing.T) {
 			e.Bool = true
 			b := true
 			e.BoolNullable = &b
+			f := 20.2
+			e.WeightNullable = &f
 		}
 		flusher.Track(e)
 	}
@@ -403,4 +408,22 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Len(t, ids, 30)
 	assert.Equal(t, uint64(1), ids[0])
 	assert.Equal(t, uint64(50), ids[29])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterFloatGreaterEqual("WeightNullable", 0)
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 10))
+	assert.Equal(t, uint64(30), total)
+	assert.Len(t, ids, 10)
+	assert.Equal(t, uint64(21), ids[0])
+	assert.Equal(t, uint64(22), ids[1])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterFloat("WeightNullable", -math.MaxInt64)
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
+	assert.Equal(t, uint64(20), total)
+	assert.Len(t, ids, 20)
+	assert.Equal(t, uint64(1), ids[0])
+	assert.Equal(t, uint64(20), ids[19])
 }
