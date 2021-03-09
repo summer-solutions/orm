@@ -664,7 +664,7 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 			fields.uintegersNullable = append(fields.uintegersNullable, i)
 			if hasSearchable || hasSortable {
 				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
-				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableInt
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableNumeric
 			}
 		case "int",
 			"int8",
@@ -684,7 +684,7 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 			fields.integersNullable = append(fields.integersNullable, i)
 			if hasSearchable || hasSortable {
 				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
-				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableInt
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableNumeric
 			}
 		case "string":
 			fields.strings = append(fields.strings, i)
@@ -733,6 +733,10 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 		case "*float32",
 			"*float64":
 			fields.floatsNullable = append(fields.floatsNullable, i)
+			if hasSearchable || hasSortable {
+				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableNumeric
+			}
 		case "*time.Time":
 			fields.timesNullable = append(fields.timesNullable, i)
 		case "time.Time":
@@ -893,7 +897,7 @@ var defaultRedisSearchMapperNullableString = func(val interface{}) interface{} {
 	return val
 }
 
-var defaultRedisSearchMapperNullableInt = func(val interface{}) interface{} {
+var defaultRedisSearchMapperNullableNumeric = func(val interface{}) interface{} {
 	if val == nil {
 		return -math.MaxInt64
 	}

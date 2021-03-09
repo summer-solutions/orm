@@ -25,6 +25,7 @@ type redisSearchEntity struct {
 	SetNullable     []string `orm:"set=orm.TestEnum;searchable"`
 	Bool            bool     `orm:"searchable;sortable"`
 	BoolNullable    *bool    `orm:"searchable"`
+	WeightNullable  *float64 `orm:"searchable"`
 }
 
 func TestEntityRedisSearch(t *testing.T) {
@@ -85,7 +86,7 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.True(t, info.Options.NoOffsets)
 	assert.False(t, info.Options.MaxTextFields)
 	assert.Equal(t, []string{"613b9:"}, info.Definition.Prefixes)
-	assert.Len(t, info.Fields, 13)
+	assert.Len(t, info.Fields, 14)
 	assert.Equal(t, "Age", info.Fields[0].Name)
 	assert.Equal(t, "NUMERIC", info.Fields[0].Type)
 	assert.True(t, info.Fields[0].Sortable)
@@ -142,6 +143,10 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Equal(t, "TAG", info.Fields[12].Type)
 	assert.False(t, info.Fields[12].Sortable)
 	assert.False(t, info.Fields[12].NoIndex)
+	assert.Equal(t, "WeightNullable", info.Fields[13].Name)
+	assert.Equal(t, "NUMERIC", info.Fields[13].Type)
+	assert.False(t, info.Fields[13].Sortable)
+	assert.False(t, info.Fields[13].NoIndex)
 
 	query := &RedisSearchQuery{}
 	query.Sort("Age", false)
