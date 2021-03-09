@@ -713,8 +713,16 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 			} else {
 				fields.booleans = append(fields.booleans, i)
 			}
+			if hasSearchable || hasSortable {
+				index.AddTagField(prefix+f.Name, hasSortable, !hasSearchable, ",")
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableBool
+			}
 		case "*bool":
 			fields.booleansNullable = append(fields.booleansNullable, i)
+			if hasSearchable || hasSortable {
+				index.AddTagField(prefix+f.Name, hasSortable, !hasSearchable, ",")
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableBool
+			}
 		case "float32",
 			"float64":
 			fields.floats = append(fields.floats, i)
@@ -890,4 +898,14 @@ var defaultRedisSearchMapperNullableInt = func(val interface{}) interface{} {
 		return -math.MaxInt64
 	}
 	return val
+}
+
+var defaultRedisSearchMapperNullableBool = func(val interface{}) interface{} {
+	if val == nil {
+		return "NULL"
+	}
+	if val.(bool) {
+		return "true"
+	}
+	return "false"
 }

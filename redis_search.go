@@ -287,6 +287,13 @@ func (q *RedisSearchQuery) FilterTag(field string, tag ...string) *RedisSearchQu
 	return q
 }
 
+func (q *RedisSearchQuery) FilterBool(field string, value bool) *RedisSearchQuery {
+	if value {
+		return q.FilterTag(field, "true")
+	}
+	return q.FilterTag(field, "false")
+}
+
 func (q *RedisSearchQuery) FilterGeo(field string, lon, lat, radius float64, unit string) *RedisSearchQuery {
 	if q.filtersGeo == nil {
 		q.filtersGeo = make(map[string][]interface{})
