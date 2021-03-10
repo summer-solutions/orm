@@ -227,6 +227,15 @@ func testCachedSearch(t *testing.T, localCache bool, redisCache bool) {
 	pager = NewPager(30, 1000)
 	totalRows = engine.CachedSearch(&rows, "IndexAge", pager, 77)
 	assert.Equal(t, 200, totalRows)
+
+	flusher.Flush()
+	for i := 1; i <= 10; i++ {
+		e := &cachedSearchEntity{Name: "NameNew13 " + strconv.Itoa(i), Age: uint16(13)}
+		flusher.Track(e)
+	}
+	flusher.Flush()
+	totalRows = engine.CachedSearch(&rows, "IndexAge", NewPager(3, 10), 13)
+	assert.Equal(t, 10, totalRows)
 }
 
 func TestCachedSearchErrors(t *testing.T) {

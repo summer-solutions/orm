@@ -164,6 +164,9 @@ func cachedSearch(engine *Engine, entities interface{}, indexName string, pager 
 	sliceStart := (pager.GetCurrentPage() - 1) * pager.GetPageSize()
 	diff := int(minCachePageCeil) * idsOnCachePage
 	sliceStart -= diff
+	if sliceStart > totalRows {
+		return totalRows, []uint64{}
+	}
 	sliceEnd := sliceStart + pager.GetPageSize()
 	length := len(resultsIDs)
 	if sliceEnd > length {
