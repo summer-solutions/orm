@@ -472,7 +472,7 @@ func (r *RedisSearch) ForceReindex(index string) {
 	if !has {
 		panic(errors.Errorf("unknown index %s in pool %s", index, r.code))
 	}
-	r.redis.HSet(redisSearchForceIndexKey, index, "0:"+strconv.FormatInt(time.Now().Unix(), 10))
+	r.redis.HSet(redisSearchForceIndexKey, index, "0:"+strconv.FormatInt(time.Now().UnixNano(), 10))
 }
 
 func (r *RedisSearch) SearchRaw(index string, query *RedisSearchQuery, pager *Pager) (total uint64, rows []interface{}) {
