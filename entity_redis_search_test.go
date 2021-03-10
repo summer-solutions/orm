@@ -2,10 +2,11 @@ package orm
 
 import (
 	"context"
-	"math"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,20 +14,22 @@ import (
 type redisSearchEntity struct {
 	ORM             `orm:"redisSearch=search"`
 	ID              uint
-	Age             uint64   `orm:"searchable;sortable"`
-	Balance         int64    `orm:"sortable"`
-	Weight          float64  `orm:"searchable"`
-	AgeNullable     *uint64  `orm:"searchable"`
-	BalanceNullable *int64   `orm:"searchable"`
-	Enum            string   `orm:"enum=orm.TestEnum;required;searchable"`
-	EnumNullable    string   `orm:"enum=orm.TestEnum;searchable"`
-	Name            string   `orm:"searchable"`
-	NameStem        string   `orm:"searchable;stem"`
-	Set             []string `orm:"set=orm.TestEnum;required;searchable"`
-	SetNullable     []string `orm:"set=orm.TestEnum;searchable"`
-	Bool            bool     `orm:"searchable;sortable"`
-	BoolNullable    *bool    `orm:"searchable"`
-	WeightNullable  *float64 `orm:"searchable"`
+	Age             uint64    `orm:"searchable;sortable"`
+	Balance         int64     `orm:"sortable"`
+	Weight          float64   `orm:"searchable"`
+	AgeNullable     *uint64   `orm:"searchable"`
+	BalanceNullable *int64    `orm:"searchable"`
+	Enum            string    `orm:"enum=orm.TestEnum;required;searchable"`
+	EnumNullable    string    `orm:"enum=orm.TestEnum;searchable"`
+	Name            string    `orm:"searchable"`
+	NameStem        string    `orm:"searchable;stem"`
+	Set             []string  `orm:"set=orm.TestEnum;required;searchable"`
+	SetNullable     []string  `orm:"set=orm.TestEnum;searchable"`
+	Bool            bool      `orm:"searchable;sortable"`
+	BoolNullable    *bool     `orm:"searchable"`
+	WeightNullable  *float64  `orm:"searchable"`
+	Date            time.Time `orm:"searchable"`
+	DateTime        time.Time `orm:"time;searchable"`
 }
 
 func TestEntityRedisSearch(t *testing.T) {
@@ -40,6 +43,8 @@ func TestEntityRedisSearch(t *testing.T) {
 	indexer.Run(context.Background())
 
 	flusher := engine.NewFlusher()
+	now := time.Now()
+
 	for i := 1; i <= 50; i++ {
 		e := &redisSearchEntity{Age: uint64(i)}
 		e.Weight = 100.3 + float64(i)
@@ -63,6 +68,8 @@ func TestEntityRedisSearch(t *testing.T) {
 			e.BoolNullable = &b
 			f := 10.2
 			e.WeightNullable = &f
+			e.Date = now
+			e.DateTime = now
 		}
 		if i > 40 {
 			e.Enum = TestEnum.C
@@ -76,6 +83,8 @@ func TestEntityRedisSearch(t *testing.T) {
 			e.BoolNullable = &b
 			f := 20.2
 			e.WeightNullable = &f
+			e.Date = now.Add(time.Hour * 48)
+			e.DateTime = e.Date
 		}
 		flusher.Track(e)
 	}
@@ -91,7 +100,7 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.True(t, info.Options.NoOffsets)
 	assert.False(t, info.Options.MaxTextFields)
 	assert.Equal(t, []string{"613b9:"}, info.Definition.Prefixes)
-	assert.Len(t, info.Fields, 14)
+	assert.Len(t, info.Fields, 16)
 	assert.Equal(t, "Age", info.Fields[0].Name)
 	assert.Equal(t, "NUMERIC", info.Fields[0].Type)
 	assert.True(t, info.Fields[0].Sortable)
@@ -152,6 +161,14 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Equal(t, "NUMERIC", info.Fields[13].Type)
 	assert.False(t, info.Fields[13].Sortable)
 	assert.False(t, info.Fields[13].NoIndex)
+	assert.Equal(t, "Date", info.Fields[14].Name)
+	assert.Equal(t, "NUMERIC", info.Fields[14].Type)
+	assert.False(t, info.Fields[14].Sortable)
+	assert.False(t, info.Fields[14].NoIndex)
+	assert.Equal(t, "DateTime", info.Fields[15].Name)
+	assert.Equal(t, "NUMERIC", info.Fields[15].Type)
+	assert.False(t, info.Fields[15].Sortable)
+	assert.False(t, info.Fields[15].NoIndex)
 
 	query := &RedisSearchQuery{}
 	query.Sort("Age", false)
@@ -420,10 +437,62 @@ func TestEntityRedisSearch(t *testing.T) {
 
 	query = &RedisSearchQuery{}
 	query.Sort("Age", false)
-	query.FilterFloat("WeightNullable", -math.MaxInt64)
+	query.FilterFloatNull("WeightNullable")
 	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
 	assert.Equal(t, uint64(20), total)
 	assert.Len(t, ids, 20)
 	assert.Equal(t, uint64(1), ids[0])
 	assert.Equal(t, uint64(20), ids[19])
+
+	newNow := time.Now()
+	newNow = newNow.Add(time.Second * 5)
+
+	nowString := now.Format("2006-01-02")
+	newNowString := newNow.Format("2006-01-02")
+	parsedNow, _ := time.ParseInLocation("2006-01-02", nowString, time.Local)
+	parsedNew, _ := time.ParseInLocation("2006-01-02", newNowString, time.Local)
+	fmt.Printf("%v %v %v %v %v\n", now.Format("2006-01-02 15:04:05"), now.UnixNano(), now.Truncate(time.Hour*24).UnixNano(),
+		parsedNow.Unix(), nowString)
+	fmt.Printf("%v %v %v %v %v\n", newNow.Format("2006-01-02 15:04:05"), newNow.UnixNano(),
+		newNow.Truncate(time.Hour*24).UnixNano(), parsedNew.Unix(), newNowString)
+	fmt.Printf("%d\n", parsedNow.Unix()-parsedNew.Unix())
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterDate("Date", newNow)
+	engine.EnableQueryDebug()
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
+	assert.Equal(t, uint64(20), total)
+	assert.Len(t, ids, 20)
+	assert.Equal(t, uint64(21), ids[0])
+	assert.Equal(t, uint64(40), ids[19])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterDateGreater("Date", newNow)
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
+	assert.Equal(t, uint64(10), total)
+	assert.Len(t, ids, 10)
+	assert.Equal(t, uint64(41), ids[0])
+	assert.Equal(t, uint64(50), ids[9])
+
+	newNow = now.Add(time.Microsecond * 3)
+	engine.EnableQueryDebug()
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterDateTime("DateTime", newNow)
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
+	assert.Equal(t, uint64(20), total)
+	assert.Len(t, ids, 20)
+	assert.Equal(t, uint64(21), ids[0])
+	assert.Equal(t, uint64(40), ids[19])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterDateTimeGreater("DateTime", newNow)
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
+	assert.Equal(t, uint64(10), total)
+	assert.Len(t, ids, 10)
+	assert.Equal(t, uint64(41), ids[0])
+	assert.Equal(t, uint64(50), ids[9])
 }

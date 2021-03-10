@@ -328,6 +328,28 @@ func (r *RedisCache) HIncrBy(key, field string, incr int64) int64 {
 	return val
 }
 
+func (r *RedisCache) IncrBy(key string, incr int64) int64 {
+	start := time.Now()
+	val, err := r.client.IncrBy(r.ctx, key, incr).Result()
+	if r.engine.hasRedisLogger {
+		r.fillLogFields("[ORM][REDIS][INCRBY]", start, "incrby", -1, 1,
+			map[string]interface{}{"Key": key, "incr": incr}, err)
+	}
+	checkError(err)
+	return val
+}
+
+func (r *RedisCache) Incr(key string) int64 {
+	start := time.Now()
+	val, err := r.client.Incr(r.ctx, key).Result()
+	if r.engine.hasRedisLogger {
+		r.fillLogFields("[ORM][REDIS][INC]", start, "incr", -1, 1,
+			map[string]interface{}{"Key": key}, err)
+	}
+	checkError(err)
+	return val
+}
+
 func (r *RedisCache) Expire(key string, expiration time.Duration) bool {
 	start := time.Now()
 	val, err := r.client.Expire(r.ctx, key, expiration).Result()

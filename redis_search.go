@@ -272,6 +272,72 @@ func (q *RedisSearchQuery) FilterFloatLess(field string, value float64) *RedisSe
 	return q.filterNumericMinMax(field, "-inf", "("+strconv.FormatFloat(value-0.00001, 'f', -1, 64))
 }
 
+func (q *RedisSearchQuery) FilterFloatNull(field string) *RedisSearchQuery {
+	return q.FilterFloat(field, -math.MaxInt64)
+}
+
+func (q *RedisSearchQuery) cutDate(date time.Time) int64 {
+	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local).Unix()
+}
+
+func (q *RedisSearchQuery) FilterDateMinMax(field string, min, max time.Time) *RedisSearchQuery {
+	return q.FilterIntMinMax(field, q.cutDate(min), q.cutDate(min))
+}
+
+func (q *RedisSearchQuery) FilterDate(field string, date time.Time) *RedisSearchQuery {
+	unix := q.cutDate(date)
+	return q.FilterIntMinMax(field, unix, unix)
+}
+
+func (q *RedisSearchQuery) FilterDateNull(field string) *RedisSearchQuery {
+	return q.FilterInt(field, -math.MaxInt64)
+}
+
+func (q *RedisSearchQuery) FilterDateGreaterEqual(field string, date time.Time) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, strconv.FormatInt(q.cutDate(date), 10), "+inf")
+}
+
+func (q *RedisSearchQuery) FilterDateGreater(field string, date time.Time) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, "("+strconv.FormatInt(q.cutDate(date), 10), "+inf")
+}
+
+func (q *RedisSearchQuery) FilterDateLessEqual(field string, date time.Time) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, "-inf", strconv.FormatInt(q.cutDate(date), 10))
+}
+
+func (q *RedisSearchQuery) FilterDateLess(field string, date time.Time) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, "-inf", "("+strconv.FormatInt(q.cutDate(date), 10))
+}
+
+func (q *RedisSearchQuery) FilterDateTimeMinMax(field string, min, max time.Time) *RedisSearchQuery {
+	return q.FilterIntMinMax(field, min.UTC().Unix(), max.UTC().Unix())
+}
+
+func (q *RedisSearchQuery) FilterDateTime(field string, date time.Time) *RedisSearchQuery {
+	unix := date.UTC().Unix()
+	return q.FilterIntMinMax(field, unix, unix)
+}
+
+func (q *RedisSearchQuery) FilterDateTimeNull(field string) *RedisSearchQuery {
+	return q.FilterInt(field, -math.MaxInt64)
+}
+
+func (q *RedisSearchQuery) FilterDateTimeGreaterEqual(field string, date time.Time) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, strconv.FormatInt(date.UTC().Unix(), 10), "+inf")
+}
+
+func (q *RedisSearchQuery) FilterDateTimeGreater(field string, date time.Time) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, "("+strconv.FormatInt(date.UTC().Unix(), 10), "+inf")
+}
+
+func (q *RedisSearchQuery) FilterDateTimeLessEqual(field string, date time.Time) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, "-inf", strconv.FormatInt(date.UTC().Unix(), 10))
+}
+
+func (q *RedisSearchQuery) FilterDateTimeLess(field string, date time.Time) *RedisSearchQuery {
+	return q.filterNumericMinMax(field, "-inf", "("+strconv.FormatInt(date.UTC().Unix(), 10))
+}
+
 func (q *RedisSearchQuery) FilterTag(field string, tag ...string) *RedisSearchQuery {
 	if q.filtersTags == nil {
 		q.filtersTags = make(map[string][][]string)
@@ -410,7 +476,7 @@ func (r *RedisSearch) ForceReindex(index string) {
 	if !has {
 		panic(errors.Errorf("unknown index %s in pool %s", index, r.code))
 	}
-	r.redis.HSet(redisSearchForceIndexKey, index, "0:"+strconv.FormatInt(time.Now().UnixNano(), 10))
+	r.redis.HSet(redisSearchForceIndexKey, index, "0:"+strconv.FormatInt(time.Now().Unix(), 10))
 }
 
 func (r *RedisSearch) SearchRaw(index string, query *RedisSearchQuery, pager *Pager) (total uint64, rows []interface{}) {
@@ -1073,8 +1139,8 @@ func (r *RedisSearch) fillLogFields(message string, start time.Time, operation s
 		"pool":         r.code,
 		"keys":         keys,
 		"target":       "redis",
-		"started":      start.UnixNano(),
-		"finished":     now.UnixNano(),
+		"started":      start.Unix(),
+		"finished":     now.Unix(),
 	})
 	if fields != nil {
 		e = e.WithFields(fields)

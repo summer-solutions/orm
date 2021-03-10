@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type CachedQuery struct{}
@@ -741,6 +742,22 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 			fields.timesNullable = append(fields.timesNullable, i)
 		case "time.Time":
 			fields.times = append(fields.times, i)
+			if hasSearchable || hasSortable {
+				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
+				mapBindToRedisSearch[prefix+f.Name] = func(val interface{}) interface{} {
+					v := val.(string)
+					if v[0:10] == "0001-01-01" {
+						return 0
+					}
+					if len(v) == 19 {
+						t, _ := time.ParseInLocation("2006-01-02 15:04:05", v, time.Local)
+						return t.Unix()
+					}
+					t, _ := time.ParseInLocation("2006-01-02", v, time.Local)
+					fmt.Printf("%v %v\n", t.Unix(), v)
+					return t.Unix()
+				}
+			}
 		default:
 			k := f.Type.Kind().String()
 			if k == "struct" {
