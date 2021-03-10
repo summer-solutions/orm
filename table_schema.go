@@ -740,22 +740,15 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 			}
 		case "*time.Time":
 			fields.timesNullable = append(fields.timesNullable, i)
+			if hasSearchable || hasSortable {
+				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableTime
+			}
 		case "time.Time":
 			fields.times = append(fields.times, i)
 			if hasSearchable || hasSortable {
 				index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
-				mapBindToRedisSearch[prefix+f.Name] = func(val interface{}) interface{} {
-					v := val.(string)
-					if v[0:10] == "0001-01-01" {
-						return 0
-					}
-					if len(v) == 19 {
-						t, _ := time.ParseInLocation("2006-01-02 15:04:05", v, time.Local)
-						return t.Unix()
-					}
-					t, _ := time.ParseInLocation("2006-01-02", v, time.Local)
-					return t.Unix()
-				}
+				mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableTime
 			}
 		default:
 			k := f.Type.Kind().String()
@@ -928,4 +921,20 @@ var defaultRedisSearchMapperNullableBool = func(val interface{}) interface{} {
 		return "true"
 	}
 	return "false"
+}
+
+var defaultRedisSearchMapperNullableTime = func(val interface{}) interface{} {
+	if val == nil {
+		return -math.MaxInt64
+	}
+	v := val.(string)
+	if v[0:10] == "0001-01-01" {
+		return 0
+	}
+	if len(v) == 19 {
+		t, _ := time.ParseInLocation("2006-01-02 15:04:05", v, time.Local)
+		return t.Unix()
+	}
+	t, _ := time.ParseInLocation("2006-01-02", v, time.Local)
+	return t.Unix()
 }

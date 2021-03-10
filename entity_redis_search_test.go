@@ -13,22 +13,23 @@ import (
 type redisSearchEntity struct {
 	ORM             `orm:"redisSearch=search"`
 	ID              uint
-	Age             uint64    `orm:"searchable;sortable"`
-	Balance         int64     `orm:"sortable"`
-	Weight          float64   `orm:"searchable"`
-	AgeNullable     *uint64   `orm:"searchable"`
-	BalanceNullable *int64    `orm:"searchable"`
-	Enum            string    `orm:"enum=orm.TestEnum;required;searchable"`
-	EnumNullable    string    `orm:"enum=orm.TestEnum;searchable"`
-	Name            string    `orm:"searchable"`
-	NameStem        string    `orm:"searchable;stem"`
-	Set             []string  `orm:"set=orm.TestEnum;required;searchable"`
-	SetNullable     []string  `orm:"set=orm.TestEnum;searchable"`
-	Bool            bool      `orm:"searchable;sortable"`
-	BoolNullable    *bool     `orm:"searchable"`
-	WeightNullable  *float64  `orm:"searchable"`
-	Date            time.Time `orm:"searchable"`
-	DateTime        time.Time `orm:"time;searchable"`
+	Age             uint64     `orm:"searchable;sortable"`
+	Balance         int64      `orm:"sortable"`
+	Weight          float64    `orm:"searchable"`
+	AgeNullable     *uint64    `orm:"searchable"`
+	BalanceNullable *int64     `orm:"searchable"`
+	Enum            string     `orm:"enum=orm.TestEnum;required;searchable"`
+	EnumNullable    string     `orm:"enum=orm.TestEnum;searchable"`
+	Name            string     `orm:"searchable"`
+	NameStem        string     `orm:"searchable;stem"`
+	Set             []string   `orm:"set=orm.TestEnum;required;searchable"`
+	SetNullable     []string   `orm:"set=orm.TestEnum;searchable"`
+	Bool            bool       `orm:"searchable;sortable"`
+	BoolNullable    *bool      `orm:"searchable"`
+	WeightNullable  *float64   `orm:"searchable"`
+	Date            time.Time  `orm:"searchable"`
+	DateTime        time.Time  `orm:"time;searchable"`
+	DateNullable    *time.Time `orm:"searchable"`
 }
 
 func TestEntityRedisSearch(t *testing.T) {
@@ -69,6 +70,7 @@ func TestEntityRedisSearch(t *testing.T) {
 			e.WeightNullable = &f
 			e.Date = now
 			e.DateTime = now
+			e.DateNullable = &now
 		}
 		if i > 40 {
 			e.Enum = TestEnum.C
@@ -99,7 +101,7 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.True(t, info.Options.NoOffsets)
 	assert.False(t, info.Options.MaxTextFields)
 	assert.Equal(t, []string{"613b9:"}, info.Definition.Prefixes)
-	assert.Len(t, info.Fields, 16)
+	assert.Len(t, info.Fields, 17)
 	assert.Equal(t, "Age", info.Fields[0].Name)
 	assert.Equal(t, "NUMERIC", info.Fields[0].Type)
 	assert.True(t, info.Fields[0].Sortable)
@@ -168,6 +170,10 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Equal(t, "NUMERIC", info.Fields[15].Type)
 	assert.False(t, info.Fields[15].Sortable)
 	assert.False(t, info.Fields[15].NoIndex)
+	assert.Equal(t, "DateNullable", info.Fields[16].Name)
+	assert.Equal(t, "NUMERIC", info.Fields[16].Type)
+	assert.False(t, info.Fields[16].Sortable)
+	assert.False(t, info.Fields[16].NoIndex)
 
 	query := &RedisSearchQuery{}
 	query.Sort("Age", false)
@@ -481,4 +487,13 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Len(t, ids, 10)
 	assert.Equal(t, uint64(41), ids[0])
 	assert.Equal(t, uint64(50), ids[9])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterDateNull("DateNullable")
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
+	assert.Equal(t, uint64(20), total)
+	assert.Len(t, ids, 20)
+	assert.Equal(t, uint64(1), ids[0])
+	assert.Equal(t, uint64(20), ids[19])
 }
