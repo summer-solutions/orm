@@ -754,7 +754,6 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 						return t.Unix()
 					}
 					t, _ := time.ParseInLocation("2006-01-02", v, time.Local)
-					fmt.Printf("%v %v\n", t.Unix(), v)
 					return t.Unix()
 				}
 			}

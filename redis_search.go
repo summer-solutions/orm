@@ -276,10 +276,6 @@ func (q *RedisSearchQuery) FilterFloatNull(field string) *RedisSearchQuery {
 	return q.FilterFloat(field, -math.MaxInt64)
 }
 
-func (q *RedisSearchQuery) cutDate(date time.Time) int64 {
-	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local).Unix()
-}
-
 func (q *RedisSearchQuery) FilterDateMinMax(field string, min, max time.Time) *RedisSearchQuery {
 	return q.FilterIntMinMax(field, q.cutDate(min), q.cutDate(min))
 }
@@ -310,11 +306,11 @@ func (q *RedisSearchQuery) FilterDateLess(field string, date time.Time) *RedisSe
 }
 
 func (q *RedisSearchQuery) FilterDateTimeMinMax(field string, min, max time.Time) *RedisSearchQuery {
-	return q.FilterIntMinMax(field, min.UTC().Unix(), max.UTC().Unix())
+	return q.FilterIntMinMax(field, q.cutDateTime(min), q.cutDateTime(max))
 }
 
 func (q *RedisSearchQuery) FilterDateTime(field string, date time.Time) *RedisSearchQuery {
-	unix := date.UTC().Unix()
+	unix := q.cutDateTime(date)
 	return q.FilterIntMinMax(field, unix, unix)
 }
 
@@ -323,19 +319,19 @@ func (q *RedisSearchQuery) FilterDateTimeNull(field string) *RedisSearchQuery {
 }
 
 func (q *RedisSearchQuery) FilterDateTimeGreaterEqual(field string, date time.Time) *RedisSearchQuery {
-	return q.filterNumericMinMax(field, strconv.FormatInt(date.UTC().Unix(), 10), "+inf")
+	return q.filterNumericMinMax(field, strconv.FormatInt(q.cutDateTime(date), 10), "+inf")
 }
 
 func (q *RedisSearchQuery) FilterDateTimeGreater(field string, date time.Time) *RedisSearchQuery {
-	return q.filterNumericMinMax(field, "("+strconv.FormatInt(date.UTC().Unix(), 10), "+inf")
+	return q.filterNumericMinMax(field, "("+strconv.FormatInt(q.cutDateTime(date), 10), "+inf")
 }
 
 func (q *RedisSearchQuery) FilterDateTimeLessEqual(field string, date time.Time) *RedisSearchQuery {
-	return q.filterNumericMinMax(field, "-inf", strconv.FormatInt(date.UTC().Unix(), 10))
+	return q.filterNumericMinMax(field, "-inf", strconv.FormatInt(q.cutDateTime(date), 10))
 }
 
 func (q *RedisSearchQuery) FilterDateTimeLess(field string, date time.Time) *RedisSearchQuery {
-	return q.filterNumericMinMax(field, "-inf", "("+strconv.FormatInt(date.UTC().Unix(), 10))
+	return q.filterNumericMinMax(field, "-inf", "("+strconv.FormatInt(q.cutDateTime(date), 10))
 }
 
 func (q *RedisSearchQuery) FilterTag(field string, tag ...string) *RedisSearchQuery {
@@ -1150,4 +1146,12 @@ func (r *RedisSearch) fillLogFields(message string, start time.Time, operation s
 	} else {
 		e.Info(message)
 	}
+}
+
+func (q *RedisSearchQuery) cutDate(date time.Time) int64 {
+	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local).Unix()
+}
+
+func (q *RedisSearchQuery) cutDateTime(date time.Time) int64 {
+	return time.Date(date.Year(), date.Month(), date.Day(), date.Hour(), date.Minute(), date.Second(), 0, time.Local).Unix()
 }

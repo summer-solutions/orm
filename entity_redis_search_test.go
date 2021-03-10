@@ -2,7 +2,6 @@ package orm
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -446,21 +445,9 @@ func TestEntityRedisSearch(t *testing.T) {
 
 	newNow := time.Now()
 	newNow = newNow.Add(time.Second * 5)
-
-	nowString := now.Format("2006-01-02")
-	newNowString := newNow.Format("2006-01-02")
-	parsedNow, _ := time.ParseInLocation("2006-01-02", nowString, time.Local)
-	parsedNew, _ := time.ParseInLocation("2006-01-02", newNowString, time.Local)
-	fmt.Printf("%v %v %v %v %v\n", now.Format("2006-01-02 15:04:05"), now.UnixNano(), now.Truncate(time.Hour*24).UnixNano(),
-		parsedNow.Unix(), nowString)
-	fmt.Printf("%v %v %v %v %v\n", newNow.Format("2006-01-02 15:04:05"), newNow.UnixNano(),
-		newNow.Truncate(time.Hour*24).UnixNano(), parsedNew.Unix(), newNowString)
-	fmt.Printf("%d\n", parsedNow.Unix()-parsedNew.Unix())
-
 	query = &RedisSearchQuery{}
 	query.Sort("Age", false)
 	query.FilterDate("Date", newNow)
-	engine.EnableQueryDebug()
 	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
 	assert.Equal(t, uint64(20), total)
 	assert.Len(t, ids, 20)
@@ -477,7 +464,6 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Equal(t, uint64(50), ids[9])
 
 	newNow = now.Add(time.Microsecond * 3)
-	engine.EnableQueryDebug()
 	query = &RedisSearchQuery{}
 	query.Sort("Age", false)
 	query.FilterDateTime("DateTime", newNow)
