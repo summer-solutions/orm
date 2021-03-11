@@ -493,6 +493,7 @@ func updateCacheAfterUpdate(lazy bool, dbData []interface{}, engine *Engine, ent
 		keys = getCacheQueriesKeys(schema, bind, old, false)
 		redisFlusher.Del(redisCache.code, keys...)
 	}
+	fillRedisSearchFromBind(schema, redisFlusher, bind, entity.GetID())
 	addDirtyQueues(redisFlusher, bind, schema, currentID, "u")
 	addToLogQueue(engine, redisFlusher, schema, currentID, convertDBDataToMap(schema, old), bind, entity.getORM().logMeta)
 }
@@ -1173,6 +1174,13 @@ func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 		keys := getCacheQueriesKeys(schema, bind, entity.getORM().dBData, true)
 		redisFlusher.Del(redisCache.code, keys...)
 	}
+	fillRedisSearchFromBind(schema, redisFlusher, bind, id)
+
+	addDirtyQueues(redisFlusher, bind, schema, id, "i")
+	addToLogQueue(engine, redisFlusher, schema, id, nil, bind, entity.getORM().logMeta)
+}
+
+func fillRedisSearchFromBind(schema *tableSchema, redisFlusher RedisFlusher, bind map[string]interface{}, id uint64) {
 	if schema.hasSearchCache {
 		values := make([]interface{}, 0)
 		for k, f := range schema.mapBindToRedisSearch {
@@ -1186,7 +1194,4 @@ func updateCacheForInserted(engine *Engine, entity Entity, lazy bool, id uint64,
 			redisFlusher.HSet(schema.searchCacheName, key, values...)
 		}
 	}
-
-	addDirtyQueues(redisFlusher, bind, schema, id, "i")
-	addToLogQueue(engine, redisFlusher, schema, id, nil, bind, entity.getORM().logMeta)
 }

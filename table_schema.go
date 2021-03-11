@@ -759,6 +759,10 @@ func buildTableFields(t reflect.Type, registry *Registry, index *RedisSearchInde
 				if f.Type.Implements(modelType) {
 					fields.refs = append(fields.refs, i)
 					fields.refsTypes = append(fields.refsTypes, f.Type)
+					if hasSearchable || hasSortable {
+						index.AddNumericField(prefix+f.Name, hasSortable, !hasSearchable)
+						mapBindToRedisSearch[prefix+f.Name] = defaultRedisSearchMapperNullableNumeric
+					}
 				}
 			} else {
 				if typeName[0:3] == "[]*" {

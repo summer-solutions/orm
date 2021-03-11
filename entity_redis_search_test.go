@@ -13,23 +13,24 @@ import (
 type redisSearchEntity struct {
 	ORM             `orm:"redisSearch=search"`
 	ID              uint
-	Age             uint64     `orm:"searchable;sortable"`
-	Balance         int64      `orm:"sortable"`
-	Weight          float64    `orm:"searchable"`
-	AgeNullable     *uint64    `orm:"searchable"`
-	BalanceNullable *int64     `orm:"searchable"`
-	Enum            string     `orm:"enum=orm.TestEnum;required;searchable"`
-	EnumNullable    string     `orm:"enum=orm.TestEnum;searchable"`
-	Name            string     `orm:"searchable"`
-	NameStem        string     `orm:"searchable;stem"`
-	Set             []string   `orm:"set=orm.TestEnum;required;searchable"`
-	SetNullable     []string   `orm:"set=orm.TestEnum;searchable"`
-	Bool            bool       `orm:"searchable;sortable"`
-	BoolNullable    *bool      `orm:"searchable"`
-	WeightNullable  *float64   `orm:"searchable"`
-	Date            time.Time  `orm:"searchable"`
-	DateTime        time.Time  `orm:"time;searchable"`
-	DateNullable    *time.Time `orm:"searchable"`
+	Age             uint64             `orm:"searchable;sortable"`
+	Balance         int64              `orm:"sortable"`
+	Weight          float64            `orm:"searchable"`
+	AgeNullable     *uint64            `orm:"searchable"`
+	BalanceNullable *int64             `orm:"searchable"`
+	Enum            string             `orm:"enum=orm.TestEnum;required;searchable"`
+	EnumNullable    string             `orm:"enum=orm.TestEnum;searchable"`
+	Name            string             `orm:"searchable"`
+	NameStem        string             `orm:"searchable;stem"`
+	Set             []string           `orm:"set=orm.TestEnum;required;searchable"`
+	SetNullable     []string           `orm:"set=orm.TestEnum;searchable"`
+	Bool            bool               `orm:"searchable;sortable"`
+	BoolNullable    *bool              `orm:"searchable"`
+	WeightNullable  *float64           `orm:"searchable"`
+	Date            time.Time          `orm:"searchable"`
+	DateTime        time.Time          `orm:"time;searchable"`
+	DateNullable    *time.Time         `orm:"searchable"`
+	Ref             *redisSearchEntity `orm:"searchable"`
 }
 
 func TestEntityRedisSearch(t *testing.T) {
@@ -45,8 +46,10 @@ func TestEntityRedisSearch(t *testing.T) {
 	flusher := engine.NewFlusher()
 	now := time.Now()
 
+	list := make([]*redisSearchEntity, 0)
 	for i := 1; i <= 50; i++ {
 		e := &redisSearchEntity{Age: uint64(i)}
+		list = append(list, e)
 		e.Weight = 100.3 + float64(i)
 		e.Balance = 20 - int64(i)
 		e.Enum = TestEnum.A
@@ -90,6 +93,12 @@ func TestEntityRedisSearch(t *testing.T) {
 		flusher.Track(e)
 	}
 	flusher.Flush()
+	list[0].Ref = list[30]
+	list[1].Ref = list[30]
+	list[2].Ref = list[31]
+	list[3].Ref = list[31]
+	list[4].Ref = list[31]
+	flusher.Flush()
 
 	indices := engine.GetRedisSearch("search").ListIndices()
 	assert.Len(t, indices, 1)
@@ -101,7 +110,7 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.True(t, info.Options.NoOffsets)
 	assert.False(t, info.Options.MaxTextFields)
 	assert.Equal(t, []string{"613b9:"}, info.Definition.Prefixes)
-	assert.Len(t, info.Fields, 17)
+	assert.Len(t, info.Fields, 18)
 	assert.Equal(t, "Age", info.Fields[0].Name)
 	assert.Equal(t, "NUMERIC", info.Fields[0].Type)
 	assert.True(t, info.Fields[0].Sortable)
@@ -174,6 +183,10 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Equal(t, "NUMERIC", info.Fields[16].Type)
 	assert.False(t, info.Fields[16].Sortable)
 	assert.False(t, info.Fields[16].NoIndex)
+	assert.Equal(t, "Ref", info.Fields[17].Name)
+	assert.Equal(t, "NUMERIC", info.Fields[17].Type)
+	assert.False(t, info.Fields[17].Sortable)
+	assert.False(t, info.Fields[17].NoIndex)
 
 	query := &RedisSearchQuery{}
 	query.Sort("Age", false)
@@ -496,4 +509,14 @@ func TestEntityRedisSearch(t *testing.T) {
 	assert.Len(t, ids, 20)
 	assert.Equal(t, uint64(1), ids[0])
 	assert.Equal(t, uint64(20), ids[19])
+
+	query = &RedisSearchQuery{}
+	query.Sort("Age", false)
+	query.FilterInt("Ref", 32)
+	ids, total = engine.RedisSearchIds(entity, query, NewPager(1, 30))
+	assert.Equal(t, uint64(3), total)
+	assert.Len(t, ids, 3)
+	assert.Equal(t, uint64(3), ids[0])
+	assert.Equal(t, uint64(4), ids[1])
+	assert.Equal(t, uint64(5), ids[2])
 }
