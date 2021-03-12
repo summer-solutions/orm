@@ -50,6 +50,11 @@ func (rp *RedisPipeLine) HSet(key string, values ...interface{}) *PipeLineInt {
 	return &PipeLineInt{p: rp, cmd: rp.pipeLine.HSet(rp.ctx, key, values...)}
 }
 
+func (rp *RedisPipeLine) HDel(key string, values ...string) *PipeLineInt {
+	rp.commands++
+	return &PipeLineInt{p: rp, cmd: rp.pipeLine.HDel(rp.ctx, key, values...)}
+}
+
 func (rp *RedisPipeLine) XAdd(stream string, values interface{}) *PipeLineString {
 	rp.xaddCommands++
 	return &PipeLineString{p: rp, cmd: rp.pipeLine.XAdd(rp.ctx, &redis.XAddArgs{Stream: stream, Values: values})}

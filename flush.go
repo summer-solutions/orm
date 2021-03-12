@@ -389,6 +389,10 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				keys := getCacheQueriesKeys(schema, bind, dbData, true)
 				rFlusher.Del(redisCache.code, keys...)
 			}
+			if schema.hasSearchCache {
+				key := schema.redisSearchPrefix + strconv.FormatUint(id, 10)
+				rFlusher.Del(schema.searchCacheName, key)
+			}
 		}
 	}
 	for _, values := range localCacheSets {

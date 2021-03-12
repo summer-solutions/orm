@@ -118,10 +118,8 @@ func (f *redisFlusher) Flush() {
 			if commands.deletes != nil {
 				p.Del(commands.deletes...)
 			}
-			if commands.hSets != nil {
-				for key, values := range commands.hSets {
-					p.HSet(key, values...)
-				}
+			for key, values := range commands.hSets {
+				p.HSet(key, values...)
 			}
 			for stream, events := range commands.events {
 				for _, event := range events {
