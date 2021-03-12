@@ -335,7 +335,6 @@ func testFlush(t *testing.T, local bool, redis bool) {
 	assert.False(t, entity2.IsDirty())
 	engine.LoadByID(10, entity2)
 	assert.Equal(t, 21, entity2.Age)
-	assert.Equal(t, "War'saw '; New", entity2.City)
 	entity2.City = "War\\'saw"
 	engine.Flush(entity2)
 	engine.LoadByID(10, entity2)
@@ -584,4 +583,49 @@ func testFlush(t *testing.T, local bool, redis bool) {
 	assert.Equal(t, uint(103), ref2.ReferenceOne.ID)
 	assert.Equal(t, uint(2), ref1.ID)
 	assert.Equal(t, uint(3), ref2.ID)
+
+	entity1 = &flushEntity{}
+	engine.LoadByID(14, entity1)
+	entity2 = &flushEntity{}
+	engine.LoadByID(15, entity2)
+	entity3 = &flushEntity{}
+	engine.LoadByID(16, entity3)
+
+	flusher = engine.NewFlusher()
+	entity1.ReferenceOne = &flushEntityReference{ID: 1}
+	entity1.Name = "A"
+	entity2.ReferenceOne = &flushEntityReference{ID: 2}
+	entity2.Name = "B"
+	entity3.ReferenceOne = &flushEntityReference{ID: 3}
+	entity3.Name = "C"
+	flusher.Track(entity1, entity2, entity3)
+	flusher.Flush()
+
+	entities := make([]*flushEntity, 0)
+	engine.LoadByIDs([]uint64{14, 15, 16}, &entities, "ReferenceOne")
+	flusher = engine.NewFlusher()
+	for _, e := range entities {
+		newRef := &flushEntityReference{}
+		newRef.Name = e.ReferenceOne.Name + "3"
+		oldRef := e.ReferenceOne
+		oldRef.Name = oldRef.Name + "2"
+		flusher.Track(oldRef)
+		e.Name = e.Name + "2"
+		e.ReferenceOne = newRef
+		flusher.Track(e)
+	}
+	flusher.Flush()
+	entities = make([]*flushEntity, 0)
+	engine.LoadByIDs([]uint64{14, 15, 16}, &entities, "ReferenceOne")
+	assert.Equal(t, "A2", entities[0].Name)
+	assert.Equal(t, "B2", entities[1].Name)
+	assert.Equal(t, "C2", entities[2].Name)
+	assert.Equal(t, "John3", entities[0].ReferenceOne.Name)
+	assert.Equal(t, "Adam3", entities[1].ReferenceOne.Name)
+	assert.Equal(t, "Adam Junior3", entities[2].ReferenceOne.Name)
+	entitiesRefs := make([]*flushEntityReference, 0)
+	engine.LoadByIDs([]uint64{1, 2, 3}, &entitiesRefs)
+	assert.Equal(t, "John2", entitiesRefs[0].Name)
+	assert.Equal(t, "Adam2", entitiesRefs[1].Name)
+	assert.Equal(t, "Adam Junior2", entitiesRefs[2].Name)
 }

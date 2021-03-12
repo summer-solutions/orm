@@ -146,7 +146,7 @@ func (f *flusher) flushTrackedEntities(lazy bool, transaction bool, smart bool) 
 			db.Rollback()
 		}
 	}()
-	flush(f.engine, lazy, transaction, smart, f.trackedEntities...)
+	flush(f.engine, nil, nil, true, lazy, transaction, smart, f.trackedEntities...)
 	if transaction {
 		for _, db := range dbPools {
 			db.Commit()

@@ -38,14 +38,13 @@ func (err *ForeignKeyError) Error() string {
 
 type dataLoaderSets map[*tableSchema]map[uint64][]interface{}
 
-func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...Entity) {
+func flush(engine *Engine, updateSQLs map[string][]string, deleteBinds map[reflect.Type]map[uint64][]interface{},
+	root bool, lazy bool, transaction bool, smart bool, entities ...Entity) {
 	insertKeys := make(map[reflect.Type][]string)
 	insertValues := make(map[reflect.Type]string)
-	updateSQLs := make(map[string][]string)
 	insertArguments := make(map[reflect.Type][]interface{})
 	insertBinds := make(map[reflect.Type][]map[string]interface{})
 	insertReflectValues := make(map[reflect.Type][]Entity)
-	deleteBinds := make(map[reflect.Type]map[uint64][]interface{})
 	totalInsert := make(map[reflect.Type]int)
 	localCacheSets := make(map[string]map[string][]interface{})
 	dataLoaderSets := make(map[*tableSchema]map[uint64][]interface{})
@@ -112,6 +111,9 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			orm.delete = true
 		}
 		if orm.delete {
+			if deleteBinds == nil {
+				deleteBinds = make(map[reflect.Type]map[uint64][]interface{})
+			}
 			if deleteBinds[t] == nil {
 				deleteBinds[t] = make(map[uint64][]interface{})
 			}
@@ -248,6 +250,9 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				if smartUpdate {
 					fillLazyQuery(lazyMap, db.GetPoolCode(), sql, nil)
 				} else {
+					if updateSQLs == nil {
+						updateSQLs = make(map[string][]string)
+					}
 					updateSQLs[schema.mysqlPoolName] = append(updateSQLs[schema.mysqlPoolName], sql)
 				}
 			}
@@ -266,7 +271,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 			toFlush[i] = v
 			i++
 		}
-		flush(engine, false, transaction, false, toFlush...)
+		flush(engine, updateSQLs, deleteBinds, false, false, transaction, false, toFlush...)
 		rest := make([]Entity, 0)
 		for _, v := range entities {
 			_, has := referencesToFlash[v]
@@ -274,7 +279,7 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				rest = append(rest, v)
 			}
 		}
-		flush(engine, false, transaction, false, rest...)
+		flush(engine, updateSQLs, deleteBinds, true, false, transaction, false, rest...)
 		return
 	}
 	for typeOf, values := range insertKeys {
@@ -311,87 +316,89 @@ func flush(engine *Engine, lazy bool, transaction bool, smart bool, entities ...
 				rFlusher, dataLoaderSets)
 		}
 	}
-	for pool, queries := range updateSQLs {
-		db := engine.GetMysql(pool)
-		if len(queries) == 1 {
-			db.Exec(queries[0])
-			continue
+	if root {
+		for pool, queries := range updateSQLs {
+			db := engine.GetMysql(pool)
+			if len(queries) == 1 {
+				db.Exec(queries[0])
+				continue
+			}
+			_, def := db.Query(strings.Join(queries, ";") + ";")
+			def()
 		}
-		_, def := db.Query(strings.Join(queries, ";") + ";")
-		def()
-	}
-	for typeOf, deleteBinds := range deleteBinds {
-		schema := getTableSchema(engine.registry, typeOf)
-		ids := make([]interface{}, len(deleteBinds))
-		i := 0
-		for id := range deleteBinds {
-			ids[i] = id
-			i++
-		}
-		/* #nosec */
-		sql := "DELETE FROM `" + schema.tableName + "` WHERE " + NewWhere("`ID` IN ?", ids).String()
-		db := schema.GetMysql(engine)
-		if lazy {
-			fillLazyQuery(lazyMap, db.GetPoolCode(), sql, ids)
-		} else {
-			usage := schema.GetUsage(engine.registry)
-			if len(usage) > 0 {
-				for refT, refColumns := range usage {
-					for _, refColumn := range refColumns {
-						refSchema := getTableSchema(engine.registry, refT)
-						_, isCascade := refSchema.tags[refColumn]["cascade"]
-						if isCascade {
-							subValue := reflect.New(reflect.SliceOf(reflect.PtrTo(refT)))
-							subElem := subValue.Elem()
-							sub := subValue.Interface()
-							pager := NewPager(1, 1000)
-							where := NewWhere("`"+refColumn+"` IN ?", ids)
-							for {
-								engine.Search(where, pager, sub)
-								total := subElem.Len()
-								if total == 0 {
-									break
+		for typeOf, deleteBinds := range deleteBinds {
+			schema := getTableSchema(engine.registry, typeOf)
+			ids := make([]interface{}, len(deleteBinds))
+			i := 0
+			for id := range deleteBinds {
+				ids[i] = id
+				i++
+			}
+			/* #nosec */
+			sql := "DELETE FROM `" + schema.tableName + "` WHERE " + NewWhere("`ID` IN ?", ids).String()
+			db := schema.GetMysql(engine)
+			if lazy {
+				fillLazyQuery(lazyMap, db.GetPoolCode(), sql, ids)
+			} else {
+				usage := schema.GetUsage(engine.registry)
+				if len(usage) > 0 {
+					for refT, refColumns := range usage {
+						for _, refColumn := range refColumns {
+							refSchema := getTableSchema(engine.registry, refT)
+							_, isCascade := refSchema.tags[refColumn]["cascade"]
+							if isCascade {
+								subValue := reflect.New(reflect.SliceOf(reflect.PtrTo(refT)))
+								subElem := subValue.Elem()
+								sub := subValue.Interface()
+								pager := NewPager(1, 1000)
+								where := NewWhere("`"+refColumn+"` IN ?", ids)
+								for {
+									engine.Search(where, pager, sub)
+									total := subElem.Len()
+									if total == 0 {
+										break
+									}
+									toDeleteAll := make([]Entity, total)
+									for i := 0; i < total; i++ {
+										toDeleteValue := subElem.Index(i).Interface().(Entity)
+										toDeleteValue.markToDelete()
+										toDeleteAll[i] = toDeleteValue
+									}
+									flush(engine, nil, nil, true, transaction, lazy, false, toDeleteAll...)
 								}
-								toDeleteAll := make([]Entity, total)
-								for i := 0; i < total; i++ {
-									toDeleteValue := subElem.Index(i).Interface().(Entity)
-									toDeleteValue.markToDelete()
-									toDeleteAll[i] = toDeleteValue
-								}
-								flush(engine, transaction, lazy, false, toDeleteAll...)
 							}
 						}
 					}
 				}
+				_ = db.Exec(sql, ids...)
 			}
-			_ = db.Exec(sql, ids...)
-		}
 
-		localCache, hasLocalCache := schema.GetLocalCache(engine)
-		redisCache, hasRedis := schema.GetRedisCache(engine)
-		if !hasLocalCache && engine.hasRequestCache {
-			hasLocalCache = true
-			localCache = engine.GetLocalCache(requestCacheKey)
-		}
-		for id, dbData := range deleteBinds {
-			bind := convertDBDataToMap(schema, dbData)
-			addDirtyQueues(rFlusher, bind, schema, id, "d")
-			addToLogQueue(engine, rFlusher, schema, id, bind, nil, nil)
-			if hasLocalCache {
-				addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
-				keys := getCacheQueriesKeys(schema, bind, dbData, true)
-				addLocalCacheDeletes(localCacheDeletes, localCache.code, keys...)
-			} else if engine.dataLoader != nil {
-				addToDataLoader(dataLoaderSets, schema, id, nil)
+			localCache, hasLocalCache := schema.GetLocalCache(engine)
+			redisCache, hasRedis := schema.GetRedisCache(engine)
+			if !hasLocalCache && engine.hasRequestCache {
+				hasLocalCache = true
+				localCache = engine.GetLocalCache(requestCacheKey)
 			}
-			if hasRedis {
-				rFlusher.Del(redisCache.code, schema.getCacheKey(id))
-				keys := getCacheQueriesKeys(schema, bind, dbData, true)
-				rFlusher.Del(redisCache.code, keys...)
-			}
-			if schema.hasSearchCache {
-				key := schema.redisSearchPrefix + strconv.FormatUint(id, 10)
-				rFlusher.Del(schema.searchCacheName, key)
+			for id, dbData := range deleteBinds {
+				bind := convertDBDataToMap(schema, dbData)
+				addDirtyQueues(rFlusher, bind, schema, id, "d")
+				addToLogQueue(engine, rFlusher, schema, id, bind, nil, nil)
+				if hasLocalCache {
+					addLocalCacheSet(localCacheSets, db.GetPoolCode(), localCache.code, schema.getCacheKey(id), "nil")
+					keys := getCacheQueriesKeys(schema, bind, dbData, true)
+					addLocalCacheDeletes(localCacheDeletes, localCache.code, keys...)
+				} else if engine.dataLoader != nil {
+					addToDataLoader(dataLoaderSets, schema, id, nil)
+				}
+				if hasRedis {
+					rFlusher.Del(redisCache.code, schema.getCacheKey(id))
+					keys := getCacheQueriesKeys(schema, bind, dbData, true)
+					rFlusher.Del(redisCache.code, keys...)
+				}
+				if schema.hasSearchCache {
+					key := schema.redisSearchPrefix + strconv.FormatUint(id, 10)
+					rFlusher.Del(schema.searchCacheName, key)
+				}
 			}
 		}
 	}

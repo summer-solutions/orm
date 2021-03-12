@@ -343,11 +343,11 @@ func (e *Engine) FlushLazy(entity Entity) {
 }
 
 func (e *Engine) FlushMany(entities ...Entity) {
-	flush(e, false, false, true, entities...)
+	flush(e, nil, nil, true, false, false, true, entities...)
 }
 
 func (e *Engine) FlushLazyMany(entities ...Entity) {
-	flush(e, true, false, true, entities...)
+	flush(e, nil, nil, true, true, false, true, entities...)
 }
 
 func (e *Engine) FlushWithCheck(entity Entity) error {
@@ -373,7 +373,7 @@ func (e *Engine) FlushWithCheckMany(entities ...Entity) error {
 				panic(asErr)
 			}
 		}()
-		flush(e, false, false, true, entities...)
+		flush(e, nil, nil, true, false, false, true, entities...)
 	}()
 	return err
 }
